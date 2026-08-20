@@ -190,7 +190,10 @@ function vues(
 
   const lignes = [...vue("index", "Everything the workbook holds", "*")];
 
-  if (model.groupes.some((g) => g.perimetre.trim() === "Platform")) {
+  // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
+  // « platform » était une plateforme à l'écran et n'en était plus une dans le
+  // fichier C4, où la vue dédiée disparaissait sans un mot.
+  if (model.groupes.some((g) => groupeEstPlateforme(model, g.nom))) {
     lignes.push(...vue("platform_only", "Platform only", "* where tag is #platform"));
   }
 

@@ -30,6 +30,7 @@ import {
   VOCABULAIRE_DECISION,
   VOCABULAIRE_CRITICITE,
   VOCABULAIRE_NATURE,
+  VOCABULAIRE_PERIMETRE,
 } from "../aggregation/vocabulaires";
 import { chainesCoupees } from "../aggregation/fonctionnel";
 import { normalizeText } from "../shared/text";
@@ -599,6 +600,7 @@ const VOCABULAIRES = {
   criticite: VOCABULAIRE_CRITICITE,
   sens: VOCABULAIRE_DIRECTION,
   nature: VOCABULAIRE_NATURE,
+  perimetre: VOCABULAIRE_PERIMETRE,
 };
 
 function horsVocabulaire(valeur: string, admises: readonly string[]): boolean {
@@ -608,6 +610,20 @@ function horsVocabulaire(valeur: string, admises: readonly string[]): boolean {
 
 function checkVocabulaires(model: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
+
+  // Le périmètre décide de ce qui entre dans la frontière et de ce qui reste
+  // dehors. Une valeur fautive ne faisait rien basculer : le groupe n'était ni
+  // plateforme ni externe, sans un mot.
+  for (const g of model.groupes) {
+    if (horsVocabulaire(g.perimetre, VOCABULAIRES.perimetre)) {
+      anomalies.push(
+        anomalie(
+          `${nommeGroupe(g)}: perimeter "${g.perimetre}" unknown. Accepted values: ${VOCABULAIRES.perimetre.join(", ")}.`,
+          g
+        )
+      );
+    }
+  }
 
   for (const t of model.typesFlux) {
     if (horsVocabulaire(t.sensRepresentationBrut, VOCABULAIRES.sens)) {
@@ -984,14 +1000,19 @@ function modeleAuPalier(model: ParsedModel, rang: number | null): ParsedModel {
   // c'est bien une faute, mais elle relève des contrôles de référence, qui
   // jugent le classeur entier.
   const acteurs = model.acteurs.filter(vivant);
-  const présents = new Set(acteurs.map((a) => a.nom.trim()));
-  const interfaces = model.interfaces.filter((i) => vivant(i) && présents.has(i.acteurExposant.trim()));
+  // Un acteur INCONNU du classeur n'est pas un acteur mort. C'est une faute de
+  // référence, que les contrôles signalent par ailleurs, et les schémas
+  // dessinent son flux (buildFlowInstances traite l'introuvable comme vivant,
+  // délibérément). Juger l'existence ici faisait dire au rapport « B sans flux »
+  // sous un schéma qui montre justement un flux vers B.
+  const retiré = (nom: string) => {
+    const a = model.acteurs.find((x) => x.nom.trim() === nom.trim());
+    return a !== undefined && !vivant(a);
+  };
+  const interfaces = model.interfaces.filter((i) => vivant(i) && !retiré(i.acteurExposant));
   const lookup = buildInterfaceLookup({ ...model, interfaces });
   const consommations = model.consommations.filter(
-    (c) =>
-      vivant(c) &&
-      présents.has(c.acteurConsommateur.trim()) &&
-      findInterfaceForConsommation(lookup, c) !== undefined
+    (c) => vivant(c) && !retiré(c.acteurConsommateur) && findInterfaceForConsommation(lookup, c) !== undefined
   );
   return { ...model, acteurs, interfaces, consommations };
 }

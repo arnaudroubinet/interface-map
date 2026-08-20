@@ -1,6 +1,7 @@
 import type { Acteur, InterfaceCatalogue, ParsedModel, Consommation, ValiditePalier } from "../parsing/model";
 import { intervalleDeVie, estVivant } from "./paliers";
 import { normalizeText } from "../shared/text";
+import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "./vocabulaires";
 
 export type NodeId = string;
 export type NodeKind = "groupe" | "plateforme" | "acteur" | "acteur-selectionne" | "frontiere";
@@ -110,11 +111,11 @@ function perimetreDuGroupe(model: ParsedModel, groupe: string): string {
 }
 
 export function groupeEstPlateforme(model: ParsedModel, groupe: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText("Platform");
+  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText(PERIMETRE_PLATEFORME);
 }
 
 export function groupeEstExterne(model: ParsedModel, groupe: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText("External");
+  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText(PERIMETRE_EXTERNE);
 }
 
 export function acteurEstPlateforme(model: ParsedModel, acteur: Acteur): boolean {

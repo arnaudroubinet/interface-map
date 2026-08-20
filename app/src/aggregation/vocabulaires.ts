@@ -16,3 +16,11 @@ export const VOCABULAIRE_DECISION = ["Keep", "Investigate", "Transform", "Remove
 export const VOCABULAIRE_CRITICITE = ["1 - Critical", "2 - Important", "3 - Standard"];
 
 export const VOCABULAIRE_NATURE = [NATURE_METIER, NATURE_TECHNIQUE];
+
+// Le périmètre décide de tout le dessin : ce qui entre dans la frontière, ce
+// qui reste dehors. Il vivait en dur à trois endroits -- la liste déroulante du
+// classeur, les deux prédicats des schémas, les exports C4 -- et les deux
+// derniers ne comparaient pas de la même façon.
+export const PERIMETRE_PLATEFORME = "Platform";
+export const PERIMETRE_EXTERNE = "External";
+export const VOCABULAIRE_PERIMETRE = [PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE];

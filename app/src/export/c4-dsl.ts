@@ -1,5 +1,5 @@
 import type { ParsedModel, Acteur } from "../parsing/model";
-import { buildFlowInstances, libelleInterface, type FlowInstance } from "../aggregation/core";
+import { groupeEstPlateforme, buildFlowInstances, libelleInterface, type FlowInstance } from "../aggregation/core";
 import { intervalleDeVie, estVivant } from "../aggregation/paliers";
 import { identifiants } from "./identifiants";
 import { couleursDuModele } from "../render/colors";
@@ -171,7 +171,10 @@ function vues(
 
   const lignes = [...vue('systemLandscape "landscape"', "*")];
 
-  if (model.groupes.some((g) => g.perimetre.trim() === "Platform")) {
+  // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
+  // « platform » était une plateforme à l'écran et n'en était plus une dans le
+  // fichier C4, où la vue dédiée disparaissait sans un mot.
+  if (model.groupes.some((g) => groupeEstPlateforme(model, g.nom))) {
     lignes.push(...vue('systemLandscape "platform-only"', '"element.tag==Platform"'));
   }
 

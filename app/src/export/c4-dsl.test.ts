@@ -248,3 +248,22 @@ describe("modeleEnStructurizr — sens de la relation", () => {
     expect(modeleEnStructurizr(parc("exposant-consommateur"), null, "c.xlsx")).not.toContain('"Pulled"');
   });
 });
+
+// --- QA : le périmètre était comparé par égalité stricte ici, et à la
+// normalisation près dans les schémas. Un groupe saisi « platform » était donc
+// une plateforme à l'écran et n'en était plus une dans le fichier C4 : la vue
+// dédiée disparaissait sans un mot.
+describe("modeleEnStructurizr — périmètre écrit autrement", () => {
+  const parc = (perimetre: string) =>
+    model({ groupes: [{ nom: "Socle", perimetre, feuille: "Groups", ligne: 0 }] });
+
+  it("reconnaît la plateforme quelle que soit la casse", () => {
+    for (const v of ["Platform", "platform", "PLATFORM"]) {
+      expect(modeleEnStructurizr(parc(v), null, "c.xlsx")).toContain('"platform-only"');
+    }
+  });
+
+  it("ne fabrique pas la vue quand aucun groupe n'est plateforme", () => {
+    expect(modeleEnStructurizr(parc("External"), null, "c.xlsx")).not.toContain('"platform-only"');
+  });
+});

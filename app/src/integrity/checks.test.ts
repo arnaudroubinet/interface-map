@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { runIntegrityChecks } from "./checks";
+import { buildFlowInstances } from "../aggregation/core";
 import { VERSION_MODELE, feuilleFxAttendue } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
@@ -1142,5 +1143,73 @@ describe("technologie absente du référentiel", () => {
       .map((a) => a.message)
       .find((msg) => msg.includes("Inconnue"))!;
     expect(dit).toContain("not drawn");
+  });
+});
+
+// --- QA : le périmètre décide de tout le dessin -- ce qui est dans la
+// frontière, ce qui est dehors -- et son vocabulaire n'était pas contrôlé. Une
+// valeur fautive ne déclenchait donc rien : le groupe n'était ni plateforme ni
+// externe, silencieusement.
+describe("vocabulaire du périmètre", () => {
+  const messages = (perimetre: string) =>
+    runIntegrityChecks(model({ groupes: [{ nom: "G", perimetre, feuille: "Groups", ligne: 0 }] }))
+      .familles.flatMap((f) => f.anomalies)
+      .map((a) => a.message)
+      .filter((m) => m.toLowerCase().includes("perimeter"));
+
+  it("accepte les deux valeurs, à la casse et aux accents près", () => {
+    for (const v of ["Platform", "platform", "External", "EXTERNAL"]) {
+      expect(messages(v).filter((m) => m.includes("unknown"))).toHaveLength(0);
+    }
+  });
+
+  it("signale une valeur hors vocabulaire", () => {
+    expect(messages("Platfrom").some((m) => m.includes("Platfrom"))).toBe(true);
+  });
+});
+
+// --- QA : le filtre du palier jugeait l'EXISTENCE en plus de la vie. Un
+// exposant absent de l'onglet Actors -- une faute de référence, que les
+// contrôles signalent par ailleurs -- faisait donc disparaître son interface du
+// rapport, alors que les schémas la dessinent (core.ts la traite comme vivante,
+// délibérément). Le rapport déclarait « B sans flux » sous un schéma qui montre
+// un flux vers B.
+describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () => {
+  const fantome = () =>
+    model({
+      paliers: [
+        { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
+        { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 1 },
+      ],
+      // « Fantome » expose, mais ne figure pas dans l'onglet Actors.
+      acteurs: [acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [iface({ acteurExposant: "Fantome", palierIntroduction: "v1" })],
+      consommations: [conso({ acteurConsommateur: "B", palierIntroduction: "v1" })],
+    });
+
+  const blocs = (rang: number | null) =>
+    runIntegrityChecks(fantome(), rang).blocsInformatifs.flatMap((b) => b.items.map((i) => `${b.titre} | ${i}`));
+
+  it("ne déclare pas sans flux un acteur que le schéma relie", () => {
+    expect(buildFlowInstances(fantome(), 1)).toHaveLength(1);
+    expect(blocs(1).filter((i) => i.includes("no flow"))).toHaveLength(0);
+  });
+
+  it("dit la même chose au palier et hors palier", () => {
+    expect(blocs(1).filter((i) => /no flow|Unused flow/.test(i))).toEqual(
+      blocs(null).filter((i) => /no flow|Unused flow/.test(i))
+    );
+  });
+
+  // Un acteur CONNU et retiré, lui, retire bien ses flux : c'est l'autre moitié
+  // de la règle, corrigée plus tôt, et elle ne doit pas se rouvrir.
+  it("retire toujours les flux d'un acteur connu et retiré", () => {
+    const m = model({
+      paliers: [{ nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 }],
+      acteurs: [acteur({ nom: "A", palierIntroduction: "v1", palierRetrait: "v1" }), acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [iface({ acteurExposant: "A", palierIntroduction: "v1" })],
+      consommations: [conso({ acteurConsommateur: "B", palierIntroduction: "v1" })],
+    });
+    expect(buildFlowInstances(m, 1)).toHaveLength(0);
   });
 });

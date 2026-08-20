@@ -27,6 +27,7 @@ import {
   VOCABULAIRE_DECISION,
   VOCABULAIRE_CRITICITE,
   VOCABULAIRE_NATURE,
+  VOCABULAIRE_PERIMETRE,
 } from "../aggregation/vocabulaires";
 import {
   poserLesTableaux,
@@ -41,7 +42,7 @@ import {
 // l'onglet TypesActeur, qui fait foi. Les avoir aux deux endroits aurait laissé
 // deux vérités concurrentes sur la même question.
 export const LISTES: Record<string, string[]> = {
-  Perimeter: ["Platform", "External"],
+  Perimeter: VOCABULAIRE_PERIMETRE,
   Direction: VOCABULAIRE_DIRECTION,
   Decision: VOCABULAIRE_DECISION,
   Criticality: VOCABULAIRE_CRITICITE,

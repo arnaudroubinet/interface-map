@@ -1,6 +1,9 @@
 # Schémas fonctionnels — plan d'implémentation
-
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **ARCHIVE — ce plan est exécuté, et il n'est plus tenu à jour.**
+> Il décrit l'état d'un chantier terminé, avec les cases à cocher qui servaient
+> à le suivre : elles n'attendent personne. Le code fait foi ; là où les deux
+> divergent, c'est ce document qui a vieilli. Conservé pour ce qu'il explique
+> des décisions prises, pas comme une consigne.
 
 **Goal:** Ajouter au lecteur de cartographie un mode « Fonctionnel » qui masque les acteurs techniques et fusionne les médias, en dérivant les liens métier par traversée des chaînes de relais.
 
