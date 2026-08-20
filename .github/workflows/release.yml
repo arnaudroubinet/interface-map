@@ -1,0 +1,60 @@
+# Le livrable est UN fichier : app/dist/carte-des-interfaces.html, autonome et
+# hors ligne. Ce workflow le fabrique et l'attache à la release, pour qu'on
+# n'ait jamais à demander « qui a construit celui-ci, et depuis quel commit ».
+#
+# Il se déclenche quand une release est publiée -- le geste par lequel on
+# décide de livrer -- et à la demande, pour vérifier la chaîne sans livrer.
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+# Écrire sur la release, et rien d'autre.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # npm ci et non npm install : le verrou fait foi, une release ne découvre
+      # pas ses versions le jour où elle part.
+      - run: npm ci
+
+      # On ne publie pas un fichier qu'on n'a pas éprouvé. Les deux échouent
+      # avant la construction, pas après.
+      - run: npm run typecheck
+      - run: npm test
+
+      - run: npm run build
+
+      # Toujours : une exécution à la demande laisse le fichier téléchargeable
+      # même sans release.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: carte-des-interfaces
+          path: app/dist/carte-des-interfaces.html
+          if-no-files-found: error
+
+      # Sur une release : le fichier s'attache au tag qui l'a demandée.
+      # --clobber pour qu'une reconstruction remplace au lieu d'échouer.
+      - name: Attach to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/carte-des-interfaces.html --clobber
