@@ -1,0 +1,9 @@
+# Bruit local : IDE, outils, système de fichiers.
+.DS_Store
+.idea/
+.serena/
+*.iml
+node_modules/
+
+# Notes de travail des agents : elles citent le parc réel.
+.superpowers/

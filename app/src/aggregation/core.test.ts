@@ -1,0 +1,376 @@
+import { describe, it, expect } from "vitest";
+import {
+  buildFlowInstances,
+  groupFlows,
+  libelleCellule,
+  aggregateEdges,
+  nodesFromEdges,
+  identityNodeKey,
+  groupNodeKey,
+} from "./core";
+import { VERSION_MODELE } from "../parsing/build-model";
+import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
+
+function acteur(overrides: Partial<Acteur>): Acteur {
+  return { nom: "A", groupe: "G1", typeActeur: "Application", responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0, ...overrides };
+}
+function iface(overrides: Partial<InterfaceCatalogue>): InterfaceCatalogue {
+  return { nomDuFlux: "F", version: "", etat: "", acteurExposant: "A", typeDeFlux: "HTTP", description: "", lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0, ...overrides };
+}
+function conso(overrides: Partial<Consommation>): Consommation {
+  return { nomDuFlux: "F", version: "", acteurConsommateur: "B", usage: "", criticite: "", statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP", palierIntroduction: "", palierRetrait: "", ligne: 0, ...overrides };
+}
+function model(overrides: Partial<ParsedModel>): ParsedModel {
+  return {
+    acteurs: [acteur({ nom: "A", groupe: "G1" }), acteur({ nom: "B", groupe: "G2" })],
+    groupes: [{ nom: "G1", perimetre: "Platform", feuille: "Groups", ligne: 0 }, { nom: "G2", perimetre: "External", feuille: "Groups", ligne: 0 }],
+    groupesAbsents: false,
+    typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
+    paliers: [],
+  typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+    interfaces: [iface({})],
+    consommations: [conso({})],
+    fxSheetNames: ["FX_A_HTTP"],
+    colonnesOptionnellesAbsentes: [],
+    versionModele: VERSION_MODELE,
+    fichierModifie: null,
+    ...overrides,
+  };
+}
+
+describe("buildFlowInstances", () => {
+  it("joins interfaces and consumptions and resolves direction", () => {
+    const flows = buildFlowInstances(model({}));
+    expect(flows).toHaveLength(1);
+    expect(flows[0]).toMatchObject({ exposant: "A", consommateur: "B", sens: "consommateur-exposant" });
+  });
+
+  it("skips a consumption whose flow name has no matching interface", () => {
+    const flows = buildFlowInstances(model({ consommations: [conso({ nomDuFlux: "Fantome" })] }));
+    expect(flows).toHaveLength(0);
+  });
+
+
+
+
+
+
+
+  it("attaches a consumption to the version it declares, not to another version of the same flux", () => {
+    const flows = buildFlowInstances(
+      model({
+        interfaces: [iface({ version: "1.0" }), iface({ version: "2.0", etat: "Retiré" })],
+        consommations: [conso({ version: "1.0" })],
+      })
+    );
+    expect(flows).toHaveLength(1);
+    expect(flows[0].interfaceNom).toBe("F");
+  });
+
+  it("marks a flow attenuated when Décision=À transformer", () => {
+    const flows = buildFlowInstances(model({ consommations: [conso({ decision: "Transform" })] }));
+    expect(flows[0].atténué).toBe(true);
+  });
+
+
+  it("attaches a consumption to the interface on its own tab, not just any interface sharing its name", () => {
+    // Two catalog interfaces share the name "F" but live on different tabs —
+    // an already-anomalous (7.1 duplicate) but possible mid-edit state. The
+    // consumption is filed under the FIRST interface's tab (FX_A_HTTP) —
+    // a Map keyed by name alone (the pre-fix behaviour) always keeps the
+    // LAST-inserted entry ("C"/Kafka) and would wrongly resolve to that one;
+    // only a (feuille, nom du flux) lookup (§3.3) resolves to "A"/HTTP here.
+    const flows = buildFlowInstances(
+      model({
+        typesFlux: [
+          { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+          { type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+        ],
+        interfaces: [
+          iface({ nomDuFlux: "F", acteurExposant: "A", typeDeFlux: "HTTP", feuilleAttendue: "FX_A_HTTP" }),
+          iface({ nomDuFlux: "F", acteurExposant: "C", typeDeFlux: "Kafka", feuilleAttendue: "FX_C_Kafka" }),
+        ],
+        acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
+        consommations: [conso({ nomDuFlux: "F", feuille: "FX_A_HTTP", acteurConsommateur: "B" })],
+      })
+    );
+    expect(flows).toHaveLength(1);
+    expect(flows[0]).toMatchObject({ exposant: "A", typeDeFlux: "HTTP" });
+  });
+});
+
+describe("groupFlows", () => {
+  it("deduplicates by (from, to, technologie) and counts consumptions", () => {
+    const flows = buildFlowInstances(
+      model({
+        interfaces: [iface({ nomDuFlux: "F1" }), iface({ nomDuFlux: "F2" })],
+        consommations: [conso({ nomDuFlux: "F1" }), conso({ nomDuFlux: "F2" })],
+      })
+    );
+    const groups = groupFlows(flows, identityNodeKey, true);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].count).toBe(2);
+  });
+
+  it("masks self-loops when maskLoops is true", () => {
+    const flows = buildFlowInstances(model({ consommations: [conso({ acteurConsommateur: "A" })] }));
+    expect(groupFlows(flows, identityNodeKey, true)).toHaveLength(0);
+  });
+
+  it("keeps self-loops when maskLoops is false", () => {
+    const flows = buildFlowInstances(model({ consommations: [conso({ acteurConsommateur: "A" })] }));
+    expect(groupFlows(flows, identityNodeKey, false)).toHaveLength(1);
+  });
+
+
+  it("marks a group attenuated only when every merged flow is attenuated", () => {
+    const flows = buildFlowInstances(
+      model({
+        interfaces: [iface({ nomDuFlux: "F1" }), iface({ nomDuFlux: "F2" })],
+        consommations: [conso({ nomDuFlux: "F1", decision: "Transform" }), conso({ nomDuFlux: "F2", decision: "Keep" })],
+      })
+    );
+    expect(groupFlows(flows, identityNodeKey, true)[0].atténué).toBe(false);
+  });
+
+  it("never merges opposite-direction flows into one bidirectional edge", () => {
+    const flows = buildFlowInstances(
+      model({
+        interfaces: [iface({ nomDuFlux: "F1", acteurExposant: "A" }), iface({ nomDuFlux: "F2", acteurExposant: "B" })],
+        consommations: [conso({ nomDuFlux: "F1", acteurConsommateur: "B" }), conso({ nomDuFlux: "F2", acteurConsommateur: "A" })],
+      })
+    );
+    const groups = groupFlows(flows, identityNodeKey, true);
+    expect(groups).toHaveLength(2);
+    expect(groups.some((g) => g.from === "B" && g.to === "A")).toBe(true);
+    expect(groups.some((g) => g.from === "A" && g.to === "B")).toBe(true);
+  });
+});
+
+describe("aggregateEdges", () => {
+  it("shows the counter in the label only when compteurs is on and count > 1", () => {
+    const flows = buildFlowInstances(
+      model({
+        interfaces: [iface({ nomDuFlux: "F1" }), iface({ nomDuFlux: "F2" })],
+        consommations: [conso({ nomDuFlux: "F1" }), conso({ nomDuFlux: "F2" })],
+      })
+    );
+    const withCounter = aggregateEdges(flows, identityNodeKey, { compteurs: true }, true);
+    const withoutCounter = aggregateEdges(flows, identityNodeKey, { compteurs: false }, true);
+    expect(withCounter[0].label).toBe("HTTP ×2");
+    expect(withoutCounter[0].label).toBe("HTTP");
+  });
+
+  // En mode fonctionnel, typeDeFlux est vidé (§4.2). Le libellé valait d'abord
+  // " ×2" -- un compteur précédé d'un espace fantôme --, puis « 2 » tout court,
+  // ce qui n'apprenait rien de plus. Ce sont les échanges qui portent le sens
+  // dès lors que le medium a disparu.
+  it("nomme les échanges quand la technologie est vide", () => {
+    const flow = (nomDuFlux: string): ReturnType<typeof buildFlowInstances>[number] => ({
+      interfaceNom: nomDuFlux,
+      version: "",
+      typeDeFlux: "",
+      exposant: "A",
+      consommateur: "B",
+      sens: "exposant-consommateur",
+      atténué: false,
+      iface: iface({ nomDuFlux }),
+      conso: conso({ nomDuFlux }),
+    });
+    const edges = aggregateEdges([flow("F1"), flow("F2")], identityNodeKey, { compteurs: true }, true);
+    expect(edges[0].label).toBe("F1, F2");
+    expect(edges[0].noms).toEqual(["F1", "F2"]);
+  });
+});
+
+describe("groupNodeKey", () => {
+  it("resolves an actor to its groupe", () => {
+    const key = groupNodeKey(model({}));
+    expect(key("A")).toBe("G1");
+    expect(key("B")).toBe("G2");
+  });
+
+  it("resolves an actor with no groupe to the empty sentinel", () => {
+    const key = groupNodeKey(model({ acteurs: [acteur({ nom: "A", groupe: "" }), acteur({ nom: "B" })] }));
+    expect(key("A")).toBe("");
+  });
+});
+
+describe("groupFlows — groupe vide", () => {
+  it("excludes a flow whose actor has no groupe from an aggregated view (§7.4)", () => {
+    const sansGroupe = model({ acteurs: [acteur({ nom: "A", groupe: "" }), acteur({ nom: "B" })] });
+    const flows = buildFlowInstances(sansGroupe);
+    expect(groupFlows(flows, groupNodeKey(sansGroupe), true)).toHaveLength(0);
+  });
+});
+
+describe("nodesFromEdges", () => {
+  it("builds one node per distinct endpoint", () => {
+    const nodes = nodesFromEdges(
+      [{ from: "G1", to: "G2", technologie: "HTTP", count: 1, atténué: false, tire: false, noms: [] }],
+      (id) => id,
+      () => "groupe"
+    );
+    expect(nodes.map((n) => n.id).sort()).toEqual(["G1", "G2"]);
+  });
+});
+
+describe("buildFlowInstances — filtrage par palier", () => {
+  const paliers = [
+    { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
+    { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
+    { nom: "v3", rang: 3, libelle: "", statut: "Planned", date: "", description: "", feuille: "Milestones", ligne: 0 },
+  ];
+
+  it("keeps a flow whose whole chain is alive at the rank", () => {
+    const m = model({
+      paliers,
+      interfaces: [iface({ palierIntroduction: "v1" })],
+      consommations: [conso({ palierIntroduction: "v1" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(1);
+  });
+
+  it("drops a flow whose interface is not born yet", () => {
+    const m = model({
+      paliers,
+      interfaces: [iface({ palierIntroduction: "v3" })],
+      consommations: [conso({ palierIntroduction: "v3" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(0);
+  });
+
+  // Le retrait est exclu : retiré EN v2, la ligne n'y est déjà plus.
+  it("drops a flow retired at the very rank displayed", () => {
+    const m = model({
+      paliers,
+      interfaces: [iface({ palierIntroduction: "v1", palierRetrait: "v2" })],
+      consommations: [conso({ palierIntroduction: "v1" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(0);
+    expect(buildFlowInstances(m, 1)).toHaveLength(1);
+  });
+
+  it("drops a flow whose consumer has left, interface still alive", () => {
+    const m = model({
+      paliers,
+      acteurs: [acteur({ nom: "A", palierIntroduction: "v1" }), acteur({ nom: "B", palierIntroduction: "v1", palierRetrait: "v2" })],
+      interfaces: [iface({ palierIntroduction: "v1" })],
+      consommations: [conso({ palierIntroduction: "v1" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(0);
+  });
+
+  it("drops a flow whose exposant has left", () => {
+    const m = model({
+      paliers,
+      acteurs: [acteur({ nom: "A", palierIntroduction: "v1", palierRetrait: "v2" }), acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [iface({ palierIntroduction: "v1" })],
+      consommations: [conso({ palierIntroduction: "v1" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(0);
+  });
+
+  // Un classeur sans aucun palier déclaré se comporte exactement comme avant.
+  it("keeps everything when no rank is displayed", () => {
+    expect(buildFlowInstances(model({}), null)).toHaveLength(1);
+  });
+});
+
+// --- QA : le repli par (nom, version) rattachait une consommation à la
+// PREMIÈRE interface portant ce nom. Deux exposants publiant le même nom
+// étant deux interfaces distinctes, ce repli faisait signer un consommateur
+// chez quelqu'un qu'il n'a jamais choisi. Mieux vaut ne pas résoudre : le
+// contrôle de référence le dit alors clairement.
+describe("résolution d'une consommation — le nom seul ne tranche pas entre deux exposants", () => {
+  const deuxExposants = (feuilleConso: string) =>
+    model({
+      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
+      interfaces: [
+        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
+        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+      ],
+      consommations: [conso({ nomDuFlux: "Kashyyyk", acteurConsommateur: "C", feuille: feuilleConso })],
+    });
+
+  it("résout sans hésiter quand l'onglet désigne l'exposant", () => {
+    const flux = buildFlowInstances(deuxExposants("FX_B_HTTP"));
+    expect(flux.map((f) => f.exposant)).toEqual(["B"]);
+  });
+
+  it("ne devine pas quand l'onglet ne désigne personne", () => {
+    expect(buildFlowInstances(deuxExposants("FX_Inconnu_HTTP"))).toHaveLength(0);
+  });
+
+  it("résout encore par le nom quand un seul exposant le porte", () => {
+    const m = deuxExposants("FX_Inconnu_HTTP");
+    const flux = buildFlowInstances({ ...m, interfaces: [m.interfaces[0]] });
+    expect(flux.map((f) => f.exposant)).toEqual(["A"]);
+  });
+});
+
+// --- QA : en mode fonctionnel la technologie est vidée à dessein, pour que les
+// traits d'une même paire fusionnent. Le compteur restait alors seul, et un
+// trait annonçant « 2 » n'apprend ni ce qui circule ni pourquoi -- la vue
+// métier n'avait, dans cet état, aucune valeur.
+describe("libelleCellule — ce que porte un trait sans technologie", () => {
+  it("nomme les échanges plutôt que de les compter", () => {
+    expect(libelleCellule("", 2, ["Member lookup", "Premium calculation"])).toBe("Member lookup, Premium calculation");
+  });
+
+  it("au-delà de deux, nomme les deux premiers et compte le reste", () => {
+    expect(libelleCellule("", 4, ["A", "B", "C", "D"])).toBe("A, B +2");
+  });
+
+  it("garde le compteur seul quand aucun nom n'est connu", () => {
+    expect(libelleCellule("", 3, [])).toBe("3");
+  });
+
+  it("ne change rien quand la technologie est là", () => {
+    expect(libelleCellule("HTTP", 2, ["A", "B"])).toBe("HTTP ×2");
+    expect(libelleCellule("HTTP", 1, ["A"])).toBe("HTTP");
+  });
+});
+
+describe("groupFlows — les noms d'échange suivent le trait fusionné", () => {
+  it("rassemble les noms des flux fusionnés, sans doublon", () => {
+    const m = model({
+      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
+      interfaces: [iface({ nomDuFlux: "F1" }), iface({ nomDuFlux: "F2", ligne: 1 })],
+      consommations: [
+        conso({ nomDuFlux: "F1", acteurConsommateur: "B" }),
+        conso({ nomDuFlux: "F2", acteurConsommateur: "B" }),
+      ],
+    });
+    const groupes = groupFlows(buildFlowInstances(m), identityNodeKey, true);
+    expect(groupes).toHaveLength(1);
+    expect(groupes[0].noms.sort()).toEqual(["F1", "F2"]);
+  });
+});
+
+// --- Le tracé et la pointe portaient la même information. Un flux tiré --
+// HTTP, déclaré « consumer → provider » -- voyait donc son TRACÉ inversé en
+// plus de sa pointe : la donnée semblait remonter le tuyau, et un fournisseur
+// n'avait rien qui sorte de lui. Le tracé suit désormais la donnée, du
+// fournisseur vers le consommateur ; seule la pointe dit qui appelle.
+describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initiative", () => {
+  const parc = (sensRepresentation: "exposant-consommateur" | "consommateur-exposant") =>
+    model({
+      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
+      typesFlux: [{ type: "HTTP", sensRepresentation, sensRepresentationBrut: "", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+      interfaces: [iface({ acteurExposant: "A" })],
+      consommations: [conso({ acteurConsommateur: "B" })],
+    });
+
+  it("va du fournisseur au consommateur, qu'il soit poussé ou tiré", () => {
+    for (const sens of ["exposant-consommateur", "consommateur-exposant"] as const) {
+      const g = groupFlows(buildFlowInstances(parc(sens)), identityNodeKey, true);
+      expect([g[0].from, g[0].to]).toEqual(["A", "B"]);
+    }
+  });
+
+  it("marque le trait comme tiré quand le consommateur prend l'initiative", () => {
+    expect(groupFlows(buildFlowInstances(parc("consommateur-exposant")), identityNodeKey, true)[0].tire).toBe(true);
+    expect(groupFlows(buildFlowInstances(parc("exposant-consommateur")), identityNodeKey, true)[0].tire).toBe(false);
+  });
+});

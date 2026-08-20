@@ -1,0 +1,171 @@
+import type { IntegrityReport } from "../integrity/checks";
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+
+// Icônes Lucide (https://lucide.dev, licence ISC) : « check » pour une section
+// saine, « octagon-x » pour une alerte -- l'octogone est le panneau stop, il se
+// distingue de la coche sans dépendre de la seule couleur.
+const TRACÉS: Record<string, string[]> = {
+  check: ["M20 6 9 17l-5-5"],
+  stop: [
+    "M2.586 16.726A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2h6.624a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586z",
+    "m15 9-6 6",
+    "m9 9 6 6",
+  ],
+  info: ["M12 16v-4", "M12 8h.01"],
+  // « list-checks » : une liste à cocher, pas un panneau d'alerte. Une action
+  // n'est pas un défaut du fichier, c'est du travail qui attend quelqu'un.
+  action: ["M13 5h8", "M13 12h8", "M13 19h8", "m3 17 2 2 4-4", "m3 7 2 2 4-4"],
+  // « triangle-alert » : l'avertissement se distingue de l'octogone d'erreur
+  // par sa forme autant que par sa couleur.
+  alerte: [
+    "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
+    "M12 9v4",
+    "M12 17h.01",
+  ],
+};
+
+function icône(nom: keyof typeof TRACÉS): SVGSVGElement {
+  const svg = document.createElementNS(SVG_NS, "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("width", "16");
+  svg.setAttribute("height", "16");
+  svg.setAttribute("fill", "none");
+  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke-width", "2");
+  svg.setAttribute("stroke-linecap", "round");
+  svg.setAttribute("stroke-linejoin", "round");
+  svg.setAttribute("aria-hidden", "true");
+  svg.setAttribute("class", "icone-section");
+  if (nom === "info") {
+    const cercle = document.createElementNS(SVG_NS, "circle");
+    cercle.setAttribute("cx", "12");
+    cercle.setAttribute("cy", "12");
+    cercle.setAttribute("r", "10");
+    svg.appendChild(cercle);
+  }
+  for (const d of TRACÉS[nom]) {
+    const path = document.createElementNS(SVG_NS, "path");
+    path.setAttribute("d", d);
+    svg.appendChild(path);
+  }
+  return svg;
+}
+
+// Ce qu'une section signale quand elle n'est pas vide : une faute qui invalide
+// les schémas, une saisie à trancher, ou une simple information.
+type Gravité = "erreur" | "action" | "avertissement" | "info";
+
+const CLASSE: Record<Gravité, string> = {
+  erreur: "section-alerte",
+  action: "section-action",
+  avertissement: "section-avertissement",
+  info: "section-info",
+};
+const ICÔNE: Record<Gravité, keyof typeof TRACÉS> = {
+  erreur: "stop",
+  action: "action",
+  avertissement: "alerte",
+  info: "info",
+};
+
+// Une section sans rien à signaler est repliée : elle n'appelle aucune action,
+// et la déplier ne montrerait qu'un « Rien à signaler ». Les sections qui
+// portent quelque chose s'ouvrent d'office.
+function construireSection(
+  classe: string,
+  titre: string,
+  description: string,
+  items: string[],
+  gravité: Gravité
+): HTMLElement {
+  const vide = items.length === 0;
+  const section = document.createElement("details");
+  section.className = `${classe} ${vide ? "section-ok" : CLASSE[gravité]}`;
+  if (!vide) section.open = true;
+
+  const résumé = document.createElement("summary");
+  résumé.appendChild(icône(vide ? "check" : ICÔNE[gravité]));
+  const libellé = document.createElement("span");
+  libellé.textContent = `${titre} (${items.length})`;
+  résumé.appendChild(libellé);
+  section.appendChild(résumé);
+
+  const desc = document.createElement("p");
+  desc.textContent = description;
+  section.appendChild(desc);
+
+  if (vide) {
+    const rien = document.createElement("p");
+    rien.className = "rien-a-signaler";
+    rien.textContent = "Nothing to report.";
+    section.appendChild(rien);
+  } else {
+    const liste = document.createElement("ul");
+    for (const item of items) {
+      const li = document.createElement("li");
+      li.textContent = item;
+      liste.appendChild(li);
+    }
+    section.appendChild(liste);
+  }
+
+  return section;
+}
+
+// Ordre de lecture : ce qui appelle une correction d'abord, ce qui n'appelle
+// rien à la fin. Une section vide passe donc derrière toutes les autres, quelle
+// que soit sa nature -- elle ne porte plus qu'une coche.
+// Les actions passent avant les avertissements : elles s'adressent au lecteur,
+// là où un avertissement ne fait que constater une saisie incomplète.
+const RANG: Record<Gravité, number> = { erreur: 0, action: 1, avertissement: 2, info: 3 };
+const RANG_VIDE = 4;
+
+export interface SectionRapport {
+  classe: string;
+  titre: string;
+  description: string;
+  items: string[];
+  gravité: Gravité;
+}
+
+// Le rapport à plat, dans son ordre de lecture. L'écran et le fichier Markdown
+// le lisent tous deux d'ici : deux personnes regardant le même rapport, l'une à
+// l'écran et l'autre dans un ticket, doivent y trouver les mêmes sections dans
+// le même ordre.
+export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
+  const sections: SectionRapport[] = [
+    ...report.familles.map((f) => ({
+      classe: "bloc-anomalies",
+      titre: f.titre,
+      description: f.description,
+      items: f.anomalies.map((a) => a.message),
+      gravité: "erreur" as Gravité,
+    })),
+    // Un bloc informatif ne porte jamais de faute : au pire une décision en
+    // attente (action) ou une saisie incomplète (avertissement).
+    ...report.blocsInformatifs.map((b) => ({
+      classe: "bloc-informatif",
+      titre: b.titre,
+      description: b.description,
+      items: b.items,
+      gravité: b.niveau as Gravité,
+    })),
+  ];
+
+  const rang = (s: SectionRapport) => (s.items.length === 0 ? RANG_VIDE : RANG[s.gravité]);
+  // Tri stable : à rang égal, les sections gardent l'ordre où les contrôles
+  // les ont produites.
+  return [...sections].sort((a, b) => rang(a) - rang(b));
+}
+
+export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
+  const container = document.createElement("div");
+  container.className = "rapport-integrite";
+
+  for (const s of sectionsDuRapport(report)) {
+    container.appendChild(construireSection(s.classe, s.titre, s.description, s.items, s.gravité));
+  }
+
+  return container;
+}
