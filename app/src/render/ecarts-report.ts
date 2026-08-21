@@ -1,4 +1,4 @@
-import { el } from "../ui/dom";
+import { el } from "../shared/dom";
 import type { Ecarts, Difference } from "../aggregation/ecarts";
 
 // Ce qui a bougé entre deux paliers. Trois blocs, un par nature d'objet, et

@@ -1,4 +1,4 @@
-import { el } from "../ui/dom";
+import { el } from "../shared/dom";
 
 // L'écran qui remplace toutes les vues quand le classeur déposé suit un format
 // plus ancien que celui que l'outil sait lire. Il n'y a qu'une action possible,

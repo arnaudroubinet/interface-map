@@ -1,4 +1,4 @@
-import { el } from "./dom";
+import { el } from "../shared/dom";
 
 // Le seul message que l'outil se permet quand un classeur ne se laisse pas
 // lire du tout : il ne sait alors rien de la cause réelle (bytes tronqués,

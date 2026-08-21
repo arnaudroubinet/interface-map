@@ -1,6 +1,6 @@
 import type { ParsedModel, Acteur } from "../parsing/model";
 import { groupeEstPlateforme, buildFlowInstances, libelleInterface, type FlowInstance } from "../aggregation/core";
-import { intervalleDeVie, estVivant } from "../aggregation/paliers";
+import { acteursVivants } from "../aggregation/paliers";
 import { identifiants } from "./identifiants";
 import { couleursDuModele } from "../render/colors";
 import { normalizeText } from "../shared/text";
@@ -17,10 +17,6 @@ import { normalizeText } from "../shared/text";
 // porte casserait le fichier entier, pas seulement sa ligne.
 const texte = (v: string) => v.trim().replace(/"/g, "'");
 
-function acteursVivants(model: ParsedModel, rang: number | null): Acteur[] {
-  if (rang === null || model.paliers.length === 0) return model.acteurs;
-  return model.acteurs.filter((a) => estVivant(intervalleDeVie(model, a), rang));
-}
 
 // Un flux se lit dans le sens que le type déclare, celui-là même que dessinent
 // les schémas. Un export qui inverserait la flèche raconterait autre chose que

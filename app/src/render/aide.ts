@@ -1,5 +1,4 @@
-import { el } from "../ui/dom";
-import { VUES } from "../ui/rail";
+import { el } from "../shared/dom";
 
 // La page qui explique l'outil, dans l'outil. Elle vit ici et non dans un
 // fichier à côté : l'application est un seul fichier HTML qu'on s'échange, une
@@ -139,5 +138,3 @@ export function vuesDocumentees(): string[] {
   const vues = SECTIONS.find((s) => s.titre === "The views");
   return (vues?.definitions ?? []).map(([terme]) => terme);
 }
-
-export const VUES_DU_RAIL = VUES;

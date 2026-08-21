@@ -1,4 +1,4 @@
-import { el, clear } from "./dom";
+import { el, clear } from "../shared/dom";
 import { wireDropZone, MESSAGE_CLASSEUR_ILLISIBLE } from "./drop-zone";
 import { type RapportMigration } from "../export/migration-legacy";
 import { reparerClasseur } from "../export/reparation";

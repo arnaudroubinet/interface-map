@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildAide, vuesDocumentees, VUES_DU_RAIL } from "./aide";
+import { buildAide, vuesDocumentees } from "./aide";
+// La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à
+// dépendre du rail pour être écrite, elle doit seulement rester d'accord avec
+// lui. C'est au test de tenir les deux bouts.
+import { VUES } from "../ui/rail";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icones";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
@@ -239,7 +243,7 @@ describe("buildIntegrityReport — actions", () => {
 // est pire que pas de documentation, puisqu'elle affirme.
 describe("buildAide", () => {
   it("documente chaque vue du rail, et rien de plus", () => {
-    expect(vuesDocumentees().sort()).toEqual(VUES_DU_RAIL.map((v) => v.label).sort());
+    expect(vuesDocumentees().sort()).toEqual(VUES.map((v) => v.label).sort());
   });
 
   it("explique les deux lectures et les deux colonnes qui les portent", () => {

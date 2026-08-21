@@ -1,4 +1,4 @@
-import { el, clear } from "./dom";
+import { el, clear } from "../shared/dom";
 import type { AppState } from "./state";
 
 export interface BannerCallbacks {

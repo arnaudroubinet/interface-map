@@ -6,7 +6,7 @@ import {
   groupeEstPlateforme,
   type FlowInstance,
 } from "../aggregation/core";
-import { intervalleDeVie, estVivant } from "../aggregation/paliers";
+import { acteursVivants } from "../aggregation/paliers";
 import { identifiants } from "./identifiants";
 import { normalizeText } from "../shared/text";
 
@@ -16,10 +16,6 @@ import { normalizeText } from "../shared/text";
 
 const texte = (v: string) => v.trim().replace(/"/g, "'");
 
-function acteursVivants(model: ParsedModel, rang: number | null): Acteur[] {
-  if (rang === null || model.paliers.length === 0) return model.acteurs;
-  return model.acteurs.filter((a) => estVivant(intervalleDeVie(model, a), rang));
-}
 
 // La relation va du fournisseur au consommateur, comme la donnée et comme nos
 // schémas. Elle suivait le sens de l'APPEL, si bien qu'un flux tiré sortait à

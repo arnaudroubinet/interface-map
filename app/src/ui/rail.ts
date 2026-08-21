@@ -1,4 +1,4 @@
-import { el, clear } from "./dom";
+import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, FlowInstance } from "../aggregation/core";

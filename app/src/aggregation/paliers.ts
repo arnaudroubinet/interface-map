@@ -1,4 +1,4 @@
-import type { ParsedModel, Palier, ValiditePalier } from "../parsing/model";
+import type { Acteur, ParsedModel, Palier, ValiditePalier } from "../parsing/model";
 import { normalizeText } from "../shared/text";
 
 // L'axe du temps de la plateforme. À ne jamais confondre avec la version d'un
@@ -32,9 +32,9 @@ export function intervalleDeVie(model: ParsedModel, validite: ValiditePalier): I
   return { debut: debut ?? -Infinity, fin: fin ?? Infinity };
 }
 
-// Le palier affiché par défaut : le dernier livré. Sans aucun livré, le premier
-// déclaré -- mieux vaut montrer le premier état connu que rien du tout, et un
-// contrôle signale l'absence.
+// Le palier affiché par défaut : le livré de rang le plus haut. Sans aucun
+// livré, le palier de rang le plus haut tout court -- mieux vaut montrer un
+// état connu que rien du tout, et un contrôle signale l'absence.
 export function palierCourant(model: ParsedModel): Palier | undefined {
   const livrés = model.paliers.filter((p) => normalizeText(p.statut) === normalizeText("Delivered"));
   const candidats = livrés.length > 0 ? livrés : model.paliers;
@@ -55,10 +55,10 @@ export function estVivant(intervalle: Intervalle, rang: number): boolean {
   return intervalle.debut <= rang && rang < intervalle.fin;
 }
 
-// L'intervalle de l'enfant doit tenir dans celui du parent : une interface ne
-// peut pas vivre avant ou après son acteur exposant, une consommation pas
-// avant ou après son interface. Vu de l'autre bout c'est le même contrôle que
-// « acteur retiré qui porte encore des flux », d'où une seule implémentation.
-export function deborde(enfant: Intervalle, parent: Intervalle): boolean {
-  return enfant.debut < parent.debut || enfant.fin > parent.fin;
+// Les acteurs que le palier retient. Les deux exports C4 en portaient chacun
+// leur copie : deux lignes, une seule règle, et c'est la règle des paliers --
+// elle appartient donc ici, avec estVivant et intervalleDeVie.
+export function acteursVivants(model: ParsedModel, rang: number | null): Acteur[] {
+  if (rang === null || model.paliers.length === 0) return model.acteurs;
+  return model.acteurs.filter((a) => estVivant(intervalleDeVie(model, a), rang));
 }

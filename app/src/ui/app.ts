@@ -1,4 +1,4 @@
-import { el, clear } from "./dom";
+import { el, clear } from "../shared/dom";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, VERSION_MODELE } from "../parsing/build-model";
 import { rangDuPalier } from "../aggregation/paliers";
