@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
+import { buildFlowInstances, groupFlows, identityNodeKey } from "./core";
+import { toutesLesPlanches } from "./planches";
+import { computeLayout } from "../layout/graph-layout";
+import { construireDrawio } from "../export/drawio-export";
 import {
   buildGroupToGroupView,
   buildPlatformDetailView,
@@ -438,5 +442,61 @@ describe("frontière de la plateforme", () => {
     };
     const view = buildPlatformDetailView(m, lect(m), { compteurs: true });
     expect(view.nodes.find((n) => n.kind === "frontiere")?.label).toBe("Platform");
+  });
+});
+
+// --- QA : le trait suit la DONNÉE, du fournisseur vers le consommateur, et la
+// pointe dit qui appelle. buildByActorView fabrique ses arêtes sans passer par
+// groupFlows : elle avait gardé l'ancienne convention et inversait le trait
+// sur un flux tiré. Ces planches partent dans le fichier draw.io -- un seul
+// fichier racontait donc deux architectures selon l'onglet ouvert.
+// ---------------------------------------------------------------------------
+// 1. Le sens du trait, dans la vue « By actor » et dans les onglets draw.io
+//    qu'elle produit.
+// ---------------------------------------------------------------------------
+
+const parcTire = () =>
+  base.modele({
+    acteurs: [base.acteur({ nom: "Fournisseur" }), base.acteur({ nom: "Consommateur" })],
+    groupes: [base.groupe({ nom: "G" })],
+    typesActeur: [base.typeActeur()],
+    // HTTP est tiré : « consumer → provider ».
+    typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentation: "consommateur-exposant" })],
+    interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "Fournisseur" })],
+    consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "Consommateur" })],
+  });
+
+describe("le trait va du fournisseur au consommateur, partout", () => {
+  it("les vues agrégées et la matrice suivent la donnée", () => {
+    const m = parcTire();
+    const g = groupFlows(buildFlowInstances(m), identityNodeKey, true)[0];
+    expect([g.from, g.to, g.tire]).toEqual(["Fournisseur", "Consommateur", true]);
+    const mat = buildMatrixView(m, lectureDuMode(m, null, "architecture"), { mode: "architecture" });
+    expect(mat.lignes.map((l) => l.acteur)).toEqual(["Fournisseur"]);
+  });
+
+  it("la vue « By actor » aussi, alors qu'elle fabrique ses arêtes elle-même", () => {
+    const m = parcTire();
+    const arête = buildByActorView(m, buildFlowInstances(m), "Fournisseur", {}).edges[0];
+    expect([arête.from, arête.to, arête.tire]).toEqual(["Fournisseur", "Consommateur", true]);
+  });
+
+  it("toutes les planches d'un même fichier draw.io racontent la même architecture", async () => {
+    const m = parcTire();
+    const placées = [];
+    for (const p of toutesLesPlanches(m, null, "architecture")) {
+      placées.push({ titre: p.titre, acteur: p.acteur, layout: await computeLayout(p.nodes, p.edges) });
+    }
+    const xml = construireDrawio(placées, () => "#000");
+    const sens = xml
+      .split("<diagram ")
+      .slice(1)
+      .map((page) => {
+        const titre = /name="([^"]+)"/.exec(page)![1];
+        const arête = /<mxCell id="[^"]*_e0"[^>]*source="([^"]*)" target="([^"]*)"/.exec(page);
+        return arête ? `${titre} : ${arête[1].replace(/^p\d+_/, "")} → ${arête[2].replace(/^p\d+_/, "")}` : null;
+      })
+      .filter((x): x is string => x !== null);
+    expect(sens.every((s) => s.includes("Fournisseur → Consommateur"))).toBe(true);
   });
 });

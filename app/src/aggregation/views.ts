@@ -235,10 +235,13 @@ export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteu
     if (technosMasquees.has(flow.typeDeFlux)) continue;
     const autre = flow.exposant.trim() === acteurNom.trim() ? flow.consommateur : flow.exposant;
     if (acteursMasques.has(autre)) continue;
-    const { from, to } =
-      flow.sens === "exposant-consommateur"
-        ? { from: flow.exposant, to: flow.consommateur }
-        : { from: flow.consommateur, to: flow.exposant };
+    // La même règle que partout ailleurs : le trait suit la DONNÉE, du
+    // fournisseur vers le consommateur, et la pointe dit qui appelle. Cette vue
+    // construit ses arêtes elle-même plutôt que par groupFlows, et elle avait
+    // gardé l'ancienne convention : elle inversait le trait sur un flux tiré.
+    // Un même fichier draw.io racontait donc deux architectures selon l'onglet.
+    const from = flow.exposant;
+    const to = flow.consommateur;
     nodeIds.add(from);
     nodeIds.add(to);
     edges.push({
@@ -246,6 +249,7 @@ export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteu
       to,
       technologie: flow.typeDeFlux,
       count: 1,
+      tire: flow.sens === "consommateur-exposant",
       label: libelleInterface(flow.interfaceNom, flow.version),
       atténué: flow.atténué,
     });
