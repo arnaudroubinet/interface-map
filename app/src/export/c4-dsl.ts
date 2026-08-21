@@ -1,5 +1,12 @@
 import type { ParsedModel, Acteur } from "../parsing/model";
-import { groupeEstPlateforme, buildFlowInstances, libelleInterface, type FlowInstance } from "../aggregation/core";
+import {
+  groupeEstPlateforme,
+  groupeEstExterne,
+  buildFlowInstances,
+  libelleInterface,
+  type FlowInstance,
+} from "../aggregation/core";
+import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "../aggregation/vocabulaires";
 import { acteursVivants } from "../aggregation/paliers";
 import { identifiants } from "./identifiants";
 import { couleursDuModele } from "../render/colors";
@@ -197,8 +204,14 @@ function vues(
   return lignes;
 }
 
+// L'étiquette porte l'écriture du VOCABULAIRE, pas celle du classeur : la vue
+// « platform-only » filtre sur « element.tag==Platform », et un groupe saisi
+// « platform » posait l'étiquette « platform » -- la vue sortait vide sans un
+// mot. Le prédicat, lui, normalise déjà des deux côtés.
 function périmètre(model: ParsedModel, groupe: string): string {
-  return model.groupes.find((g) => g.nom.trim() === groupe.trim())?.perimetre ?? "";
+  if (groupeEstPlateforme(model, groupe)) return PERIMETRE_PLATEFORME;
+  if (groupeEstExterne(model, groupe)) return PERIMETRE_EXTERNE;
+  return "";
 }
 
 // Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui

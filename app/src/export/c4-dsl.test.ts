@@ -254,6 +254,17 @@ describe("modeleEnStructurizr — périmètre écrit autrement", () => {
     }
   });
 
+  // Déclarer la vue ne suffit pas : elle filtre sur « element.tag==Platform »,
+  // et l'étiquette recopiait l'écriture du classeur. La vue existait donc, et
+  // sortait vide.
+  it("étiquette les acteurs dans l'écriture que la vue filtre", () => {
+    for (const v of ["platform", "PLATFORM"]) {
+      const dsl = modeleEnStructurizr(parc(v), null, "c.xlsx");
+      expect(dsl).toContain('"Platform"');
+      expect(dsl).not.toContain(`"${v}"`);
+    }
+  });
+
   it("ne fabrique pas la vue quand aucun groupe n'est plateforme", () => {
     expect(modeleEnStructurizr(parc("External"), null, "c.xlsx")).not.toContain('"platform-only"');
   });
