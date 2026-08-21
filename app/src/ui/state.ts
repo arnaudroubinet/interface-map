@@ -22,6 +22,28 @@ export type Vue =
   // que l'outil sait lire.
   | "mise-a-niveau";
 
+// Le nom d'une vue, en un seul endroit. Le rail l'affichait sur ses boutons et
+// les exports le mettaient dans leurs noms de fichier, chacun depuis sa propre
+// table : deux listes des mêmes dix libellés, qui pouvaient se contredire sans
+// que rien ne le dise -- un bouton « Changes » et un fichier « carto-ecarts ».
+//
+// `Record<Vue, string>` oblige à compléter la table dès qu'une vue s'ajoute :
+// c'est le type qui tient l'exhaustivité, pas la vigilance.
+export const LIBELLE_VUE: Record<Vue, string> = {
+  "groupe-a-groupe": "Group to group",
+  "plateforme-detaillee": "Platform detail",
+  "plateforme-seule": "Platform only",
+  "par-acteur": "By actor",
+  "par-technologie": "By technology",
+  matrice: "Matrix",
+  ecarts: "Changes",
+  controles: "Integrity checks",
+  aide: "How it works",
+  // Pas dans le rail : on n'y navigue pas, on y est envoyé. Mais l'export en a
+  // besoin, un classeur périmé pouvant être exporté avant sa mise à niveau.
+  "mise-a-niveau": "Upgrade",
+};
+
 export interface FichierCharge {
   nom: string;
   model: ParsedModel;

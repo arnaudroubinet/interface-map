@@ -38,6 +38,7 @@ import { buildEcranMiseANiveau } from "../render/mise-a-niveau";
 import { buildAide } from "../render/aide";
 import { mettreANiveau } from "../export/migration-modele";
 import { renderBanner } from "./banner";
+import { handlersExport } from "./export-handlers";
 import { renderRail, renderPiedDeRail } from "./rail";
 import { ouvrirMigration } from "./migration-dialogue";
 import {
@@ -64,18 +65,6 @@ import {
   type Vue,
 } from "./state";
 
-const VUE_LABELS: Record<Vue, string> = {
-  "groupe-a-groupe": "Group to group",
-  "plateforme-detaillee": "Platform detail",
-  "plateforme-seule": "Platform only",
-  "par-acteur": "By actor",
-  "par-technologie": "By technology",
-  matrice: "Matrix",
-  ecarts: "Changes",
-  controles: "Integrity checks",
-  aide: "How it works",
-  "mise-a-niveau": "Upgrade",
-};
 
 export function mountApp(root: HTMLElement): void {
   let state: AppState = initialState();
@@ -175,93 +164,14 @@ export function mountApp(root: HTMLElement): void {
     return zoneRendu.querySelector("svg");
   }
 
-  function currentSelection(): string | null {
-    if (state.vue === "par-acteur") return state.selectionActeur;
-    if (state.vue === "par-technologie") return state.selectionTechnologie;
-    // Un écart se lit entre deux paliers : le nom de fichier doit porter les
-    // deux, sinon deux comparaisons différentes se téléchargent sous le même
-    // nom. Le palier d'arrivée est déjà ajouté par ailleurs.
-    if (state.vue === "ecarts") return state.palierCompare;
-    return null;
-  }
 
-  function exportSvgHandler(): void {
-    const svg = currentSvg();
-    if (!svg || !state.fichier) return;
-    const filename = buildExportFilename(VUE_LABELS[state.vue], currentSelection(), state.palierAffiche, "svg", state.mode);
-    downloadSvg(svg, filename, "#ffffff");
-  }
 
-  async function exportPngHandler(): Promise<void> {
-    const svg = currentSvg();
-    if (!svg || !state.fichier) return;
-    const result = await exportPng(svg, "#ffffff", 2);
-    if (!result.ok) {
-      setState(withMessageBandeau(state, "Ce navigateur refuse la conversion en PNG — utilisez l'export SVG."));
-      return;
-    }
-    const filename = buildExportFilename(VUE_LABELS[state.vue], currentSelection(), state.palierAffiche, "png", state.mode);
-    downloadPngBlob(result.blob, filename);
-  }
 
-  function exportXlsxHandler(): void {
-    if (!matriceCourante || !state.fichier) return;
-    const filename = buildExportFilename(VUE_LABELS[state.vue], null, state.palierAffiche, "xlsx", state.mode);
-    downloadMatrixXlsx(matriceCourante, filename);
-  }
 
-  function exportMarkdownHandler(): void {
-    if (!state.fichier) return;
-    // Pas de mode ici : le rapport juge le classeur, pas une lecture du
-    // classeur (§5.3) -- son contenu ne bouge pas d'un mode à l'autre, son nom
-    // ne doit donc pas non plus bouger.
-    const filename = buildExportFilename(VUE_LABELS[state.vue], null, state.palierAffiche, "md");
-    téléchargerTexte(
-      rapportEnMarkdown(state.fichier.report, state.fichier.nom, state.palierAffiche),
-      filename
-    );
-  }
 
-  // Le palier affiché vaut pour tout ce qui décrit le MODÈLE plutôt qu'une
-  // planche : ces exports ne portent ni nom de vue ni sélection.
-  function rangAffiché(): number | null {
-    if (!state.fichier || state.palierAffiche === null) return null;
-    return rangDuPalier(state.fichier.model, state.palierAffiche) ?? null;
-  }
 
-  // Le fichier draw.io porte TOUTES les planches, une par onglet : il ne
-  // dépend donc pas de la vue ouverte. Les placements se calculent à la
-  // demande -- une soixantaine de planches tient en moins d'une seconde, et les
-  // garder au chaud voudrait dire les recalculer à chaque changement de palier.
-  async function exportDrawioHandler(): Promise<void> {
-    if (!state.fichier) return;
-    const model = state.fichier.model;
-    const couleurs = couleursDuModele(model);
-    const placées = [];
-    for (const planche of toutesLesPlanches(model, rangAffiché(), state.mode)) {
-      placées.push({ titre: planche.titre, acteur: planche.acteur, layout: await computeLayout(planche.nodes, planche.edges) });
-    }
-    téléchargerTexte(
-      construireDrawio(placées, (t) => couleurs.get(t) ?? "#000"),
-      buildExportFilename("boards", null, state.palierAffiche, "drawio", state.mode)
-    );
-  }
 
-  function exportStructurizrHandler(): void {
-    if (!state.fichier) return;
-    téléchargerTexte(
-      modeleEnStructurizr(state.fichier.model, rangAffiché(), state.fichier.nom),
-      buildExportFilename("model", null, state.palierAffiche, "dsl")
-    );
-  }
 
-  function exportLikeC4Handler(): void {
-    if (!state.fichier) return;
-    téléchargerTexte(
-      modeleEnLikeC4(state.fichier.model, rangAffiché()),
-      buildExportFilename("model", null, state.palierAffiche, "c4")
-    );
-  }
 
   function telechargerModeleHandler(): void {
     downloadTemplateXlsx("carto-interfaces-modele.xlsx");
@@ -274,6 +184,18 @@ export function mountApp(root: HTMLElement): void {
   function telechargerExempleHandler(): void {
     downloadTemplateXlsx("carto-interfaces-exemple.xlsx", DONNEES_EXEMPLE);
   }
+
+  // Les sept exports vivent dans leur propre module : ils ne dépendent que de
+  // l'état, de quoi le remplacer, du schéma à l'écran et de la matrice
+  // affichée. On les fabrique une fois, avec des lectures paresseuses -- un
+  // gestionnaire câblé au premier rendu doit lire l'état du clic, pas celui de
+  // sa construction.
+  const exportHandlers = handlersExport({
+    etat: () => state,
+    setState,
+    svgCourant: currentSvg,
+    matriceCourante: () => matriceCourante,
+  });
 
   function render(): void {
     if (!state.fichier) {
@@ -295,15 +217,7 @@ export function mountApp(root: HTMLElement): void {
           buildDropTarget(telechargerExempleHandler, () => setState(withVue(state, "aide")))
         );
       }
-      renderBanner(bandeau, state, false, {
-        onExportSvg: exportSvgHandler,
-        onExportPng: exportPngHandler,
-        onExportXlsx: exportXlsxHandler,
-      onExportMarkdown: exportMarkdownHandler,
-              onExportDrawio: exportDrawioHandler,
-              onExportStructurizr: exportStructurizrHandler,
-              onExportLikeC4: exportLikeC4Handler,
-      });
+      renderBanner(bandeau, state, false, exportHandlers);
       return;
     }
 
@@ -321,15 +235,7 @@ export function mountApp(root: HTMLElement): void {
       zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["Unexpected error while rendering this view."]));
     }
 
-    renderBanner(bandeau, state, currentSvg() !== null, {
-      onExportSvg: exportSvgHandler,
-      onExportPng: exportPngHandler,
-      onExportXlsx: exportXlsxHandler,
-      onExportMarkdown: exportMarkdownHandler,
-              onExportDrawio: exportDrawioHandler,
-              onExportStructurizr: exportStructurizrHandler,
-              onExportLikeC4: exportLikeC4Handler,
-    });
+    renderBanner(bandeau, state, currentSvg() !== null, exportHandlers);
   }
 
   function renderContenu(fichier: FichierCharge): void {
@@ -386,15 +292,7 @@ export function mountApp(root: HTMLElement): void {
             zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000"));
             // Le schéma d'écart s'exporte comme les autres. Les boutons en
             // dépendent, et il n'existait pas encore au rendu du bandeau.
-            renderBanner(bandeau, state, true, {
-              onExportSvg: exportSvgHandler,
-              onExportPng: exportPngHandler,
-              onExportXlsx: exportXlsxHandler,
-      onExportMarkdown: exportMarkdownHandler,
-              onExportDrawio: exportDrawioHandler,
-              onExportStructurizr: exportStructurizrHandler,
-              onExportLikeC4: exportLikeC4Handler,
-            });
+            renderBanner(bandeau, state, true, exportHandlers);
           });
         }
       }
@@ -471,15 +369,7 @@ export function mountApp(root: HTMLElement): void {
             zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000"));
             // Les boutons d'export dépendent de la présence du SVG, qui
             // n'existait pas encore au moment du rendu du bandeau.
-            renderBanner(bandeau, state, true, {
-              onExportSvg: exportSvgHandler,
-              onExportPng: exportPngHandler,
-              onExportXlsx: exportXlsxHandler,
-      onExportMarkdown: exportMarkdownHandler,
-              onExportDrawio: exportDrawioHandler,
-              onExportStructurizr: exportStructurizrHandler,
-              onExportLikeC4: exportLikeC4Handler,
-            });
+            renderBanner(bandeau, state, true, exportHandlers);
           })
           .catch((err) => {
             if (génération !== générationRendu) return;

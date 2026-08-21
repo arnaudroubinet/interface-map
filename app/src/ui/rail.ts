@@ -4,19 +4,24 @@ import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, FlowInstance } from "../aggregation/core";
 import { acteursMetier } from "../aggregation/nature";
 import type { AppState, Vue } from "./state";
-import { VUES_SANS_OBJET_EN_FONCTIONNEL } from "./state";
+import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
 
-export const VUES: { id: Vue; label: string }[] = [
-  { id: "groupe-a-groupe", label: "Group to group" },
-  { id: "plateforme-detaillee", label: "Platform detail" },
-  { id: "plateforme-seule", label: "Platform only" },
-  { id: "par-acteur", label: "By actor" },
-  { id: "par-technologie", label: "By technology" },
-  { id: "matrice", label: "Matrix" },
-  { id: "ecarts", label: "Changes" },
-  { id: "controles", label: "Integrity checks" },
-  { id: "aide", label: "How it works" },
+// L'ordre du rail, et lui seul : les libellés viennent de LIBELLE_VUE, qui est
+// la seule table. « mise-a-niveau » n'y figure pas -- on n'y navigue pas, on y
+// est envoyé.
+const ORDRE_DES_VUES: Vue[] = [
+  "groupe-a-groupe",
+  "plateforme-detaillee",
+  "plateforme-seule",
+  "par-acteur",
+  "par-technologie",
+  "matrice",
+  "ecarts",
+  "controles",
+  "aide",
 ];
+
+export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ id, label: LIBELLE_VUE[id] }));
 
 // Les trois échelles de lecture de la matrice, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
