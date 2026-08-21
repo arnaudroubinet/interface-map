@@ -1,16 +1,18 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { calculerEcarts, buildEcartsView } from "./ecarts";
 import { VERSION_MODELE } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
-function acteur(o: Partial<Acteur>): Acteur {
-  return { nom: "A", groupe: "G1", typeActeur: "Application", responsable: "", description: "", commentaires: "", palierIntroduction: "v1", palierRetrait: "", feuille: "Actors", ligne: 0, ...o };
+// Tout est daté v1 dans ce fichier : c'est entre deux paliers qu'il compare.
+function acteur(o: Partial<Acteur> = {}): Acteur {
+  return base.acteur({ groupe: "G1", palierIntroduction: "v1", ...o });
 }
-function iface(o: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return { nomDuFlux: "F", version: "", etat: "", acteurExposant: "A", typeDeFlux: "HTTP", description: "", lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "v1", palierRetrait: "", feuille: "Interfaces", ligne: 0, ...o };
+function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
+  return base.iface({ palierIntroduction: "v1", ...o });
 }
-function conso(o: Partial<Consommation>): Consommation {
-  return { nomDuFlux: "F", version: "", acteurConsommateur: "B", usage: "", criticite: "", statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP", palierIntroduction: "v1", palierRetrait: "", ligne: 0, ...o };
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ statut: "Actif", decision: "Keep", palierIntroduction: "v1", ...o });
 }
 
 const paliers = [
@@ -25,7 +27,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     groupesAbsents: false,
     typesActeur: [],
     paliers,
-    typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+    typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentationBrut: "" })],
     interfaces: [iface({})],
     consommations: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],

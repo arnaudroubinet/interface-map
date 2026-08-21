@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import {
   buildGroupToGroupView,
   buildPlatformDetailView,
@@ -14,33 +15,26 @@ import type { Mode } from "./core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
-function acteur(overrides: Partial<Acteur>): Acteur {
-  return { nom: "A", groupe: "G1", typeActeur: "Application", responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0, ...overrides };
+// Les fabriques partagées ; ce fichier ne leur ajoute que ses deux groupes et
+// une consommation déjà décidée.
+function acteur(o: Partial<Acteur> = {}): Acteur {
+  return base.acteur({ groupe: "G1", ...o });
 }
-function iface(overrides: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return { nomDuFlux: "F", version: "", etat: "", acteurExposant: "A", typeDeFlux: "HTTP", description: "", lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0, ...overrides };
-}
-function conso(overrides: Partial<Consommation>): Consommation {
-  return { nomDuFlux: "F", version: "", acteurConsommateur: "B", usage: "", criticite: "", statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP", palierIntroduction: "", palierRetrait: "", ligne: 0, ...overrides };
+const iface = base.iface;
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ statut: "Actif", decision: "Keep", ...o });
 }
 
-const baseModel: ParsedModel = {
-  acteurs: [
-    acteur({ nom: "A", groupe: "G1" }),
-    acteur({ nom: "B", groupe: "G2" }),
-  ],
-  groupes: [{ nom: "G1", perimetre: "Platform", feuille: "Groups", ligne: 0 }, { nom: "G2", perimetre: "External", feuille: "Groups", ligne: 0 }],
-  groupesAbsents: false,
-  typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
-  paliers: [],
-  typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
-  interfaces: [iface({})],
-  consommations: [conso({})],
+const baseModel: ParsedModel = base.modele({
+  acteurs: [acteur({ nom: "A", groupe: "G1" }), acteur({ nom: "B", groupe: "G2" })],
+  groupes: [base.groupe({ nom: "G1" }), base.groupe({ nom: "G2", perimetre: "External" })],
+  typesActeur: [base.typeActeur()],
+  typesFlux: [base.typeFlux()],
+  interfaces: [iface()],
+  consommations: [conso()],
   fxSheetNames: ["FX_A_HTTP"],
-  colonnesOptionnellesAbsentes: [],
-  versionModele: VERSION_MODELE,
-  fichierModifie: null,
-};
+});
+
 
 // Deux acteurs dans le groupe Plateforme : c'est ce qui rend visible la
 // différence entre les trois granularités de la matrice.
@@ -273,7 +267,7 @@ describe("mode fonctionnel", () => {
       ],
       paliers: [],
       typesFlux: [
-        { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+        base.typeFlux({ type: "HTTP" }),
       ],
       interfaces: [
         iface({ nomDuFlux: "Transactions", acteurExposant: "Tatooine", feuilleAttendue: "FX_Tatooine_HTTP" }),
@@ -317,7 +311,7 @@ describe("mode fonctionnel", () => {
     const m = parc();
     m.interfaces.push(iface({ nomDuFlux: "Autre", acteurExposant: "Tatooine", typeDeFlux: "Kafka", feuilleAttendue: "FX_Tatooine_Kafka" }));
     m.consommations.push(conso({ nomDuFlux: "Autre", acteurConsommateur: "Naboo", feuille: "FX_Tatooine_Kafka" }));
-    m.typesFlux.push({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 });
+    m.typesFlux.push(base.typeFlux({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }));
     m.fxSheetNames.push("FX_Tatooine_Kafka");
     const vue = buildPlatformDetailView(m, lect(m, "fonctionnel"), options("fonctionnel"));
     expect(vue.edges).toHaveLength(1);

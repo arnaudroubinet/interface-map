@@ -1,13 +1,11 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { estActeurTechnique, acteursMetier } from "./nature";
 import type { ParsedModel, Acteur, TypeActeur } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 function acteur(nom: string, typeActeur: string): Acteur {
-  return {
-    nom, groupe: "G", typeActeur, responsable: "", description: "", commentaires: "",
-    palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0,
-  };
+  return base.acteur({ nom, typeActeur });
 }
 
 function type(t: string, nature: string): TypeActeur {
@@ -15,12 +13,7 @@ function type(t: string, nature: string): TypeActeur {
 }
 
 function model(acteurs: Acteur[], typesActeur: TypeActeur[]): ParsedModel {
-  return {
-    acteurs, typesActeur,
-    groupes: [], groupesAbsents: false, paliers: [], typesFlux: [],
-    interfaces: [], consommations: [], fxSheetNames: [],
-    colonnesOptionnellesAbsentes: [], versionModele: VERSION_MODELE, fichierModifie: null,
-  };
+  return base.modele({ acteurs, typesActeur });
 }
 
 describe("nature des acteurs", () => {

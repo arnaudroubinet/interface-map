@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import {
   buildFlowInstances,
   groupFlows,
@@ -11,31 +12,26 @@ import {
 import { VERSION_MODELE } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
-function acteur(overrides: Partial<Acteur>): Acteur {
-  return { nom: "A", groupe: "G1", typeActeur: "Application", responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0, ...overrides };
+// Les fabriques partagées, avec les seuls défauts propres à ce fichier : deux
+// groupes G1/G2, et une consommation déjà décidée.
+function acteur(o: Partial<Acteur> = {}): Acteur {
+  return base.acteur({ groupe: "G1", ...o });
 }
-function iface(overrides: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return { nomDuFlux: "F", version: "", etat: "", acteurExposant: "A", typeDeFlux: "HTTP", description: "", lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0, ...overrides };
+const iface = base.iface;
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ statut: "Actif", decision: "Keep", ...o });
 }
-function conso(overrides: Partial<Consommation>): Consommation {
-  return { nomDuFlux: "F", version: "", acteurConsommateur: "B", usage: "", criticite: "", statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP", palierIntroduction: "", palierRetrait: "", ligne: 0, ...overrides };
-}
-function model(overrides: Partial<ParsedModel>): ParsedModel {
-  return {
+function model(o: Partial<ParsedModel> = {}): ParsedModel {
+  return base.modele({
     acteurs: [acteur({ nom: "A", groupe: "G1" }), acteur({ nom: "B", groupe: "G2" })],
-    groupes: [{ nom: "G1", perimetre: "Platform", feuille: "Groups", ligne: 0 }, { nom: "G2", perimetre: "External", feuille: "Groups", ligne: 0 }],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
-    paliers: [],
-  typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
-    interfaces: [iface({})],
-    consommations: [conso({})],
+    groupes: [base.groupe({ nom: "G1" }), base.groupe({ nom: "G2", perimetre: "External" })],
+    typesActeur: [base.typeActeur()],
+    typesFlux: [base.typeFlux()],
+    interfaces: [iface()],
+    consommations: [conso()],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
-    ...overrides,
-  };
+    ...o,
+  });
 }
 
 describe("buildFlowInstances", () => {
@@ -83,8 +79,8 @@ describe("buildFlowInstances", () => {
     const flows = buildFlowInstances(
       model({
         typesFlux: [
-          { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
-          { type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+          base.typeFlux({ type: "HTTP" }),
+          base.typeFlux({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
         ],
         interfaces: [
           iface({ nomDuFlux: "F", acteurExposant: "A", typeDeFlux: "HTTP", feuilleAttendue: "FX_A_HTTP" }),
@@ -357,7 +353,7 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
   const parc = (sensRepresentation: "exposant-consommateur" | "consommateur-exposant") =>
     model({
       acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
-      typesFlux: [{ type: "HTTP", sensRepresentation, sensRepresentationBrut: "", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+      typesFlux: [base.typeFlux({ sensRepresentation, sensRepresentationBrut: "" })],
       interfaces: [iface({ acteurExposant: "A" })],
       consommations: [conso({ acteurConsommateur: "B" })],
     });

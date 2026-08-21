@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import {
   initialState,
   withFichierCharge,
@@ -15,10 +16,7 @@ import { VERSION_MODELE } from "../parsing/build-model";
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
-const model: ParsedModel = {
-  acteurs: [], groupes: [], groupesAbsents: false, typesActeur: [], typesFlux: [], paliers: [], interfaces: [], consommations: [], fxSheetNames: [],
-  colonnesOptionnellesAbsentes: [], versionModele: VERSION_MODELE, fichierModifie: null,
-};
+const model: ParsedModel = base.modele();
 const report: IntegrityReport = { familles: [], blocsInformatifs: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
 
 describe("initialState", () => {
@@ -157,10 +155,7 @@ describe("mode de lecture", () => {
     expect(withMode(s, "fonctionnel").vue).toBe("matrice");
   });
 
-  const acteur = (nom: string, typeActeur: string) => ({
-    nom, groupe: "G", typeActeur, responsable: "", description: "", commentaires: "",
-    palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0,
-  });
+  const acteur = (nom: string, typeActeur: string) => base.acteur({ nom, typeActeur });
   const modelMixte: ParsedModel = {
     ...model,
     acteurs: [acteur("Tatooine", "Application"), acteur("Bus", "Middleware")],
@@ -190,16 +185,10 @@ describe("mode de lecture", () => {
 // sélectionné alors qu'il ne figure plus dans la lecture, et le schéma
 // n'affichait qu'une boîte fantôme, sans un mot pour l'expliquer.
 describe("withPalierAffiche — la sélection suit ce que le palier montre", () => {
-  const acteur = (nom: string, palierRetrait = "") => ({
-    nom, groupe: "G", typeActeur: "Application", responsable: "", description: "",
-    commentaires: "", palierIntroduction: "", palierRetrait, feuille: "Actors", ligne: 0,
-  });
+  const acteur = (nom: string, palierRetrait = "") => base.acteur({ nom, palierRetrait });
   const avecFrise: ParsedModel = {
     ...model,
-    paliers: [
-      { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-      { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-    ],
+    paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
     acteurs: [acteur("Tatooine", "v2"), acteur("Chandrila")],
   };
   const chargé = () =>

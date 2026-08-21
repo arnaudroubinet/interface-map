@@ -1,30 +1,21 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { toutesLesPlanches } from "./planches";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
-function acteur(o: Partial<Acteur>): Acteur {
-  return {
-    nom: "A", groupe: "Socle", typeActeur: "Application", responsable: "", description: "d", commentaires: "",
-    palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0, ...o,
-  };
+// Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
+// donc les champs qu'ils lisent doivent être remplis.
+function acteur(o: Partial<Acteur> = {}): Acteur {
+  return base.acteur({ groupe: "Socle", description: "d", ...o });
 }
 
-function iface(o: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return {
-    nomDuFlux: "F", acteurExposant: "A", typeDeFlux: "HTTP", description: "d", version: "", etat: "",
-    lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false,
-    feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "", palierRetrait: "",
-    feuille: "Interfaces", ligne: 0, ...o,
-  };
+function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
+  return base.iface({ description: "d", ...o });
 }
 
-function conso(o: Partial<Consommation>): Consommation {
-  return {
-    nomDuFlux: "F", acteurConsommateur: "B", usage: "u", criticite: "1 - Critical", version: "",
-    statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP",
-    palierIntroduction: "", palierRetrait: "", ligne: 0, ...o,
-  };
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ usage: "u", criticite: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
@@ -38,8 +29,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
     paliers: [],
     typesFlux: [
-      { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
-      { type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+      base.typeFlux({ type: "HTTP" }),
+      base.typeFlux({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
     ],
     interfaces: [iface({})],
     consommations: [conso({})],

@@ -1,33 +1,22 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { runIntegrityChecks } from "./checks";
 import { buildFlowInstances } from "../aggregation/core";
 import { VERSION_MODELE, feuilleFxAttendue } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
-function acteur(overrides: Partial<Acteur>): Acteur {
-  return {
-    nom: "A", groupe: "G", typeActeur: "Application", responsable: "", description: "d", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0,
-    ...overrides,
-  };
+// Un parc qui ne déclenche rien : chaque test n'introduit alors qu'une seule
+// faute, celle qu'il examine.
+function acteur(o: Partial<Acteur> = {}): Acteur {
+  return base.acteur({ description: "d", ...o });
 }
 
-function iface(overrides: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return {
-    nomDuFlux: "F", acteurExposant: "A", typeDeFlux: "HTTP", description: "d",
-    lienContrat: "lien", referenceContrat: "", commentaires: "", aConfirmer: false,
-    version: "", etat: "",
-    feuilleAttendue: "FX_A_HTTP", relais: "", palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0,
-    ...overrides,
-  };
+function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
+  return base.iface({ description: "d", lienContrat: "lien", ...o });
 }
 
-function conso(overrides: Partial<Consommation>): Consommation {
-  return {
-    nomDuFlux: "F", acteurConsommateur: "B", usage: "u", criticite: "1 - Critical",
-    version: "",
-    statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_A_HTTP", palierIntroduction: "", palierRetrait: "", ligne: 0,
-    ...overrides,
-  };
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ usage: "u", criticite: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
 }
 
 function model(overrides: Partial<ParsedModel>): ParsedModel {
@@ -37,7 +26,7 @@ function model(overrides: Partial<ParsedModel>): ParsedModel {
     groupesAbsents: false,
     typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
     paliers: [],
-  typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+  typesFlux: [base.typeFlux({ type: "HTTP" })],
     interfaces: [iface({})],
     consommations: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
@@ -293,7 +282,7 @@ describe("7.6 vocabulaires", () => {
     const report = runIntegrityChecks(
       model({
         typesFlux: [
-          { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "du client au serveur", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+          base.typeFlux({ type: "HTTP", sensRepresentationBrut: "du client au serveur" }),
         ],
       })
     );
@@ -340,8 +329,8 @@ describe("7.7 signaux non bloquants", () => {
     const report = runIntegrityChecks(
       model({
         typesFlux: [
-          { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
-          { type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 },
+          base.typeFlux({ type: "HTTP" }),
+          base.typeFlux({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
         ],
       })
     );
@@ -682,8 +671,8 @@ describe("emplacement des blocs informatifs", () => {
       interfaces: [iface({ aConfirmer: true, ligne: 5 })],
       consommations: [conso({ criticite: "", ligne: 6 })],
       typesFlux: [
-        { type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 2 },
-        { type: "SFTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 3 },
+        base.typeFlux({ type: "HTTP", ligne: 2 }),
+        base.typeFlux({ type: "SFTP", ligne: 3 }),
       ],
     });
 
@@ -1094,10 +1083,7 @@ describe("chaîne cassée en son milieu", () => {
 describe("couleur déclarée d'une technologie", () => {
   const parc = (couleurs: [string, string][]) =>
     model({
-      typesFlux: couleurs.map(([type, couleur], i) => ({
-        type, couleur, sensRepresentation: "consommateur-exposant" as const,
-        sensRepresentationBrut: "consumer → provider", description: "", feuille: "FlowTypes", ligne: i,
-      })),
+      typesFlux: couleurs.map(([type, couleur], i) => base.typeFlux({ type, couleur, ligne: i })),
       interfaces: couleurs.map(([type], i) =>
         iface({ nomDuFlux: `F${i}`, typeDeFlux: type, feuilleAttendue: `FX_A_${type}`, ligne: i })
       ),

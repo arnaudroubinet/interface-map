@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
 import { initialState, withFichierCharge, withMode, withVue, withSelectionActeur, type AppState } from "./state";
 import { VERSION_MODELE } from "../parsing/build-model";
@@ -14,15 +15,15 @@ function flux(state: AppState): ReturnType<typeof fluxDuMode> {
 }
 
 function acteur(nom: string, typeActeur: string): Acteur {
-  return { nom, groupe: "G", typeActeur, responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0 };
+  return base.acteur({ nom, typeActeur });
 }
 
-function iface(o: Partial<InterfaceCatalogue>): InterfaceCatalogue {
-  return { nomDuFlux: "F", version: "", etat: "", acteurExposant: "Tatooine", typeDeFlux: "HTTP", description: "", lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, feuilleAttendue: "FX_Tatooine_HTTP", relais: "", palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0, ...o };
+function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
+  return base.iface({ acteurExposant: "Tatooine", feuilleAttendue: "FX_Tatooine_HTTP", ...o });
 }
 
-function conso(o: Partial<Consommation>): Consommation {
-  return { nomDuFlux: "F", version: "", acteurConsommateur: "Bus", usage: "", criticite: "", statut: "Actif", decision: "Keep", republiePar: "", commentaires: "", feuille: "FX_Tatooine_HTTP", palierIntroduction: "", palierRetrait: "", ligne: 0, ...o };
+function conso(o: Partial<Consommation> = {}): Consommation {
+  return base.conso({ acteurConsommateur: "Bus", statut: "Actif", decision: "Keep", feuille: "FX_Tatooine_HTTP", ...o });
 }
 
 // Tatooine expose F vers Bus (Middleware, Technical), qui la relaie sous F2 vers
@@ -37,7 +38,7 @@ const modelAvecFlux: ParsedModel = {
     { type: "Application", icone: "", nature: "Business", feuille: "ActorTypes", ligne: 0 },
     { type: "Middleware", icone: "", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
   ],
-  typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+  typesFlux: [base.typeFlux({ type: "HTTP" })],
   paliers: [],
   interfaces: [iface({}), iface({ nomDuFlux: "F2", acteurExposant: "Bus", relais: "F", feuilleAttendue: "FX_Bus_HTTP" })],
   consommations: [conso({}), conso({ nomDuFlux: "F2", acteurConsommateur: "Naboo", feuille: "FX_Bus_HTTP" })],

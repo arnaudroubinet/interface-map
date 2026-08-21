@@ -1,19 +1,15 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { colorForTechnologies, couleursDuModele } from "./colors";
 import type { ParsedModel, InterfaceCatalogue, TypeFlux } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 function typeFlux(type: string): TypeFlux {
-  return { type, sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 };
+  return base.typeFlux({ type });
 }
 
 function iface(nomDuFlux: string, typeDeFlux: string): InterfaceCatalogue {
-  return {
-    nomDuFlux, version: "", etat: "", acteurExposant: "A", typeDeFlux, description: "",
-    lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, relais: "",
-    feuilleAttendue: "FX_A_HTTP", palierIntroduction: "", palierRetrait: "",
-    feuille: "Interfaces", ligne: 0,
-  };
+  return base.iface({ nomDuFlux, typeDeFlux });
 }
 
 // La feuille FlowTypes est un RÉFÉRENTIEL : le gabarit livré en compte seize,

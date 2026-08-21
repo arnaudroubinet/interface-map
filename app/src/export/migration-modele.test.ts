@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { ETAPES_MISE_A_NIVEAU, donneesDepuisModele, mettreANiveau } from "./migration-modele";
 import { écrireModele, LISTES } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
@@ -9,36 +10,30 @@ import type { ParsedModel } from "../parsing/model";
 // Un classeur d'avant le versionnement : les colonnes Version et État n'y
 // existent pas, le parseur les a donc lues vides.
 function modeleOrigine(): ParsedModel {
-  return {
+  return base.modele({
     acteurs: [
-      { nom: "Tatooine", groupe: "Socle", typeActeur: "Application", responsable: "Yavin", description: "d", commentaires: "c", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0 },
-      { nom: "Mygeeto", groupe: "Ryloth", typeActeur: "Application", responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0 },
+      base.acteur({ nom: "Tatooine", groupe: "Socle", responsable: "Yavin", description: "d", commentaires: "c" }),
+      base.acteur({ nom: "Mygeeto", groupe: "Ryloth" }),
     ],
-    groupes: [{ nom: "Socle", perimetre: "Platform", feuille: "Groups", ligne: 0 }, { nom: "Ryloth", perimetre: "External", feuille: "Groups", ligne: 0 }],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
-    paliers: [],
-    typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+    groupes: [base.groupe({ nom: "Socle" }), base.groupe({ nom: "Ryloth", perimetre: "External" })],
+    typesActeur: [base.typeActeur()],
+    typesFlux: [base.typeFlux()],
     interfaces: [
-      {
-        nomDuFlux: "Authent", version: "", etat: "", acteurExposant: "Tatooine", typeDeFlux: "HTTP",
-        description: "Ouverture de session", lienContrat: "https://c", referenceContrat: "CTR-1",
-        commentaires: "note", aConfirmer: true, feuilleAttendue: "FX_Tatooine_HTTP", relais: "",
-        palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0,
-      },
+      base.iface({
+        nomDuFlux: "Authent", acteurExposant: "Tatooine", description: "Ouverture de session",
+        lienContrat: "https://c", referenceContrat: "CTR-1", commentaires: "note", aConfirmer: true,
+        feuilleAttendue: "FX_Tatooine_HTTP",
+      }),
     ],
     consommations: [
-      {
-        nomDuFlux: "Authent", version: "", acteurConsommateur: "Mygeeto", usage: "Ouverture",
-        criticite: "1 - Critical", statut: "Actif", republiePar: "", decision: "Keep", commentaires: "", feuille: "FX_Tatooine_HTTP",
-        palierIntroduction: "", palierRetrait: "", ligne: 0,
-      },
+      base.conso({
+        nomDuFlux: "Authent", acteurConsommateur: "Mygeeto", usage: "Ouverture",
+        criticite: "1 - Critical", statut: "Actif", decision: "Keep", feuille: "FX_Tatooine_HTTP",
+      }),
     ],
     fxSheetNames: ["FX_Tatooine_HTTP"],
-    colonnesOptionnellesAbsentes: [],
     versionModele: 0,
-    fichierModifie: null,
-  };
+  });
 }
 
 describe("chaîne de mise à niveau", () => {
@@ -243,7 +238,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
     return {
       ...modeleDate(),
       groupes: [{ nom: "Socle", perimetre: "Plateforme", feuille: "Groups", ligne: 0 }, { nom: "Lothal", perimetre: "Externe", feuille: "Groups", ligne: 0 }],
-      typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consommateur → exposant", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
+      typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentationBrut: "consommateur → exposant" })],
       consommations: [{ ...modeleDate().consommations[0], criticite: "1 - Vitale", decision: "À transformer" }],
       interfaces: [{ ...modeleDate().interfaces[0], etat: "" }],
     };
@@ -273,7 +268,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
   it("keeps the workbook's own flow types rather than reseeding them", () => {
     const modele = {
       ...modeleFrançais(),
-      typesFlux: [{ type: "Saleucami", sensRepresentation: "consommateur-exposant" as const, sensRepresentationBrut: "consommateur → exposant", couleur: "", description: "Protocole interne", feuille: "FlowTypes", ligne: 0 }],
+      typesFlux: [base.typeFlux({ type: "Saleucami", sensRepresentationBrut: "consommateur → exposant", description: "Protocole interne" })],
     };
     const r = buildModel(parseWorkbook(écrireModele(mettreANiveau(modele, LE_JOUR))));
     if (!r.ok) throw new Error("illisible");

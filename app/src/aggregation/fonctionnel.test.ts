@@ -1,29 +1,26 @@
 import { describe, it, expect } from "vitest";
+import * as base from "../testing/fixtures";
 import { buildFunctionalFlows, chainesCoupees } from "./fonctionnel";
 import type { ParsedModel, Acteur, TypeActeur, InterfaceCatalogue, Consommation, Palier } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
+// Fabriques positionnelles : dans ce fichier ce sont les CHAÎNES qu'on lit, et
+// une chaîne se raconte mieux en « qui expose quoi vers qui » qu'en surcharges.
 function acteur(nom: string, typeActeur: string): Acteur {
-  return { nom, groupe: "G", typeActeur, responsable: "", description: "", commentaires: "", palierIntroduction: "", palierRetrait: "", feuille: "Actors", ligne: 0 };
+  return base.acteur({ nom, typeActeur });
 }
 
 function iface(nomDuFlux: string, acteurExposant: string, relais = ""): InterfaceCatalogue {
-  return {
-    nomDuFlux, version: "", etat: "", acteurExposant, typeDeFlux: "HTTP", description: "",
-    lienContrat: "", referenceContrat: "", commentaires: "", aConfirmer: false, relais,
-    feuilleAttendue: `FX_${acteurExposant}_HTTP`,
-    palierIntroduction: "", palierRetrait: "", feuille: "Interfaces", ligne: 0,
-  };
+  return base.iface({ nomDuFlux, acteurExposant, relais, feuilleAttendue: `FX_${acteurExposant}_HTTP` });
 }
 
 // Le quatrième argument est la nouveauté de la v4 : la consommation dit sous
 // laquelle des interfaces de son consommateur elle est republiée. C'est ce qui
 // remplace la case Relais, et ce qu'une liste déroulante peut guider.
+// Le quatrième argument est la nouveauté de la v4 : la consommation dit sous
+// laquelle des interfaces de son consommateur elle est republiée.
 function conso(nomDuFlux: string, acteurConsommateur: string, exposant: string, republiePar = ""): Consommation {
-  return {
-    nomDuFlux, version: "", acteurConsommateur, usage: "", criticite: "", statut: "", decision: "", republiePar,
-    commentaires: "", feuille: `FX_${exposant}_HTTP`, palierIntroduction: "", palierRetrait: "", ligne: 0,
-  };
+  return base.conso({ nomDuFlux, acteurConsommateur, republiePar, feuille: `FX_${exposant}_HTTP` });
 }
 
 const TYPES: TypeActeur[] = [
@@ -31,14 +28,8 @@ const TYPES: TypeActeur[] = [
   { type: "Middleware", icone: "", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
 ];
 
-function model(o: Partial<ParsedModel>): ParsedModel {
-  return {
-    acteurs: [], typesActeur: TYPES, groupes: [], groupesAbsents: false, paliers: [],
-    typesFlux: [{ type: "HTTP", sensRepresentation: "consommateur-exposant", sensRepresentationBrut: "consumer → provider", couleur: "", description: "", feuille: "FlowTypes", ligne: 0 }],
-    interfaces: [], consommations: [], fxSheetNames: [],
-    colonnesOptionnellesAbsentes: [], versionModele: VERSION_MODELE, fichierModifie: null,
-    ...o,
-  };
+function model(o: Partial<ParsedModel> = {}): ParsedModel {
+  return base.modele({ typesActeur: TYPES, typesFlux: [base.typeFlux()], ...o });
 }
 
 // Tatooine ─► Bus ─► Naboo, le bus étant technique.

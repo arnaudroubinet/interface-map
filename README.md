@@ -106,6 +106,12 @@ hexadécimal ; sinon la palette en attribue une.
 
 ## Conventions
 
+- **Les fabriques de tests vivent dans `src/testing/fixtures.ts`**, et nulle
+  part ailleurs. Ce sont les seuls littéraux exhaustifs des types du modèle :
+  ajouter un champ y coûte une ligne, contre quarante-cinq erreurs de
+  compilation quand chaque fichier portait sa copie. Un fichier qui a besoin
+  d'autres défauts enveloppe la fabrique, il ne la modifie pas — la modifier
+  changerait le sens de tests écrits ailleurs.
 - **TDD.** Un test qui échoue d'abord, pour la raison qu'on annonce. Un test
   qui passe encore après qu'on a retiré le comportement qu'il prétend couvrir
   ne vaut rien : la vérification par mutation est le seul juge.
