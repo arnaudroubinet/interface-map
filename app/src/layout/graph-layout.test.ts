@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeLayout } from "./graph-layout";
+import { computeLayout, lignesDescription, nomTronque, LARGEUR_NOEUD } from "./graph-layout";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 
 describe("computeLayout", () => {
@@ -114,5 +114,32 @@ describe("computeLayout — les invariants du placement", () => {
       expect(e.y - e.height / 2).toBeGreaterThanOrEqual(cadre.y - cadre.height / 2 - 1);
       expect(e.y + e.height / 2).toBeLessThanOrEqual(cadre.y + cadre.height / 2 + 1);
     }
+  });
+});
+
+// --- Deux constantes de mise en page que rien ne gardait, et qui décident de
+// ce qui tient dans une boîte. Mesuré par mutation : doubler le nombre de
+// lignes de description, ou diviser par deux la largeur d'un caractère, ne
+// faisait tomber aucun test — alors que les deux font déborder le dessin.
+describe("ce qui tient dans une boîte", () => {
+  it("plafonne la description à trois lignes, la dernière abrégée", () => {
+    const long = "un texte assez long pour occuper plusieurs lignes dans une boîte étroite "
+      + "et déborder largement de ce que la maquette prévoit pour une description";
+    const lignes = lignesDescription(long);
+    expect(lignes.length).toBeLessThanOrEqual(3);
+    expect(lignes[lignes.length - 1]).toMatch(/…$/);
+  });
+
+  it("tronque un nom à ce qui tient réellement dans la largeur de la boîte", () => {
+    const long = "Plateforme de règlement-livraison interbancaire et conservation";
+    const tronqué = nomTronque(long);
+    // La largeur estimée du nom, icône comprise, doit tenir dans la boîte :
+    // c'est la seule chose qui compte, et elle dépend des deux constantes.
+    expect(tronqué.length * 8.2 + 25).toBeLessThanOrEqual(LARGEUR_NOEUD);
+    expect(tronqué).toMatch(/…$/);
+  });
+
+  it("laisse intact un nom qui tient déjà", () => {
+    expect(nomTronque("Tatooine")).toBe("Tatooine");
   });
 });

@@ -818,3 +818,16 @@ describe("modèle de classeur — la formule Excel assainit comme l'outil", () =
     expect(substitutions).toBe(7);
   });
 });
+
+// --- Le plancher des validations : sur un petit classeur, la liste déroulante
+// doit descendre bien plus bas que les lignes déjà écrites, sans quoi la
+// première saisie sous la dernière ligne ne serait plus contrôlée. Mesuré par
+// mutation : abaisser ce plancher de 1000 à 2 ne faisait tomber aucun test.
+describe("modèle de classeur — le plancher des validations", () => {
+  it("valide loin sous les lignes déjà écrites, même sur un classeur minuscule", () => {
+    const xml = feuilleXml("Actors", écrireModele());
+    const jusquÀ = [...xml.matchAll(/sqref="[A-Z]+2:[A-Z]+(\d+)"/g)].map((m) => Number(m[1]));
+    expect(jusquÀ.length).toBeGreaterThan(0);
+    expect(Math.min(...jusquÀ)).toBeGreaterThanOrEqual(1000);
+  });
+});
