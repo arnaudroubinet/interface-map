@@ -19,10 +19,11 @@ import {
   findInterfaceForConsommation,
   interfaceKey,
   libelleInterface,
+  nomKey,
   nomVersionKey,
   type InterfaceLookup,
 } from "../aggregation/core";
-import { intervalleDeVie, estVivant, TOUJOURS, type Intervalle } from "../aggregation/paliers";
+import { intervalleDeVie, estVivant, seRencontrent, TOUJOURS, type Intervalle } from "../aggregation/paliers";
 import { LONGUEUR_MAX_ONGLET } from "../parsing/build-model";
 import { estActeurTechnique } from "../aggregation/nature";
 import {
@@ -300,7 +301,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     if (!acteurs.has(c.acteurConsommateur.trim())) {
       anomalies.push(anomalie(`${nommeConso(c)}: consumer "${c.acteurConsommateur}" unknown to the repository.`, c));
     }
-    const parNom = lookup.byNom.get(c.nomDuFlux.trim());
+    const parNom = lookup.byNom.get(nomKey(c.nomDuFlux));
     if (!parNom) {
       anomalies.push(anomalie(`${nommeConso(c)}: flow name missing from the Interfaces catalogue.`, c));
       continue;
@@ -436,9 +437,16 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   return { id: "references", titre: "References", description: "A value points at nothing.", anomalies: parEmplacement(anomalies) };
 }
 
-function checkCoherence(model: ParsedModel): AnomalyFamily {
+// Deux lectures, une seule section. Les fautes de SAISIE se jugent sur le
+// classeur entier -- un intervalle impossible reste impossible quel que soit le
+// palier regardé. Ce que le SCHÉMA montre se juge au palier affiché : une
+// interface qui perd son dernier consommateur en v2, une chaîne de relais que
+// le temps coupe, ne se voient qu'à ce moment-là. Tout juger sur le classeur
+// entier les faisait disparaître en silence, sous un schéma vide.
+function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
   const lookup = buildInterfaceLookup(model);
+  const lookupAuPalier = buildInterfaceLookup(auPalier);
 
   for (const c of model.consommations) {
     const iface = findInterfaceForConsommation(lookup, c);
@@ -447,8 +455,8 @@ function checkCoherence(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  for (const iface of model.interfaces) {
-    if (consommationsForInterface(lookup, model, iface).length === 0) {
+  for (const iface of auPalier.interfaces) {
+    if (consommationsForInterface(lookupAuPalier, auPalier, iface).length === 0) {
       anomalies.push(anomalie(`${nommeInterface(iface)} has no declared consumption.`, iface));
     }
   }
@@ -456,17 +464,29 @@ function checkCoherence(model: ParsedModel): AnomalyFamily {
   // Un consommateur ne consomme pas deux versions d'un contrat à la fois :
   // c'est une incohérence, pas une étape de migration. La migration consiste
   // à changer la version d'une ligne, pas à en ajouter une seconde.
-  const parFluxEtConsommateur = new Map<string, Set<string>>();
+  //
+  // « À la fois » se prend au mot : deux lignes dont les intervalles ne se
+  // rencontrent jamais sont la migration datée que le mode d'emploi du
+  // classeur prescrit -- « Obsolete row: do not delete it: give it a
+  // retirement milestone. » Les compter ensemble reprochait au fichier de
+  // suivre sa propre consigne.
+  const parFluxEtConsommateur = new Map<string, Consommation[]>();
   for (const c of model.consommations) {
     const cle = JSON.stringify([normalizeText(c.feuille), normalizeText(c.nomDuFlux), normalizeText(c.acteurConsommateur)]);
-    const versions = parFluxEtConsommateur.get(cle) ?? new Set<string>();
-    versions.add(c.version.trim());
-    parFluxEtConsommateur.set(cle, versions);
+    parFluxEtConsommateur.set(cle, [...(parFluxEtConsommateur.get(cle) ?? []), c]);
   }
   for (const c of model.consommations) {
     const cle = JSON.stringify([normalizeText(c.feuille), normalizeText(c.nomDuFlux), normalizeText(c.acteurConsommateur)]);
-    const versions = parFluxEtConsommateur.get(cle);
-    if (!versions || versions.size < 2) continue;
+    const lignes = parFluxEtConsommateur.get(cle);
+    if (!lignes) continue;
+    const simultanées = lignes.filter(
+      (autre) =>
+        autre !== c &&
+        autre.version.trim() !== c.version.trim() &&
+        seRencontrent(intervalleDeVie(model, c), intervalleDeVie(model, autre))
+    );
+    if (simultanées.length === 0) continue;
+    const versions = new Set([c, ...simultanées].map((l) => l.version.trim()));
     parFluxEtConsommateur.delete(cle);
     anomalies.push(
       anomalie(
@@ -507,7 +527,13 @@ function checkCoherence(model: ParsedModel): AnomalyFamily {
       for (const parent of parents) {
         const tropTôt = arrivéeSaisie && intervalle.debut < parent.intervalle.debut;
         const tropTard = retraitSaisi && intervalle.fin > parent.intervalle.fin;
-        if (tropTôt || tropTard) {
+        // Deux intervalles qui ne se rencontrent JAMAIS ne débordent ni d'un
+        // côté ni de l'autre : une consommation qui commence là où son
+        // interface se retire ne déclenchait donc rien, alors qu'elle décrit
+        // un lien qui n'existe à aucun palier.
+        const jamaisEnsemble =
+          parent.intervalle.debut < parent.intervalle.fin && !seRencontrent(intervalle, parent.intervalle);
+        if (tropTôt || tropTard || jamaisEnsemble) {
           anomalies.push(anomalie(`${sujet} lives outside the lifetime of ${parent.nom}.`, validite));
         }
       }
@@ -545,7 +571,7 @@ function checkCoherence(model: ParsedModel): AnomalyFamily {
   // Une chaîne coupée ne produit aucun lien fonctionnel. Sans ces deux lignes
   // le lien manquait EN SILENCE, ce qui est précisément ce que le contrôle du
   // bus fourre-tout, plus bas, cherche à éviter.
-  for (const coupée of chainesCoupees(model, null)) {
+  for (const coupée of chainesCoupees(auPalier, null)) {
     if (coupée.raison === "boucle") {
       anomalies.push(anomalie(`${nommeInterface(coupée.iface)}: its relay chain loops back on itself.`, coupée.iface));
     }
@@ -566,11 +592,11 @@ function checkCoherence(model: ParsedModel): AnomalyFamily {
   // Le bus fourre-tout : un flux entre dans la plomberie et n'en ressort pour
   // personne. Sans ce contrôle, le lien fonctionnel manquerait EN SILENCE, ce
   // qui est le pire des cas.
-  for (const i of model.interfaces) {
-    const consommateurs = consommationsForInterface(lookup, model, i).map((c) => c.acteurConsommateur);
+  for (const i of auPalier.interfaces) {
+    const consommateurs = consommationsForInterface(lookupAuPalier, auPalier, i).map((c) => c.acteurConsommateur);
     if (consommateurs.length === 0) continue;
-    if (!consommateurs.every((c) => estActeurTechnique(model, c))) continue;
-    const ressort = consommationsForInterface(lookup, model, i).some((c) => c.republiePar.trim() !== "");
+    if (!consommateurs.every((c) => estActeurTechnique(auPalier, c))) continue;
+    const ressort = consommationsForInterface(lookupAuPalier, auPalier, i).some((c) => c.republiePar.trim() !== "");
     if (!ressort) {
       anomalies.push(
         anomalie(`${nommeInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
@@ -1023,9 +1049,7 @@ export function runIntegrityChecks(model: ParsedModel, rang: number | null = nul
     checkStructure(model),
     checkReferences(model),
     checkVocabulaires(model),
-    // La cohérence porte les contrôles temporels, qui jugent le classeur
-    // entier : elle reçoit donc le modèle complet.
-    checkCoherence(model),
+    checkCoherence(model, auPalier),
     checkCompletude(auPalier),
   ];
   const blocsInformatifs = [

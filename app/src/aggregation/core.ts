@@ -172,6 +172,14 @@ export function nomVersionKey(nomDuFlux: string, version: string): string {
   return cle(nomDuFlux, version);
 }
 
+// Le nom seul, normalisé comme les deux autres clés. Il l'était par un simple
+// trim, quand le rattachement, lui, normalise : un « Order status » écrit
+// « ORDER STATUS » dans une consommation était bel et bien dessiné, et le
+// rapport le déclarait pourtant absent du catalogue.
+export function nomKey(nomDuFlux: string): string {
+  return cle(nomDuFlux);
+}
+
 export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
   const byKey = new Map<string, InterfaceCatalogue>();
   const byNomVersion = new Map<string, InterfaceCatalogue>();
@@ -183,7 +191,7 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
     const déjà = byNomVersion.get(kNomVersion);
     if (!déjà) byNomVersion.set(kNomVersion, i);
     else if (normalizeText(déjà.acteurExposant) !== normalizeText(i.acteurExposant)) nomVersionAmbigu.add(kNomVersion);
-    if (!byNom.has(i.nomDuFlux.trim())) byNom.set(i.nomDuFlux.trim(), i);
+    if (!byNom.has(nomKey(i.nomDuFlux))) byNom.set(nomKey(i.nomDuFlux), i);
   }
   return { byKey, byNomVersion, byNom, nomVersionAmbigu };
 }

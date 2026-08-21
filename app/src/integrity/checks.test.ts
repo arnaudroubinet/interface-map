@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { runIntegrityChecks } from "./checks";
 import { buildFlowInstances } from "../aggregation/core";
+import { buildFunctionalFlows } from "../aggregation/fonctionnel";
 import { VERSION_MODELE, feuilleFxAttendue } from "../parsing/build-model";
 import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
 
@@ -1199,3 +1200,112 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
     expect(buildFlowInstances(m, 1)).toHaveLength(0);
   });
 });
+
+// --- QA : les contrôles de cohérence jugeaient TOUS le classeur entier. Ce que
+// le schéma du palier affiché montre -- une interface qui y perd son dernier
+// consommateur, une chaîne de relais que le temps coupe -- disparaissait donc
+// en silence sous un schéma vide. Symétriquement, deux lignes datées d'une même
+// migration étaient comptées ensemble, et le fichier se voyait reprocher de
+// suivre sa propre consigne.
+const messagesRecette = (m: Parameters<typeof runIntegrityChecks>[0], rang: number | null) =>
+  runIntegrityChecks(m, rang).familles.flatMap((f) => f.anomalies.map((a) => a.message));
+// ---------------------------------------------------------------------------
+// 3. Le rapport d'intégrité face à l'axe des paliers.
+// ---------------------------------------------------------------------------
+
+const PALIERS_RECETTE = [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 }), base.palier({ nom: "v3", rang: 3 })];
+const SOCLE_RECETTE = {
+  groupes: [base.groupe({ nom: "G" })],
+  typesActeur: [base.typeActeur()],
+  typesFlux: [base.typeFlux()],
+  paliers: PALIERS_RECETTE,
+  fxSheetNames: ["FX_A_HTTP"],
+};
+
+describe("le rapport d'intégrité et l'axe des paliers", () => {
+  it("ne crie pas à l'incohérence sur une migration datée à deux lignes", () => {
+    // Ce que le mode d'emploi du classeur prescrit : « Obsolete row: do not
+    // delete it: give it a retirement milestone. » Les deux intervalles sont
+    // DISJOINTS -- à aucun palier B ne consomme deux versions.
+    const m = base.modele({
+      ...SOCLE_RECETTE,
+      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [
+        base.iface({ nomDuFlux: "F", version: "1.0", acteurExposant: "A", palierIntroduction: "v1", palierRetrait: "v2" }),
+        base.iface({ nomDuFlux: "F", version: "2.0", acteurExposant: "A", palierIntroduction: "v2" }),
+      ],
+      consommations: [
+        base.conso({ nomDuFlux: "F", version: "1.0", acteurConsommateur: "B", palierIntroduction: "v1", palierRetrait: "v2", ligne: 2 }),
+        base.conso({ nomDuFlux: "F", version: "2.0", acteurConsommateur: "B", palierIntroduction: "v2", ligne: 3 }),
+      ],
+    });
+    expect(buildFlowInstances(m, 1).map((f) => f.version)).toEqual(["1.0"]);
+    expect(buildFlowInstances(m, 2).map((f) => f.version)).toEqual(["2.0"]);
+    for (const rang of [null, 1, 2, 3]) {
+      expect(messagesRecette(m, rang).filter((x) => x.includes("two versions"))).toEqual([]);
+    }
+  });
+
+  it("signale une consommation dont l'intervalle ne rencontre jamais celui de son interface", () => {
+    const m = base.modele({
+      ...SOCLE_RECETTE,
+      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", palierIntroduction: "v1", palierRetrait: "v2" })],
+      consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "B", palierIntroduction: "v2" })],
+    });
+    expect([1, 2, 3].map((r) => buildFlowInstances(m, r).length)).toEqual([0, 0, 0]);
+    expect(messagesRecette(m, 2).some((x) => x.includes("lives outside the lifetime"))).toBe(true);
+  });
+
+  it("dit qu'une interface n'a plus de consommation au palier affiché", () => {
+    const m = base.modele({
+      ...SOCLE_RECETTE,
+      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
+      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", palierIntroduction: "v1" })],
+      consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "B", palierIntroduction: "v1", palierRetrait: "v2" })],
+    });
+    expect(buildFlowInstances(m, 2)).toHaveLength(0);
+    expect(messagesRecette(m, 2).some((x) => x.includes("no declared consumption"))).toBe(true);
+  });
+
+  it("dit qu'une chaîne de relais est coupée par le temps", () => {
+    const m = base.modele({
+      paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
+      groupes: [base.groupe({ nom: "G" })],
+      acteurs: [
+        base.acteur({ nom: "Src", palierIntroduction: "v1" }),
+        base.acteur({ nom: "Bus", typeActeur: "Infra", palierIntroduction: "v1" }),
+        base.acteur({ nom: "Dst", palierIntroduction: "v1" }),
+      ],
+      typesActeur: [base.typeActeur({ nature: "Business" }), base.typeActeur({ type: "Infra", nature: "Technical" })],
+      typesFlux: [base.typeFlux()],
+      fxSheetNames: ["FX_Src_HTTP", "FX_Bus_HTTP"],
+      interfaces: [
+        base.iface({ nomDuFlux: "In", acteurExposant: "Src", feuilleAttendue: "FX_Src_HTTP", palierIntroduction: "v1" }),
+        base.iface({ nomDuFlux: "Out", acteurExposant: "Bus", feuilleAttendue: "FX_Bus_HTTP", palierIntroduction: "v1" }),
+      ],
+      consommations: [
+        base.conso({ nomDuFlux: "In", acteurConsommateur: "Bus", feuille: "FX_Src_HTTP", republiePar: "Out", palierIntroduction: "v1", palierRetrait: "v2" }),
+        base.conso({ nomDuFlux: "Out", acteurConsommateur: "Dst", feuille: "FX_Bus_HTTP", palierIntroduction: "v1" }),
+      ],
+    });
+    expect(buildFunctionalFlows(m, 1)).toHaveLength(1);
+    expect(buildFunctionalFlows(m, 2)).toHaveLength(0);
+    expect(messagesRecette(m, 2).some((x) => x.includes("nothing feeds it"))).toBe(true);
+  });
+
+  it("ne prétend pas qu'un nom de flux est absent du catalogue quand le schéma le dessine", () => {
+    const m = base.modele({
+      groupes: [base.groupe({ nom: "G" })],
+      acteurs: [base.acteur({ nom: "A" }), base.acteur({ nom: "B" })],
+      typesActeur: [base.typeActeur()],
+      typesFlux: [base.typeFlux()],
+      fxSheetNames: ["FX_A_HTTP"],
+      interfaces: [base.iface({ nomDuFlux: "Authent", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" })],
+      consommations: [base.conso({ nomDuFlux: "authent", acteurConsommateur: "B", feuille: "FX_A_HTTP" })],
+    });
+    expect(buildFlowInstances(m, null)).toHaveLength(1);
+    expect(messagesRecette(m, null).some((x) => x.includes("missing from the Interfaces catalogue"))).toBe(false);
+  });
+});
+

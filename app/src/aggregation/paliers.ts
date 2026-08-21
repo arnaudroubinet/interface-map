@@ -62,3 +62,11 @@ export function acteursVivants(model: ParsedModel, rang: number | null): Acteur[
   if (rang === null || model.paliers.length === 0) return model.acteurs;
   return model.acteurs.filter((a) => estVivant(intervalleDeVie(model, a), rang));
 }
+
+// Deux intervalles se rencontrent s'il existe un rang où les deux lignes sont
+// vivantes ensemble. Le retrait restant exclu, la borne haute ne compte pas :
+// [v1, v2[ et [v2, ...[ ne se rencontrent jamais -- c'est exactement ce que
+// décrit une migration datée, et ce n'est donc pas une incohérence.
+export function seRencontrent(a: Intervalle, b: Intervalle): boolean {
+  return Math.max(a.debut, b.debut) < Math.min(a.fin, b.fin);
+}
