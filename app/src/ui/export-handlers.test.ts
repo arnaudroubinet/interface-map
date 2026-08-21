@@ -25,7 +25,7 @@ vi.mock("../export/xlsx-export", () => ({
 }));
 const pngRendu = { ok: true as boolean };
 vi.mock("../export/png-export", () => ({
-  exportPng: async () => (pngRendu.ok ? { ok: true, blob: new Blob() } : { ok: false }),
+  exportPng: async () => (pngRendu.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." }),
   downloadPngBlob: (_b: unknown, nom: string) => void téléchargements.push({ nom, contenu: "png" }),
 }));
 
@@ -103,13 +103,15 @@ describe("handlersExport", () => {
   });
 
   // Un navigateur qui refuse la conversion doit le DIRE : sans message, le
-  // bouton semblerait ne rien faire.
+  // bouton semblerait ne rien faire. Et c'est le message de l'export qui
+  // s'affiche : il distingue deux échecs, le bandeau n'en invente pas un
+  // troisième.
   it("prévient dans le bandeau quand le PNG échoue, et ne télécharge rien", async () => {
     pngRendu.ok = false;
     const { handlers, état } = contexte(withVue(chargé(), "plateforme-detaillee"));
     await handlers.onExportPng();
     expect(téléchargements).toHaveLength(0);
-    expect(état().messageBandeau).toContain("PNG");
+    expect(état().messageBandeau).toBe("No PNG here.");
   });
 
   it("télécharge le PNG quand la conversion passe", async () => {

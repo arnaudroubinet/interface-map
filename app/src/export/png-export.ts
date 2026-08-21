@@ -28,14 +28,14 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
       canvas.height = height * scale;
       const ctx = canvas.getContext("2d");
       if (!ctx) {
-        return { ok: false, error: "Contexte de rendu 2D indisponible." };
+        return { ok: false, error: "This browser gives no 2D canvas — use the SVG export instead." };
       }
 
       ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
       if (!blob) {
-        return { ok: false, error: "Ce navigateur refuse la conversion en PNG — utilisez l'export SVG." };
+        return { ok: false, error: "This browser refuses to convert to PNG — use the SVG export instead." };
       }
 
       return { ok: true, blob };
@@ -48,7 +48,7 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
       URL.revokeObjectURL(url);
     }
   } catch {
-    return { ok: false, error: "Ce navigateur refuse la conversion en PNG — utilisez l'export SVG." };
+    return { ok: false, error: "This browser refuses to convert to PNG — use the SVG export instead." };
   }
 }
 

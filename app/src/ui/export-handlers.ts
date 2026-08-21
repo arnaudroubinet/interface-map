@@ -80,9 +80,9 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       if (!svg || !ctx.etat().fichier) return;
       const result = await exportPng(svg, "#ffffff", 2);
       if (!result.ok) {
-        ctx.setState(
-          withMessageBandeau(ctx.etat(), "Ce navigateur refuse la conversion en PNG — utilisez l'export SVG.")
-        );
+        // Le message vient de l'export : il en distingue deux, et le recopier
+        // ici en avait effacé un.
+        ctx.setState(withMessageBandeau(ctx.etat(), result.error));
         return;
       }
       downloadPngBlob(result.blob, nomDeFichier("png"));
