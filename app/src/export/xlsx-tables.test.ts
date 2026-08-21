@@ -1,3 +1,7 @@
+// Ce fichier ne couvre que les collisions de displayName. Le reste de l'OOXML
+// écrit à la main -- noms définis, validations, ordre des balises -- est
+// vérifié à la balise près dans template-export.test.ts, qui inspecte le XML
+// réellement produit. Bonne couverture, rangée sous un autre nom.
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { poserLesTableaux, type TableauÀPoser } from "./xlsx-tables";

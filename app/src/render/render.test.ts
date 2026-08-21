@@ -1,3 +1,7 @@
+// Le fichier de tests du dossier render/ dans son entier -- matrix-table,
+// integrity-report, aide, icones. La colocation dit « un test à côté de son
+// module » ; ici c'est un test pour six modules, et l'absence d'un
+// matrix-table.test.ts ne veut donc pas dire qu'il n'est pas couvert.
 import { describe, it, expect } from "vitest";
 import { buildAide, vuesDocumentees, exportsDocumentes } from "./aide";
 // La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à

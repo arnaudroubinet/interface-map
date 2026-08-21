@@ -57,10 +57,10 @@ function sélecteurPalier(
 ): HTMLElement {
   const bloc = el("label", { class: "rail-palier" });
   bloc.appendChild(el("span", { class: "rail-palier-titre" }, [titre]));
-  const select = el("select", { class: "rail-selecteur" }) as HTMLSelectElement;
+  const select = el("select", { class: "rail-selecteur" });
   for (const p of paliers) {
     const suffixe = p.libelle.trim() ? ` — ${p.libelle.trim()}` : "";
-    const option = el("option", { value: p.nom }, [`${p.nom}${suffixe} (${p.statut || "?"})`]) as HTMLOptionElement;
+    const option = el("option", { value: p.nom }, [`${p.nom}${suffixe} (${p.statut || "?"})`]);
     if (p.nom === choisi) option.selected = true;
     select.appendChild(option);
   }
@@ -76,9 +76,9 @@ function sélecteurPalier(
 function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => void): void {
   const bloc = el("label", { class: "rail-palier" });
   bloc.appendChild(el("span", { class: "rail-palier-titre" }, ["Reading"]));
-  const select = el("select", { class: "rail-selecteur" }) as HTMLSelectElement;
+  const select = el("select", { class: "rail-selecteur" });
   for (const [valeur, libellé] of [["architecture", "Architecture"], ["fonctionnel", "Functional"]] as const) {
-    const option = el("option", { value: valeur }, [libellé]) as HTMLOptionElement;
+    const option = el("option", { value: valeur }, [libellé]);
     option.selected = state.mode === valeur;
     select.appendChild(option);
   }
@@ -90,7 +90,7 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
 // Interrupteur « masquer les externes », identique d'une vue à l'autre.
 function basculeExternes(coché: boolean, onChange: (value: boolean) => void): HTMLElement {
   const label = el("label", { class: "rail-bascule" });
-  const input = el("input", { type: "checkbox" }) as HTMLInputElement;
+  const input = el("input", { type: "checkbox" });
   input.checked = coché;
   input.addEventListener("change", () => onChange(input.checked));
   label.appendChild(input);
@@ -112,7 +112,7 @@ function blocFiltre(
   bloc.appendChild(el("summary", {}, [`${titre} (${visibles}/${valeurs.length})`]));
   for (const valeur of valeurs) {
     const ligne = el("label", {});
-    const case_ = el("input", { type: "checkbox" }) as HTMLInputElement;
+    const case_ = el("input", { type: "checkbox" });
     case_.checked = !masquées.includes(valeur);
     case_.addEventListener("change", () => onChange(valeur, !case_.checked));
     ligne.appendChild(case_);
@@ -214,12 +214,12 @@ export function renderRail(
   }
 
   if (state.vue === "par-acteur") {
-    const select = el("select", { class: "rail-selecteur" }) as HTMLSelectElement;
+    const select = el("select", { class: "rail-selecteur" });
     // Le sélecteur ne propose que les acteurs métier en fonctionnel (§5.2) :
     // les techniques ont disparu des traits, les offrir n'aurait pas de sens.
     const acteursDisponibles = state.mode === "fonctionnel" ? acteursMetier(state.fichier.model) : state.fichier.model.acteurs;
     for (const acteur of [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))) {
-      const option = el("option", { value: acteur.nom }, [acteur.nom]) as HTMLOptionElement;
+      const option = el("option", { value: acteur.nom }, [acteur.nom]);
       if (acteur.nom === state.selectionActeur) option.selected = true;
       select.appendChild(option);
     }
@@ -228,9 +228,9 @@ export function renderRail(
   }
 
   if (state.vue === "par-technologie") {
-    const select = el("select", { class: "rail-selecteur" }) as HTMLSelectElement;
+    const select = el("select", { class: "rail-selecteur" });
     for (const type of [...state.fichier.model.typesFlux].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
-      const option = el("option", { value: type.type }, [type.type]) as HTMLOptionElement;
+      const option = el("option", { value: type.type }, [type.type]);
       if (type.type === state.selectionTechnologie) option.selected = true;
       select.appendChild(option);
     }
@@ -260,9 +260,9 @@ export function renderRail(
 
   if (state.vue === "matrice") {
     const granularite = state.filtresMatrice.granularite;
-    const select = el("select", { class: "rail-selecteur" }) as HTMLSelectElement;
+    const select = el("select", { class: "rail-selecteur" });
     for (const g of GRANULARITES_MATRICE) {
-      const option = el("option", { value: g.id }, [g.label]) as HTMLOptionElement;
+      const option = el("option", { value: g.id }, [g.label]);
       if (g.id === granularite) option.selected = true;
       select.appendChild(option);
     }
@@ -283,7 +283,7 @@ export function renderRail(
     const options = el("fieldset", { class: "rail-options" });
 
     const compteursLabel = el("label", {});
-    const compteursInput = el("input", { type: "checkbox" }) as HTMLInputElement;
+    const compteursInput = el("input", { type: "checkbox" });
     compteursInput.checked = state.options.compteurs;
     compteursInput.addEventListener("change", () => callbacks.onOptionCompteurs(compteursInput.checked));
     compteursLabel.appendChild(compteursInput);

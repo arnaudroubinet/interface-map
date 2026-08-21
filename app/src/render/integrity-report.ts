@@ -149,7 +149,7 @@ export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
       titre: b.titre,
       description: b.description,
       items: b.items,
-      gravité: b.niveau as Gravité,
+      gravité: b.niveau,
     })),
   ];
 
