@@ -326,7 +326,7 @@ export function mountApp(root: HTMLElement): void {
       } else if (state.vue === "par-acteur") {
         // Même liste que le sélecteur du rail (§5.2) : un défaut piochant hors
         // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
-        const acteursDisponibles = state.mode === "fonctionnel" ? acteursMetier(model) : model.acteurs;
+        const acteursDisponibles = lecture.acteurs;
         if (!state.selectionActeur && acteursDisponibles.length > 0) {
           setState(withSelectionActeur(state, [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))[0].nom));
           return;
@@ -381,7 +381,7 @@ export function mountApp(root: HTMLElement): void {
       }
     }
 
-    renderRail(rail, state, lecture.flux, technologiesCourantes.sort((a, b) => a.localeCompare(b, "fr")), {
+    renderRail(rail, state, lecture, technologiesCourantes.sort((a, b) => a.localeCompare(b, "fr")), {
       onMode: (mode) => setState(withMode(state, mode)),
       onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
       onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),

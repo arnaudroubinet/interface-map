@@ -1,8 +1,8 @@
 import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
-import type { Mode, FlowInstance } from "../aggregation/core";
-import { acteursMetier } from "../aggregation/nature";
+import type { Mode } from "../aggregation/core";
+import type { Lecture } from "../aggregation/fonctionnel";
 import type { AppState, Vue } from "./state";
 import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
 
@@ -153,10 +153,15 @@ export function renderPiedDeRail(
 export function renderRail(
   root: HTMLElement,
   state: AppState,
-  flux: FlowInstance[],
+  // La MÊME lecture que les vues, et non le modèle entier : le rail proposait
+  // des acteurs que le palier affiché avait retirés, et en sélectionnait un
+  // tout seul faute de mieux -- l'utilisateur obtenait alors une boîte fantôme
+  // sans un mot d'explication.
+  lecture: Lecture,
   technologiesCourantes: string[],
   callbacks: RailCallbacks
 ): void {
+  const flux = lecture.flux;
   clear(root);
   if (!state.fichier) {
     renderPiedDeRail(root, callbacks);
@@ -220,9 +225,10 @@ export function renderRail(
 
   if (state.vue === "par-acteur") {
     const select = el("select", { class: "rail-selecteur" });
-    // Le sélecteur ne propose que les acteurs métier en fonctionnel (§5.2) :
-    // les techniques ont disparu des traits, les offrir n'aurait pas de sens.
-    const acteursDisponibles = state.mode === "fonctionnel" ? acteursMetier(state.fichier.model) : state.fichier.model.acteurs;
+    // Le sélecteur ne propose que ce que la lecture courante retient : les
+    // acteurs techniques disparaissent en fonctionnel (§5.2), les retirés
+    // disparaissent au palier où ils le sont.
+    const acteursDisponibles = lecture.acteurs;
     for (const acteur of [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))) {
       const option = el("option", { value: acteur.nom }, [acteur.nom]);
       if (acteur.nom === state.selectionActeur) option.selected = true;
