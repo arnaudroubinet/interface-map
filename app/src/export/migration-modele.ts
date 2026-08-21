@@ -1,4 +1,4 @@
-import type { Consommation, ParsedModel } from "../parsing/model";
+import type { Consommation, InterfaceCatalogue, ParsedModel } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { libelleInterface, buildInterfaceLookup, findInterfaceForConsommation } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
@@ -243,11 +243,14 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
 ];
 
 // Chaque relais de la v3 retrouve la consommation qu'il désignait : celle du
-// relayeur qui porte ce nom de flux. Ce qui ne se retrouve pas est laissé tel
-// quel plutôt qu'inventé -- le contrôle d'intégrité le réclamera, ce qui vaut
-// mieux qu'un lien fabriqué.
+// relayeur qui porte ce nom de flux. Ce qui ne se retrouve pas n'est pas
+// inventé -- un lien fabriqué serait pire --, mais il n'est pas perdu pour
+// autant : le nom que la v3 portait est recopié dans les commentaires de
+// l'interface. Sans cette ligne, la case disparaissait à la conversion et
+// personne n'apprenait jamais ce que le classeur disait avant.
 function deplacerLesRelais(model: ParsedModel): ParsedModel {
   const republications = new Map<Consommation, string>();
+  const perdus = new Map<InterfaceCatalogue, string[]>();
   for (const iface of model.interfaces) {
     for (const cible of iface.relais.split(";").map((c) => c.trim()).filter(Boolean)) {
       const entrée = model.consommations.find(
@@ -257,11 +260,18 @@ function deplacerLesRelais(model: ParsedModel): ParsedModel {
           !republications.has(c)
       );
       if (entrée) republications.set(entrée, libelleInterface(iface.nomDuFlux, iface.version));
+      else perdus.set(iface, [...(perdus.get(iface) ?? []), cible]);
     }
   }
-  if (republications.size === 0) return model;
+  if (republications.size === 0 && perdus.size === 0) return model;
   return {
     ...model,
+    interfaces: model.interfaces.map((i) => {
+      const noms = perdus.get(i);
+      if (!noms) return i;
+      const note = `Schema v3 relayed: ${noms.join(", ")} — no consumption of "${i.acteurExposant}" matched, set "Republished as" by hand.`;
+      return { ...i, commentaires: [i.commentaires.trim(), note].filter(Boolean).join(" ") };
+    }),
     consommations: model.consommations.map((c) => ({ ...c, republiePar: republications.get(c) ?? c.republiePar })),
   };
 }

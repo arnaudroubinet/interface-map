@@ -443,3 +443,52 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
     expect(donnees.groupes.map((g) => g[0])).toEqual(modeleOrigine().groupes.map((g) => g.nom));
   });
 });
+
+// --- QA : la v3 portait la lecture fonctionnelle sur la LIGNE D'INTERFACE,
+// dans une colonne « Relays » qui nommait plusieurs flux d'entrée. La v4 la
+// porte sur la consommation. Ce qui se retrouve est déplacé ; ce qui ne se
+// retrouve pas disparaissait de la conversion sans un mot, et le classeur
+// converti ne disait plus nulle part qu'un relais avait été déclaré.
+describe("mise à niveau — les relais de la v3", () => {
+  const modeleV3 = (relais: string): ParsedModel => {
+    const b = modeleOrigine();
+    return {
+      ...b,
+      versionModele: 3,
+      paliers: [base.palier({ nom: "v1", rang: 1 })],
+      acteurs: [...b.acteurs, base.acteur({ nom: "Bus", groupe: "Socle" })],
+      interfaces: [
+        ...b.interfaces,
+        base.iface({
+          nomDuFlux: "Republié", version: "1.0", acteurExposant: "Bus",
+          feuilleAttendue: "FX_Bus_HTTP", commentaires: "note", relais,
+        }),
+      ],
+      consommations: [
+        ...b.consommations,
+        base.conso({ nomDuFlux: "Authent", acteurConsommateur: "Bus", feuille: "FX_Tatooine_HTTP" }),
+      ],
+      fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
+    };
+  };
+
+  const relire = (m: ParsedModel) => {
+    const relu = buildModel(parseWorkbook(écrireModele(mettreANiveau(m, LE_JOUR))));
+    if (!relu.ok) throw new Error("classeur illisible");
+    return relu.model;
+  };
+
+  it("porte le relais sur la consommation qu'il désignait", () => {
+    const m = relire(modeleV3("Authent"));
+    const entrée = m.consommations.find((c) => c.acteurConsommateur === "Bus")!;
+    expect(entrée.republiePar).toBe("Republié 1.0");
+  });
+
+  it("garde dans le classeur le relais qu'il n'a pas su placer", () => {
+    const m = relire(modeleV3("Introuvable"));
+    expect(m.consommations.every((c) => c.republiePar === "")).toBe(true);
+    const iface = m.interfaces.find((i) => i.nomDuFlux === "Republié")!;
+    expect(iface.commentaires).toContain("note");
+    expect(iface.commentaires).toContain("Introuvable");
+  });
+});
