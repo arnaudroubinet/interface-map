@@ -11,6 +11,47 @@ export interface BannerCallbacks {
   onExportLikeC4: () => void;
 }
 
+// La table des exports. Sept aujourd'hui, et un huitième ne devrait pas obliger
+// à retrouver, dans quatre-vingts lignes de boutons, laquelle des quatre règles
+// de désactivation lui ressemble. Elles sont ici, côte à côte, en une colonne :
+// la question « laquelle s'applique à moi » se répond en lisant les voisines.
+//
+// Le test de render.test.ts compare cette liste à ce que la page d'aide
+// documente, exactement comme il le fait déjà pour les vues du rail : un
+// huitième format ne peut donc pas arriver sans sa ligne d'explication.
+export interface FormatExport {
+  libellé: string;
+  rappel: keyof BannerCallbacks;
+  // `dessinDisponible` dit qu'un schéma est à l'écran et prêt à être rendu.
+  actif: (state: AppState, dessinDisponible: boolean) => boolean;
+}
+
+const surUnSchéma = (state: AppState, dessinDisponible: boolean) =>
+  state.fichier !== null && state.vue !== "matrice" && state.vue !== "controles" && dessinDisponible;
+
+// Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
+// les DSL une vue par planche -- donc aucun ne dépend de la vue ouverte.
+const surTout = (state: AppState) => state.fichier !== null && state.vue !== "mise-a-niveau";
+
+export const EXPORTS: FormatExport[] = [
+  { libellé: "SVG", rappel: "onExportSvg", actif: surUnSchéma },
+  { libellé: "PNG", rappel: "onExportPng", actif: surUnSchéma },
+  // La matrice n'est pas un dessin : ce qu'on veut en emporter, c'est le
+  // tableau, dans l'outil où on le trie et le filtre.
+  { libellé: "Excel", rappel: "onExportXlsx", actif: (s) => s.fichier !== null && s.vue === "matrice" },
+  // Le rapport n'est ni un dessin ni un tableau : c'est une liste de lignes à
+  // corriger, chacune avec son adresse. Emportée en Markdown, elle se colle
+  // dans un ticket et se traite sans rouvrir l'outil.
+  { libellé: "Markdown", rappel: "onExportMarkdown", actif: (s) => s.fichier !== null && s.vue === "controles" },
+  // draw.io est un dessin : il suit le mode de lecture.
+  { libellé: "draw.io", rappel: "onExportDrawio", actif: surTout },
+  // Structurizr et LikeC4 décrivent un modèle C4, c'est-à-dire une
+  // ARCHITECTURE ; un schéma fonctionnel n'en est pas un, et livrer un fichier
+  // qui raconte autre chose que l'écran est ce qu'on s'interdit ailleurs.
+  { libellé: "Structurizr", rappel: "onExportStructurizr", actif: (s) => surTout(s) && s.mode !== "fonctionnel" },
+  { libellé: "LikeC4", rappel: "onExportLikeC4", actif: (s) => surTout(s) && s.mode !== "fonctionnel" },
+];
+
 export function renderBanner(
   root: HTMLElement,
   state: AppState,
@@ -43,51 +84,10 @@ export function renderBanner(
   }
   root.appendChild(etat);
 
-  const exportable = state.fichier !== null && state.vue !== "matrice" && state.vue !== "controles" && exportDisponible;
-
-  const boutonSvg = el("button", { class: "bouton-export" }, ["SVG"]);
-  boutonSvg.disabled = !exportable;
-  boutonSvg.addEventListener("click", callbacks.onExportSvg);
-  root.appendChild(boutonSvg);
-
-  const boutonPng = el("button", { class: "bouton-export" }, ["PNG"]);
-  boutonPng.disabled = !exportable;
-  boutonPng.addEventListener("click", callbacks.onExportPng);
-  root.appendChild(boutonPng);
-
-  // La matrice n'est pas un dessin : ce qu'on veut en emporter, c'est le
-  // tableau, dans l'outil où on le trie et le filtre.
-  const boutonXlsx = el("button", { class: "bouton-export" }, ["Excel"]);
-  boutonXlsx.disabled = state.fichier === null || state.vue !== "matrice";
-  boutonXlsx.addEventListener("click", callbacks.onExportXlsx);
-  root.appendChild(boutonXlsx);
-
-  // Le rapport n'est ni un dessin ni un tableau : c'est une liste de lignes à
-  // corriger, chacune avec son adresse. Emportée en Markdown, elle se colle
-  // dans un ticket et se traite sans rouvrir l'outil.
-  const boutonMarkdown = el("button", { class: "bouton-export" }, ["Markdown"]);
-  boutonMarkdown.disabled = state.fichier === null || state.vue !== "controles";
-  boutonMarkdown.addEventListener("click", callbacks.onExportMarkdown);
-  root.appendChild(boutonMarkdown);
-
-  // Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
-  // les DSL une vue par planche. Aucun ne dépend donc de la vue ouverte,
-  // seulement du classeur et du palier affiché.
-  //
-  // draw.io est un dessin : il suit le mode. Structurizr et LikeC4 décrivent un
-  // modèle C4, c'est-à-dire une ARCHITECTURE ; un schéma fonctionnel n'en est
-  // pas un, et livrer un fichier qui raconte autre chose que l'écran est
-  // précisément ce qu'on s'interdit ailleurs.
-  const architectureSeule = state.mode === "fonctionnel";
-  for (const [libellé, action] of [
-    ["draw.io", callbacks.onExportDrawio],
-    ["Structurizr", callbacks.onExportStructurizr],
-    ["LikeC4", callbacks.onExportLikeC4],
-  ] as const) {
-    const bouton = el("button", { class: "bouton-export" }, [libellé]);
-    bouton.disabled =
-      state.fichier === null || state.vue === "mise-a-niveau" || (libellé !== "draw.io" && architectureSeule);
-    bouton.addEventListener("click", action);
+  for (const format of EXPORTS) {
+    const bouton = el("button", { class: "bouton-export" }, [format.libellé]);
+    bouton.disabled = !format.actif(state, exportDisponible);
+    bouton.addEventListener("click", callbacks[format.rappel]);
     root.appendChild(bouton);
   }
 }

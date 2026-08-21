@@ -1,9 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { buildAide, vuesDocumentees } from "./aide";
+import { buildAide, vuesDocumentees, exportsDocumentes } from "./aide";
 // La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à
 // dépendre du rail pour être écrite, elle doit seulement rester d'accord avec
 // lui. C'est au test de tenir les deux bouts.
 import { VUES } from "../ui/rail";
+import { EXPORTS } from "../ui/banner";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icones";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
@@ -244,6 +245,13 @@ describe("buildIntegrityReport — actions", () => {
 describe("buildAide", () => {
   it("documente chaque vue du rail, et rien de plus", () => {
     expect(vuesDocumentees().sort()).toEqual(VUES.map((v) => v.label).sort());
+  });
+
+  // Le même dispositif que pour les vues : un huitième export ne peut pas
+  // arriver sans sa ligne d'explication. C'est la meilleure couture du projet,
+  // et elle ne servait qu'à moitié.
+  it("documente chaque export proposé, et rien de plus", () => {
+    expect(exportsDocumentes().sort()).toEqual(EXPORTS.map((e) => e.libellé).sort());
   });
 
   it("explique les deux lectures et les deux colonnes qui les portent", () => {

@@ -97,9 +97,17 @@ const SECTIONS: Section[] = [
   {
     titre: "The exports",
     paragraphes: [
-      "Seven, each for a different destination. SVG and PNG render what is on screen. Excel exports the matrix. Markdown exports the integrity report, ready to paste into a ticket.",
-      "draw.io carries every diagram, one per tab, and follows the reading mode.",
-      "Structurizr and LikeC4 describe the park as a C4 model rather than a picture: they export the architecture only, since C4 describes an architecture. Their relationships follow the same rule as the diagrams -- provider towards consumer -- and a C4 relationship has only one direction, so a pulled one is tagged rather than reversed.",
+      "Each goes to a different destination, and each button lights up only where its export makes sense — that is why some are greyed out on some views.",
+      "Structurizr and LikeC4 describe the park as a C4 model rather than a picture, so they export the architecture only. Their relationships follow the same rule as the diagrams — provider towards consumer — and since a C4 relationship has only one direction, a pulled one is tagged rather than reversed.",
+    ],
+    definitions: [
+      ["SVG", "The diagram on screen, as a vector file that stands on its own."],
+      ["PNG", "The same diagram rasterised at twice the size, for a slide or a ticket."],
+      ["Excel", "The matrix as a sheet, to sort and filter it where you already do that."],
+      ["Markdown", "The integrity report, ready to paste into a ticket, each line with its address."],
+      ["draw.io", "Every diagram, one per tab, following the reading mode."],
+      ["Structurizr", "The whole park as a Structurizr DSL model — architecture only."],
+      ["LikeC4", "The same park as a LikeC4 model — architecture only."],
     ],
   },
   {
@@ -135,6 +143,15 @@ export function buildAide(): HTMLElement {
 // une ligne ici. Une documentation qui prend du retard est pire que pas de
 // documentation : elle affirme.
 export function vuesDocumentees(): string[] {
-  const vues = SECTIONS.find((s) => s.titre === "The views");
-  return (vues?.definitions ?? []).map(([terme]) => terme);
+  return termesDe("The views");
+}
+
+// Même dispositif pour les exports : un huitième format ne peut pas arriver
+// sans sa ligne ici, le test s'en assure.
+export function exportsDocumentes(): string[] {
+  return termesDe("The exports");
+}
+
+function termesDe(titre: string): string[] {
+  return (SECTIONS.find((s) => s.titre === titre)?.definitions ?? []).map(([terme]) => terme);
 }
