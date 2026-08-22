@@ -637,6 +637,10 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
 
   const defs = el("defs");
   const couleursAvecFlèche = new Set(renderEdges.filter((e) => e.fleche).map((e) => couleurArête(e, colorFor)));
+  // La légende dessine ses propres échantillons fléchés : leur marqueur doit
+  // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
+  // qu'elle explique une notation en ne la montrant pas.
+  if (entrées.some((e) => e.échantillon.forme === "trait" && e.échantillon.pointe)) couleursAvecFlèche.add(ENCRE);
   for (const couleur of couleursAvecFlèche) ajouterMarqueurFlèche(defs, couleur);
   svg.appendChild(defs);
 
