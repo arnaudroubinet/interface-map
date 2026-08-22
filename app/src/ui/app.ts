@@ -111,6 +111,11 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
     components: view.nodes.filter((n) => n.kind !== "boundary").length,
     flows: view.edges.length,
     technologies: new Set(view.edges.map((e) => e.technology).filter(Boolean)).size,
+    // The by-actor board is the C4 context view: "the nearest inbound and
+    // outbound dependencies". elk.direction RIGHT already lays the inbound on
+    // the left and the outbound on the right -- it just never said so, and a
+    // reader had no reason to think the two sides meant anything.
+    layoutNote: state.view === "by-actor" ? "inbound left, outbound right" : undefined,
   };
 }
 

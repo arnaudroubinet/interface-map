@@ -102,6 +102,27 @@
     width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;
     background: var(--surface); color: var(--ink);
   }
+  /* Un champ de recherche à la place d'une liste déroulante de N acteurs : au
+     delà d'une vingtaine, une liste ne se parcourt plus. */
+  .rail-search-block { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .rail-search {
+    width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;
+    background: var(--surface); color: var(--ink); box-sizing: border-box;
+  }
+  .rail-search:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* La liste défile plutôt que de pousser le reste du rail hors de l'écran :
+     les filtres et le pied de rail restent atteignables. */
+  .rail-suggestions {
+    max-height: 220px; overflow-y: auto; flex-shrink: 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .rail-suggestion {
+    text-align: left; border: none; background: none; color: var(--ink);
+    padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  }
+  .rail-suggestion:hover { background: var(--ground); }
+  .rail-suggestion[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+  .rail-suggestion:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .rail-options {
     border: none; padding: 0 0 16px 0; margin: 0; border-bottom: 1px solid var(--line);
     display: flex; flex-direction: column; gap: 6px; font-size: 13px;

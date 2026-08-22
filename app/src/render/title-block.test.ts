@@ -18,6 +18,20 @@ describe("titleBlockText", () => {
     expect(titleBlockText(ctx()).title).toBe("Platform detail — architecture reading, milestone v2");
   });
 
+  // --- QA: the by-actor board IS the C4 context view -- "the nearest inbound
+  // and outbound dependencies" -- and elk.direction RIGHT already lays the
+  // inbound on the left and the outbound on the right. Nothing said so, so the
+  // reader had to guess that the two sides meant anything at all.
+  it("carries the note a board wants to add about its own layout", () => {
+    expect(titleBlockText(ctx({ layoutNote: "inbound left, outbound right" })).title).toContain(
+      "inbound left, outbound right"
+    );
+  });
+
+  it("says nothing extra when a board has no note", () => {
+    expect(titleBlockText(ctx()).title).toBe("Platform detail — architecture reading, milestone v2");
+  });
+
   // A workbook with no milestone must not display "milestone null".
   it("says nothing of the milestone when the workbook declares none", () => {
     expect(titleBlockText(ctx({ milestone: null })).title).toBe("Platform detail — architecture reading");

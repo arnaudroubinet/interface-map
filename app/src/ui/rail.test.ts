@@ -106,7 +106,20 @@ const callbacks: RailCallbacks = {
 };
 
 function actorOptions(root: HTMLElement): string[] {
-  return [...root.querySelectorAll(".rail-select option")].map((o) => o.textContent ?? "");
+  return [...root.querySelectorAll(".rail-suggestion")].map((o) => o.textContent ?? "");
+}
+
+function type(root: HTMLElement, text: string): void {
+  const field = root.querySelector("input.rail-search") as HTMLInputElement;
+  field.value = text;
+  field.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+function byActor(): AppState {
+  return withView(
+    withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }),
+    "by-actor"
+  );
 }
 
 describe("renderRail — the \"by actor\" selector", () => {
@@ -246,5 +259,65 @@ describe("renderRail — what a line's label names", () => {
     const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, pngScale: 2 as const, weightByCriticality: false } };
     const select = rendered(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
+  });
+});
+
+// --- A5: a drop-down of N actors is not browsed beyond twenty, and the
+// by-actor board is the one opened most on a real referential. The selector
+// was the longest list in the tool, with no way to reach a name except by
+// scrolling to it.
+describe("renderRail — the by-actor search field", () => {
+  function rendered(state: AppState = byActor()): HTMLElement {
+    const root = document.createElement("div");
+    renderRail(root, state, flows(state), [], callbacks);
+    return root;
+  }
+
+  it("offers a filtering search field rather than a drop-down", () => {
+    const root = rendered();
+    expect(root.querySelector("input.rail-search")).not.toBeNull();
+    expect(root.querySelector(".rail-suggestions")).not.toBeNull();
+  });
+
+  it("lists every actor of the reading while nothing is typed", () => {
+    expect(actorOptions(rendered())).toEqual(["Bus", "Tatooine"]);
+  });
+
+  it("keeps only the actors whose name holds what was typed", () => {
+    const root = rendered();
+    type(root, "tat");
+    expect(actorOptions(root)).toEqual(["Tatooine"]);
+  });
+
+  // normalizeText is already written and used everywhere a name is matched:
+  // the field must not be the one place where an accent or a capital decides.
+  it("filters up to case and accents", () => {
+    const root = rendered();
+    type(root, "BÙS");
+    expect(actorOptions(root)).toEqual(["Bus"]);
+  });
+
+  it("shows nothing rather than everything when no name matches", () => {
+    const root = rendered();
+    type(root, "zzz");
+    expect(actorOptions(root)).toEqual([]);
+  });
+
+  // The selection stays in state.actorSelection -- the field holds no state of
+  // its own, so there is no second truth to keep in step with the first.
+  it("marks the selected actor without holding the selection itself", () => {
+    const root = rendered(withActorSelection(byActor(), "Bus"));
+    const marked = [...root.querySelectorAll(".rail-suggestion[aria-current='true']")].map((e) => e.textContent);
+    expect(marked).toEqual(["Bus"]);
+  });
+
+  it("announces the chosen actor when a suggestion is clicked", () => {
+    let chosen = "";
+    const state = byActor();
+    const root = document.createElement("div");
+    renderRail(root, state, flows(state), [], { ...callbacks, onActorSelection: (a) => (chosen = a) });
+    const suggestion = [...root.querySelectorAll(".rail-suggestion")].find((e) => e.textContent === "Bus");
+    (suggestion as HTMLButtonElement).click();
+    expect(chosen).toBe("Bus");
   });
 });

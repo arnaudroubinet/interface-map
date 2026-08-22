@@ -120,11 +120,10 @@ describe("by-actor view — a business actor isolated in the functional reading"
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
     buttonByLabel(root, "By actor").click();
-    const actorSelect = [...root.querySelectorAll("select")].find((s) =>
-      [...s.options].some((o) => o.value === "Ghost")
-    ) as HTMLSelectElement;
-    actorSelect.value = "Ghost";
-    actorSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    // The by-actor selector is a search field: the actor is chosen by clicking
+    // its suggestion, not by setting a select's value.
+    const suggestion = [...root.querySelectorAll(".rail-suggestion")].find((e) => e.textContent === "Ghost");
+    (suggestion as HTMLButtonElement).click();
 
     await vi.waitFor(() => {
       if (!root.querySelector("svg")) throw new Error("schéma pas encore dessiné");

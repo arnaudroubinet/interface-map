@@ -7,6 +7,8 @@ import { availableChains } from "../aggregation/chain";
 import type { Neighbourhood } from "../aggregation/impact";
 import type { RoadmapSubject } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
+import { normalizeText } from "../shared/text";
+import type { Actor } from "../parsing/model";
 
 // The reading order goes from the shortest to the most complete.
 const EDGE_LABELS: [EdgeLabelMode, string][] = [
@@ -169,6 +171,48 @@ function filterBlock(
   return block;
 }
 
+// A drop-down of N actors is not browsed beyond twenty, and on a real
+// referential the by-actor board is the one opened most: its selector was the
+// longest list in the tool, with no way to reach a name except by scrolling to
+// it. The field filters as one types; the list under it is what a click
+// chooses from.
+//
+// It holds NO state of its own. What was typed lives in the field and dies
+// with the next render; the chosen actor lives where it always did, in
+// state.actorSelection. A second copy of the selection would be a second truth
+// to keep in step with the first.
+function actorSearch(actors: readonly Actor[], selected: string | null, onPick: (name: string) => void): HTMLElement {
+  const block = el("div", { class: "rail-search-block" });
+  const field = el("input", {
+    class: "rail-search",
+    type: "search",
+    placeholder: "Search an actor",
+    "aria-label": "Search an actor",
+  });
+  const list = el("div", { class: "rail-suggestions" });
+  const sorted = [...actors].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+
+  // The same normalisation as everywhere a name is matched in this project: the
+  // field must not be the one place where an accent or a capital decides.
+  const fill = (): void => {
+    const sought = normalizeText(field.value);
+    clear(list);
+    for (const actor of sorted.filter((a) => normalizeText(a.name).includes(sought))) {
+      const suggestion = el("button", { class: "rail-suggestion", type: "button" }, [actor.name]);
+      // `aria-current` rather than a class alone: a screen reader must know
+      // which of the names is the one the board is drawing.
+      if (actor.name === selected) suggestion.setAttribute("aria-current", "true");
+      suggestion.addEventListener("click", () => onPick(actor.name));
+      list.appendChild(suggestion);
+    }
+  };
+
+  field.addEventListener("input", fill);
+  fill();
+  block.append(field, list);
+  return block;
+}
+
 // The rail's foot: something to start from. It shows even with no workbook
 // loaded -- that is precisely when one looks for a template or a sample.
 export function renderRailFoot(
@@ -266,18 +310,10 @@ export function renderRail(
   }
 
   if (state.view === "by-actor") {
-    const select = el("select", { class: "rail-select" });
     // The selector offers only what the current reading keeps: the technical
     // actors disappear in the functional reading (§5.2), the retired ones
     // disappear at the milestone where they are.
-    const availableActors = reading.actors;
-    for (const actor of [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
-      const option = el("option", { value: actor.name }, [actor.name]);
-      if (actor.name === state.actorSelection) option.selected = true;
-      select.appendChild(option);
-    }
-    select.addEventListener("change", () => callbacks.onActorSelection(select.value));
-    root.appendChild(select);
+    root.appendChild(actorSearch(reading.actors, state.actorSelection, callbacks.onActorSelection));
 
     // How far to carry the eye. "What depends on it" answers the question asked
     // on the day a migration has to be arbitrated: if this actor falls, who is

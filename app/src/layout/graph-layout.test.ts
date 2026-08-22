@@ -200,3 +200,49 @@ describe("restreindreLayout", () => {
     expect(restrictLayout(avecFrontiere, atMilestone).nodes.map((n) => n.id)).toContain("__frontiere__");
   });
 });
+
+// --- A5: the by-actor board is the C4 context view, and its title block now
+// ASSERTS that the inbound sits on the left and the outbound on the right. That
+// is a property of elk.direction RIGHT applied to edges drawn provider →
+// consumer -- not a wish. A claim a diagram makes about itself is worth a test:
+// flip elk.direction to DOWN and the title block starts lying, in the one place
+// a reader has no way to check.
+describe("computeLayout — what the by-actor title block claims", () => {
+  it("puts what feeds the focus on its left and what it feeds on its right", async () => {
+    const nodes: GraphNode[] = [
+      { id: "Upstream", label: "Upstream", kind: "actor" },
+      { id: "Focus", label: "Focus", kind: "focus-actor" },
+      { id: "Downstream", label: "Downstream", kind: "actor" },
+    ];
+    // Both edges follow the DATA, provider to consumer: Focus consumes from
+    // Upstream and supplies Downstream.
+    const edges: GraphEdge[] = [
+      { from: "Upstream", to: "Focus", technology: "HTTP", count: 1, label: "HTTP", attenuated: false },
+      { from: "Focus", to: "Downstream", technology: "HTTP", count: 1, label: "HTTP", attenuated: false },
+    ];
+
+    const layout = await computeLayout(nodes, edges);
+    const x = (id: string) => layout.nodes.find((n) => n.id === id)!.x;
+
+    expect(x("Upstream")).toBeLessThan(x("Focus"));
+    expect(x("Focus")).toBeLessThan(x("Downstream"));
+  });
+
+  // A pulled flow does not change the line's direction -- only the arrowhead's
+  // end. So it must not change which side of the focus the neighbour lands on,
+  // which is the half of the claim a reader is most likely to doubt.
+  it("does not let a pulled flow move a neighbour to the other side", async () => {
+    const nodes: GraphNode[] = [
+      { id: "Upstream", label: "Upstream", kind: "actor" },
+      { id: "Focus", label: "Focus", kind: "focus-actor" },
+    ];
+    const edges: GraphEdge[] = [
+      { from: "Upstream", to: "Focus", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, pulled: true },
+    ];
+
+    const layout = await computeLayout(nodes, edges);
+    const x = (id: string) => layout.nodes.find((n) => n.id === id)!.x;
+
+    expect(x("Upstream")).toBeLessThan(x("Focus"));
+  });
+});

@@ -16,14 +16,21 @@ export interface DiagramContext {
   // What the board counts, when "components and flows" means nothing: a roadmap
   // counts rows and milestones, not boxes and lines.
   detail?: string;
+  // What a board wants to say about its own layout, when the layout carries
+  // meaning the drawing does not spell out. The by-actor board is the C4
+  // context view -- the nearest inbound and outbound dependencies -- and
+  // elk.direction RIGHT already puts the inbound on the left and the outbound
+  // on the right. Nothing said so, so the two sides read as an accident.
+  layoutNote?: string;
 }
 
 const singularOrPlural = (n: number, word: string, plural = `${word}s`) => `${n} ${n > 1 ? plural : word}`;
 
 export function titleBlockText(c: DiagramContext): { title: string; subtitle: string } {
   const milestone = c.milestone ? `, milestone ${c.milestone}` : "";
+  const note = c.layoutNote ? ` (${c.layoutNote})` : "";
   return {
-    title: `${c.title} — ${c.reading} reading${milestone}`,
+    title: `${c.title} — ${c.reading} reading${milestone}${note}`,
     subtitle: `${c.source} · ${c.detail ?? `${singularOrPlural(c.components, "component")}, ${singularOrPlural(c.flows, "flow")}`} · ${c.date}`,
   };
 }
