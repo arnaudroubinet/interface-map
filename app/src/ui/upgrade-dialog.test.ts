@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { openMigration } from "./upgrade-dialog";
 import { writeTemplate, type WorkbookData } from "../export/template-export";
+import { readReferentialUrls } from "../export/datamashup";
+import { downloadWorkbook } from "../export/download";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
@@ -58,5 +60,31 @@ describe("openMigration — the try-again button", () => {
 
     const button = zone.querySelector(".export-button");
     expect(button?.textContent?.trim()).toBe("Convert another file");
+  });
+});
+
+
+// The repair rebuilds every sheet, and the referential URLs are in none of
+// them: they live in the binary Power Query stream. Handing back a workbook
+// whose queries have quietly gone is exactly what the specification forbids of
+// the migration.
+describe("openMigration — the referential queries survive the repair", () => {
+  const REFERENTIALS = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+
+  it("puts the dropped workbook's URLs back into the repaired one", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    document.body.innerHTML = "";
+    openMigration();
+    const zone = document.querySelector(".migration-target") as HTMLElement;
+
+    const buffer = writeTemplate({ ...emptyData, referentials: REFERENTIALS });
+    drop(zone, { name: "ok.xlsx", arrayBuffer: async () => buffer } as unknown as File);
+
+    await vi.waitFor(() => {
+      if (!zone.querySelector(".export-button")) throw new Error("not repaired yet");
+    });
+
+    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+    expect(await readReferentialUrls(vi.mocked(downloadWorkbook).mock.calls[0][0])).toEqual(REFERENTIALS);
   });
 });

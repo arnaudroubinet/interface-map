@@ -3,6 +3,7 @@ import { wireDropZone, UNREADABLE_WORKBOOK_MESSAGE } from "./drop-zone";
 import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
+import { readReferentialUrls } from "../export/datamashup";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
@@ -61,10 +62,14 @@ export function openMigration(): void {
     message.textContent = "Converting…";
     file
       .arrayBuffer()
-      .then((bytes) => {
+      .then(async (bytes) => {
         const repair = repairWorkbook(bytes);
         const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
-        const workbook = writeTemplate(repair.data);
+        // The repair rebuilds the sheets, and the referential URLs are not in
+        // the sheets: they live in the binary Power Query stream. Only the
+        // dropped bytes still hold them, so they are read back and put in --
+        // otherwise repairing a workbook would silently erase its queries.
+        const workbook = writeTemplate({ ...repair.data, referentials: await readReferentialUrls(bytes) });
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
 
         // The checks are run over what has just been written: announcing "there
