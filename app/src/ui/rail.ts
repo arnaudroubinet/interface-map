@@ -256,6 +256,12 @@ function referentialBlock(
   onChange: (urls: ReferentialUrls) => void,
   onDownload: () => void
 ): HTMLElement {
+  // What the block currently shows, kept here rather than read back from the
+  // render it was born in. Editing a URL does not redraw the rail -- see
+  // onReferentials in app.ts -- so the second field would otherwise report the
+  // first one's value as it stood before the edit, silently undoing it.
+  const shown: ReferentialUrls = { ...current };
+
   const block = el("div", { class: "rail-referential" });
   block.appendChild(el("h3", { class: "rail-referential-title" }, ["External referential"]));
 
@@ -267,7 +273,10 @@ function referentialBlock(
       placeholder: "https://…/referential.csv",
     });
     input.value = value;
-    input.addEventListener("change", () => onChange({ ...current, [key]: input.value.trim() }));
+    input.addEventListener("change", () => {
+      shown[key] = input.value.trim();
+      onChange({ ...shown });
+    });
     wrapper.appendChild(input);
     return wrapper;
   };

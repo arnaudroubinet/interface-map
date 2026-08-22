@@ -283,15 +283,21 @@ export function mountApp(root: HTMLElement): void {
   // are NOT: they live in the binary Power Query stream. Whoever rewrites the
   // file must therefore put them back, failing which any schema change would
   // wipe the queries -- which the specification forbids.
-  function downloadLoaded(file: LoadedFile, filename: string, data: WorkbookData): void {
-    downloadTemplateXlsx(filename, { ...data, referentials: file.referentials });
+  //
+  // The file is read from the state at click time and never closed over: the
+  // URLs are edited in place, without a render (see onReferentials), so a
+  // handler holding the file it was built with would carry the URLs as they
+  // were when its screen was drawn.
+  function downloadLoaded(filename: string, data: WorkbookData): void {
+    if (!state.file) return;
+    downloadTemplateXlsx(filename, { ...data, referentials: state.file.referentials });
   }
 
   // The workbook, rewritten with the URLs now on screen. The tool never goes
   // to the network: it writes the query, Excel does the loading.
   function downloadWithReferentials(): void {
     if (!state.file) return;
-    downloadLoaded(state.file, state.file.name, dataFromModel(state.file.model));
+    downloadLoaded(state.file.name, dataFromModel(state.file.model));
   }
 
   // The seven exports live in their own module: they depend only on the state,
@@ -365,7 +371,7 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(
         buildUpgradeScreen(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
-          downloadLoaded(file, `${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
+          downloadLoaded(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
         })
       );
     } else if (state.view === "changes") {
@@ -622,7 +628,16 @@ export function mountApp(root: HTMLElement): void {
       onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: migrationLegacyHandler,
-      onReferentials: (urls) => setState(withReferentials(withMessageBandeau(state, null), urls)),
+      // The one transition that does NOT re-render. The `change` event fires on
+      // blur, so editing one field and clicking straight into the other has the
+      // rail rebuilt between the mousedown and the mouseup: the click landed on
+      // a node that no longer existed, and the second field never took focus.
+      // The inputs already show what was typed and nothing else on screen reads
+      // the URLs, so there is nothing to redraw -- only the state to bring up to
+      // date, for the three paths that rewrite the workbook.
+      onReferentials: (urls) => {
+        state = withReferentials(state, urls);
+      },
       onDownloadWithReferentials: downloadWithReferentials,
       onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
       onActorHidden: (actor, hidden) => setState(withActorHidden(withMessageBandeau(state, null), actor, hidden)),

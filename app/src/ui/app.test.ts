@@ -396,3 +396,65 @@ describe("Upgrade — the referential queries survive the rewrite", () => {
     expect(await readReferentialUrls(written)).toEqual(REFERENTIALS);
   });
 });
+
+
+// Editing a URL and clicking straight into the OTHER field used to lose the
+// click: `change` fires on blur, the rail was rebuilt between the mousedown and
+// the mouseup, and the second field never took focus. The edit therefore
+// updates the state WITHOUT a render -- and the paths that rewrite the workbook
+// read the state at click time, so they must still see what was just typed.
+describe("External referential — editing a URL without redrawing the rail", () => {
+  async function loadedApp(): Promise<HTMLElement> {
+    // Attached to the document: in jsdom a detached node cannot take focus, and
+    // the focus is half of what this describe block checks.
+    document.body.innerHTML = "";
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    mountApp(root);
+    dropFile(root);
+    await vi.waitFor(() => {
+      if (!root.querySelector("input.rail-referential-url")) throw new Error("rail not rendered yet");
+    });
+    return root;
+  }
+
+  const urlFields = (root: HTMLElement) =>
+    [...root.querySelectorAll("input.rail-referential-url")] as HTMLInputElement[];
+
+  function type(field: HTMLInputElement, value: string): void {
+    field.focus();
+    field.value = value;
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+
+  // The proxy for the browser defect: if the rail were rebuilt, both inputs
+  // would be different nodes and the focused one would be detached.
+  it("leaves both fields in place and keeps the focus where it was", async () => {
+    const root = await loadedApp();
+    const before = urlFields(root);
+    type(before[0], "https://ref/actors.csv");
+
+    const after = urlFields(root);
+    expect(after[0]).toBe(before[0]);
+    expect(after[1]).toBe(before[1]);
+    expect(document.activeElement).toBe(before[0]);
+  });
+
+  // Both fields edited in a row, exactly as the lost click would have had them:
+  // no render happened in between, so the second edit must have seen the first.
+  it("hands the rail's own download the two URLs just typed", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    const root = await loadedApp();
+    const fields = urlFields(root);
+    type(fields[0], "https://ref/actors.csv");
+    type(fields[1], "https://ref/technologies.csv");
+
+    buttonByLabel(root, "Download the workbook with these URLs").click();
+
+    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+    expect(await readReferentialUrls(vi.mocked(downloadWorkbook).mock.calls[0][0])).toEqual({
+      actors: "https://ref/actors.csv",
+      technologies: "https://ref/technologies.csv",
+    });
+  });
+});
