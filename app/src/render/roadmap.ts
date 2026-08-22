@@ -5,9 +5,9 @@ import { buildTitleBlock, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./titl
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
-// Une grille, pas un graphe : un axe, une ligne par sujet. Passer par le moteur
-// de placement coûterait cher et donnerait un moins bon résultat -- il n'a rien
-// à placer ici, tout est déterminé par le rang du palier.
+// A grid, not a graph: one axis, one row per subject. Going through the layout
+// engine would cost dearly and give a worse result -- it has nothing to place
+// here, everything is determined by the milestone's rank.
 const MARGE = 24;
 const LABEL_WIDTH = 300;
 const MILESTONE_WIDTH = 150;
@@ -38,7 +38,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
 
   const ranks = timeline.milestones.map((p) => p.rank);
   const minRank = ranks.length ? Math.min(...ranks) : 0;
-  // Une colonne de plus à droite : c'est là que se dessine « toujours là ».
+  // One more column on the right: that is where "still there" is drawn.
   const columns = ranks.length ? Math.max(...ranks) - minRank + 2 : 1;
   const x = (rank: number) => MARGE + LABEL_WIDTH + (rank - minRank) * MILESTONE_WIDTH;
 
@@ -57,8 +57,8 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
 
   if (context) svg.appendChild(buildTitleBlock(context, MARGE, MARGE));
 
-  // L'axe : une graduation par palier, avec son nom et sa date. Le palier
-  // affiché porte une verticale pleine -- c'est le « vous êtes ici ».
+  // The axis: one tick per milestone, with its name and its date. The displayed
+  // milestone carries a solid vertical -- that is the "you are here".
   for (const milestone of timeline.milestones) {
     const px = x(milestone.rank);
     const line = el("line");
@@ -91,8 +91,8 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
     toolbar.setAttribute("fill", style.fill);
     svg.appendChild(toolbar);
 
-    // Ouvert à droite : une pointe, pas un bord franc. Un bord franc dirait
-    // que la ligne s'arrête là, alors qu'elle n'a simplement pas de fin connue.
+    // Open on the right: a point, not a clean edge. A clean edge would say the
+    // row stops there, when it simply has no known end.
     if (s.openRight) {
       const head = el("path");
       head.setAttribute("d", `M${right} ${y + 4} L${right + 10} ${y + 11} L${right} ${y + 18} Z`);

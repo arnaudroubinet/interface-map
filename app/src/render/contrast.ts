@@ -1,9 +1,9 @@
-// La formule de luminance relative de WCAG 2. Deux raisons de la porter ici
-// plutôt que de faire confiance à l'œil : les fonds de boîte de l'outil
-// échouaient à 2,90:1 alors qu'ils « avaient l'air » contrastés, et cette même
-// formule EST celle du niveau de gris Rec. 709 -- corriger le contraste rend
-// donc le schéma lisible à l'impression en noir et blanc et pour un daltonien,
-// du même geste.
+// WCAG 2's relative luminance formula. Two reasons to carry it here rather
+// than trust the eye: the tool's box fills failed at 2.90:1 while "looking"
+// contrasted, and that very same formula IS the Rec. 709 grey level -- fixing
+// the contrast therefore makes the diagram legible in black-and-white print
+// and for a colour-blind reader, in one and the same move.
+//
 function canal(v: number): number {
   const c = v / 255;
   return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
@@ -24,9 +24,9 @@ export function contrastRatio(a: string, b: string): number {
   return (top + 0.05) / (bottom + 0.05);
 }
 
-// Assombrit par pas de 2 % jusqu'à atteindre la cible. On ne change JAMAIS la
-// teinte : une couleur déclarée au référentiel appartient à celui qui tient le
-// classeur, on ne fait que la rendre lisible.
+// Darkens in 2% steps until the target is met. The HUE is NEVER changed: a
+// colour declared in the referential belongs to whoever keeps the workbook;
+// all this does is make it legible.
 export function darkenTo(hex: string, target: number, sur = "#ffffff"): string {
   let [r, v, b] = composantes(hex);
   for (let i = 0; i < 200; i += 1) {

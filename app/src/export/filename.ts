@@ -16,8 +16,8 @@ export function buildExportFilename(
   ext: "svg" | "png" | "xlsx" | "md" | "drawio" | "dsl" | "c4",
   mode: Mode = "architecture"
 ): string {
-  // Le mode ne se dit qu'en fonctionnel : les noms produits jusqu'ici ne
-  // bougent pas, et deux exports du m\u00eame sch\u00e9ma ne peuvent plus se recouvrir.
+  // The mode is named only in the functional reading: the names produced so far
+  // do not move, and two exports of the same diagram can no longer collide.
   const parts = ["carto", ...(mode === "functional" ? ["functional"] : []), slug(view)];
   if (selection) parts.push(slug(selection));
   if (milestone) parts.push(milestone);

@@ -1,11 +1,11 @@
-// Les DSL d'architecture nomment leurs éléments par un mot ; le classeur, lui,
-// laisse écrire ce qu'on veut -- « Jakku », « Sonde réseau », « IF -
-// PRS ». La correspondance se fait ici, une fois, pour que les deux exports
-// nomment le même acteur de la même façon.
+// Architecture DSLs name their elements with a single word; the workbook, for
+// its part, lets anything be written -- "Jakku", "Network probe", "IF - PRS".
+// The mapping happens here, once, so that both exports name the same actor the
+// same way.
 //
-// L'unicité compte autant que la forme : deux noms distincts qui se réduisent
-// au même mot laisseraient un seul élément dans le fichier produit, et la
-// moitié des flux pointerait à côté sans que rien ne le dise.
+// Uniqueness matters as much as the shape: two distinct names reducing to the
+// same word would leave a single element in the produced file, and half the
+// flows would point elsewhere with nothing to say so.
 export function identifiers(names: string[]): Map<string, string> {
   const pris = new Set<string>();
   const table = new Map<string, string>();

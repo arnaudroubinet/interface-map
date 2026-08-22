@@ -3,13 +3,13 @@ const TYPES: Record<string, string> = {
   xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
 };
 
-// Quand « Toujours demander où enregistrer » est actif, le clic n'enregistre
-// rien : il ouvre une boîte de dialogue native, et le navigateur ne lit le blob
-// qu'une fois qu'on y a répondu. Révoquer l'URL au tick suivant, comme on le
-// faisait, la détruisait pendant que la boîte était encore ouverte -- le
-// téléchargement mourait alors en silence, sans erreur ni fichier. Le délai
-// couvre le temps qu'un humain met à choisir un dossier ; l'URL survit de toute
-// façon au plus jusqu'au rechargement de la page.
+// When "Always ask where to save" is on, the click saves nothing: it opens a
+// native dialog, and the browser only reads the blob once that dialog has been
+// answered. Revoking the URL on the next tick, as was done, destroyed it while
+// the dialog was still open -- the download then died in silence, with neither
+// an error nor a file. The delay covers the time a human takes to pick a
+// folder; the URL survives at most until the page reloads anyway.
+//
 const DELAI_REVOCATION_MS = 120_000;
 
 export function downloadText(content: string, fileName: string): void {
@@ -21,16 +21,16 @@ export function downloadWorkbook(bytes: ArrayBuffer, fileName: string): void {
   downloadBlob(new Blob([bytes], { type: TYPES[extension] ?? TYPES.xlsx }), fileName);
 }
 
-// Le seul endroit qui déclenche un téléchargement. Il n'y en avait pas un mais
-// trois, chacun avec sa copie du même piège.
+// The one and only place that triggers a download. There used to be three, not
+// one, each with its own copy of the same trap.
 export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
   a.download = fileName;
-  // Ancre attachée au document avant le clic : un clic synchrone sur une ancre
-  // détachée est connu pour échouer par intermittence hors Chrome (§2.4 exige
-  // aussi Firefox et Safari).
+  // Anchor attached to the document before the click: a synchronous click on a
+  // detached anchor is known to fail intermittently outside Chrome (§2.4 also
+  // requires Firefox and Safari).
   document.body.appendChild(a);
   a.click();
   a.remove();

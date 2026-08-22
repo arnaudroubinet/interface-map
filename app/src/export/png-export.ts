@@ -40,11 +40,11 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
 
       return { ok: true, blob };
     } finally {
-      // Révoquée seulement après le dessin (drawImage) et l'encodage
-      // (toBlob) : la révoquer entre le chargement de l'image et son
-      // utilisation dans le canvas est le schéma le plus associé aux canvas
-      // vides par intermittence sous WebKit (§2.4 exige aussi Safari).
-      // Toujours atteinte, y compris sur le chemin d'échec (onerror).
+      // Revoked only after the draw (drawImage) and the encoding (toBlob):
+      // revoking it between the image loading and its use in the canvas is
+      // the pattern most associated with intermittently blank canvases under
+      // WebKit (§2.4 also requires Safari). Always reached, including on the
+      // failure path (onerror).
       URL.revokeObjectURL(url);
     }
   } catch {

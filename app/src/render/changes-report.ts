@@ -1,9 +1,9 @@
 import { el } from "../shared/dom";
 import type { Changes, Difference } from "../aggregation/changes";
 
-// Ce qui a bougé entre deux paliers. Trois blocs, un par nature d'objet, et
-// dans chacun les arrivées puis les départs -- l'ordre dans lequel on raconte
-// un changement.
+// What moved between two milestones. Three blocks, one per kind of object, and
+// within each the arrivals then the departures -- the order in which a change
+// is told.
 function block(title: string, difference: Difference): HTMLElement {
   const total = difference.ajoutes.length + difference.retires.length;
   const section = el("details", { class: "changes-block", open: "" });
@@ -39,9 +39,9 @@ export function buildEcartsReport(changes: Changes, before: string, after: strin
   return root;
 }
 
-// Le schéma se titre : il dit de lui-même ce qu'il montre grâce aux soldes
-// signés, mais rien n'indiquerait sans cela QUELS paliers il compare ni à
-// quelle échelle il est dessiné.
+// The diagram titles itself: it says what it shows on its own thanks to the
+// signed balances, but nothing would otherwise say WHICH milestones it
+// compares, nor at what scale it is drawn.
 export function buildChangesDiagramTitle(before: string, after: string): HTMLElement {
   return el("h2", { class: "changes-diagram-title" }, [
     `What moves between ${before} and ${after} — platform detail`,

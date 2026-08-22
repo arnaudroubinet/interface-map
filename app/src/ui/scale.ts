@@ -1,13 +1,13 @@
 import type { View } from "./state";
 
-// Le seuil se CALCULE, il ne se devine pas. La littérature donne la formule :
-// densité d = |E| / |V|². Au-delà de vingt nœuds, une planche dense se lit
-// mieux en matrix ; une planche creuse se lit mieux acteur par acteur -- là,
-// c'est la surface qui gêne, pas l'enchevêtrement.
+// The threshold is COMPUTED, not guessed. The literature gives the formula:
+// density d = |E| / |V|². Beyond twenty nodes, a dense board reads better as a
+// matrix; a sparse board reads better actor by actor -- there, it is the area
+// that gets in the way, not the tangle.
 //
-// Sur le classeur d'exemple : |V| = 15 et d = 27/225 = 0,12, donc rien ne
-// s'affiche. C'est le bon comportement : un avertissement qui crie sur un
-// petit parc apprend surtout à être ignoré.
+// On the sample workbook: |V| = 15 and d = 27/225 = 0.12, so nothing is
+// displayed. That is the right behaviour: a warning that shouts on a small
+// estate mostly teaches people to ignore it.
 const NODE_THRESHOLD = 20;
 const DENSITY_THRESHOLD = 0.15;
 
@@ -24,7 +24,7 @@ export function scaleHint(nodeCount: number, edgeCount: number): ScaleHint | nul
     message: `${nodeCount} components and ${edgeCount} flows on one board — ${
       dense ? "the Matrix view" : "a By-actor view"
     } will read better.`,
-    // On ne bloque ni ne tronque jamais : on dit, et on propose.
+    // Nothing is ever blocked or truncated: it is said, and a course is offered.
     views: dense ? ["matrix", "by-actor"] : ["by-actor"],
   };
 }

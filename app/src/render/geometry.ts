@@ -1,33 +1,33 @@
-// La géométrie du tracé, sans le SVG.
+// The geometry of the line, without the SVG.
 //
-// Ces fonctions ne connaissent que des points et des rectangles : elles ne
-// touchent pas au DOM, ne savent rien des acteurs ni des technologies, et se
-// vérifient donc sur des nombres. Elles vivaient au milieu de la construction
-// SVG, dans un fichier de 960 lignes où l'on ne distinguait plus les deux
-// métiers -- et elles portent pourtant la part la plus subtile du dessin :
-// couper un trait sous une étiquette, réserver la place d'une pointe, arrondir
-// un angle sans déformer le chemin.
+// These functions know nothing but points and rectangles: they do not touch
+// the DOM, know nothing of actors or technologies, and so are verified on
+// numbers. They used to live in the middle of the SVG construction, in a
+// 960-line file where the two trades could no longer be told apart -- and yet
+// they carry the subtlest part of the drawing: cutting a line under a label,
+// reserving room for an arrowhead, rounding a corner without deforming the
+// path.
 
 export type Point = { x: number; y: number };
 
-// --- Interruption d'un tracé par les boîtes --------------------------------
+// --- Breaking a line around the boxes --------------------------------------
 //
-// Le libellé s'inscrit DANS le trait : celui-ci s'interrompt devant le texte
-// et reprend derrière, ce qui l'attache à sa flèche sans le moindre doute.
+// The label sits INSIDE the line: the line breaks before the text and resumes
+// behind it, which ties it to its arrow beyond any doubt.
 //
-//     ----- texte ------>
+//     ----- text ------>
 //
-// Une pastille posée à côté du trait, même opaque, laisse toujours la question
-// « laquelle va avec laquelle » quand plusieurs flux sont voisins.
+// A chip set beside the line, however opaque, always leaves the question
+// "which goes with which" when several flows run side by side.
 export const BREAK_PLAY = 5;
 
-// Ce qu'un libellé ne mange jamais à l'abord de la cible : de quoi poser la
-// pointe sur un morceau qui aborde vraiment la boîte.
+// What a label never eats on the approach to the target: enough to set the
+// arrowhead on a piece that genuinely approaches the box.
 export const GAP_BEFORE_TARGET = 14;
 
-// Portion d'un segment située dans un rectangle, sous forme d'intervalle de
-// paramètre [0,1], ou null si le segment l'évite. Le segment étant orthogonal,
-// on traite les deux axes séparément (algorithme de la tranche).
+// The portion of a segment lying inside a rectangle, as a parameter interval
+// [0,1], or null if the segment misses it. The segment being orthogonal, the
+// two axes are handled separately (the slab algorithm).
 export function rectCrossing(a: Point, b: Point, r: Rect): [number, number] | null {
   let t0 = 0;
   let t1 = 1;
@@ -51,8 +51,8 @@ export function rectCrossing(a: Point, b: Point, r: Rect): [number, number] | nu
 
 export const surSegment = (a: Point, b: Point, t: number): Point => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
-// Découpe un tracé en morceaux visibles, en retirant ce qui tombe dans un
-// rectangle, plus un jeu de part et d'autre.
+// Cuts a line into visible pieces, removing what falls inside a rectangle,
+// plus a little play on either side.
 export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
   const pieces: Point[][] = [];
   let current: Point[] = [points[0]];
@@ -64,12 +64,12 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
     if (length < 1e-9) continue;
     const jeu = BREAK_PLAY / length;
 
-    // Coupures sur ce segment, ordonnées, fusionnées quand elles se touchent.
+    // Cuts on this segment, ordered, merged when they touch.
     //
-    // Sur le DERNIER segment la coupure ne va jamais jusqu'au bout : la pointe
-    // se pose sur le dernier morceau visible, et sans ce reste ce morceau
-    // devenait celui d'AVANT le libellé -- la flèche s'arrêtait à son étiquette
-    // au lieu de la boîte visée.
+    // On the LAST segment the cut never runs to the very end: the arrowhead
+    // sits on the last visible piece, and without that remainder the piece
+    // became the one BEFORE the label -- the arrow stopped at its label
+    // instead of the box it aimed at.
     const ceiling =
       i === points.length - 2 ? 1 - Math.min(0.5, GAP_BEFORE_TARGET / length) : 1;
     const cuts: [number, number][] = [];
@@ -101,17 +101,17 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
   return pieces;
 }
 
-// Rayon des coudes. Une polyligne orthogonale brute donne un rendu anguleux ;
-// quelques pixels d'arrondi suffisent à adoucir la planche entière.
+// Corner radius. A raw orthogonal polyline renders angular; a few pixels of
+// rounding are enough to soften the whole board.
 export const RAYON_ANGLE = 6;
 
-// Chemin SVG suivant une polyligne orthogonale, coudes arrondis.
+// An SVG path following an orthogonal polyline, with rounded corners.
 //
-// On normalise les directions plutôt que d'utiliser Math.sign : ça reste juste
-// si ELK émet un segment très légèrement oblique, là où le signe seul
-// produirait un point de contrôle aberrant. Deux cas sont écartés
-// explicitement -- trois points alignés (pas de coude à arrondir, et le point
-// de contrôle tomberait sur le sommet) et les segments de longueur nulle.
+// Directions are normalised rather than using Math.sign: this stays correct if
+// ELK emits a very slightly oblique segment, where the sign alone would
+// produce an aberrant control point. Two cases are ruled out explicitly --
+// three collinear points (no corner to round, and the control point would
+// land on the vertex) and zero-length segments.
 export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
   if (points.length === 0) return "";
   if (points.length < 3) return "M " + points.map((p) => `${p.x},${p.y}`).join(" L ");
@@ -168,17 +168,17 @@ export function segmentIntersectsRect(a: Point, b: Point, r: Rect): boolean {
   return coins.some(([c, d]) => segmentsCross(a, b, c, d));
 }
 
-// Le marker-end s'ancre au point final du tracé et se dessine par-dessus,
-// mais un trait plus large que le dos (concave) de la pointe adoucie
-// dépasse visuellement sur les côtés : on raccourcit donc le TRAIT lui-même
-// jusqu'à la base de la pointe, et c'est le marker (ancré via refX="0", donc
-// posé par sa base) qui parcourt seul les derniers TAILLE_POINTE unités
-// jusqu'au vrai point de contact. Le dernier segment est rectiligne par
-// construction (cf. segmentsCubiques), donc ce recul le long de sa direction
-// est exact.
-// La pointe d'un trait tiré est à son DÉPART : c'est donc là qu'il faut lui
-// réserver sa place, sans quoi elle se dessinerait par-dessus la boîte de
-// départ au lieu de l'aborder.
+// The marker-end anchors at the path's final point and is drawn over it, but
+// a line wider than the (concave) back of the softened arrowhead visually
+// overruns on the sides: so the LINE itself is shortened back to the
+// arrowhead's base, and it is the marker (anchored via refX="0", hence set by
+// its base) that alone covers the last HEAD_SIZE units to the true point of
+// contact. The last segment is straight by construction (cf.
+// segmentsCubiques), so this setback along its direction is exact.
+//
+// A pulled line's arrowhead is at its START: that is therefore where room must
+// be reserved for it, failing which it would be drawn over the starting box
+// instead of approaching it.
 export function setBackForTheHead(points: Point[], length: number, pulled: boolean): Point[] {
   if (!pulled) return pointsBeforeHead(points, length);
   return pointsBeforeHead([...points].reverse(), length).reverse();

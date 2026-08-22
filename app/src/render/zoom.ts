@@ -1,6 +1,6 @@
-// Le cadre visible d'un schéma, c'est-à-dire son viewBox. Zoomer et déplacer se
-// font ici, en arithmétique pure : aucune bibliothèque à embarquer dans un
-// livrable mono-fichier, et la géométrie se teste sans navigateur.
+// A diagram's visible frame, that is, its viewBox. Zooming and panning happen
+// here, in pure arithmetic: no library to embed in a single-file deliverable,
+// and the geometry is testable without a browser.
 export interface Frame {
   x: number;
   y: number;
@@ -8,7 +8,7 @@ export interface Frame {
   height: number;
 }
 
-// Sans bornes, deux coups de molette suffisent à sortir du dessin.
+// Without bounds, two wheel turns are enough to leave the drawing behind.
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 8;
 
@@ -21,8 +21,8 @@ export function appliquer(svg: SVGSVGElement, frame: Frame): void {
   svg.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
 }
 
-// Le point sous le curseur ne bouge pas : c'est ce qui distingue un zoom
-// utilisable d'un zoom qui perd son lecteur.
+// The point under the cursor does not move: that is what separates a usable
+// zoom from one that loses its reader.
 export function zoomBy(frame: Frame, factor: number, anchor: { x: number; y: number }, initial: Frame): Frame {
   const currentScale = initial.width / frame.width;
   const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, currentScale * factor));
@@ -41,8 +41,8 @@ export function panBy(frame: Frame, dx: number, dy: number): Frame {
   return { ...frame, x: frame.x + dx, y: frame.y + dy };
 }
 
-// Le branchement DOM : molette pour zoomer, glisser pour déplacer. Rend de quoi
-// piloter depuis le banner, et se détache tout seul avec le SVG qu'il équipe.
+// The DOM wiring: wheel to zoom, drag to pan. Returns what the banner needs to
+// drive it, and detaches on its own with the SVG it equips.
 export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (factor: number) => void } {
   const initial = frameOfSvg(svg);
   let frame = { ...initial };
@@ -52,8 +52,8 @@ export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy:
     appliquer(svg, frame);
   };
 
-  // Le point du DESSIN sous le curseur : c'est lui qui doit rester immobile,
-  // pas le pixel d'écran.
+  // The DRAWING point under the cursor: that is what must stay still, not the
+  // screen pixel.
   const drawingPoint = (e: { clientX: number; clientY: number }) => {
     const box = svg.getBoundingClientRect();
     return {
