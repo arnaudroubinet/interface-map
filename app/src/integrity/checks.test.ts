@@ -1372,4 +1372,22 @@ describe("contrôles — rayon d'impact", () => {
   it("accorde le singulier", () => {
     expect(bloc(chaine())?.items[1]).toBe("B: 1 component downstream.");
   });
+
+  // Un cycle ramène l'acteur dans son propre aval : « combien j'en entraîne »
+  // ne doit pas me compter moi-même.
+  it("ne se compte pas soi-même quand un cycle y ramène", () => {
+    const boucle = model({
+      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
+      fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
+      interfaces: [
+        iface({ nomDuFlux: "F1", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
+        iface({ nomDuFlux: "F2", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+      ],
+      consommations: [
+        conso({ nomDuFlux: "F1", acteurConsommateur: "B", feuille: "FX_A_HTTP" }),
+        conso({ nomDuFlux: "F2", acteurConsommateur: "A", feuille: "FX_B_HTTP" }),
+      ],
+    });
+    expect(bloc(boucle)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
+  });
 });

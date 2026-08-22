@@ -904,7 +904,10 @@ function rayonDImpact(model: ParsedModel): InfoBlock {
     }
   }
   const portée = [...versLAval.keys()]
-    .map((nom) => ({ nom, aval: atteignables(nom, versLAval).size }))
+    // Retranché de lui-même : un cycle ramène l'acteur dans son propre aval, et
+    // « combien j'en entraîne » ne me compte pas. Sur le classeur d'exemple,
+    // qui contient un cycle à quatre composants, cela se voyait.
+    .map((nom) => ({ nom, aval: [...atteignables(nom, versLAval)].filter((x) => x !== nom).length }))
     .filter((x) => x.aval > 0)
     .sort((a, b) => b.aval - a.aval || a.nom.localeCompare(b.nom, "fr"));
 
