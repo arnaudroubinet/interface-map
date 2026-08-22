@@ -81,10 +81,10 @@ import {
 } from "./state";
 
 
-// Les trois commandes de cadrage, posées sous le schéma : « Fit » ramène au
-// cadre complet, les deux autres zooment autour du centre. Elles vivent ici et
-// non dans le banner parce qu'elles pilotent CE schéma-là, qui vient d'être
-// construit.
+// The three framing controls, set under the diagram: "Fit" comes back to the
+// full frame, the other two zoom around the centre. They live here rather than
+// in the banner because they drive THAT diagram, the one just built.
+//
 function buildZoomControls(commandes: { ajuster: () => void; zoomBy: (f: number) => void }): HTMLElement {
   const toolbar = el("div", { class: "zoom-controls" });
   const button = (label: string, title: string, action: () => void) => {
@@ -98,9 +98,9 @@ function buildZoomControls(commandes: { ajuster: () => void; zoomBy: (f: number)
   return toolbar;
 }
 
-// Ce que le schéma dira de lui-même. Tout vient de l'état : la vue, la
-// lecture, le palier affiché, le nom du fichier et sa date de sauvegarde --
-// c'est l'âge de la DONNÉE qui compte, pas celui de l'impression.
+// What the diagram will say about itself. Everything comes from the state: the
+// view, the reading, the displayed milestone, the file's name and its save
+// date -- it is the DATA's age that counts, not the printing's.
 function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphNode[]; edges: GraphEdge[] }): DiagramContext {
   return {
     title: VIEW_LABEL[state.view],
@@ -127,9 +127,9 @@ export function mountApp(root: HTMLElement): void {
 
   wireDropZone(root, handleFile);
 
-  // Le rapport dépend du palier affiché pour sa part « état de la plateforme »
-  // (§7.1) : il se recalcule donc à chaque changement de palier, et pas
-  // seulement au chargement.
+  // The report depends on the displayed milestone for its "state of the
+  // platform" part (§7.1): it is therefore recomputed at every milestone
+  // change, and not only on load.
   function recomputeReport(s: AppState): AppState {
     if (!s.file) return s;
     const rank = s.shownMilestone === null ? null : rankOfMilestone(s.file.model, s.shownMilestone) ?? null;
@@ -163,9 +163,9 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
 
-      // Un classeur venu d'une version plus récente n'est pas lu du tout :
-      // deviner la forme d'un format qu'on ne connaît pas produirait des
-      // schémas faux, ce qui est pire que de ne rien afficher.
+      // A workbook from a newer version is not read at all: guessing the shape
+      // of a format one does not know would produce wrong diagrams, which is
+      // worse than showing nothing.
       if (built.model.schemaVersion > SCHEMA_VERSION) {
         setState(
           withMessageBandeau(
@@ -176,15 +176,15 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
 
-      // Les positions d'un parc n'ont aucun sens sur un autre.
+      // One estate's positions mean nothing on another.
       placements.clear();
 
       const report = runIntegrityChecks(built.model);
-      // Le rapport porté par withFichierCharge n'est pas encore calé sur le
-      // palier courant (recalculerRapport le remplace juste après) : la vue
-      // d'atterrissage doit donc être redécidée sur le rapport final, sinon
-      // une anomalie qui n'existe qu'à un palier retiré ouvre sur un écran de
-      // contrôles qui affiche (0) partout.
+      // The report carried by withLoadedFile is not yet set on the current
+      // milestone (recomputeReport replaces it right afterwards): the landing
+      // view must therefore be decided again on the final report, otherwise an
+      // anomaly that exists only at a retired milestone opens on a checks screen
+      // showing (0) everywhere.
       let loaded = recomputeReport(
         withLoadedFile(state, {
           name: file.name,
@@ -196,23 +196,23 @@ export function mountApp(root: HTMLElement): void {
       if (loaded.file) loaded = withView(loaded, viewOnLoad(loaded.file));
       setState(loaded);
     } catch (err) {
-      // Filet de sécurité : un classeur formé mais dont le contenu déclenche
-      // une exception inattendue plus loin dans le pipeline ne doit jamais
-      // laisser un rejet de promesse non traité (§9 — jamais d'échec muet).
+      // A safety net: a well-formed workbook whose content triggers an
+      // unexpected exception further down the pipeline must never leave an
+      // unhandled promise rejection (§9 — never a silent failure).
       console.error(err);
       setState(withMessageBandeau(state, "Workbook unreadable or corrupted."));
     }
   }
 
-  // Incrémentée à chaque demande de schéma : seule la dernière a le droit
-  // d'écrire dans la zone de rendu.
+  // Incremented at every diagram request: only the last one may write into
+  // the render area.
   let renderGeneration = 0;
-  // Les placements déjà calculés, par (vue, lecture, filtres) -- sans le
-  // palier. Vidée au chargement d'un autre classeur : les positions d'un parc
-  // n'ont aucun sens sur un autre.
+  // The layouts already computed, by (view, reading, filters) -- without the
+  // milestone. Cleared when another workbook is loaded: one estate's positions
+  // mean nothing on another.
   const placements = new Map<string, Promise<LayoutResult>>();
-  // La matrix affichée, gardée pour l'export : la recalculer au clic risquerait
-  // de livrer autre chose que ce qui est à l'écran.
+  // The displayed matrix, kept for the export: recomputing it on click would
+  // risk delivering something other than what is on screen.
   let currentMatrix: MatrixResult | null = null;
 
   function currentSvg(): SVGSVGElement | null {
@@ -240,11 +240,11 @@ export function mountApp(root: HTMLElement): void {
     downloadTemplateXlsx("carto-interfaces-exemple.xlsx", SAMPLE_DATA);
   }
 
-  // Les sept exports vivent dans leur propre module : ils ne dépendent que de
-  // l'état, de quoi le remplacer, du schéma à l'écran et de la matrix
-  // affichée. On les fabrique une fois, avec des lectures paresseuses -- un
-  // gestionnaire câblé au premier rendu doit lire l'état du clic, pas celui de
-  // sa construction.
+  // The seven exports live in their own module: they depend only on the state,
+  // on a way to replace it, on the diagram on screen and on the displayed
+  // matrix. They are built once, with lazy reads -- a handler wired on the first
+  // render must read the state at click time, not the one at its construction.
+  //
   const exportHandlers = handlersExport({
     legacyState: () => state,
     setState,
@@ -261,8 +261,8 @@ export function mountApp(root: HTMLElement): void {
         onMigrationLegacy: migrationLegacyHandler,
       });
       clear(renderArea);
-      // La page d'aide se lit AVANT d'avoir un classeur : c'est justement là
-      // qu'on se demande ce que l'outil attend.
+      // The help page is read BEFORE one has a workbook: that is precisely when
+      // one wonders what the tool expects.
       if (state.view === "help") {
         const result = el("button", { class: "export-button" }, ["Back"]);
         result.addEventListener("click", () => setState(withView(state, "group-to-group")));
@@ -279,12 +279,12 @@ export function mountApp(root: HTMLElement): void {
     try {
       renderContent(state.file);
     } catch (err) {
-      // Un cas de données non anticipé ne doit jamais laisser un écran vide
-      // et muet (§9/§10.3) — la vue précédente reste remplacée (le dépôt a
-      // réussi), mais on affiche un message plutôt qu'une exception muette.
-      // Le rail n'est PAS effacé : renderContenu() l'aurait reconstruit en
-      // dernière étape, donc l'ancien reste affiché et reste navigable —
-      // l'effacer transformerait une vue en cul-de-sac sans navigation.
+      // An unanticipated data case must never leave a blank, mute screen
+      // (§9/§10.3) — the previous view stays replaced (the drop succeeded), but a
+      // message is shown rather than a silent exception. The rail is NOT cleared:
+      // renderContent() would have rebuilt it as its last step, so the old one
+      // stays displayed and stays navigable — clearing it would turn a view into
+      // a dead end with no navigation.
       console.error(err);
       clear(renderArea);
       renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
@@ -295,12 +295,12 @@ export function mountApp(root: HTMLElement): void {
 
   function renderContent(file: LoadedFile): void {
     const model = file.model;
-    // Le rang du palier affiché, résolu une fois : c'est lui qui traverse les
-    // vues, les filtres et les exports.
+    // The displayed milestone's rank, resolved once: it is what runs through the
+    // views, the filters and the exports.
     const rank = state.shownMilestone === null ? null : rankOfMilestone(model, state.shownMilestone) ?? null;
-    // Résolu une fois, ici, et transmis à tout ce qui dessine (vues, filtres du
-    // rail) : c'est la Lecture (rang, mode) qui décide des flux ET des
-    // acteurs, jamais une vue.
+    // Resolved once, here, and passed to everything that draws (views, rail
+    // filters): it is the Reading (rank, mode) that decides the flows AND the
+    // actors, never a view.
     const reading = readingOfMode(model, rank, state.mode);
     const options = { ...state.options };
     currentMatrix = null;
@@ -315,12 +315,12 @@ export function mountApp(root: HTMLElement): void {
         })
       );
     } else if (state.view === "changes") {
-      // Les deux paliers comparés ; sans axe déclaré, il n'y a rien à comparer.
+      // The two milestones compared; with no axis declared, there is nothing to compare.
       const comparedRank = state.comparedMilestone === null ? null : rankOfMilestone(model, state.comparedMilestone) ?? null;
       if (rank === null || comparedRank === null) {
-        // Un seul palier n'est pas « aucun palier » : comparer réclame deux
-        // bornes, mais le classeur n'est pas silencieux sur son axe du temps
-        // pour autant -- lui prêter cette absence serait une fausse cause.
+        // One milestone is not "no milestone": comparing asks for two bounds, but
+        // the workbook is not silent about its time axis for all that -- lending it
+        // that absence would be a false cause.
         const text =
           model.milestones.length === 0
             ? "This workbook declares no milestones, so there is no change to measure."
@@ -334,9 +334,9 @@ export function mountApp(root: HTMLElement): void {
             state.shownMilestone!
           )
         );
-        // Le schéma vient après le relevé : on lit d'abord ce qui a changé,
-        // puis on va voir où. Il arrive en différé, le placement étant
-        // asynchrone, et une génération le protège d'un affichage périmé.
+        // The diagram comes after the listing: one first reads what changed, then
+        // goes to see where. It arrives later, the layout being asynchronous, and a
+        // generation counter protects it from a stale display.
         const generation = ++renderGeneration;
         const changesView = buildEcartsView(model, comparedRank, rank, state.mode);
         if (changesView.edges.length > 0) {
@@ -347,8 +347,8 @@ export function mountApp(root: HTMLElement): void {
             renderArea.appendChild(
               buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, changesView))
             );
-            // Le schéma d'écart s'exporte comme les autres. Les boutons en
-            // dépendent, et il n'existait pas encore au rendu du banner.
+            // The change diagram exports like the others. The buttons depend on it,
+            // and it did not yet exist when the banner was rendered.
             renderBanner(banner, state, true, exportHandlers);
           });
         }
@@ -358,8 +358,8 @@ export function mountApp(root: HTMLElement): void {
     } else if (state.view === "checks") {
       renderArea.appendChild(buildIntegrityReport(file.report));
     } else if (state.view === "roadmap") {
-      // Pas d'ELK : une frise est une grille, un axe et une ligne par sujet.
-      // Le moteur de placement n'y aurait rien à placer.
+      // No ELK: a roadmap is a grid, an axis and one row per subject. The layout
+      // engine would have nothing to place there.
       const timeline = buildRoadmap(model, state.roadmapSubject);
       if (timeline.segments.length === 0) {
         renderArea.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
@@ -382,19 +382,19 @@ export function mountApp(root: HTMLElement): void {
       });
       currentMatrix = matrix;
       currentTechnologies = [...new Set(matrix.rows.flatMap((l) => [...l.cells.values()].flat().map((c) => c.technology)))];
-      // Le tableau d'abord, la couleur ensuite. La palette reste indexée sur
-      // les types déclarés au classeur, et non sur les seuls survivants du
-      // filtrage : sinon une technologie changerait de couleur d'un filtre à
-      // l'autre, et entre la matrix et les schémas.
+      // The table first, the colour second. The palette stays indexed on the
+      // types declared in the workbook, and not on the mere survivors of the
+      // filtering: otherwise a technology would change colour from one filter to
+      // the next, and between the matrix and the diagrams.
       const colours = coloursOfModel(model);
       renderArea.appendChild(
         buildMatrixTable(matrix, (t) => colours.get(t) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
       );
     } else {
-      // La MÊME construction pour le palier affiché et pour l'union de tous
-      // les paliers : c'est ce qui garantit que les deux vues se correspondent
-      // nœud pour nœud, donc que le placement de l'union se restreint sans
-      // rien inventer.
+      // The SAME construction for the displayed milestone and for the union of
+      // all milestones: that is what guarantees the two views correspond node for
+      // node, hence that the union's layout restricts itself without inventing
+      // anything.
       const buildView = (reading: Reading): ViewResult => {
       let view: ViewResult;
       if (state.view === "group-to-group") {
@@ -411,8 +411,8 @@ export function mountApp(root: HTMLElement): void {
         }
         view = kept ? buildChainView(model, kept) : { nodes: [], edges: [] };
       } else if (state.view === "by-actor") {
-        // Même liste que le sélecteur du rail (§5.2) : un défaut piochant hors
-        // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
+        // The same list as the rail's selector (§5.2): a default picked outside it
+        // would name an actor the user cannot even see.
         const availableActors = reading.actors;
         if (!state.actorSelection && availableActors.length > 0) {
           defaultActor = [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))[0].name;
@@ -457,14 +457,14 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
 
-      // Un acteur métier isolé (§5.2) produit un nœud seul, zéro arête : ce
-      // n'est pas rien à montrer, c'est PRÉCISÉMENT ce qu'il faut montrer. Le
-      // message ne vaut que pour une sélection réellement vide.
+      // An isolated business actor (§5.2) produces one node and zero edges: that
+      // is not nothing to show, it is PRECISELY what must be shown. The message
+      // only applies to a genuinely empty selection.
       if (view.nodes.length === 0) {
         renderArea.appendChild(el("p", { class: "no-flow" }, ["No flow to display for this selection."]));
       } else {
-        // Une planche qui a dépassé ce que le nœud-lien sert bien doit le
-        // DIRE, et proposer où aller. Jamais bloquer, jamais tronquer.
+        // A board that has outgrown what node-link serves well must SAY so, and
+        // offer somewhere to go. Never block, never truncate.
         const hint = scaleHint(view.nodes.filter((n) => n.kind !== "boundary").length, view.edges.length);
         if (hint) {
           const bandeauEchelle = el("div", { class: "scale-hint" }, [hint.message]);
@@ -475,17 +475,17 @@ export function mountApp(root: HTMLElement): void {
           }
           renderArea.appendChild(bandeauEchelle);
         }
-        // Le calcul de placement est asynchrone (ELK). Une génération protège
-        // d'un rendu périmé : si l'utilisateur change de vue pendant le calcul,
-        // le schéma qui arrive en retard ne doit pas s'afficher par-dessus.
+        // The layout computation is asynchronous (ELK). A generation counter
+        // protects against a stale render: if the user changes view during the
+        // computation, the diagram arriving late must not display over the top.
         const generation = ++renderGeneration;
         const colours = coloursOfModel(model);
         const viewForComputation = view;
-        // On place l'UNION de tous les paliers, une seule fois, et chaque
-        // palier n'en montre que son sous-ensemble : une boîte présente aux
-        // deux paliers ne bouge alors pas d'un pixel. La clé de mémoire ne
-        // contient donc PAS le palier -- c'est précisément d'un palier à
-        // l'autre qu'on veut la continuité.
+        // The UNION of all milestones is laid out once, and each milestone shows
+        // only its subset: a box present at both milestones then does not move by a
+        // pixel. The memo key therefore does NOT contain the milestone -- it is
+        // precisely from one milestone to the next that continuity is wanted.
+        //
         const layoutKey = JSON.stringify([
           state.view, state.mode, state.actorSelection, state.technologySelection, state.chainSelection,
           state.actorFilters, state.technologyFilters, options,
@@ -502,8 +502,8 @@ export function mountApp(root: HTMLElement): void {
             });
             renderArea.appendChild(svg);
             renderArea.appendChild(buildZoomControls(brancherZoom(svg)));
-            // Les boutons d'export dépendent de la présence du SVG, qui
-            // n'existait pas encore au moment du rendu du banner.
+            // The export buttons depend on the presence of the SVG, which did not yet
+            // exist when the banner was rendered.
             renderBanner(banner, state, true, exportHandlers);
           })
           .catch((err) => {

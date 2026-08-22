@@ -20,20 +20,20 @@ export type View =
   | "matrix"
   | "changes"
   | "checks"
-  // Pas une vue du classeur non plus : la page qui explique l'outil, consultable
-  // avec ou sans classeur chargé.
+  // Not a workbook view either: the page that explains the tool, consultable
+  // with or without a workbook loaded.
   | "help"
-  // Pas une vue du classeur : l'écran qui bloque tant qu'il n'est pas au format
-  // que l'outil sait lire.
+  // Not a workbook view: the screen that blocks until the file is in the format
+  // the tool can read.
   | "upgrade";
 
-// Le nom d'une vue, en un seul endroit. Le rail l'affichait sur ses boutons et
-// les exports le mettaient dans leurs noms de fichier, chacun depuis sa propre
-// table : deux listes des mêmes dix libellés, qui pouvaient se contredire sans
-// que rien ne le dise -- un bouton « Changes » et un fichier « carto-ecarts ».
+// A view's name, in one place only. The rail showed it on its buttons and the
+// exports put it in their file names, each from its own table: two lists of
+// the same ten labels, which could contradict each other with nothing to say
+// so -- a "Changes" button and a "carto-ecarts" file.
 //
-// `Record<Vue, string>` oblige à compléter la table dès qu'une vue s'ajoute :
-// c'est le type qui tient l'exhaustivité, pas la vigilance.
+// `Record<View, string>` forces the table to be completed as soon as a view is
+// added: it is the type that holds exhaustiveness, not vigilance.
 export const VIEW_LABEL: Record<View, string> = {
   "group-to-group": "Group to group",
   "platform-detail": "Platform detail",
@@ -46,8 +46,8 @@ export const VIEW_LABEL: Record<View, string> = {
   changes: "Changes",
   checks: "Integrity checks",
   help: "How it works",
-  // Pas dans le rail : on n'y navigue pas, on y est envoyé. Mais l'export en a
-  // besoin, un classeur périmé pouvant être exporté avant sa mise à niveau.
+  // Not in the rail: one does not navigate there, one is sent there. But the
+  // export needs it, a stale workbook being exportable before its upgrade.
   "upgrade": "Upgrade",
 };
 
@@ -60,47 +60,47 @@ export interface LoadedFile {
 
 export interface AppOptions {
   counters: boolean;
-  // Ce que l'étiquette d'un trait NOMME : le tuyau, ce qui y circule, ou les
-  // deux. Le défaut reste le tuyau -- c'est le comportement historique, et il
-  // tient dans la largeur d'une boîte.
+  // What a line's label NAMES: the pipe, what travels through it, or both. The
+  // default stays the pipe -- that is the historical behaviour, and it fits
+  // within a box's width.
   edgeLabelMode: EdgeLabelMode;
-  // Un schéma d'architecture est du trait fin avec de petits caractères :
-  // c'est le cas où 600 dpi paie encore. Le bon réflexe reste le SVG, qui est
-  // vectoriel et n'a pas de résolution.
+  // An architecture diagram is thin lines with small type: this is the case
+  // where 600 dpi still pays. The right reflex is still SVG, which is vector and
+  // has no resolution.
   pngScale: 1 | 2 | 4;
-  // La graisse du trait suit la criticité de la consommation. Désactivé par
-  // défaut : la graisse sert ailleurs à ne RIEN dire, et les deux usages ne se
-  // mélangent pas.
+  // The line weight follows the consumption's criticality. Off by default:
+  // elsewhere the weight serves to say NOTHING, and the two uses do not mix.
+  //
   weightByCriticality: boolean;
 }
 
-// Ce que l'utilisateur a décoché dans la vue par acteur. Remis à zéro dès qu'on
-// change d'acteur : un masquage n'a de sens que relativement à celui qu'on
-// regarde, et le traîner d'un acteur à l'autre cacherait des flux sans raison
-// visible.
+// What the user unticked in the by-actor view. Reset as soon as the actor
+// changes: hiding only makes sense relative to the one being looked at, and
+// dragging it from one actor to the next would hide flows for no visible
+// reason.
 export interface ActorViewFilters {
   hiddenTechnologies: string[];
   hiddenActors: string[];
-  // Jusqu'où la planche porte : les voisins immédiats, l'amont, ou l'aval --
-  // « si cet acteur tombe, qui est touché ? ».
+  // How far the board reaches: the immediate neighbours, upstream, or downstream
+  // -- "if this actor falls, who is affected?".
   neighbourhood: Neighbourhood;
 }
 
-// Idem pour la vue par technologie : masquer d'un bloc tout ce qui est hors
-// plateforme, et/ou décocher acteur par acteur.
+// The same for the by-technology view: hiding everything off-platform in one
+// go, and/or unticking actor by actor.
 export interface TechnologyViewFilters {
   masquerExternes: boolean;
   hiddenActors: string[];
 }
 
-// La matrix se filtre comme la vue par technologie, plus l'échelle de lecture
-// : acteur par acteur, replié sur les groupes, ou plateforme détaillée.
+// The matrix is filtered like the by-technology view, plus the reading scale:
+// actor by actor, folded onto groups, or platform detail.
 export interface MatrixViewFilters extends TechnologyViewFilters {
   grain: MatrixGrain;
-  // L'ordre des lignes et des colonnes. Alphabétique par défaut : une
-  // seriation ne doit jamais être le défaut silencieux -- la revue de
-  // référence prévient que RCM produit volontiers une bande diagonale qui
-  // n'apprend rien, et il faut pouvoir y revenir d'un clic.
+  // The order of rows and columns. Alphabetical by default: a seriation must
+  // never be the silent default -- the reference survey warns that RCM readily
+  // produces a diagonal band that teaches nothing, and one must be able to get
+  // back with one click.
   order: MatrixOrder;
 }
 
@@ -108,12 +108,12 @@ export interface AppState {
   file: LoadedFile | null;
   view: View;
   mode: Mode;
-  // Le palier regardé, par son nom. Ce n'est pas une option d'affichage mais
-  // un réglage d'application : il traverse les vues, les filtres, les exports
-  // et le rapport. `null` quand le classeur ne déclare aucun palier.
+  // The milestone being looked at, by name. This is not a display option but an
+  // application setting: it runs through the views, the filters, the exports and
+  // the report. `null` when the workbook declares no milestone.
   shownMilestone: string | null;
-  // Les deux paliers comparés par la vue Écarts. Le second est celui qu'on
-  // regarde ; le premier est la référence dont on mesure l'écart.
+  // The two milestones the Changes view compares. The second is the one being
+  // looked at; the first is the reference the change is measured from.
   comparedMilestone: string | null;
   options: AppOptions;
   actorFilters: ActorViewFilters;
@@ -121,10 +121,10 @@ export interface AppState {
   matrixFilters: MatrixViewFilters;
   actorSelection: string | null;
   technologySelection: string | null;
-  // La chaîne suivie, par son libellé. Une chaîne n'existe qu'en lecture
-  // fonctionnelle, où la plomberie est justement ce qu'on traverse.
+  // The chain being followed, by its label. A chain exists only in the
+  // functional reading, where the plumbing is precisely what is crossed.
   chainSelection: string | null;
-  // Ce que la frise met en ligne : les acteurs ou les interfaces.
+  // What the roadmap puts on its rows: the actors or the interfaces.
   roadmapSubject: RoadmapSubject;
   messageBandeau: string | null;
 }
@@ -148,26 +148,26 @@ export function initialState(): AppState {
   };
 }
 
-// Un classeur qui viole les règles produit des schémas trompeurs : mieux vaut
-// mettre l'utilisateur devant les anomalies que devant un dessin qui a l'air
-// juste. On n'ouvre donc sur une vue de schéma que si le fichier est sain.
+// A workbook that breaks the rules produces misleading diagrams: better to put
+// the user in front of the anomalies than in front of a drawing that looks
+// right. So a diagram view only opens if the file is sound.
 //
-// Et avant même cela : un classeur dont le schéma ne correspond pas à celui de
-// l'outil n'est pas seulement incomplet, il est mal compris -- ses anomalies ne
-// sont donc pas fiables, et l'écran de désaccord passe devant.
+// And even before that: a workbook whose schema does not match the tool's is
+// not merely incomplete, it is misunderstood -- its anomalies are therefore
+// not reliable, and the mismatch screen comes first.
 //
-// Le désaccord se lit dans les DEUX sens. En retard, il manque des colonnes ;
-// en avance, l'outil ignore celles qu'il ne connaît pas encore et dessinerait
-// une image amputée sans le dire -- le cas du jour où une nouvelle version
-// circule pendant qu'une ancienne page reste ouverte.
+// The mismatch reads BOTH ways. Behind, columns are missing; ahead, the tool
+// ignores the ones it does not know yet and would draw a truncated image
+// without saying so -- the case of the day a new version circulates while an
+// old page stays open.
 export function viewOnLoad(file: LoadedFile): View {
   if (file.model.schemaVersion !== SCHEMA_VERSION) return "upgrade";
   return file.report.totalAnomalies > 0 ? "checks" : "group-to-group";
 }
 
 export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
-  // On ouvre sur le dernier palier livré, et on compare par défaut au
-  // précédent : c'est l'écart qu'on vient de franchir, celui dont on parle.
+  // It opens on the last delivered milestone, and compares by default with the
+  // previous one: that is the change just crossed, the one people talk about.
   const current = currentMilestone(file.model);
   const previous = [...file.model.milestones]
     .filter((p) => current !== undefined && p.rank < current.rank)
@@ -191,12 +191,12 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
   };
 }
 
-// Le sélecteur par acteur ne propose que les acteurs de la lecture courante :
-// les techniques sortent en fonctionnel (§5.2), les retirés sortent au palier
-// où ils le sont. Une sélection qui vise un acteur sorti de la liste ne
-// désigne plus rien -- le schéma n'affiche qu'une boîte fantôme, sans un mot
-// pour dire pourquoi. Mode et palier partagent la même règle : les séparer,
-// c'est n'en corriger qu'une moitié.
+// The by-actor selector only offers the actors of the current reading: the
+// technical ones drop out in the functional reading (§5.2), the retired ones
+// drop out at the milestone where they are. A selection targeting an actor
+// that has left the list designates nothing any more -- the diagram shows a
+// phantom box, with not a word to say why. Mode and milestone share the same
+// rule: separating them fixes only half of it.
 function selectionRetenue(state: AppState, mode: Mode, milestone: string | null): string | null {
   if (!state.file || !state.actorSelection) return state.actorSelection;
   const model = state.file.model;
@@ -217,15 +217,15 @@ export function withView(state: AppState, view: View): AppState {
   return { ...state, view };
 }
 
-// Une seule vue n'a pas d'objet en lecture fonctionnelle : « Par technologie »,
-// parce que la technologie y est justement ce qu'on retire. Y laisser
-// l'utilisateur lui montrerait une vue sans contenu sans rien lui expliquer.
+// Only one view is moot in the functional reading: "By technology", because
+// the technology is precisely what is removed there. Leaving the user in it
+// would show them a view with no content and explain nothing.
 //
-// « Groupe à groupe » y était aussi, au motif qu'agréger des groupes par-dessus
-// une chaîne rabattue ne dirait plus qui alimente qui. Le motif ne tient pas :
-// « quelle direction alimente quelle direction » est précisément la question
-// d'un comité de direction, et c'est la seule vue qui y réponde. La chaîne
-// rabattue relie deux acteurs MÉTIER, qui ont chacun leur groupe.
+// "Group to group" was there too, on the grounds that aggregating groups over
+// a folded chain would no longer say who feeds whom. The reason does not hold:
+// "which division feeds which division" is precisely a board's question, and
+// this is the only view that answers it. The folded chain links two BUSINESS
+// actors, each of which has its group.
 export const VIEWS_MOOT_IN_FUNCTIONAL: View[] = ["by-technology"];
 
 export function withMode(state: AppState, mode: Mode): AppState {
@@ -264,8 +264,8 @@ export function withActorHidden(state: AppState, actor: string, hidden: boolean)
   };
 }
 
-// Le voisinage ne touche pas aux masquages : élargir le regard ne révèle ni ne
-// cache personne de plus que ce que le rayon apporte.
+// The neighbourhood does not touch the hidings: widening the view neither
+// reveals nor hides anyone beyond what the radius brings.
 export function withSujetFrise(state: AppState, subject: RoadmapSubject): AppState {
   return { ...state, roadmapSubject: subject };
 }
@@ -295,15 +295,15 @@ export function withMasquerExternesMatrice(state: AppState, masquer: boolean): A
   return { ...state, matrixFilters: { ...state.matrixFilters, masquerExternes: masquer } };
 }
 
-// Changer d'échelle change la nature des lignes : garder les anciens noms
-// masquerait des lignes sans laisser de case pour les rétablir.
+// Changing scale changes the nature of the rows: keeping the old names would
+// hide rows with no checkbox left to bring them back.
 export function withMatrixGrain(state: AppState, grain: MatrixGrain): AppState {
   if (grain === state.matrixFilters.grain) return state;
   return { ...state, matrixFilters: { ...state.matrixFilters, grain, hiddenActors: [] } };
 }
 
-// L'ordre ne touche pas aux filtres : changer d'ordre ne cache ni ne révèle
-// personne, contrairement à un changement de granularité.
+// The order does not touch the filters: changing order neither hides nor
+// reveals anyone, unlike a change of grain.
 export function withMatrixOrder(state: AppState, order: MatrixOrder): AppState {
   return { ...state, matrixFilters: { ...state.matrixFilters, order } };
 }
