@@ -93,7 +93,7 @@ const ID_FRONTIERE = "__frontiere__";
 function isolatedNodes(
   candidates: Actor[],
   nodeKey: NodeKeyFn,
-  présents: ReadonlySet<NodeId>,
+  present: ReadonlySet<NodeId>,
   kindFor: (id: NodeId) => NodeKind,
   detailsFor: (id: NodeId) => { subtitle?: string; description?: string; external?: boolean }
 ): GraphNode[] {
@@ -102,7 +102,7 @@ function isolatedNodes(
     const id = nodeKey(actor.name);
     // "No node" sentinel (§7.4): an actor with no group has nothing to join in
     // a view folded onto groups.
-    if (id && !présents.has(id)) ids.add(id);
+    if (id && !present.has(id)) ids.add(id);
   }
   return [...ids].map((id) => ({ id, label: id, kind: kindFor(id), ...detailsFor(id) }));
 }
@@ -145,8 +145,8 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Reading, op
 // platform, and a frame around all of it teaches nothing.
 export function buildPlatformOnlyView(model: ParsedModel, reading: Reading, options: AggregationOptions): ViewResult {
   const acteursPlateforme = reading.actors.filter((a) => actorIsPlatform(model, a));
-  const interne = (name: string) => acteursPlateforme.some((a) => a.name.trim() === name.trim());
-  const flows = reading.flows.filter((f) => interne(f.provider) && interne(f.consumer));
+  const internal = (name: string) => acteursPlateforme.some((a) => a.name.trim() === name.trim());
+  const flows = reading.flows.filter((f) => internal(f.provider) && internal(f.consumer));
   const edges = aggregateEdges(flows, identityNodeKey, options, true);
   const kindFor = () => "platform" as const;
   const detailsFor = (id: NodeId) => actorDetails(model, id);
@@ -217,8 +217,8 @@ export function actorFilterOptions(allFlows: FlowInstance[], actorName: string):
     // empty (§5.2), and offering it would give an unlabelled checkbox that
     // empties the whole diagram in one silent click.
     if (flow.flowType.trim() !== "") technologies.add(flow.flowType);
-    const autre = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
-    if (autre.trim() !== actorName.trim()) actors.add(autre);
+    const other = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
+    if (other.trim() !== actorName.trim()) actors.add(other);
   }
   const byName = (a: string, b: string) => a.localeCompare(b, "fr");
   return { technologies: [...technologies].sort(byName), actors: [...actors].sort(byName) };
@@ -259,8 +259,8 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
     // only by it; hiding an actor removes the flows that led to it. Both
     // directions fall out of the same rule: nodes follow edges.
     if (hiddenTechnologies.has(flow.flowType)) continue;
-    const autre = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
-    if (hiddenActors.has(autre)) continue;
+    const other = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
+    if (hiddenActors.has(other)) continue;
     // The same rule as everywhere else: the line follows the DATA, from
     // provider to consumer, and the arrowhead says who calls. This view builds
     // its edges itself rather than through groupFlows, and it had kept the old
@@ -309,7 +309,7 @@ export interface MatrixCell {
 
 export interface MatrixRow {
   actor: string;
-  cellules: Map<string, MatrixCell[]>;
+  cells: Map<string, MatrixCell[]>;
 }
 
 // The two axes are each judged on their own: one row per real sender, one
@@ -322,8 +322,8 @@ export interface MatrixResult {
   rows: MatrixRow[];
   // The table's margins: out-degree per row, in-degree per column. A matrix
   // without totals forces the eye to count cells to find out which is the hub.
-  totauxLigne: Map<string, number>;
-  totauxColonne: Map<string, number>;
+  rowTotals: Map<string, number>;
+  columnTotals: Map<string, number>;
 }
 
 // The matrix reads at the same three scales as the graphical views: actor by
@@ -331,7 +331,7 @@ export interface MatrixResult {
 // against the groups around them.
 export type MatrixGrain = "actor" | "group" | "platform";
 
-export interface OptionsVueMatrice {
+export interface MatrixViewOptions {
   mode: Mode;
   grain?: MatrixGrain;
   order?: MatrixOrder;
@@ -363,7 +363,7 @@ function matrixFolding(
 
 // The matrix rows that can be unticked: everything carrying at least one flow
 // at the current grain, subject to the "externals" switch.
-export function optionsFiltreMatrice(
+export function matrixFilterOptions(
   model: ParsedModel,
   flows: FlowInstance[],
   options: { grain?: MatrixGrain; masquerExternes?: boolean }
@@ -383,7 +383,7 @@ export function optionsFiltreMatrice(
   return [...ids].sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-export function buildMatrixView(model: ParsedModel, reading: Reading, options: OptionsVueMatrice): MatrixResult {
+export function buildMatrixView(model: ParsedModel, reading: Reading, options: MatrixViewOptions): MatrixResult {
   const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const hiddenIds = new Set(options.hiddenActors ?? []);
   const isHidden = (id: string) => hiddenIds.has(id) || (options.masquerExternes === true && external(id));
@@ -399,13 +399,13 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: O
   for (const g of groups) {
     let row = lignesMap.get(g.from);
     if (!row) {
-      row = { actor: g.from, cellules: new Map() };
+      row = { actor: g.from, cells: new Map() };
       lignesMap.set(g.from, row);
     }
     const cell: MatrixCell = { technology: g.technology, count: g.count, attenuated: g.attenuated, names: g.names };
-    const existing = row.cellules.get(g.to);
+    const existing = row.cells.get(g.to);
     if (existing) existing.push(cell);
-    else row.cellules.set(g.to, [cell]);
+    else row.cells.set(g.to, [cell]);
   }
 
   // A business actor left isolated (§5.2) keeps its row, empty rather than
@@ -415,7 +415,7 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: O
     for (const actor of reading.actors) {
       const id = key(actor.name);
       if (!id || lignesMap.has(id) || isHidden(id)) continue;
-      lignesMap.set(id, { actor: id, cellules: new Map() });
+      lignesMap.set(id, { actor: id, cells: new Map() });
     }
   }
 
@@ -441,17 +441,17 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: O
 
   const rows = orderBy([...lignesMap.keys()], order, ctxOrdre).map((id) => lignesMap.get(id)!);
   for (const row of rows) {
-    for (const cellules of row.cellules.values()) {
-      cellules.sort((a, b) => byName(a.technology, b.technology));
+    for (const cells of row.cells.values()) {
+      cells.sort((a, b) => byName(a.technology, b.technology));
     }
   }
 
   // The margins: how many flows leave each row, how many arrive on each
   // column. This is what NAMES the hub without counting cells by eye.
-  const totauxLigne = new Map(rows.map((l) => [l.actor, [...l.cellules.values()].flat().reduce((n, c) => n + c.count, 0)]));
-  const totauxColonne = new Map(
-    columns.map((c) => [c, rows.reduce((n, l) => n + (l.cellules.get(c) ?? []).reduce((m, x) => m + x.count, 0), 0)])
+  const rowTotals = new Map(rows.map((l) => [l.actor, [...l.cells.values()].flat().reduce((n, c) => n + c.count, 0)]));
+  const columnTotals = new Map(
+    columns.map((c) => [c, rows.reduce((n, l) => n + (l.cells.get(c) ?? []).reduce((m, x) => m + x.count, 0), 0)])
   );
 
-  return { columns, rows, totauxLigne, totauxColonne };
+  return { columns, rows, rowTotals, columnTotals };
 }

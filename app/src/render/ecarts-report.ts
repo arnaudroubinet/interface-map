@@ -14,14 +14,14 @@ function block(title: string, difference: Difference): HTMLElement {
     return section;
   }
 
-  for (const [classe, signe, values] of [
+  for (const [cssClass, sign, values] of [
     ["change-added", "+", difference.ajoutes],
     ["change-removed", "−", difference.retires],
   ] as const) {
     if (values.length === 0) continue;
-    const list = el("ul", { class: classe });
+    const list = el("ul", { class: cssClass });
     for (const value of values) {
-      list.appendChild(el("li", {}, [`${signe} ${value}`]));
+      list.appendChild(el("li", {}, [`${sign} ${value}`]));
     }
     section.appendChild(list);
   }
@@ -29,14 +29,14 @@ function block(title: string, difference: Difference): HTMLElement {
 }
 
 export function buildEcartsReport(changes: Changes, before: string, after: string): HTMLElement {
-  const racine = el("div", { class: "changes" });
-  racine.appendChild(
+  const root = el("div", { class: "changes" });
+  root.appendChild(
     el("p", { class: "changes-header" }, [`What changes between milestone ${before} and milestone ${after}.`])
   );
-  racine.appendChild(block("Actors", changes.actors));
-  racine.appendChild(block("Interfaces", changes.interfaces));
-  racine.appendChild(block("Consumptions", changes.consumptions));
-  return racine;
+  root.appendChild(block("Actors", changes.actors));
+  root.appendChild(block("Interfaces", changes.interfaces));
+  root.appendChild(block("Consumptions", changes.consumptions));
+  return root;
 }
 
 // Le schéma se titre : il dit de lui-même ce qu'il montre grâce aux soldes

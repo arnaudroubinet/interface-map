@@ -79,14 +79,14 @@ export function lignesDescription(text: string | undefined): string[] {
   const parCaractere = Math.max(1, Math.floor(LARGEUR_UTILE / DESC_CHAR_WIDTH));
   const rows: string[] = [];
   let courante = "";
-  for (const mot of text.split(/\s+/)) {
-    const essai = courante ? `${courante} ${mot}` : mot;
+  for (const word of text.split(/\s+/)) {
+    const essai = courante ? `${courante} ${word}` : word;
     if (essai.length <= parCaractere) {
       courante = essai;
       continue;
     }
     if (courante) rows.push(courante);
-    courante = mot;
+    courante = word;
   }
   if (courante) rows.push(courante);
   if (rows.length <= MAX_DESC_LINES) return rows;
@@ -127,9 +127,9 @@ const DISC_WIDTH = 11;
 export function taillePastille(label: string | undefined, technology: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
   const sous = subLabel(label, technology);
-  const disque = technology.trim() !== "" ? DISC_WIDTH : 0;
+  const disc = technology.trim() !== "" ? DISC_WIDTH : 0;
   return {
-    width: Math.max(chipWidth(label) + disque, sous ? chipWidth(sous) : 0),
+    width: Math.max(chipWidth(label) + disc, sous ? chipWidth(sous) : 0),
     height: HAUTEUR_PASTILLE + (sous ? HAUTEUR_SOUS_LIGNE : 0),
   };
 }
@@ -512,7 +512,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
           layoutOptions: {
             "elk.padding": `[top=${BOUNDARY_HEADER + BOUNDARY_PAD},left=${BOUNDARY_PAD},bottom=${BOUNDARY_PAD},right=${BOUNDARY_PAD}]`,
           },
-          children: enfants.map((enfant) => buildElkNode(enfant, retours)),
+          children: enfants.map((child) => buildElkNode(child, retours)),
         } as ElkNode;
       }),
     // Un identifiant par arête, indépendant du couple (from, to) : deux flux
@@ -563,9 +563,9 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const m = new Map<string, ElkNode>();
     const walk = (list: ElkNode[] | undefined, dx: number, dy: number) => {
       for (const n of list ?? []) {
-        const absolu = { ...n, x: (n.x ?? 0) + dx, y: (n.y ?? 0) + dy };
-        m.set(n.id, absolu);
-        walk(n.children, absolu.x, absolu.y);
+        const absolute = { ...n, x: (n.x ?? 0) + dx, y: (n.y ?? 0) + dy };
+        m.set(n.id, absolute);
+        walk(n.children, absolute.x, absolute.y);
       }
     };
     walk(r.children, 0, 0);
@@ -581,8 +581,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // aucun.
   const BUDGET_PAR_ARETE = 1;
 
-  const libre = await apply(new Map());
-  const idsLibre = aplatirEn(libre);
+  const freeOnes = await apply(new Map());
+  const freeIds = aplatirEn(freeOnes);
 
   // Face par laquelle une arête aboutit sur sa cible, dans une disposition
   // donnée. Seule « EAST » nous intéresse : c'est la face réservée aux sorties.
@@ -591,12 +591,12 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const end = arete?.sections?.[0]?.endPoint;
     const target = ids.get(edges[i].to);
     if (!end || !target) return false;
-    const conteneur = arete?.container ? ids.get(arete.container) : undefined;
-    const x = end.x + (conteneur?.x ?? 0);
-    const y = end.y + (conteneur?.y ?? 0);
+    const container = arete?.container ? ids.get(arete.container) : undefined;
+    const x = end.x + (container?.x ?? 0);
+    const y = end.y + (container?.y ?? 0);
     const gauche = target.x ?? 0;
-    const haut = target.y ?? 0;
-    if (y < haut || y > haut + target.height) return false;
+    const top = target.y ?? 0;
+    if (y < top || y > top + target.height) return false;
     return Math.abs(x - (gauche + target.width)) < Math.abs(x - gauche);
   };
 
@@ -606,9 +606,9 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     (r.edges ?? []).map((arete) => {
       const section = arete.sections?.[0];
       if (!section) return [];
-      const conteneur = arete.container ? ids.get(arete.container) : undefined;
-      const dx = conteneur?.x ?? 0;
-      const dy = conteneur?.y ?? 0;
+      const container = arete.container ? ids.get(arete.container) : undefined;
+      const dx = container?.x ?? 0;
+      const dy = container?.y ?? 0;
       return [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map((p) => ({
         x: p.x + dx,
         y: p.y + dy,
@@ -617,9 +617,9 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   const retours = new Map<number, ReturnSide>();
   edges.forEach((edge, i) => {
-    if (!entersFromEast(libre, idsLibre, i)) return;
-    const source = idsLibre.get(edge.from);
-    const target = idsLibre.get(edge.to);
+    if (!entersFromEast(freeOnes, freeIds, i)) return;
+    const source = freeIds.get(edge.from);
+    const target = freeIds.get(edge.to);
     if (!source || !target) return;
     // Par le haut ou par le bas « suivant par où elle passe » : du côté d'où
     // vient le flux.
@@ -627,14 +627,14 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     retours.set(i, side ? "NORTH" : "SOUTH");
   });
 
-  let result = libre;
-  let parId = idsLibre;
+  let result = freeOnes;
+  let parId = freeIds;
 
 
   if (retours.size > 0) {
     const oriented = await apply(retours);
     const orientedIds = aplatirEn(oriented);
-    const before = croisements(traces(libre, idsLibre));
+    const before = croisements(traces(freeOnes, freeIds));
     const after = croisements(traces(oriented, orientedIds));
     if (after <= before + BUDGET_PAR_ARETE * retours.size) {
       result = oriented;
@@ -658,8 +658,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // décalage, un flux interne à la frontière était dessiné à côté de ses deux
   // nœuds -- un trait qui part et arrive dans le vide.
   const originOf = (arete: AreteElk | undefined): { x: number; y: number } => {
-    const conteneur = arete?.container ? parId.get(arete.container) : undefined;
-    return conteneur ? { x: conteneur.x ?? 0, y: conteneur.y ?? 0 } : { x: 0, y: 0 };
+    const container = arete?.container ? parId.get(arete.container) : undefined;
+    return container ? { x: container.x ?? 0, y: container.y ?? 0 } : { x: 0, y: 0 };
   };
 
   const layoutEdges: LayoutEdge[] = edges.map((edge, i) => {

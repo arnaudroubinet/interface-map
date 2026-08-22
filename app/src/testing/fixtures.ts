@@ -143,10 +143,10 @@ export function template(o: Partial<ParsedModel> = {}): ParsedModel {
 // Une matrix de test, ses marges calculées comme le fait buildMatrixView : un
 // test qui poserait des totaux à la main pourrait affirmer n'importe quoi.
 export function matrix(o: { columns: string[]; rows: MatrixRow[] }): MatrixResult {
-  const total = (cellules: MatrixCell[]) => cellules.reduce((n, c) => n + c.count, 0);
+  const total = (cells: MatrixCell[]) => cells.reduce((n, c) => n + c.count, 0);
   return {
     ...o,
-    totauxLigne: new Map(o.rows.map((l) => [l.actor, total([...l.cellules.values()].flat())])),
-    totauxColonne: new Map(o.columns.map((c) => [c, total(o.rows.flatMap((l) => l.cellules.get(c) ?? []))])),
+    rowTotals: new Map(o.rows.map((l) => [l.actor, total([...l.cells.values()].flat())])),
+    columnTotals: new Map(o.columns.map((c) => [c, total(o.rows.flatMap((l) => l.cells.get(c) ?? []))])),
   };
 }

@@ -38,7 +38,7 @@ export interface UpgradeContext {
   dateMigration: Date;
 }
 
-function jour(d: Date): string {
+function day(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
@@ -48,7 +48,7 @@ function jour(d: Date): string {
 // n'existe nulle part dans le fichier.
 export const MILESTONE_NEXT = "Upcoming";
 
-const est = (value: string, attendu: string) => normalizeText(value) === normalizeText(attendu);
+const est = (value: string, expected: string) => normalizeText(value) === normalizeText(expected);
 
 // Premier temps : l'axe des paliers remplace État et Statut. La conversion ne
 // se contente pas d'ajouter des colonnes vides, elle traduit ce que le classeur
@@ -68,10 +68,10 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
     rank: 2,
     label: "Initial state",
     status: "Delivered",
-    date: jour(context.dateMigration),
+    date: day(context.dateMigration),
     description: "Everything the workbook held when it moved onto milestones.",
   };
-  const suivant = {
+  const next = {
     name: MILESTONE_NEXT,
     rank: 3,
     label: "Changes already announced",
@@ -80,8 +80,8 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
     description: "What the workbook declared as going or coming before the move.",
   };
 
-  const bounds = (v: { introducedAt: string; retiredAt: string }, removed: string, arrivee = MILESTONE_ORIGIN) => ({
-    introducedAt: v.introducedAt.trim() || arrivee,
+  const bounds = (v: { introducedAt: string; retiredAt: string }, removed: string, arrival = MILESTONE_ORIGIN) => ({
+    introducedAt: v.introducedAt.trim() || arrival,
     retiredAt: v.retiredAt.trim() || removed,
   });
 
@@ -130,7 +130,7 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
     milestones:
       model.milestones.length > 0
         ? model.milestones
-        : [...(utilise(MILESTONE_BEFORE) ? [before] : []), origin, ...(utilise(MILESTONE_NEXT) ? [suivant] : [])].map(
+        : [...(utilise(MILESTONE_BEFORE) ? [before] : []), origin, ...(utilise(MILESTONE_NEXT) ? [next] : [])].map(
             // Ces paliers n'existaient pas dans le classeur d'origine : leur
             // emplacement est celui qu'ils auront à l'écriture, en-tête compris.
             (p, i) => ({ ...p, rank: i + 1, sheet: "Milestones", row: i + 2 })
@@ -146,7 +146,7 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
 // reste à traduire, ce sont les VALEURS déjà saisies. Une valeur qu'on ne
 // reconnaît pas est laissée telle quelle : c'est peut-être un terme propre à
 // l'équipe, et le contrôle de vocabulaire la signalera plutôt qu'on l'écrase.
-const VALEURS_TRADUITES: Record<string, string> = {
+const TRANSLATED_VALUES: Record<string, string> = {
   Plateforme: "Platform",
   Externe: "External",
   "À conserver": "Keep",
@@ -162,23 +162,23 @@ const VALEURS_TRADUITES: Record<string, string> = {
   "consommateur → exposant": "consumer → provider",
 };
 
-function traduire(value: string): string {
+function translate(value: string): string {
   const v = normalizeText(value);
-  const found = Object.entries(VALEURS_TRADUITES).find(([fr]) => normalizeText(fr) === v);
+  const found = Object.entries(TRANSLATED_VALUES).find(([fr]) => normalizeText(fr) === v);
   return found ? found[1] : value;
 }
 
-function traduireLesValeurs(model: ParsedModel): ParsedModel {
+function translateTheValues(model: ParsedModel): ParsedModel {
   // Les paliers ne sont pas traduits : le format d'origine n'en a aucun, et
   // ceux que la conversion vient de poser sont déjà en anglais.
   return {
     ...model,
-    groups: model.groups.map((g) => ({ ...g, perimeter: traduire(g.perimeter) })),
-    flowTypes: model.flowTypes.map((t) => ({ ...t, rawDirection: traduire(t.rawDirection) })),
+    groups: model.groups.map((g) => ({ ...g, perimeter: translate(g.perimeter) })),
+    flowTypes: model.flowTypes.map((t) => ({ ...t, rawDirection: translate(t.rawDirection) })),
     consumptions: model.consumptions.map((c) => ({
       ...c,
-      criticality: traduire(c.criticality),
-      decision: traduire(c.decision),
+      criticality: translate(c.criticality),
+      decision: translate(c.decision),
     })),
   };
 }
@@ -212,7 +212,7 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   {
     de: 0,
     vers: 1,
-    appliquer: (model, context) => traduireLesValeurs(seedMilestones(deriveGroups(model), context)),
+    appliquer: (model, context) => translateTheValues(seedMilestones(deriveGroups(model), context)),
   },
   // Le v1 est parti en production avec des formules qui citaient l'onglet
   // « Listes », renommé « Lists » à la traduction. Excel n'y voyait pas une
@@ -279,23 +279,23 @@ function moveRelays(model: ParsedModel): ParsedModel {
 // Le classeur parle anglais depuis le schéma v3, listes déroulantes comprises.
 // Une valeur écrite en français n'appartient pas au vocabulaire que le même
 // classeur pose sur la colonne : Excel refuse la cellule qu'il vient d'écrire.
-const oui = (v: boolean) => (v ? "Yes" : "No");
+const yes = (v: boolean) => (v ? "Yes" : "No");
 
 // Le modèle relu, remis à plat dans l'ordre des colonnes du classeur. C'est
 // une reconstruction : ce que le parseur n'a pas compris n'y est pas.
 export function dataFromModel(model: ParsedModel): WorkbookData {
   const lookup = buildInterfaceLookup(model);
-  const parOnglet = new Map<string, string[][]>();
+  const byTab = new Map<string, string[][]>();
   // Excel ne distingue pas deux feuilles dont les noms ne diffèrent que par la
   // casse : il refuse d'ouvrir le classeur ENTIER, sans rien dire de la feuille
   // fautive. On range donc sous l'orthographe déjà retenue -- celle que les
   // interfaces posent en premier, qui est le nom reconstruit.
   const existingTab = (name: string) =>
-    [...parOnglet.keys()].find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
+    [...byTab.keys()].find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
 
   for (const i of model.interfaces) {
     const tab = existingTab(i.expectedSheet);
-    if (!parOnglet.has(tab)) parOnglet.set(tab, []);
+    if (!byTab.has(tab)) byTab.set(tab, []);
   }
   for (const c of model.consumptions) {
     // Une consommation va dans l'onglet de l'interface à laquelle elle est
@@ -309,12 +309,12 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // une ligne qui ne désigne rien la perdrait.
     const iface = findInterfaceForConsumption(lookup, c);
     const tab = existingTab(iface ? iface.expectedSheet : c.sheet);
-    const rows = parOnglet.get(tab) ?? [];
+    const rows = byTab.get(tab) ?? [];
     rows.push([
       c.flowName, c.version, c.consumerName, c.usage, c.criticality,
       c.decision, c.comments, c.republishedAs, c.introducedAt, c.retiredAt,
     ]);
-    parOnglet.set(tab, rows);
+    byTab.set(tab, rows);
   }
 
   return {
@@ -337,7 +337,7 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
       i.contractLink,
       i.contractReference,
       i.comments,
-      oui(i.toConfirm),
+      yes(i.toConfirm),
       i.introducedAt,
       i.retiredAt,
     ]),
@@ -346,7 +346,7 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // onglets manquants depuis Excel, on rend un fichier où il n'en manque pas.
     // Un nom qu'Excel refuse est écarté -- le contrôle d'intégrité le signale
     // déjà, et fabriquer un classeur illisible n'aiderait personne.
-    fx: [...parOnglet.entries()].map(([name, rows]) => ({ name, rows })),
+    fx: [...byTab.entries()].map(([name, rows]) => ({ name, rows })),
   };
 }
 

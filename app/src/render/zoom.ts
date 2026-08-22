@@ -23,15 +23,15 @@ export function appliquer(svg: SVGSVGElement, frame: Frame): void {
 
 // Le point sous le curseur ne bouge pas : c'est ce qui distingue un zoom
 // utilisable d'un zoom qui perd son lecteur.
-export function zoomBy(frame: Frame, facteur: number, anchor: { x: number; y: number }, initial: Frame): Frame {
+export function zoomBy(frame: Frame, factor: number, anchor: { x: number; y: number }, initial: Frame): Frame {
   const currentScale = initial.width / frame.width;
-  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, currentScale * facteur));
-  const effectif = scale / currentScale;
-  const width = frame.width / effectif;
-  const height = frame.height / effectif;
+  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, currentScale * factor));
+  const headcount = scale / currentScale;
+  const width = frame.width / headcount;
+  const height = frame.height / headcount;
   return {
-    x: anchor.x - (anchor.x - frame.x) / effectif,
-    y: anchor.y - (anchor.y - frame.y) / effectif,
+    x: anchor.x - (anchor.x - frame.x) / headcount,
+    y: anchor.y - (anchor.y - frame.y) / headcount,
     width,
     height,
   };
@@ -43,7 +43,7 @@ export function panBy(frame: Frame, dx: number, dy: number): Frame {
 
 // Le branchement DOM : molette pour zoomer, glisser pour déplacer. Rend de quoi
 // piloter depuis le banner, et se détache tout seul avec le SVG qu'il équipe.
-export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (facteur: number) => void } {
+export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (factor: number) => void } {
   const initial = frameOfSvg(svg);
   let frame = { ...initial };
 
@@ -93,6 +93,6 @@ export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy:
 
   return {
     ajuster: () => apply({ ...initial }),
-    zoomBy: (facteur) => apply(zoomBy(frame, facteur, { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 }, initial)),
+    zoomBy: (factor) => apply(zoomBy(frame, factor, { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 }, initial)),
   };
 }

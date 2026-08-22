@@ -134,7 +134,7 @@ export function buildAide(): HTMLElement {
             el(
               "dl",
               { class: "help-definitions" },
-              s.definitions.flatMap(([terme, direction]) => [el("dt", {}, [terme]), el("dd", {}, [direction])])
+              s.definitions.flatMap(([term, direction]) => [el("dt", {}, [term]), el("dd", {}, [direction])])
             ),
           ]
         : []),
@@ -157,5 +157,5 @@ export function exportsDocumentes(): string[] {
 }
 
 function termesDe(title: string): string[] {
-  return (SECTIONS.find((s) => s.title === title)?.definitions ?? []).map(([terme]) => terme);
+  return (SECTIONS.find((s) => s.title === title)?.definitions ?? []).map(([term]) => term);
 }

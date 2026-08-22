@@ -76,7 +76,7 @@ function escapeXml(text: string): string {
 // D'ORIGINE plutôt que d'un compteur de position : le résultat ne dépend donc
 // pas de l'ordre dans lequel les feuilles sont fournies, qui peut varier d'une
 // génération à l'autre pour les mêmes données.
-function empreinte(text: string): string {
+function fingerprint(text: string): string {
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = (h * 33) ^ text.charCodeAt(i);
   return (h >>> 0).toString(36);
@@ -166,18 +166,18 @@ function materialiseRows(sheet: string, upTo: number): string {
   const present = new Set(
     [...sheet.matchAll(/<row r="(\d+)"/g)].map((m) => Number(m[1]))
   );
-  const manquantes: string[] = [];
+  const missing: string[] = [];
   for (let row = 1; row <= upTo; row++) {
-    if (!present.has(row)) manquantes.push(`<row r="${row}"/>`);
+    if (!present.has(row)) missing.push(`<row r="${row}"/>`);
   }
-  return sheet.replace("</sheetData>", `${manquantes.join("")}</sheetData>`);
+  return sheet.replace("</sheetData>", `${missing.join("")}</sheetData>`);
 }
 
 // La dernière colonne et la dernière ligne d'une référence de dimension --
 // une plage ("A1:N1000") ou, sur une feuille à une seule cellule, une cellule
 // nue ("A1").
-function declaredExtent(réf: string): { columnIdx: number; row: number } {
-  const last = réf.split(":").pop()!;
+function declaredExtent(ref: string): { columnIdx: number; row: number } {
+  const last = ref.split(":").pop()!;
   const m = last.match(/^([A-Z]+)(\d+)$/);
   if (!m) return { columnIdx: 0, row: 1 };
   return { columnIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
@@ -187,7 +187,7 @@ function declaredExtent(réf: string): { columnIdx: number; row: number } {
 // liste concernée -- pas nomDeTableau(feuille) recalculé à côté, qui ignorait
 // qu'une feuille comme Listes en porte plusieurs et se serait mépris sur
 // lequel.
-function xmlDesNomsDefinis(
+function definedNamesXml(
   lists: readonly NamedList[],
   tables: readonly TableToApply[],
   nomParTableau: ReadonlyMap<TableToApply, string>
@@ -246,7 +246,7 @@ export interface StyleToApply {
   sheet: string;
   // Adresses de cellules (« A1 », « B12 »), pas des plages : on ne stylise que
   // ce qui existe, et l'appelant sait exactement quelles lignes il a écrites.
-  cellules: readonly string[];
+  cells: readonly string[];
   role: StyleRole;
 }
 
@@ -261,7 +261,7 @@ export interface StyleToApply {
 // être confortable pour autant, surtout en italique et en petit corps. Les
 // notes passent donc à un ardoise franc, 10,16:1, et gardent l'italique pour
 // se distinguer -- c'est la FORME qui les met en retrait, pas la pâleur.
-const POLICES_AJOUTEES: Record<StyleRole, string> = {
+const ADDED_FONTS: Record<StyleRole, string> = {
   title: '<font><b/><sz val="18"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
   section: '<font><b/><sz val="14"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
   body: '<font><sz val="12"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
@@ -269,7 +269,7 @@ const POLICES_AJOUTEES: Record<StyleRole, string> = {
   header: '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
 };
 
-const REMPLISSAGES_AJOUTES: Record<StyleRole, string | null> = {
+const ADDED_FILLS: Record<StyleRole, string | null> = {
   title: null,
   section: '<fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F8"/><bgColor indexed="64"/></patternFill></fill>',
   body: null,
@@ -284,31 +284,31 @@ const ROLES: StyleRole[] = ["title", "section", "body", "aside", "header"];
 // d'explication, et qui se défait dès qu'on élargit la colonne.
 function xfForRole(role: StyleRole, fontId: number, fillId: number | null): string {
   const retour = role === "body" || role === "section" ? ' applyAlignment="1"' : "";
-  const alignement =
+  const alignment =
     role === "body" || role === "section" ? '<alignment vertical="top" wrapText="1"/>' : "";
   const fill = fillId === null ? "" : ` fillId="${fillId}" applyFill="1"`;
-  return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${retour}>${alignement}</xf>`;
+  return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${retour}>${alignment}</xf>`;
 }
 
 // Ajoute nos styles à ceux de SheetJS et rend l'index de chacun.
-function ajouterLesStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
-  const compte = (balise: string) => Number(new RegExp(`<${balise} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
-  const nbPolices = compte("fonts");
-  const nbFonds = compte("fills");
-  const nbXf = compte("cellXfs");
+function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
+  const count = (tag: string) => Number(new RegExp(`<${tag} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
+  const nbPolices = count("fonts");
+  const nbFonds = count("fills");
+  const nbXf = count("cellXfs");
 
-  let policeSuivante = nbPolices;
-  let fondSuivant = nbFonds;
+  let nextFont = nbPolices;
+  let nextFill = nbFonds;
   const policeDe: Record<string, number> = {};
   const fondDe: Record<string, number> = {};
   const policesXml: string[] = [];
   const fondsXml: string[] = [];
   for (const role of ROLES) {
-    policeDe[role] = policeSuivante++;
-    policesXml.push(POLICES_AJOUTEES[role]);
-    const fill = REMPLISSAGES_AJOUTES[role];
+    policeDe[role] = nextFont++;
+    policesXml.push(ADDED_FONTS[role]);
+    const fill = ADDED_FILLS[role];
     if (fill) {
-      fondDe[role] = fondSuivant++;
+      fondDe[role] = nextFill++;
       fondsXml.push(fill);
     }
   }
@@ -331,12 +331,12 @@ function ajouterLesStyles(styles: string): { xml: string; index: Record<StyleRol
 }
 
 // Pose l'attribut `s` sur les cellules visées d'une feuille déjà écrite.
-function appliquerLesStyles(sheet: string, parCellule: Map<string, number>): string {
-  return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, réf: string, attributs: string, fermé: string) => {
-    const style = parCellule.get(réf);
+function applyTheStyles(sheet: string, parCellule: Map<string, number>): string {
+  return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, ref: string, attributs: string, closed: string) => {
+    const style = parCellule.get(ref);
     if (style === undefined) return tout;
     const sansStyle = attributs.replace(/\s+s="\d+"/, "");
-    return `<c r="${réf}"${sansStyle} s="${style}"${fermé}>`;
+    return `<c r="${ref}"${sansStyle} s="${style}"${closed}>`;
   });
 }
 
@@ -344,22 +344,22 @@ export interface OoxmlExtras {
   tables: readonly TableToApply[];
   lists?: readonly NamedList[];
   validations?: readonly ValidationToApply[];
-  misesEnForme?: readonly StyleToApply[];
+  styles?: readonly StyleToApply[];
   // Les feuilles dont la ligne d'en-tête reste visible au défilement. Une
   // feuille de saisie de trente lignes se remplit à l'aveugle sans ça.
-  volets?: readonly string[];
+  panes?: readonly string[];
 }
 
-export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
+export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
   const {
     tables,
     lists = [],
     validations = [],
-    misesEnForme = [],
-    volets = [],
-  } = Array.isArray(complément)
-    ? { tables: complément as readonly TableToApply[], lists: [], validations: [], misesEnForme: [], volets: [] }
-    : (complément as OoxmlExtras);
+    styles = [],
+    panes = [],
+  } = Array.isArray(extras)
+    ? { tables: extras as readonly TableToApply[], lists: [], validations: [], styles: [], panes: [] }
+    : (extras as OoxmlExtras);
   const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
 
   const workbook = readPart(cfb, "/xl/workbook.xml");
@@ -430,7 +430,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | 
       // §18.5.1.2 exige un displayName unique dans le classeur, et Excel
       // résout la collision en supprimant l'un des deux tableaux, en silence.
       if (usedNames.has(name)) {
-        const disambiguated = `${name}_${empreinte(sheetName)}`;
+        const disambiguated = `${name}_${fingerprint(sheetName)}`;
         name = usedNames.has(disambiguated) ? `${disambiguated}_${idTable}` : disambiguated;
       }
       usedNames.add(name);
@@ -508,15 +508,15 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | 
   // La mise en forme et les volets figés, sur des feuilles que la boucle des
   // tableaux ne visite pas forcément : ils se posent donc à part, mais dans la
   // même passe -- le classeur n'est ouvert qu'une fois.
-  if (misesEnForme.length > 0) {
-    const styles = readPart(cfb, "/xl/styles.xml");
-    if (!styles) throw new Error("classeur illisible : xl/styles.xml absent");
-    const { xml, index } = ajouterLesStyles(styles);
+  if (styles.length > 0) {
+    const stylesXml = readPart(cfb, "/xl/styles.xml");
+    if (!stylesXml) throw new Error("classeur illisible : xl/styles.xml absent");
+    const { xml, index } = addTheStyles(stylesXml);
     writePart(cfb, "/xl/styles.xml", xml);
     const parFeuilleStyle = new Map<string, Map<string, number>>();
-    for (const mise of misesEnForme) {
+    for (const mise of styles) {
       const map = parFeuilleStyle.get(mise.sheet) ?? new Map<string, number>();
-      for (const cellule of mise.cellules) map.set(cellule, index[mise.role]);
+      for (const cellule of mise.cells) map.set(cellule, index[mise.role]);
       parFeuilleStyle.set(mise.sheet, map);
     }
     for (const [sheetName, map] of parFeuilleStyle) {
@@ -524,11 +524,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | 
       if (i < 0) throw new Error(`sheet "${sheetName}" absente du workbook`);
       const path = `/xl/worksheets/sheet${i + 1}.xml`;
       const content = readPart(cfb, path);
-      if (content) writePart(cfb, path, appliquerLesStyles(content, map));
+      if (content) writePart(cfb, path, applyTheStyles(content, map));
     }
   }
 
-  for (const sheetName of volets) {
+  for (const sheetName of panes) {
     const i = names.indexOf(sheetName);
     if (i < 0) continue;
     const path = `/xl/worksheets/sheet${i + 1}.xml`;
@@ -556,7 +556,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | 
     "/xl/workbook.xml",
     workbook
       .replace(/<definedNames>.*?<\/definedNames>/, "")
-      .replace("</sheets>", `</sheets>${xmlDesNomsDefinis(lists, tables, nomParTableau)}`)
+      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nomParTableau)}`)
   );
 
   const output = XLSX.CFB.write(cfb, { fileType: "zip", type: "array" }) as unknown as number[];

@@ -26,7 +26,7 @@ import {
 import { lifespanOf, isLiveAt, intervalsMeet, ALWAYS, type Interval } from "../aggregation/milestones";
 import { HEXA, LINE_THRESHOLD } from "../render/colors";
 import { contrastRatio } from "../render/contrast";
-import { LONGUEUR_MAX_ONGLET } from "../parsing/build-model";
+import { MAX_TAB_LENGTH } from "../parsing/build-model";
 import { isTechnicalActor } from "../aggregation/nature";
 import {
   VOCABULARY_DIRECTION,
@@ -116,7 +116,7 @@ export interface IntegrityReport {
   infoBlocks: InfoBlock[];
   totalAnomalies: number;
   totalActions: number;
-  totalAvertissements: number;
+  totalWarnings: number;
 }
 
 function actorByName(model: ParsedModel): Map<string, Actor> {
@@ -164,8 +164,8 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   for (const name of duplicates(model.actors.map((a) => a.name))) {
     // La ligne citée est la seconde : la première est légitime, c'est le doublon
     // qu'on va supprimer.
-    const doublon = model.actors.filter((a) => a.name.trim() === name)[1];
-    anomalies.push(anomaly(`${nameActor(doublon)} is declared more than once in the repository.`, doublon));
+    const duplicate = model.actors.filter((a) => a.name.trim() === name)[1];
+    anomalies.push(anomaly(`${nameActor(duplicate)} is declared more than once in the repository.`, duplicate));
   }
 
   // Sur (exposant, nom, version) et non sur le nom seul. Deux versions d'un même
@@ -175,9 +175,9 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   const identity = (i: InterfaceCatalogue) =>
     `${normalizeText(i.providerName)}\u0000${normalizeText(interfaceLabel(i.flowName, i.version))}`;
   for (const key of duplicates(model.interfaces.map(identity))) {
-    const doublon = model.interfaces.filter((i) => identity(i) === key)[1];
+    const duplicate = model.interfaces.filter((i) => identity(i) === key)[1];
     anomalies.push(
-      anomaly(`${nameInterface(doublon)} is published more than once by "${doublon.providerName}".`, doublon)
+      anomaly(`${nameInterface(duplicate)} is published more than once by "${duplicate.providerName}".`, duplicate)
     );
   }
 
@@ -195,9 +195,9 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   // premier des deux. Les acteurs et les interfaces avaient ce contrôle, la
   // frise ne l'avait pas.
   for (const name of duplicates(model.milestones.map((p) => normalizeText(p.name)))) {
-    const doublon = model.milestones.filter((p) => normalizeText(p.name) === name)[1];
+    const duplicate = model.milestones.filter((p) => normalizeText(p.name) === name)[1];
     anomalies.push(
-      anomaly(`Milestone "${doublon.name}" repeats an earlier milestone; the timeline cannot tell them apart.`, doublon)
+      anomaly(`Milestone "${duplicate.name}" repeats an earlier milestone; the timeline cannot tell them apart.`, duplicate)
     );
   }
 
@@ -216,24 +216,24 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     if (already.provider === couple.provider && already.type === couple.type) continue;
     anomalies.push(
       anomaly(
-        `${nameInterface(i)}: "${couple.provider}" / "${couple.type}" and "${already.provider}" / "${already.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${LONGUEUR_MAX_ONGLET} characters. Shorten one of the names.`,
+        `${nameInterface(i)}: "${couple.provider}" / "${couple.type}" and "${already.provider}" / "${already.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${MAX_TAB_LENGTH} characters. Shorten one of the names.`,
         i
       )
     );
   }
 
-  const fxNormalises = new Set(model.fxSheetNames.map((n) => normalizeText(n)));
+  const normalisedFx = new Set(model.fxSheetNames.map((n) => normalizeText(n)));
   for (const iface of model.interfaces) {
-    if (!fxNormalises.has(normalizeText(iface.expectedSheet))) {
+    if (!normalisedFx.has(normalizeText(iface.expectedSheet))) {
       anomalies.push(
         anomaly(`${nameInterface(iface)}: sheet "${iface.expectedSheet}" missing from the workbook.`, iface)
       );
     }
   }
 
-  const attendus = new Set(model.interfaces.map((i) => normalizeText(i.expectedSheet)));
+  const expected = new Set(model.interfaces.map((i) => normalizeText(i.expectedSheet)));
   for (const sheet of model.fxSheetNames) {
-    if (!attendus.has(normalizeText(sheet))) {
+    if (!expected.has(normalizeText(sheet))) {
       anomalies.push(anomaly(`Sheet "${sheet}" is present but no interface points to it.`));
     }
   }
@@ -482,10 +482,10 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
     const rows = byFlowAndConsumer.get(key);
     if (!rows) continue;
     const simultaneous = rows.filter(
-      (autre) =>
-        autre !== c &&
-        autre.version.trim() !== c.version.trim() &&
-        intervalsMeet(lifespanOf(model, c), lifespanOf(model, autre))
+      (other) =>
+        other !== c &&
+        other.version.trim() !== c.version.trim() &&
+        intervalsMeet(lifespanOf(model, c), lifespanOf(model, other))
     );
     if (simultaneous.length === 0) continue;
     const versions = new Set([c, ...simultaneous].map((l) => l.version.trim()));
@@ -528,14 +528,14 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
       }
       for (const parent of parents) {
         const tooEarly = arrivalFilled && interval.start < parent.interval.start;
-        const tropTard = retraitSaisi && interval.end > parent.interval.end;
+        const tooLate = retraitSaisi && interval.end > parent.interval.end;
         // Deux intervalles qui ne se rencontrent JAMAIS ne débordent ni d'un
         // côté ni de l'autre : une consommation qui commence là où son
         // interface se retire ne déclenchait donc rien, alors qu'elle décrit
         // un lien qui n'existe à aucun palier.
-        const jamaisEnsemble =
+        const neverTogether =
           parent.interval.start < parent.interval.end && !intervalsMeet(interval, parent.interval);
-        if (tooEarly || tropTard || jamaisEnsemble) {
+        if (tooEarly || tooLate || neverTogether) {
           anomalies.push(anomaly(`${subject} lives outside the lifetime of ${parent.name}.`, validity));
         }
       }
@@ -598,8 +598,8 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
     const consumers = consumptionsForInterface(lookupAuPalier, auPalier, i).map((c) => c.consumerName);
     if (consumers.length === 0) continue;
     if (!consumers.every((c) => isTechnicalActor(auPalier, c))) continue;
-    const ressort = consumptionsForInterface(lookupAuPalier, auPalier, i).some((c) => c.republishedAs.trim() !== "");
-    if (!ressort) {
+    const springs = consumptionsForInterface(lookupAuPalier, auPalier, i).some((c) => c.republishedAs.trim() !== "");
+    if (!springs) {
       anomalies.push(
         anomaly(`${nameInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
       );
@@ -631,9 +631,9 @@ const VOCABULARIES = {
   perimeter: VOCABULARY_PERIMETER,
 };
 
-function outOfVocabulary(value: string, admises: readonly string[]): boolean {
+function outOfVocabulary(value: string, allowed: readonly string[]): boolean {
   const v = normalizeText(value);
-  return v !== "" && !admises.some((a) => normalizeText(a) === v);
+  return v !== "" && !allowed.some((a) => normalizeText(a) === v);
 }
 
 function checkVocabularies(model: ParsedModel): AnomalyFamily {
@@ -838,18 +838,18 @@ function missingCriticalities(model: ParsedModel): InfoBlock {
 // ne sont pas deux saisies du même flux.
 function repeatedExchanges(model: ParsedModel): InfoBlock {
   const lookup = buildInterfaceLookup(model);
-  const comptes = new Map<string, number>();
+  const counts = new Map<string, number>();
   for (const c of model.consumptions) {
     const iface = findInterfaceForConsumption(lookup, c);
     if (!iface) continue;
     const key = `${iface.providerName.trim()} → ${c.consumerName.trim()} over ${iface.flowType.trim()}`;
-    comptes.set(key, (comptes.get(key) ?? 0) + 1);
+    counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return {
     id: "echanges-repetes",
     title: "Repeated exchanges",
     description: "Pairs of components linked more than once by the same technology.",
-    items: [...comptes.entries()]
+    items: [...counts.entries()]
       .filter(([, n]) => n > 1)
       .sort(([a], [b]) => a.localeCompare(b, "fr"))
       .map(([key, n]) => `${key} (${n} flows)`),
@@ -1019,12 +1019,12 @@ function migrationsEnCours(model: ParsedModel): InfoBlock {
     // classeur reviendrait à inventer la destination.
     const actives = model.interfaces
       .filter(
-        (autre) =>
-          normalizeText(autre.flowName) === normalizeText(iface.flowName) &&
-          normalizeText(autre.expectedSheet) === normalizeText(iface.expectedSheet) &&
-          autre.retiredAt.trim() === ""
+        (other) =>
+          normalizeText(other.flowName) === normalizeText(iface.flowName) &&
+          normalizeText(other.expectedSheet) === normalizeText(iface.expectedSheet) &&
+          other.retiredAt.trim() === ""
       )
-      .map((autre) => autre.version.trim() || "sans version");
+      .map((other) => other.version.trim() || "sans version");
 
     const vers = actives.length > 0 ? actives.join(", ") : "no active version";
     enCours.push({
@@ -1134,6 +1134,6 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     infoBlocks,
     totalAnomalies,
     totalActions: total("action"),
-    totalAvertissements: total("warning"),
+    totalWarnings: total("warning"),
   };
 }

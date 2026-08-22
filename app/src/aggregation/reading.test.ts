@@ -47,7 +47,7 @@ const MILESTONES: Milestone[] = [
 ];
 
 // Alderaan ─► Bus ─► ETL ─► Coruscant, le segment porté par le Bus (cmd.raw) retiré en v2.
-function unRelaisAvecSegmentRetire(): ParsedModel {
+function aRelayWithRetiredSegment(): ParsedModel {
   const m = model({
     actors: [actor("Alderaan", "Application"), actor("Bus", "Middleware"), actor("ETL", "Middleware"), actor("Coruscant", "Application")],
     interfaces: [iface("Commandes", "Alderaan"), iface("cmd.raw", "Bus"), iface("CMD_D", "ETL")],
@@ -153,13 +153,13 @@ describe("buildFunctionalFlows", () => {
   // Le palier s'applique d'abord : une chaîne dont un segment est retiré à ce
   // palier ne produit plus de lien -- c'est ce que la vue Écarts compare.
   it("coupe la chaîne au palier où le segment intermédiaire est retiré", () => {
-    const m = unRelaisAvecSegmentRetire();
+    const m = aRelayWithRetiredSegment();
     expect(buildFunctionalFlows(m, 1)).toHaveLength(1);
     expect(buildFunctionalFlows(m, 2)).toHaveLength(0);
   });
 
   it("ignore le retrait d'un segment quand aucun palier n'est affiché", () => {
-    expect(buildFunctionalFlows(unRelaisAvecSegmentRetire(), null)).toHaveLength(1);
+    expect(buildFunctionalFlows(aRelayWithRetiredSegment(), null)).toHaveLength(1);
   });
 
   it("ne trace pas un lien dont la source est le consommateur", () => {
@@ -204,7 +204,7 @@ describe("chainesCoupees", () => {
   // vivante : c'est exactement la même situation qu'une entrée jamais saisie,
   // et aucun appelant ne distingue les deux.
   it("signale un segment retiré au palier comme une interface sans entrée", () => {
-    const cut = chainesCoupees(unRelaisAvecSegmentRetire(), 2);
+    const cut = chainesCoupees(aRelayWithRetiredSegment(), 2);
     expect(cut).toHaveLength(1);
     expect(cut[0].reason).toBe("no-input");
   });
@@ -216,7 +216,7 @@ describe("chainesCoupees", () => {
 // viennent de lecture(), Tatooine n'y figurait plus et ressortait en boîte de
 // groupe -- sans icône, sans type, hors de sa frontière.
 describe("remontée — l'acteur source doit vivre au palier, pas seulement son segment", () => {
-  const avecTatooineRetire = () => {
+  const withTatooineRetired = () => {
     const m = unRelais();
     return {
       ...m,
@@ -226,12 +226,12 @@ describe("remontée — l'acteur source doit vivre au palier, pas seulement son 
   };
 
   it("ne rend plus un flux dont l'acteur source est retiré", () => {
-    const flows = buildFunctionalFlows(avecTatooineRetire(), 1);
+    const flows = buildFunctionalFlows(withTatooineRetired(), 1);
     expect(flows.map((f) => f.provider)).not.toContain("Tatooine");
   });
 
   it("le rend tant que l'acteur vit", () => {
-    const flows = buildFunctionalFlows(avecTatooineRetire(), 0);
+    const flows = buildFunctionalFlows(withTatooineRetired(), 0);
     expect(flows.map((f) => f.provider)).toContain("Tatooine");
   });
 });

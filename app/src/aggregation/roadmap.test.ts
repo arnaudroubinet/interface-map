@@ -47,8 +47,8 @@ describe("construireFrise", () => {
 
   // Le recouvrement de deux versions est exactement ce qu'on vient voir.
   it("laisse voir deux versions qui coexistent", () => {
-    const [un, deux] = buildRoadmap(estate(), "interfaces").segments;
-    expect(Math.max(un.start, deux.start)).toBeLessThan(Math.min(un.end, deux.end));
+    const [un, two] = buildRoadmap(estate(), "interfaces").segments;
+    expect(Math.max(un.start, two.start)).toBeLessThan(Math.min(un.end, two.end));
   });
 
   it("range les lignes par rattachement puis par arrivée", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EXPORTS } from "./banner";
-import { initialState, withLoadedFile, withVue, withMode } from "./state";
+import { initialState, withLoadedFile, withView, withMode } from "./state";
 import type { AppState } from "./state";
 import * as base from "../testing/fixtures";
 import type { IntegrityReport } from "../integrity/checks";
@@ -15,41 +15,41 @@ const report: IntegrityReport = {
   infoBlocks: [],
   totalAnomalies: 0,
   totalActions: 0,
-  totalAvertissements: 0,
+  totalWarnings: 0,
 };
 
 const loaded = (): AppState =>
   withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, dateModification: null });
 
-const actif = (label: string, state: AppState, dessin = true) =>
-  EXPORTS.find((e) => e.label === label)!.actif(state, dessin);
+const active = (label: string, state: AppState, drawing = true) =>
+  EXPORTS.find((e) => e.label === label)!.active(state, drawing);
 
 describe("EXPORTS — quand un format est offert", () => {
   it("n'offre rien tant qu'aucun classeur n'est chargé", () => {
     for (const format of EXPORTS) {
-      expect(format.actif(initialState(), true)).toBe(false);
+      expect(format.active(initialState(), true)).toBe(false);
     }
   });
 
   it("offre les images sur un schéma, et seulement là", () => {
-    const s = withVue(loaded(), "platform-detail");
-    expect(actif("SVG", s)).toBe(true);
-    expect(actif("PNG", s)).toBe(true);
-    expect(actif("SVG", withVue(s, "matrix"))).toBe(false);
-    expect(actif("SVG", withVue(s, "checks"))).toBe(false);
+    const s = withView(loaded(), "platform-detail");
+    expect(active("SVG", s)).toBe(true);
+    expect(active("PNG", s)).toBe(true);
+    expect(active("SVG", withView(s, "matrix"))).toBe(false);
+    expect(active("SVG", withView(s, "checks"))).toBe(false);
   });
 
   // Un schéma pas encore rendu n'est pas exportable : le bouton attendrait un
   // dessin qui n'existe pas.
   it("n'offre pas une image tant que le dessin n'est pas prêt", () => {
-    expect(actif("SVG", withVue(loaded(), "platform-detail"), false)).toBe(false);
+    expect(active("SVG", withView(loaded(), "platform-detail"), false)).toBe(false);
   });
 
   it("réserve Excel à la matrix et Markdown au rapport", () => {
-    expect(actif("Excel", withVue(loaded(), "matrix"))).toBe(true);
-    expect(actif("Excel", withVue(loaded(), "checks"))).toBe(false);
-    expect(actif("Markdown", withVue(loaded(), "checks"))).toBe(true);
-    expect(actif("Markdown", withVue(loaded(), "matrix"))).toBe(false);
+    expect(active("Excel", withView(loaded(), "matrix"))).toBe(true);
+    expect(active("Excel", withView(loaded(), "checks"))).toBe(false);
+    expect(active("Markdown", withView(loaded(), "checks"))).toBe(true);
+    expect(active("Markdown", withView(loaded(), "matrix"))).toBe(false);
   });
 
   // Les trois qui emportent tout le classeur ne dépendent pas de la vue --
@@ -58,16 +58,16 @@ describe("EXPORTS — quand un format est offert", () => {
   // à un autre est le cas d'usage central d'un systemLandscape. Le fichier dit
   // désormais quelle lecture il porte, ce qui était la vraie exigence.
   it("offre les trois formats de modèle dans les deux lectures", () => {
-    const fonctionnel = withMode(withVue(loaded(), "matrix"), "functional");
-    expect(actif("draw.io", fonctionnel)).toBe(true);
-    expect(actif("Structurizr", fonctionnel)).toBe(true);
-    expect(actif("LikeC4", fonctionnel)).toBe(true);
+    const fonctionnel = withMode(withView(loaded(), "matrix"), "functional");
+    expect(active("draw.io", fonctionnel)).toBe(true);
+    expect(active("Structurizr", fonctionnel)).toBe(true);
+    expect(active("LikeC4", fonctionnel)).toBe(true);
   });
 
   it("n'offre aucun des trois sur l'écran de mise à niveau", () => {
-    const blocked = withVue(loaded(), "upgrade");
+    const blocked = withView(loaded(), "upgrade");
     for (const label of ["draw.io", "Structurizr", "LikeC4"]) {
-      expect(actif(label, blocked)).toBe(false);
+      expect(active(label, blocked)).toBe(false);
     }
   });
 });

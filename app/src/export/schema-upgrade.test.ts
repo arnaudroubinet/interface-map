@@ -38,13 +38,13 @@ function originalModel(): ParsedModel {
 
 describe("chaîne de mise à niveau", () => {
   it("enchaîne les étapes sans trou ni recouvrement, jusqu'à la version courante", () => {
-    let attendu = 0;
+    let expected = 0;
     for (const step of UPGRADE_STEPS) {
-      expect(step.de).toBe(attendu);
-      expect(step.vers).toBe(attendu + 1);
-      attendu = step.vers;
+      expect(step.de).toBe(expected);
+      expect(step.vers).toBe(expected + 1);
+      expected = step.vers;
     }
-    expect(attendu).toBe(SCHEMA_VERSION);
+    expect(expected).toBe(SCHEMA_VERSION);
   });
 });
 
@@ -134,10 +134,10 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
     // Retiré : déjà parti, son retrait est le palier d'origine lui-même.
     expect(r.model.interfaces.find((i) => i.flowName === "Autre")!.retiredAt).toBe("Origin");
     // À décommissionner : parti au palier suivant, qui est donc créé.
-    const enRetrait = r.model.interfaces.find((i) => i.flowName === "Authent")!;
-    expect(enRetrait.retiredAt).not.toBe("");
-    expect(enRetrait.retiredAt).not.toBe("Origin");
-    expect(r.model.milestones.map((p) => p.name)).toContain(enRetrait.retiredAt);
+    const setBack = r.model.interfaces.find((i) => i.flowName === "Authent")!;
+    expect(setBack.retiredAt).not.toBe("");
+    expect(setBack.retiredAt).not.toBe("Origin");
+    expect(r.model.milestones.map((p) => p.name)).toContain(setBack.retiredAt);
   });
 
   // « À supprimer » ne dit pas quand la consommation part, seulement qu'elle
@@ -155,8 +155,8 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   it("convertit un statut En projet en arrivée au palier planifié", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
-    const enProjet = r.model.consumptions.find((c) => c.flowName === "Autre")!;
-    expect(enProjet.introducedAt).not.toBe("Origin");
+    const planned = r.model.consumptions.find((c) => c.flowName === "Autre")!;
+    expect(planned.introducedAt).not.toBe("Origin");
   });
 
   // Le classeur converti ne doit se plaindre ni de l'axe qu'on vient de lui
@@ -361,8 +361,8 @@ describe("mise à niveau — onglet nommé autrement que reconstruit", () => {
       consumptions: [{ ...base.consumptions[0], flowName: "Inconnu", sheet: "FX_Ailleurs_HTTP" }],
       fxSheetNames: ["FX_Ailleurs_HTTP"],
     });
-    const ailleurs = data.fx.find((o) => o.name === "FX_Ailleurs_HTTP")!;
-    expect(ailleurs.rows).toHaveLength(1);
+    const elsewhere = data.fx.find((o) => o.name === "FX_Ailleurs_HTTP")!;
+    expect(elsewhere.rows).toHaveLength(1);
   });
 });
 
@@ -402,8 +402,8 @@ describe("mise à niveau — onglets homonymes à la casse près", () => {
 // tout ce que le parseur d'alors ne sait pas lire.
 describe("mise à niveau — classeur plus récent que l'outil", () => {
   it("refuse de rétrograder plutôt que de réécrire en silence", () => {
-    const futur = { ...originalModel(), schemaVersion: SCHEMA_VERSION + 1 };
-    expect(() => upgrade(futur)).toThrow(/newer|récent/i);
+    const future = { ...originalModel(), schemaVersion: SCHEMA_VERSION + 1 };
+    expect(() => upgrade(future)).toThrow(/newer|recent/i);
   });
 
   it("laisse passer un classeur à la version de l'outil", () => {

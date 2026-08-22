@@ -7,7 +7,7 @@ const ctx = (o: Partial<DiagramContext> = {}): DiagramContext => ({
   milestone: "v2",
   source: "carto.xlsx",
   date: "2026-08-22",
-  composants: 12,
+  components: 12,
   flows: 24,
   technologies: 5,
   ...o,
@@ -29,7 +29,7 @@ describe("libelléCartouche", () => {
 
   // Le singulier compte : « 1 components » signale un texte fabriqué à la main.
   it("accorde le singulier", () => {
-    expect(titleBlockText(ctx({ composants: 1, flows: 1 })).subtitle).toContain("1 component, 1 flow");
+    expect(titleBlockText(ctx({ components: 1, flows: 1 })).subtitle).toContain("1 component, 1 flow");
   });
 });
 
@@ -53,7 +53,7 @@ describe("descriptionAccessible", () => {
 // traits. Son cartouche annonçait « 0 component, 0 flow » sur dix-sept lignes.
 describe("libelléCartouche — ce que la planche compte", () => {
   it("laisse une planche dire ce qu'elle compte, quand les boîtes n'ont pas de sens", () => {
-    const c = { ...ctx(), composants: 0, flows: 0, detail: "17 interfaces, 3 milestones" };
+    const c = { ...ctx(), components: 0, flows: 0, detail: "17 interfaces, 3 milestones" };
     expect(titleBlockText(c).subtitle).toContain("17 interfaces, 3 milestones");
     expect(titleBlockText(c).subtitle).not.toContain("0 component");
   });

@@ -119,7 +119,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
   const result: RenderEdge[] = [];
 
   // Un flux dessiné tel quel, avec sa propre pointe.
-  const seul = (edge: LayoutEdge) => {
+  const alone = (edge: LayoutEdge) => {
       result.push({ points: edge.points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
@@ -128,7 +128,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
     // où sa pointe n'est justement pas. Chacun se dessine donc pour lui-même --
     // et TOUS, sans quoi le groupe perdrait tout sauf son premier.
     if (group[0].pulled === true) {
-      for (const edge of group) seul(edge);
+      for (const edge of group) alone(edge);
       continue;
     }
     if (group.length < 2) {
@@ -155,17 +155,17 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       return a && c && Math.abs(a.x - before.x) < 0.5 && Math.abs(a.y - before.y) < 0.5 && Math.abs(c.x - target.x) < 0.5 && Math.abs(c.y - target.y) < 0.5;
     });
     if (!sameApproach) {
-      for (const edge of group) seul(edge);
+      for (const edge of group) alone(edge);
       continue;
     }
-    const longueur = Math.hypot(target.x - before.x, target.y - before.y) || 1;
+    const length = Math.hypot(target.x - before.x, target.y - before.y) || 1;
     // Jamais au-delà de la moitié du dernier segment : sinon la confluence
     // passerait derrière le coude précédent et la branche repartirait en
     // arrière juste avant le tronc.
-    const recul = Math.min(DISTANCE_CONFLUENCE, longueur / 2);
+    const setback = Math.min(DISTANCE_CONFLUENCE, length / 2);
     const confluence = {
-      x: target.x - ((target.x - before.x) / longueur) * recul,
-      y: target.y - ((target.y - before.y) / longueur) * recul,
+      x: target.x - ((target.x - before.x) / length) * setback,
+      y: target.y - ((target.y - before.y) / length) * setback,
     };
 
     for (const edge of group) {
@@ -286,15 +286,15 @@ function buildEdgeLabel(
   };
 
   if (colourChip) {
-    const disque = el("circle");
-    disque.setAttribute("cx", String(cx - chipWidth(text) / 2 - offset / 2 + DISC_RADIUS + 7));
-    disque.setAttribute("cy", String(textY - 3.5));
-    disque.setAttribute("r", String(DISC_RADIUS));
-    disque.setAttribute("fill", colour);
-    disque.setAttribute("stroke", PAPER);
-    disque.setAttribute("stroke-width", "1.5");
-    if (attenuated) disque.setAttribute("opacity", "0.7");
-    g.appendChild(disque);
+    const disc = el("circle");
+    disc.setAttribute("cx", String(cx - chipWidth(text) / 2 - offset / 2 + DISC_RADIUS + 7));
+    disc.setAttribute("cy", String(textY - 3.5));
+    disc.setAttribute("r", String(DISC_RADIUS));
+    disc.setAttribute("fill", colour);
+    disc.setAttribute("stroke", PAPER);
+    disc.setAttribute("stroke-width", "1.5");
+    if (attenuated) disc.setAttribute("opacity", "0.7");
+    g.appendChild(disc);
   }
 
   apply(text, textY, "11", colourChip ? INK : colour, true);
@@ -348,20 +348,20 @@ function buildEdgeElement(
   // arête simple, c'est-à-dire la quasi-totalité d'entre elles : sur le
   // classeur d'exemple, 23 arêtes sur 24 étaient muettes.
   if (edge.names && edge.names.length > 0) {
-    const infobulle = el("title");
-    infobulle.textContent = edge.names.join("\n");
-    g.appendChild(infobulle);
+    const tooltip = el("title");
+    tooltip.textContent = edge.names.join("\n");
+    g.appendChild(tooltip);
   }
 
   const headSize = tailleDePointe(longueurDApproche(edge));
   const drawnPoints = edge.arrow
     ? reculerPourLaPointe(edge.points, headSize + arrowGapFor(headSize), edge.pulled === true)
     : edge.points;
-  const morceaux = breakTheLine(drawnPoints, labelRect ? [labelRect] : []);
+  const pieces = breakTheLine(drawnPoints, labelRect ? [labelRect] : []);
 
-  morceaux.forEach((morceau, i) => {
+  pieces.forEach((piece, i) => {
     const path = el("path");
-    path.setAttribute("d", cheminArrondi(morceau));
+    path.setAttribute("d", cheminArrondi(piece));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", colour);
     path.setAttribute("stroke-width", String(strokeWidthOf(edge, byCriticality)));
@@ -371,7 +371,7 @@ function buildEdgeElement(
     // définition sert les deux.
     if (edge.arrow) {
       if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${arrowMarkerId(colour, true, headSize)})`);
-      if (!edge.pulled && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, headSize)})`);
+      if (!edge.pulled && i === pieces.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, headSize)})`);
     }
     if (edge.attenuated) {
       path.setAttribute("stroke-dasharray", "6 4");
@@ -553,9 +553,9 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   // navigateur comme dans un .svg ouvert seul. Posé sur le groupe et non sur
   // l'élément texte : là, il s'ajouterait au textContent du nom.
   if (shownName !== node.label) {
-    const infobulle = el("title");
-    infobulle.textContent = node.label;
-    g.appendChild(infobulle);
+    const tooltip = el("title");
+    tooltip.textContent = node.label;
+    g.appendChild(tooltip);
   }
   cursor += NAME_LINE_HEIGHT;
 
@@ -753,7 +753,7 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
   // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous
   // « cut corner » serait une entrée de légende aussi muette que le signe
   // qu'elle prétend expliquer.
-  const boite = (e: Extract<LegendSample, { shape: "box" }>): SVGElement => {
+  const box = (e: Extract<LegendSample, { shape: "box" }>): SVGElement => {
     const x0 = x + LEGEND_PAD;
     const y0 = row - 5;
     const l = LEGEND_SAMPLE;
@@ -782,7 +782,7 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
   };
 
   for (const input of inputs) {
-    g.appendChild(input.sample.shape === "line" ? line(input.sample) : boite(input.sample));
+    g.appendChild(input.sample.shape === "line" ? line(input.sample) : box(input.sample));
     const t = el("text");
     t.setAttribute("x", String(x + LEGEND_PAD + LEGEND_SAMPLE + 10));
     t.setAttribute("y", String(row + 4));

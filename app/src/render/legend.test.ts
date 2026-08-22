@@ -40,8 +40,8 @@ describe("entreesDeLegende", () => {
     const mixte = legendEntries([{ technology: "HTTP" }], [node(), node({ id: "B", external: true })], () => "#111111");
     expect(mixte.map((e) => e.text)).toContain("Platform");
     expect(mixte.map((e) => e.text)).toContain("External");
-    const interne = legendEntries([{ technology: "HTTP" }], [node()], () => "#111111");
-    expect(interne.map((e) => e.text)).not.toContain("External");
+    const internal = legendEntries([{ technology: "HTTP" }], [node()], () => "#111111");
+    expect(internal.map((e) => e.text)).not.toContain("External");
   });
 
   // La frontière de plateforme est un repère de fond, pas un acteur : la

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { handlersExport, type ExportContext } from "./export-handlers";
-import { initialState, withLoadedFile, withVue, withMode, withActorSelection, type AppState } from "./state";
+import { initialState, withLoadedFile, withView, withMode, withActorSelection, type AppState } from "./state";
 import type { IntegrityReport } from "../integrity/checks";
 import * as base from "../testing/fixtures";
 
@@ -23,17 +23,17 @@ vi.mock("../export/svg-export", () => ({
 vi.mock("../export/xlsx-export", () => ({
   downloadMatrixXlsx: (_m: unknown, name: string) => void downloads.push({ name, content: "xlsx" }),
 }));
-const pngRendu = { ok: true as boolean, scale: 0 };
+const renderedPng = { ok: true as boolean, scale: 0 };
 vi.mock("../export/png-export", () => ({
   exportPng: async (_svg: unknown, _fond: unknown, scale: number) => {
-    pngRendu.scale = scale;
-    return pngRendu.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." };
+    renderedPng.scale = scale;
+    return renderedPng.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." };
   },
   downloadPngBlob: (_b: unknown, name: string) => void downloads.push({ name, content: "png" }),
 }));
 
 const report: IntegrityReport = {
-  families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0,
+  families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0,
 };
 
 const template = base.template({
@@ -52,7 +52,7 @@ function context(state: AppState, svg: SVGSVGElement | null = document.createEle
     legacyState: () => current,
     setState: (s) => void (current = s),
     svgCourant: () => svg,
-    matriceCourante: () => base.matrix({ columns: ["B"], rows: [] }),
+    currentMatrix: () => base.matrix({ columns: ["B"], rows: [] }),
   };
   return { ctx, handlers: handlersExport(ctx), state: () => current };
 }
@@ -62,8 +62,8 @@ const loaded = () =>
 
 beforeEach(() => {
   downloads.length = 0;
-  pngRendu.ok = true;
-  pngRendu.scale = 0;
+  renderedPng.ok = true;
+  renderedPng.scale = 0;
 });
 
 describe("handlersExport", () => {
@@ -77,7 +77,7 @@ describe("handlersExport", () => {
   });
 
   it("ne fait rien quand aucun schéma n'est à l'écran", () => {
-    const { handlers } = context(withVue(loaded(), "platform-detail"), null);
+    const { handlers } = context(withView(loaded(), "platform-detail"), null);
     handlers.onExportSvg();
     expect(downloads).toHaveLength(0);
   });
@@ -85,7 +85,7 @@ describe("handlersExport", () => {
   // Le nom porte la vue, le palier et la sélection : sans elle, deux lectures
   // différentes se téléchargeraient sous le même nom.
   it("met la sélection dans le nom de la vue par acteur", () => {
-    const s = withActorSelection(withVue(loaded(), "by-actor"), "Tatooine");
+    const s = withActorSelection(withView(loaded(), "by-actor"), "Tatooine");
     context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("tatooine");
     expect(downloads[0].name).toMatch(/\.svg$/);
@@ -94,14 +94,14 @@ describe("handlersExport", () => {
   // Le rapport juge le CLASSEUR, pas une lecture du classeur : son contenu ne
   // bouge pas d'un mode à l'autre, son nom ne doit donc pas bouger non plus.
   it("ne met pas le mode dans le nom du rapport Markdown", () => {
-    const s = withMode(withVue(loaded(), "checks"), "functional");
+    const s = withMode(withView(loaded(), "checks"), "functional");
     context(s).handlers.onExportMarkdown();
     expect(downloads[0].name).not.toContain("functional");
     expect(downloads[0].content).toContain("Integrity report");
   });
 
   it("met le mode dans le nom d'un schéma, lui", () => {
-    const s = withMode(withVue(loaded(), "platform-detail"), "functional");
+    const s = withMode(withView(loaded(), "platform-detail"), "functional");
     context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("functional");
   });
@@ -111,27 +111,27 @@ describe("handlersExport", () => {
   // s'affiche : il distingue deux échecs, le banner n'en invente pas un
   // troisième.
   it("prévient dans le banner quand le PNG échoue, et ne télécharge rien", async () => {
-    pngRendu.ok = false;
-    const { handlers, state } = context(withVue(loaded(), "platform-detail"));
+    renderedPng.ok = false;
+    const { handlers, state } = context(withView(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads).toHaveLength(0);
     expect(state().messageBandeau).toBe("No PNG here.");
   });
 
   it("télécharge le PNG quand la conversion passe", async () => {
-    const { handlers } = context(withVue(loaded(), "platform-detail"));
+    const { handlers } = context(withView(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads[0].name).toMatch(/\.png$/);
   });
 
   it("exporte la matrix affichée, sous le nom de la vue matrix", () => {
-    context(withVue(loaded(), "matrix")).handlers.onExportXlsx();
+    context(withView(loaded(), "matrix")).handlers.onExportXlsx();
     expect(downloads[0].name).toMatch(/matrix.*\.xlsx$/);
   });
 
   // Les deux DSL décrivent le MODÈLE : ni nom de vue, ni sélection, ni mode.
   it("nomme les deux DSL d'après le modèle, pas d'après la vue", () => {
-    const s = withMode(withVue(loaded(), "by-actor"), "functional");
+    const s = withMode(withView(loaded(), "by-actor"), "functional");
     const { handlers } = context(s);
     handlers.onExportStructurizr();
     handlers.onExportLikeC4();
@@ -141,7 +141,7 @@ describe("handlersExport", () => {
   });
 
   it("emporte toutes les planches dans le draw.io, quelle que soit la vue ouverte", async () => {
-    await context(withVue(loaded(), "checks")).handlers.onExportDrawio();
+    await context(withView(loaded(), "checks")).handlers.onExportDrawio();
     expect(downloads[0].name).toMatch(/boards.*\.drawio$/);
     expect(downloads[0].content).toContain("<mxfile");
   });
@@ -150,7 +150,7 @@ describe("handlersExport", () => {
 // --- §2.8 : le facteur d'échelle du PNG était codé en dur à 2. Un schéma
 // d'architecture est du trait fin avec de petits caractères : c'est le cas où
 // une haute résolution paie encore.
-const dernierScalePng = () => pngRendu.scale;
+const dernierScalePng = () => renderedPng.scale;
 
 describe("onExportPng — l'échelle est choisie", () => {
   it("garde 2 comme échelle par défaut", async () => {
@@ -161,7 +161,7 @@ describe("onExportPng — l'échelle est choisie", () => {
 
   it("exporte à l'échelle retenue", async () => {
     const s = loaded();
-    const { handlers } = context({ ...s, options: { ...s.options, echellePng: 4 } });
+    const { handlers } = context({ ...s, options: { ...s.options, pngScale: 4 } });
     await handlers.onExportPng();
     expect(dernierScalePng()).toBe(4);
   });

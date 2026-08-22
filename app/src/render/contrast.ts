@@ -20,8 +20,8 @@ export function relativeLuminance(hex: string): number {
 }
 
 export function contrastRatio(a: string, b: string): number {
-  const [haut, bas] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
-  return (haut + 0.05) / (bas + 0.05);
+  const [top, bas] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
+  return (top + 0.05) / (bas + 0.05);
 }
 
 // Assombrit par pas de 2 % jusqu'à atteindre la cible. On ne change JAMAIS la

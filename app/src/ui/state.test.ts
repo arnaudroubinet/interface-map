@@ -3,7 +3,7 @@ import * as base from "../testing/fixtures";
 import {
   initialState,
   withLoadedFile,
-  withVue,
+  withView,
   withOptions,
   withActorSelection,
   withActorHiddenInMatrix,
@@ -17,14 +17,14 @@ import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
 const model: ParsedModel = base.template();
-const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
+const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 };
 
 describe("initialState", () => {
   it("starts with no file loaded and no options set", () => {
     const state = initialState();
     expect(state.file).toBeNull();
     expect(state.view).toBe("group-to-group");
-    expect(state.options).toEqual({ counters: true, edgeLabelMode: "technology", echellePng: 2, weightByCriticality: false });
+    expect(state.options).toEqual({ counters: true, edgeLabelMode: "technology", pngScale: 2, weightByCriticality: false });
   });
 });
 
@@ -38,15 +38,15 @@ describe("withFichierCharge", () => {
   });
 
   it("opens on the integrity view when the file breaks the rules, rather than on a diagram", () => {
-    const enDefaut: IntegrityReport = {
+    const atFault: IntegrityReport = {
       families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
       infoBlocks: [],
       totalAnomalies: 1,
       totalActions: 0,
-      totalAvertissements: 0,
+      totalWarnings: 0,
     };
     const loaded = withLoadedFile(initialState(), {
-      name: "classeur.xlsx", model, report: enDefaut, dateModification: null,
+      name: "classeur.xlsx", model, report: atFault, dateModification: null,
     });
     expect(loaded.view).toBe("checks");
   });
@@ -54,7 +54,7 @@ describe("withFichierCharge", () => {
 
 describe("withVue / withOptions / withSelectionActeur", () => {
   it("updates only the targeted slice of state", () => {
-    const state = withActorSelection(withOptions(withVue(initialState(), "by-actor"), { counters: false }), "Tatooine");
+    const state = withActorSelection(withOptions(withView(initialState(), "by-actor"), { counters: false }), "Tatooine");
     expect(state.view).toBe("by-actor");
     expect(state.options.counters).toBe(false);
     expect(state.actorSelection).toBe("Tatooine");
@@ -63,14 +63,14 @@ describe("withVue / withOptions / withSelectionActeur", () => {
 
 describe("withGranulariteMatrice", () => {
   it("starts on acteur-to-acteur", () => {
-    expect(initialState().filtresMatrice.grain).toBe("actor");
+    expect(initialState().matrixFilters.grain).toBe("actor");
   });
 
   it("clears the masked rows, whose names no longer mean anything", () => {
     const hidden = withActorHiddenInMatrix(initialState(), "Tatooine", true);
     const folded = withMatrixGrain(hidden, "group");
-    expect(folded.filtresMatrice.grain).toBe("group");
-    expect(folded.filtresMatrice.hiddenActors).toEqual([]);
+    expect(folded.matrixFilters.grain).toBe("group");
+    expect(folded.matrixFilters.hiddenActors).toEqual([]);
   });
 });
 
@@ -88,12 +88,12 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
   // fiables : la mise à niveau passe avant, sans quoi on ferait corriger des
   // défauts qui n'en sont peut-être pas.
   it("passe avant l'écran des contrôles, même en présence d'anomalies", () => {
-    const enDefaut: IntegrityReport = {
+    const atFault: IntegrityReport = {
       families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
-      infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalAvertissements: 0,
+      infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalWarnings: 0,
     };
     const loaded = withLoadedFile(initialState(), {
-      name: "vieux.xlsx", model: ancien, report: enDefaut, dateModification: null,
+      name: "vieux.xlsx", model: ancien, report: atFault, dateModification: null,
     });
     expect(loaded.view).toBe("upgrade");
   });
@@ -146,12 +146,12 @@ describe("mode de lecture", () => {
   // afficherait une vue vide sans rien expliquer. Le repli n'est plus le
   // groupe à groupe, qui n'a pas davantage d'objet en fonctionnel.
   it("quitte la vue par technologie en passant en fonctionnel", () => {
-    const s = withVue(initialState(), "by-technology");
+    const s = withView(initialState(), "by-technology");
     expect(withMode(s, "functional").view).toBe("platform-detail");
   });
 
   it("laisse la vue en place quand elle garde un sens", () => {
-    const s = withVue(initialState(), "matrix");
+    const s = withView(initialState(), "matrix");
     expect(withMode(s, "functional").view).toBe("matrix");
   });
 
@@ -241,15 +241,15 @@ describe("withMode — les vues qui n'ont pas de sens en fonctionnel", () => {
   // alimente quelle direction » est précisément la question d'un comité de
   // direction, et c'est la seule vue qui y réponde.
   it("garde le groupe à groupe en passant en fonctionnel", () => {
-    const state = withMode(withVue(loaded(), "group-to-group"), "functional");
+    const state = withMode(withView(loaded(), "group-to-group"), "functional");
     expect(state.view).toBe("group-to-group");
   });
 
   it("quitte aussi la vue par technologie", () => {
-    expect(withMode(withVue(loaded(), "by-technology"), "functional").view).not.toBe("by-technology");
+    expect(withMode(withView(loaded(), "by-technology"), "functional").view).not.toBe("by-technology");
   });
 
   it("ne touche à rien en architecture", () => {
-    expect(withMode(withVue(loaded(), "group-to-group"), "architecture").view).toBe("group-to-group");
+    expect(withMode(withView(loaded(), "group-to-group"), "architecture").view).toBe("group-to-group");
   });
 });

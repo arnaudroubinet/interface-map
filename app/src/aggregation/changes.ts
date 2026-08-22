@@ -102,21 +102,21 @@ export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfte
 
   // Only the nodes the remaining lines touch, taken from both sides -- a
   // removed link needs boxes that may no longer exist afterwards.
-  const connus = [...after.nodes, ...before.nodes].filter(
-    (n, i, tous) => tous.findIndex((autre) => autre.id === n.id) === i
+  const known = [...after.nodes, ...before.nodes].filter(
+    (n, i, all) => all.findIndex((other) => other.id === n.id) === i
   );
-  const requis = new Set(edges.flatMap((e) => [e.from, e.to]));
-  const retenus = connus.filter((n) => requis.has(n.id));
+  const required = new Set(edges.flatMap((e) => [e.from, e.to]));
+  const kept = known.filter((n) => required.has(n.id));
 
   // The platform boundary is a PARENT node: no line touches it, so pruning
   // would carry it off and leave its children pointing at a container that no
   // longer exists. It is restored when it still holds enough to frame, and the
   // parent link is cut otherwise -- the same rule as elsewhere: under two
   // components, a frame adds nothing.
-  const dedans = retenus.filter((n) => n.parent !== undefined);
+  const dedans = kept.filter((n) => n.parent !== undefined);
   if (dedans.length < 2) {
-    return { nodes: retenus.map((n) => ({ ...n, parent: undefined })), edges };
+    return { nodes: kept.map((n) => ({ ...n, parent: undefined })), edges };
   }
-  const boundary = connus.find((n) => n.kind === "boundary");
-  return { nodes: boundary ? [boundary, ...retenus] : retenus, edges };
+  const boundary = known.find((n) => n.kind === "boundary");
+  return { nodes: boundary ? [boundary, ...kept] : kept, edges };
 }

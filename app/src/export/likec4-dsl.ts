@@ -9,7 +9,7 @@ import {
 import { liveActors } from "../aggregation/milestones";
 import { flowsForReading } from "../aggregation/reading";
 import { coloursOfModel } from "../render/colors";
-import { identifiants } from "./identifiers";
+import { identifiers } from "./identifiers";
 import { normalizeText } from "../shared/text";
 
 // Le classeur en LikeC4. Même matière que l'export Structurizr, autre grammaire :
@@ -52,7 +52,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
   // Groupes et acteurs partagent l'espace des identifiants : un groupe et un
   // acteur du même nom se marcheraient dessus.
-  const ids = identifiants([...groups, ...actors.map((a) => a.name.trim())]);
+  const ids = identifiers([...groups, ...actors.map((a) => a.name.trim())]);
   const paths = new Map(
     actors.map((a) => {
       const id = ids.get(a.name.trim())!;
@@ -65,7 +65,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
   // des identifiants, là où le classeur écrit « REST + ESB ».
   const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
-  const tags = identifiants(techs);
+  const tags = identifiers(techs);
   const colours = coloursOfModel(model);
 
   const rows: string[] = [
@@ -273,11 +273,11 @@ function isAPerson(a: Actor): boolean {
 // Ce que le schéma ne montre pas mais que le classeur sait. Un bloc vide ne se
 // pose pas : il encombrerait chaque élément sans rien dire.
 function metadata(indent: string, paires: [string, string][]): string[] {
-  const remplies = paires.filter(([, v]) => v.trim() !== "");
-  if (remplies.length === 0) return [];
+  const filled = paires.filter(([, v]) => v.trim() !== "");
+  if (filled.length === 0) return [];
   return [
     `${indent}metadata {`,
-    ...remplies.map(([key, v]) => `${indent}    ${key} "${text(v)}"`),
+    ...filled.map(([key, v]) => `${indent}    ${key} "${text(v)}"`),
     `${indent}}`,
   ];
 }

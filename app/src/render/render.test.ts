@@ -21,7 +21,7 @@ describe("buildMatrixTable", () => {
   it("draws exactly the rows and columns it is given", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["A"],
-      rows: [{ actor: "B", cellules: new Map([["A", [{ technology: "HTTP", count: 2, attenuated: false, names: [] }]]]) }],
+      rows: [{ actor: "B", cells: new Map([["A", [{ technology: "HTTP", count: 2, attenuated: false, names: [] }]]]) }],
     });
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
@@ -36,7 +36,7 @@ describe("buildMatrixTable", () => {
   it("marks an attenuated technology distinctly", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["B"],
-      rows: [{ actor: "A", cellules: new Map([["B", [{ technology: "HTTP", count: 1, attenuated: true, names: [] }]]]) }],
+      rows: [{ actor: "A", cells: new Map([["B", [{ technology: "HTTP", count: 1, attenuated: true, names: [] }]]]) }],
     });
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
@@ -54,8 +54,8 @@ describe("buildMatrixTable", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["A", "B"],
       rows: [
-        { actor: "A", cellules: new Map([["B", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
-        { actor: "B", cellules: new Map([["A", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
+        { actor: "A", cells: new Map([["B", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
+        { actor: "B", cells: new Map([["A", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
       ],
     });
 
@@ -70,7 +70,7 @@ describe("buildMatrixTable", () => {
   it("montre le seul compteur quand la cellule n'a pas de technologie", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["A"],
-      rows: [{ actor: "B", cellules: new Map([["A", [{ technology: "", count: 2, attenuated: false, names: [] }]]]) }],
+      rows: [{ actor: "B", cells: new Map([["A", [{ technology: "", count: 2, attenuated: false, names: [] }]]]) }],
     });
 
     const table = buildMatrixTable(matrix, () => "#000");
@@ -90,7 +90,7 @@ describe("buildIntegrityReport", () => {
       infoBlocks: [{ id: "groupes", title: "Groupes utilisés", description: "d", items: ["Socle (2)"], level: "info" }],
       totalAnomalies: 1,
       totalActions: 0,
-      totalAvertissements: 0,
+      totalWarnings: 0,
     };
 
     const el = buildIntegrityReport(report);
@@ -112,7 +112,7 @@ describe("buildIntegrityReport — état visuel des sections", () => {
     infoBlocks: [],
     totalAnomalies: 1,
     totalActions: 0,
-    totalAvertissements: 0,
+    totalWarnings: 0,
   };
 
   const parTitre = (el: HTMLElement, start: string) =>
@@ -120,29 +120,29 @@ describe("buildIntegrityReport — état visuel des sections", () => {
 
   it("collapses a clean section behind a green check, and opens an alerting one under a stop icon", () => {
     const el = buildIntegrityReport(report);
-    const saine = parTitre(el, "Structure");
-    const enAlerte = parTitre(el, "Cohérence");
+    const sound = parTitre(el, "Structure");
+    const onAlert = parTitre(el, "Cohérence");
 
     // Section saine : repliée, marquée « ok ».
-    expect(saine.open).toBe(false);
-    expect(saine.classList.contains("section-ok")).toBe(true);
-    expect(saine.querySelector("summary")!.textContent).toContain("Structure (0)");
+    expect(sound.open).toBe(false);
+    expect(sound.classList.contains("section-ok")).toBe(true);
+    expect(sound.querySelector("summary")!.textContent).toContain("Structure (0)");
 
     // Section en alerte : dépliée d'office, marquée « alerte ».
-    expect(enAlerte.open).toBe(true);
-    expect(enAlerte.classList.contains("section-alert")).toBe(true);
-    expect(enAlerte.querySelector("summary")!.textContent).toContain("Cohérence (1)");
-    expect(enAlerte.querySelectorAll("li")).toHaveLength(1);
+    expect(onAlert.open).toBe(true);
+    expect(onAlert.classList.contains("section-alert")).toBe(true);
+    expect(onAlert.querySelector("summary")!.textContent).toContain("Cohérence (1)");
+    expect(onAlert.querySelectorAll("li")).toHaveLength(1);
   });
 
   it("gives each section an icon that distinguishes the two states without relying on colour alone", () => {
     const el = buildIntegrityReport(report);
-    const saine = parTitre(el, "Structure");
-    const enAlerte = parTitre(el, "Cohérence");
+    const sound = parTitre(el, "Structure");
+    const onAlert = parTitre(el, "Cohérence");
     const traces = (d: Element) => [...d.querySelectorAll("summary svg path")].length;
 
-    expect(traces(saine)).toBe(1); // coche : un seul tracé
-    expect(traces(enAlerte)).toBe(3); // octogone + les deux barres de la croix
+    expect(traces(sound)).toBe(1); // coche : un seul tracé
+    expect(traces(onAlert)).toBe(3); // octogone + les deux barres de la croix
   });
 });
 
@@ -156,30 +156,30 @@ describe("buildIntegrityReport — avertissements", () => {
       ],
       totalAnomalies: 1,
       totalActions: 0,
-      totalAvertissements: 1,
+      totalWarnings: 1,
     };
 
     const el = buildIntegrityReport(report);
     const parTitre = (start: string) =>
       [...el.querySelectorAll("details")].find((d) => d.querySelector("summary")!.textContent!.startsWith(start))!;
-    const erreur = parTitre("Cohérence");
+    const error = parTitre("Cohérence");
     const avert = parTitre("Interfaces à confirmer");
     const info = parTitre("Groupes utilisés");
 
-    expect(erreur.classList.contains("section-alert")).toBe(true);
+    expect(error.classList.contains("section-alert")).toBe(true);
     expect(avert.classList.contains("section-warning")).toBe(true);
     expect(info.classList.contains("section-info")).toBe(true);
 
     // Chacun est visible d'office : un avertissement ne se cache pas.
-    expect([erreur.open, avert.open, info.open]).toEqual([true, true, true]);
+    expect([error.open, avert.open, info.open]).toEqual([true, true, true]);
 
     // Les trois icônes diffèrent par leur forme, pas seulement par leur couleur.
     const traces = (d: Element) => d.querySelectorAll("summary svg path").length;
-    expect(traces(erreur)).toBe(3); // octogone + croix
+    expect(traces(error)).toBe(3); // octogone + croix
     expect(traces(avert)).toBe(3); // triangle + barre + point
     expect(traces(info)).toBe(2); // barre + point, dans un cercle
     expect(avert.querySelector("summary svg path")!.getAttribute("d")).not.toBe(
-      erreur.querySelector("summary svg path")!.getAttribute("d")
+      error.querySelector("summary svg path")!.getAttribute("d")
     );
   });
 });
@@ -198,7 +198,7 @@ describe("buildIntegrityReport — ordre de lecture", () => {
       ],
       totalAnomalies: 1,
       totalActions: 0,
-      totalAvertissements: 1,
+      totalWarnings: 1,
     };
 
     const titles = [...buildIntegrityReport(report).querySelectorAll("details")].map(
@@ -228,7 +228,7 @@ describe("buildIntegrityReport — actions", () => {
     const html = buildIntegrityReport({
       families: [],
       infoBlocks: [block("a-confirmer", "action"), block("criticite", "warning")],
-      totalAnomalies: 0, totalActions: 1, totalAvertissements: 1,
+      totalAnomalies: 0, totalActions: 1, totalWarnings: 1,
     });
     const action = html.querySelector(".section-action")!;
     const warning = html.querySelector(".section-warning")!;
@@ -243,7 +243,7 @@ describe("buildIntegrityReport — actions", () => {
     const html = buildIntegrityReport({
       families: [{ id: "structure", title: "Structure", description: "d", anomalies: [{ message: "m" }] }],
       infoBlocks: [block("info", "info"), block("avert", "warning"), block("action", "action")],
-      totalAnomalies: 1, totalActions: 1, totalAvertissements: 1,
+      totalAnomalies: 1, totalActions: 1, totalWarnings: 1,
     });
     const classes = [...html.querySelectorAll("details")].map((d) => d.className.split(" ")[1]);
     expect(classes).toEqual(["section-alert", "section-action", "section-warning", "section-info"]);
@@ -267,8 +267,8 @@ describe("buildAide", () => {
 
   it("explique les deux lectures et les deux colonnes qui les portent", () => {
     const text = buildAide().textContent ?? "";
-    for (const attendu of ["ARCHITECTURE", "BUSINESS", "Nature", "Republished as"]) {
-      expect(text).toContain(attendu);
+    for (const expected of ["ARCHITECTURE", "BUSINESS", "Nature", "Republished as"]) {
+      expect(text).toContain(expected);
     }
   });
 
@@ -291,7 +291,7 @@ describe("buildAide", () => {
 describe("buildMatrixTable — couleur des cellules", () => {
   const matrix = (technology: string): MatrixResult => base.matrix({
     columns: ["A"],
-    rows: [{ actor: "B", cellules: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
+    rows: [{ actor: "B", cells: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
   });
 
   it("n'impose aucune couleur quand il n'y a pas de technologie", () => {
@@ -320,7 +320,7 @@ describe("buildMatrixTable — couleur des cellules", () => {
 describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
   const matrix = (technology: string): MatrixResult => base.matrix({
     columns: ["A"],
-    rows: [{ actor: "B", cellules: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
+    rows: [{ actor: "B", cells: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
   });
 
   it("pose la couleur sur une pastille, jamais sur le libellé", () => {
@@ -351,8 +351,8 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
     base.matrix({
       columns: ["A", "B"],
       rows: [
-        { actor: "A", cellules: new Map([["B", [{ technology: "HTTP", count: 3, attenuated: false, names: [] }]]]) },
-        { actor: "B", cellules: new Map([["A", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
+        { actor: "A", cells: new Map([["B", [{ technology: "HTTP", count: 3, attenuated: false, names: [] }]]]) },
+        { actor: "B", cells: new Map([["A", [{ technology: "HTTP", count: 1, attenuated: false, names: [] }]]]) },
       ],
     });
 
@@ -448,7 +448,7 @@ describe("buildFriseSvg", () => {
   // succèdent se dessineraient au même endroit.
   it("place chaque barre à l'abscisse de son palier", () => {
     const svg = buildRoadmapSvg(timeline, null, null);
-    const [, un, deux] = [...svg.querySelectorAll("rect")];
-    expect(Number(deux.getAttribute("x"))).toBeGreaterThan(Number(un.getAttribute("x")));
+    const [, un, two] = [...svg.querySelectorAll("rect")];
+    expect(Number(two.getAttribute("x"))).toBeGreaterThan(Number(un.getAttribute("x")));
   });
 });

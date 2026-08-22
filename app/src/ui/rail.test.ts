@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
-import { initialState, withLoadedFile, withMode, withVue, withActorSelection, type AppState } from "./state";
+import { initialState, withLoadedFile, withMode, withView, withActorSelection, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";
@@ -31,7 +31,7 @@ function consumption(o: Partial<Consumption> = {}): Consumption {
 // Naboo : en fonctionnel, la chaîne relie directement Tatooine à
 // Naboo, sans technologie -- c'est ce terrain que le filtre « Technologies »
 // doit refléter.
-const modelAvecFlux: ParsedModel = {
+const modelWithFlows: ParsedModel = {
   actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Naboo", "Application")],
   groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
   groupsSheetMissing: false,
@@ -74,34 +74,34 @@ const model: ParsedModel = {
   savedAt: null,
 };
 
-const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
+const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 };
 
 function noop(): void {}
 
 const callbacks: RailCallbacks = {
   onMode: noop,
-  onVue: noop,
+  onView: noop,
   onActorSelection: noop,
   onTechnologySelection: noop,
   onChainSelection: noop,
-  onVoisinage: noop,
+  onNeighbourhood: noop,
   onRoadmapSubject: noop,
   onWeightByCriticality: noop,
   onDisplayedMilestone: noop,
   onPalierCompare: noop,
-  onOptionCompteurs: noop,
+  onCounterOption: noop,
   onEdgeLabel: noop,
-  onOrdreMatrice: noop,
-  onEchellePng: noop,
+  onMatrixOrder: noop,
+  onPngScale: noop,
   onTechnologyHidden: noop,
   onActorHidden: noop,
   onMasquerExternes: noop,
   onActorHiddenForTechnology: noop,
-  onMasquerExternesMatrice: noop,
+  onHideExternalsInMatrix: noop,
   onActorHiddenInMatrix: noop,
   onMatrixGrain: noop,
-  onTelechargerModele: noop,
-  onTelechargerExemple: noop,
+  onDownloadTemplate: noop,
+  onDownloadSample: noop,
   onMigrationLegacy: noop,
 };
 
@@ -111,7 +111,7 @@ function optionsActeur(root: HTMLElement): string[] {
 
 describe("renderRail — sélecteur « par acteur »", () => {
   it("liste tous les acteurs en architecture", () => {
-    const state = withVue(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
+    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
     expect(optionsActeur(root)).toContain("Bus");
@@ -119,7 +119,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
 
   // §5.2 : le sélecteur ne liste que les acteurs métier en fonctionnel.
   it("ne liste que les acteurs métier en fonctionnel", () => {
-    const state = withVue(
+    const state = withView(
       withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "functional"),
       "by-actor"
     );
@@ -136,16 +136,16 @@ describe("renderRail — sélecteur « par acteur »", () => {
 // pas les afficher tant que le classeur n'est pas à niveau.
 describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () => {
   it("n'affiche pas le compteur d'anomalies quand le classeur est bloqué en mise à niveau", () => {
-    const modelAncien: ParsedModel = { ...model, schemaVersion: SCHEMA_VERSION - 1 };
-    const reportAvecAnomalies: IntegrityReport = {
+    const oldModel: ParsedModel = { ...model, schemaVersion: SCHEMA_VERSION - 1 };
+    const reportWithAnomalies: IntegrityReport = {
       families: [],
       infoBlocks: [],
       totalAnomalies: 5,
       totalActions: 0,
-      totalAvertissements: 0,
+      totalWarnings: 0,
     };
-    const state = withVue(
-      withLoadedFile(initialState(), { name: "c.xlsx", model: modelAncien, report: reportAvecAnomalies, dateModification: null }),
+    const state = withView(
+      withLoadedFile(initialState(), { name: "c.xlsx", model: oldModel, report: reportWithAnomalies, dateModification: null }),
       "upgrade"
     );
     const root = document.createElement("div");
@@ -160,7 +160,7 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
   // qui vide tout le schéma en un clic sans rien expliquer.
   it("n'affiche pas le bloc Technologies en mode fonctionnel", () => {
     const state = withActorSelection(
-      withVue(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "functional"), "by-actor"),
+      withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null }), "functional"), "by-actor"),
       "Tatooine"
     );
     // Le terrain porte bien un lien fonctionnel : sans cette ligne, le test
@@ -174,7 +174,7 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
 
   it("affiche le bloc Technologies en architecture", () => {
     const state = withActorSelection(
-      withVue(withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "by-actor"),
+      withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null }), "by-actor"),
       "Tatooine"
     );
     const root = document.createElement("div");
@@ -207,7 +207,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
   });
 
   it("n'offre pas un acteur absent de la lecture courante", () => {
-    const state: AppState = withVue(
+    const state: AppState = withView(
       withLoadedFile(initialState(), {
         name: "c.xlsx",
         model: estate,
@@ -221,8 +221,8 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
 
     const root = document.createElement("div");
     renderRail(root, state, reading(estate, 2, "architecture"), [], callbacks);
-    const offerts = [...root.querySelectorAll("select.rail-select option")].map((o) => o.getAttribute("value"));
-    expect(offerts).not.toContain("Aaa");
+    const offered = [...root.querySelectorAll("select.rail-select option")].map((o) => o.getAttribute("value"));
+    expect(offered).not.toContain("Aaa");
   });
 });
 
@@ -230,21 +230,21 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
 // choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
 // qui est nommé.
 describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
-  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
-  const rendu = (s: AppState) => {
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null });
+  const rendered = (s: AppState) => {
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
     return root;
   };
 
   it("propose les trois lectures de l'étiquette", () => {
-    const options = [...rendu(loaded()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
+    const options = [...rendered(loaded()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
     expect(options).toEqual(["technology", "exchanges", "both"]);
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, echellePng: 2 as const, weightByCriticality: false } };
-    const select = rendu(s).querySelector(".rail-option-label select") as HTMLSelectElement;
+    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, pngScale: 2 as const, weightByCriticality: false } };
+    const select = rendered(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });
 });

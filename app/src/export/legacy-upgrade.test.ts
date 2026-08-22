@@ -21,12 +21,12 @@ import {
 // transcription déguisée.
 function legacyWorkbook(
   flows: Record<string, string>[],
-  composants: Record<string, string>[] = []
+  components: Record<string, string>[] = []
 ): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(flows), "Flux");
-  if (composants.length > 0) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(composants), "Composants");
+  if (components.length > 0) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(components), "Composants");
   }
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
@@ -90,8 +90,8 @@ describe("migration depuis le format d'origine", () => {
     const decisions = data.fx.flatMap((o) => o.rows).map((l) => l[iDecision]);
     // « À supprimer » reste une décision : le format d'origine ne dit nulle
     // part quand ce flux part, seulement qu'il n'a plus lieu d'être.
-    const retraits = data.fx.flatMap((o) => o.rows).map((l) => l[FX_COLUMNS.indexOf("Retired at")]);
-    expect(retraits.every((r) => r === "")).toBe(true);
+    const retirements = data.fx.flatMap((o) => o.rows).map((l) => l[FX_COLUMNS.indexOf("Retired at")]);
+    expect(retirements.every((r) => r === "")).toBe(true);
     expect(decisions).toContain("Remove");
     expect(decisions).toContain("Transform");
     // Une valeur hors vocabulaire n'est pas devinée : elle reste vide, et la

@@ -81,21 +81,21 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
     svg.appendChild(text(MARGE, y + 14, s.label, 12, INK));
 
     const gauche = x(s.start);
-    const droite = x(s.end);
-    const barre = el("rect");
-    barre.setAttribute("x", String(gauche));
-    barre.setAttribute("y", String(y + 4));
-    barre.setAttribute("width", String(Math.max(6, droite - gauche)));
-    barre.setAttribute("height", "14");
-    barre.setAttribute("rx", "4");
-    barre.setAttribute("fill", style.fill);
-    svg.appendChild(barre);
+    const right = x(s.end);
+    const toolbar = el("rect");
+    toolbar.setAttribute("x", String(gauche));
+    toolbar.setAttribute("y", String(y + 4));
+    toolbar.setAttribute("width", String(Math.max(6, right - gauche)));
+    toolbar.setAttribute("height", "14");
+    toolbar.setAttribute("rx", "4");
+    toolbar.setAttribute("fill", style.fill);
+    svg.appendChild(toolbar);
 
     // Ouvert à droite : une pointe, pas un bord franc. Un bord franc dirait
     // que la ligne s'arrête là, alors qu'elle n'a simplement pas de fin connue.
     if (s.openRight) {
       const head = el("path");
-      head.setAttribute("d", `M${droite} ${y + 4} L${droite + 10} ${y + 11} L${droite} ${y + 18} Z`);
+      head.setAttribute("d", `M${right} ${y + 4} L${right + 10} ${y + 11} L${right} ${y + 18} Z`);
       head.setAttribute("fill", style.fill);
       head.setAttribute("class", "fx-roadmap-open");
       svg.appendChild(head);

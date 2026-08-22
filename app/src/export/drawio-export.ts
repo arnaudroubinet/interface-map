@@ -20,10 +20,10 @@ const escapeXml = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
 // l'attribut qui le porte. N'en faire qu'un produit un fichier qu'aucun
 // analyseur XML n'ouvre -- draw.io compris.
 function content(n: LayoutNode): string {
-  const morceaux = [`<b>${escapeXml(n.label)}</b>`];
-  if (n.subtitle) morceaux.push(`[${escapeXml(n.subtitle)}]`);
-  if (n.description) morceaux.push(`<br/>${escapeXml(n.description)}`);
-  return morceaux.join("<div></div>");
+  const pieces = [`<b>${escapeXml(n.label)}</b>`];
+  if (n.subtitle) pieces.push(`[${escapeXml(n.subtitle)}]`);
+  if (n.description) pieces.push(`<br/>${escapeXml(n.description)}`);
+  return pieces.join("<div></div>");
 }
 
 const FILL: Record<string, { fill: string; line: string; text: string }> = {
@@ -81,7 +81,7 @@ export function buildDrawio(
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<mxfile host="carte-des-interfaces">',
-    ...boards.flatMap((p, i) => diagramme(p, i, technologyColour, byActorPage)),
+    ...boards.flatMap((p, i) => diagram(p, i, technologyColour, byActorPage)),
     "</mxfile>",
     "",
   ].join("\n");
@@ -90,7 +90,7 @@ export function buildDrawio(
 // Le cartouche et la légende, en cellules draw.io. Les entrées viennent de la
 // même fonction que celles du SVG : deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
-function blocsExplicatifs(
+function explanatoryBlocks(
   { title, context, layout }: PlacedBoard,
   cellule: (id: string) => string,
   technologyColour: (technology: string) => string
@@ -100,10 +100,10 @@ function blocsExplicatifs(
   if (xs.length === 0) return [];
   const gauche = Math.min(...xs);
   const bas = Math.max(...ys);
-  const cellules: string[] = [];
+  const cells: string[] = [];
 
   const text = (id: string, value: string, x: number, y: number, l: number, h: number, style: string) =>
-    cellules.push(
+    cells.push(
       `        <mxCell id="${cellule(id)}" value="${escapeXml(value)}" style="${style}" vertex="1" parent="${cellule("1")}">`,
       `          <mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${l}" height="${h}" as="geometry" />`,
       "        </mxCell>"
@@ -128,7 +128,7 @@ function blocsExplicatifs(
         e.dashed ? "dashed=1" : "dashed=0",
         e.head === "start" ? "startArrow=block;startFill=0;endArrow=none" : "endArrow=block;endFill=1;startArrow=none",
       ].join(";");
-      cellules.push(
+      cells.push(
         `        <mxCell id="${cellule(`legende_${i}`)}" style="${style}" edge="1" parent="${cellule("1")}">`,
         `          <mxGeometry relative="1" as="geometry"><mxPoint x="${Math.round(gauche)}" y="${Math.round(y)}" as="sourcePoint" /><mxPoint x="${Math.round(gauche + 34)}" y="${Math.round(y)}" as="targetPoint" /></mxGeometry>`,
         "        </mxCell>"
@@ -147,10 +147,10 @@ function blocsExplicatifs(
     text(`legende_t_${i}`, input.text, gauche + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
   });
 
-  return cellules;
+  return cells;
 }
 
-function diagramme(
+function diagram(
   board: PlacedBoard,
   index: number,
   technologyColour: (technology: string) => string,
@@ -158,7 +158,7 @@ function diagramme(
 ): string[] {
   const { title, layout } = board;
   const parId = new Map(layout.nodes.map((n) => [n.id, n]));
-  const cellules: string[] = [];
+  const cells: string[] = [];
   // Les identifiants sont uniques dans le FICHIER, pas dans la page : deux
   // planches citent presque toujours le même acteur, et draw.io rattacherait
   // alors les traits de l'une aux boîtes de l'autre.
@@ -189,7 +189,7 @@ function diagramme(
       n.subtitle ? `type="${escapeXml(n.subtitle)}"` : "",
       n.external ? 'perimeter="External"' : "",
     ].filter(Boolean);
-    cellules.push(
+    cells.push(
       `        <UserObject ${attributs.join(" ")}>`,
       `          <mxCell style="${nodeStyle(n)}" vertex="1" parent="${parent ? cellule(parent.id) : cellule("1")}">`,
       `            <mxGeometry x="${x}" y="${y}" width="${n.width}" height="${n.height}" as="geometry" />`,
@@ -215,7 +215,7 @@ function diagramme(
         ? ["startArrow=block", "startFill=1", "endArrow=none"]
         : ["endArrow=block", "endFill=1", "startArrow=none"]),
     ].join(";");
-    cellules.push(
+    cells.push(
       `        <mxCell id="${cellule(`e${i}`)}" value="${escapeXml(
         edgeLabelMode(e)
       )}" style="${style}" edge="1" parent="${cellule("1")}" source="${cellule(e.from)}" target="${cellule(e.to)}">`,
@@ -234,8 +234,8 @@ function diagramme(
     "      <root>",
     `        <mxCell id="${cellule("0")}" />`,
     `        <mxCell id="${cellule("1")}" parent="${cellule("0")}" />`,
-    ...cellules,
-    ...blocsExplicatifs(board, cellule, technologyColour),
+    ...cells,
+    ...explanatoryBlocks(board, cellule, technologyColour),
     "      </root>",
     "    </mxGraphModel>",
     "  </diagram>",

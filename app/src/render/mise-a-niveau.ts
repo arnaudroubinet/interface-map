@@ -27,8 +27,8 @@ export function buildEcranMiseANiveau(
     ]);
   }
 
-  const bouton = el("button", { class: "export-button" }, ["Download the upgraded workbook"]);
-  bouton.addEventListener("click", onUpgrade);
+  const button = el("button", { class: "export-button" }, ["Download the upgraded workbook"]);
+  button.addEventListener("click", onUpgrade);
 
   return el("div", { class: "drop-target" }, [
     el("p", { class: "drop-target-title" }, [
@@ -43,6 +43,6 @@ export function buildEcranMiseANiveau(
     el("p", { class: "drop-target-text" }, [
       "The upgraded workbook keeps the actors, groups, types, interfaces and consumptions, and creates every sheet an interface expects. Columns you added yourself, formatting and personal sheets are not carried over.",
     ]),
-    bouton,
+    button,
   ]);
 }

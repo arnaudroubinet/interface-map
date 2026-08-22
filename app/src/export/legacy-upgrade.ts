@@ -74,19 +74,19 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   // les acteurs pour autant, on les crée sans groupe -- ce qu'un contrôle
   // d'intégrité signale aussitôt.
   const actors: string[][] = [];
-  const connus = new Set<string>();
+  const known = new Set<string>();
   for (const c of sheet(wb, COMPONENTS_SHEET)) {
     const name = text(c["Nom"]);
-    if (!name || connus.has(normalizeText(name))) continue;
-    connus.add(normalizeText(name));
+    if (!name || known.has(normalizeText(name))) continue;
+    known.add(normalizeText(name));
     actors.push([name, text(c["Groupe"]), "", "", text(c["Description"]), text(c["Commentaires"]), MILESTONE_ORIGIN, ""]);
   }
 
   const actorsCreated: string[] = [];
   for (const lien of liens) {
     for (const name of [text(lien["Composant source"]), text(lien["Composant cible"])]) {
-      if (!name || connus.has(normalizeText(name))) continue;
-      connus.add(normalizeText(name));
+      if (!name || known.has(normalizeText(name))) continue;
+      known.add(normalizeText(name));
       actors.push([name, "", "", "", "", "", MILESTONE_ORIGIN, ""]);
       actorsCreated.push(name);
     }
@@ -114,7 +114,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
     const provider = toConsumer ? source : target;
     const consumer = toConsumer ? target : source;
 
-    const contrat = text(lien["Emplacement du contrat"]);
+    const contract = text(lien["Emplacement du contrat"]);
     interfaces.push([
       flowName,
       // Le format d'origine ne connaît pas les versions de contrat : on laisse
@@ -127,7 +127,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
       // Le format d'origine ne distingue pas le lien de la référence : ce champ
       // contient aussi bien une URL qu'un intitulé, on le range en référence.
       "",
-      contrat,
+      contract,
       text(lien["Commentaires"]),
       "No",
       MILESTONE_ORIGIN,

@@ -6,7 +6,7 @@
 // L'unicité compte autant que la forme : deux noms distincts qui se réduisent
 // au même mot laisseraient un seul élément dans le fichier produit, et la
 // moitié des flux pointerait à côté sans que rien ne le dise.
-export function identifiants(names: string[]): Map<string, string> {
+export function identifiers(names: string[]): Map<string, string> {
   const pris = new Set<string>();
   const table = new Map<string, string>();
 
@@ -17,13 +17,13 @@ export function identifiants(names: string[]): Map<string, string> {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_+|_+$/g, "");
-    const mot = /^[a-z]/.test(base) ? base : `e${base}`;
+    const word = /^[a-z]/.test(base) ? base : `e${base}`;
 
-    let candidat = mot;
+    let candidate = word;
     let suite = 2;
-    while (pris.has(candidat)) candidat = `${mot}_${suite++}`;
-    pris.add(candidat);
-    table.set(name, candidat);
+    while (pris.has(candidate)) candidate = `${word}_${suite++}`;
+    pris.add(candidate);
+    table.set(name, candidate);
   }
 
   return table;

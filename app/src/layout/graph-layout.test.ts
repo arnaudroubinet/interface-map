@@ -173,16 +173,16 @@ describe("restreindreLayout", () => {
   };
 
   it("ne garde que les nœuds et arêtes du palier", () => {
-    const restreint = restrictLayout(union(), auPalier);
-    expect(restreint.nodes.map((n) => n.id)).toEqual(["A", "B"]);
-    expect(restreint.edges).toHaveLength(1);
+    const restricted = restrictLayout(union(), auPalier);
+    expect(restricted.nodes.map((n) => n.id)).toEqual(["A", "B"]);
+    expect(restricted.edges).toHaveLength(1);
   });
 
   // Le point qui justifie tout : les positions ne sont PAS recalculées.
   it("laisse chaque boîte exactement où l'union l'a posée", () => {
-    const restreint = restrictLayout(union(), auPalier);
-    expect(restreint.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
-    expect([restreint.width, restreint.height]).toEqual([100, 100]);
+    const restricted = restrictLayout(union(), auPalier);
+    expect(restricted.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
+    expect([restricted.width, restricted.height]).toEqual([100, 100]);
   });
 
   // Le libellé, lui, appartient au PALIER : « HTTP ×3 » sur l'union n'est pas

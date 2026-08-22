@@ -59,8 +59,8 @@ describe("ordonner — seriation RCM", () => {
   // Un sommet isolé n'a pas de voisin : il ne doit ni disparaître ni faire
   // boucler le parcours.
   it("place les sommets isolés sans les perdre", () => {
-    const seul = context({}, {}, { ...edges, Solo: [] });
-    expect(orderBy(["A", "Solo", "B"], "blocks", seul)).toContain("Solo");
+    const alone = context({}, {}, { ...edges, Solo: [] });
+    expect(orderBy(["A", "Solo", "B"], "blocks", alone)).toContain("Solo");
   });
 
   // Déterminisme : deux exécutions doivent donner le même tableau, sinon

@@ -77,8 +77,8 @@ export function coloursOfModel(model: {
   // on reboucle sur la palette entière plutôt que d'inventer une teinte non
   // validée -- le nom de la technologie reste écrit partout où sa couleur
   // apparaît, la couleur n'est qu'un rappel.
-  const libres = PALETTE.filter((c) => !taken.has(c));
-  const spare = libres.length > 0 ? libres : PALETTE;
+  const free = PALETTE.filter((c) => !taken.has(c));
+  const spare = free.length > 0 ? free : PALETTE;
   let i = 0;
   for (const tech of drawn) {
     if (colours.has(tech)) continue;

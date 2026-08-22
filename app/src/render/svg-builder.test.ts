@@ -107,12 +107,12 @@ describe("buildGraphSvg", () => {
   });
 
   it("falls back to the neutral token when the workbook designates nothing, or names an icon that does not exist", async () => {
-    const attendu = ICONS[DEFAULT_ICON].length;
+    const expected = ICONS[DEFAULT_ICON].length;
     for (const icon of [undefined, "licorne-violette"]) {
       const layout = await computeLayout([{ id: "A", label: "Tatooine", kind: "actor", subtitle: "Rituel", icon }], []);
       const svg = buildGraphSvg(layout, () => "#2a78d6");
       const groups = [...svg.querySelectorAll(".fx-nodes g")];
-      expect(groups.some((g) => g.children.length === attendu)).toBe(true);
+      expect(groups.some((g) => g.children.length === expected)).toBe(true);
     }
   });
 
@@ -304,10 +304,10 @@ describe("buildGraphSvg", () => {
     // Rejoue les cubiques du tracé pour connaître les points RÉELLEMENT
     // dessinés (le d ne contient que les points de contrôle).
     function drawnPoints(d: string): { x: number; y: number }[] {
-      const nombres = [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
-      const rendus = [nombres[0]];
-      for (let i = 1; i + 2 < nombres.length; i += 3) {
-        const [p0, p1, p2, p3] = [nombres[i - 1], nombres[i], nombres[i + 1], nombres[i + 2]];
+      const numbers = [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
+      const rendus = [numbers[0]];
+      for (let i = 1; i + 2 < numbers.length; i += 3) {
+        const [p0, p1, p2, p3] = [numbers[i - 1], numbers[i], numbers[i + 1], numbers[i + 2]];
         for (let s = 1; s <= 20; s++) {
           const t = s / 20;
           const u = 1 - t;
@@ -371,8 +371,8 @@ describe("buildGraphSvg", () => {
     expect(marker.querySelector("path")!.getAttribute("d")).toBe("M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
     // La pointe est portée par le dernier morceau du tracé, celui qui aborde
     // la cible -- les morceaux précédents s'arrêtent au libellé.
-    const morceaux = [...svg.querySelectorAll(".fx-edges g > path[stroke]")];
-    expect(morceaux[morceaux.length - 1].getAttribute("marker-end")).toBe(`url(#${marker.id})`);
+    const pieces = [...svg.querySelectorAll(".fx-edges g > path[stroke]")];
+    expect(pieces[pieces.length - 1].getAttribute("marker-end")).toBe(`url(#${marker.id})`);
   });
 });
 
@@ -492,14 +492,14 @@ describe("buildGraphSvg — libellés d'arêtes", () => {
   it("adds the technology on a second line only when the label says something else", () => {
     // « Par acteur » : le libellé est un nom d'interface, la technologie
     // complète l'intention.
-    const avecIntention = buildGraphSvg(layoutWithLabel("Colis à valider", "Kafka"), () => "#2a78d6");
-    const rows = [...avecIntention.querySelectorAll(".fx-labels g")][0];
+    const withIntent = buildGraphSvg(layoutWithLabel("Colis à valider", "Kafka"), () => "#2a78d6");
+    const rows = [...withIntent.querySelectorAll(".fx-labels g")][0];
     expect([...rows.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["Colis à valider", "[Kafka]"]);
 
     // Vue agrégée : le libellé EST la technologie, la répéter n'apprend rien.
     const aggregated = buildGraphSvg(layoutWithLabel("Kafka ×3", "Kafka"), () => "#2a78d6");
-    const seule = [...aggregated.querySelectorAll(".fx-labels g")][0];
-    expect([...seule.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["Kafka ×3"]);
+    const alone = [...aggregated.querySelectorAll(".fx-labels g")][0];
+    expect([...alone.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["Kafka ×3"]);
   });
 
   it("paints labels after the boxes, so no box can cover a label", () => {
@@ -624,8 +624,8 @@ describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
     expect(lines[1].hasAttribute("marker-end")).toBe(true);
 
     const coord = (p: Element, dernier: boolean) => {
-      const tous = [...p.getAttribute("d")!.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)];
-      return Number((dernier ? tous[tous.length - 1] : tous[0])[1]);
+      const all = [...p.getAttribute("d")!.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)];
+      return Number((dernier ? all[all.length - 1] : all[0])[1]);
     };
     // Le blanc encadre le texte, centré en x = 300.
     expect(coord(lines[0], true)).toBeLessThan(300);
@@ -738,7 +738,7 @@ describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
 describe("buildGraphSvg — un nom long tient dans sa boîte", () => {
   const LONG = "Plateforme de règlement-livraison interbancaire et de conservation titres";
 
-  const rendu = async () => {
+  const rendered = async () => {
     const nodes: GraphNode[] = [
       { id: "A", label: LONG, kind: "actor", icon: "app-window" },
       { id: "B", label: "Chandrila", kind: "actor", icon: "app-window" },
@@ -748,19 +748,19 @@ describe("buildGraphSvg — un nom long tient dans sa boîte", () => {
   };
 
   it("tronque le nom au lieu de le laisser déborder", async () => {
-    const svg = await rendu();
+    const svg = await rendered();
     const name = [...svg.querySelectorAll("text")].find((t) => t.getAttribute("font-size") === "16")!;
     expect(name.textContent!.length).toBeLessThan(LONG.length);
     expect(name.textContent).toMatch(/…$/);
   });
 
   it("garde le nom entier accessible au hover", async () => {
-    const svg = await rendu();
+    const svg = await rendered();
     expect([...svg.querySelectorAll("title")].map((t) => t.textContent)).toContain(LONG);
   });
 
   it("laisse un nom court intact et sans infobulle", async () => {
-    const svg = await rendu();
+    const svg = await rendered();
     const courts = [...svg.querySelectorAll("text")].filter((t) => t.textContent === "Chandrila");
     expect(courts.length).toBe(1);
   });
@@ -798,7 +798,7 @@ describe("buildGraphSvg — la pointe d'un trait tiré", () => {
 describe("buildGraphSvg — le cartouche", () => {
   const context = {
     title: "Platform detail", reading: "architecture", milestone: "v2",
-    source: "carto.xlsx", date: "2026-08-22", composants: 2, flows: 1, technologies: 1,
+    source: "carto.xlsx", date: "2026-08-22", components: 2, flows: 1, technologies: 1,
   };
   const estate = async () =>
     computeLayout(
@@ -813,7 +813,7 @@ describe("buildGraphSvg — le cartouche", () => {
     expect(ids).toHaveLength(2);
     for (const id of ids) {
       const target = [...svg.children].find((c) => c.getAttribute("id") === id);
-      expect(target, `#${id} doit être un enfant direct de <svg>`).toBeDefined();
+      expect(target, `#${id} doit être un child direct de <svg>`).toBeDefined();
     }
     expect(svg.querySelector(":scope > title")?.textContent).toBe("Platform detail — architecture reading, milestone v2");
   });
@@ -839,8 +839,8 @@ describe("buildGraphSvg — le cartouche", () => {
     const layout = await estate();
     const sans = buildGraphSvg(layout, () => "#111");
     const avec = buildGraphSvg(layout, () => "#111", context);
-    const haut = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
-    expect(haut(avec)).toBeLessThan(haut(sans));
+    const top = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
+    expect(top(avec)).toBeLessThan(top(sans));
   });
 });
 
@@ -987,8 +987,8 @@ describe("buildGraphSvg — deux formes de pointe", () => {
       [{ id: "F", label: "F", kind: "actor" }, { id: "C", label: "C", kind: "actor" }],
       [{ from: "F", to: "C", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, pulled }]
     );
-  const headOf = (svg: SVGSVGElement, attribut: string) => {
-    const url = svg.querySelector(`.fx-edges [${attribut}]`)!.getAttribute(attribut)!;
+  const headOf = (svg: SVGSVGElement, attribute: string) => {
+    const url = svg.querySelector(`.fx-edges [${attribute}]`)!.getAttribute(attribute)!;
     return svg.querySelector(`#${url.slice(5, -1)} path`)!;
   };
 
@@ -1011,10 +1011,10 @@ describe("buildGraphSvg — deux formes de pointe", () => {
   });
 
   it("garde les deux pointes dans la même boîte englobante, pour que le recul du trait ne change pas", async () => {
-    const plein = headOf(buildGraphSvg(await estate(false), () => "#1f5fae"), "marker-end");
-    const creux = headOf(buildGraphSvg(await estate(true), () => "#1f5fae"), "marker-start");
+    const solid = headOf(buildGraphSvg(await estate(false), () => "#1f5fae"), "marker-end");
+    const hollow = headOf(buildGraphSvg(await estate(true), () => "#1f5fae"), "marker-start");
     const extremeX = (d: string) => Math.max(...(d.match(/[\d.]+(?=,)/g) ?? []).map(Number));
-    expect(extremeX(creux.getAttribute("d")!)).toBe(extremeX(plein.getAttribute("d")!));
+    expect(extremeX(hollow.getAttribute("d")!)).toBe(extremeX(solid.getAttribute("d")!));
   });
 
   // Les deux marqueurs portent des identifiants distincts : partagés, la
@@ -1059,7 +1059,7 @@ describe("buildGraphSvg — deux formes de pointe", () => {
 // retrouvait plantée sur le segment suivant, de côté -- le trait semblait
 // arriver par le flanc de la flèche. 14 arêtes sur 24 du classeur d'exemple.
 describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () => {
-  const withApproach = (longueur: number): LayoutResult => ({
+  const withApproach = (length: number): LayoutResult => ({
     width: 400,
     height: 200,
     nodes: [
@@ -1075,13 +1075,13 @@ describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () =>
         label: "HTTP",
         attenuated: false,
         // Un long trajet, puis un coude, puis le stub d'approche.
-        points: [{ x: 80, y: 100 }, { x: 260, y: 100 }, { x: 260, y: 40 }, { x: 260 + longueur, y: 40 }],
+        points: [{ x: 80, y: 100 }, { x: 260, y: 100 }, { x: 260, y: 40 }, { x: 260 + length, y: 40 }],
       },
     ],
   });
 
-  const headSizeFor = (longueur: number): number => {
-    const svg = buildGraphSvg(withApproach(longueur), () => "#1f5fae");
+  const headSizeFor = (length: number): number => {
+    const svg = buildGraphSvg(withApproach(length), () => "#1f5fae");
     const url = svg.querySelector(".fx-edges [marker-end]")!.getAttribute("marker-end")!;
     return Number(svg.querySelector(`#${url.slice(5, -1)}`)!.getAttribute("markerWidth"));
   };
@@ -1097,8 +1097,8 @@ describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () =>
 
   // Elle doit TENIR : sinon elle dépasse le coude, ce qui est le défaut même.
   it("ne pose jamais une pointe plus longue que son approche", () => {
-    for (const longueur of [4, 5, 8, 10, 13, 16, 20, 40]) {
-      expect(headSizeFor(longueur), `approche de ${longueur} px`).toBeLessThanOrEqual(Math.max(5, longueur));
+    for (const length of [4, 5, 8, 10, 13, 16, 20, 40]) {
+      expect(headSizeFor(length), `approche de ${length} px`).toBeLessThanOrEqual(Math.max(5, length));
     }
   });
 });

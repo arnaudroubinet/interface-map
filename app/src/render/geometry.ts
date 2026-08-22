@@ -31,11 +31,11 @@ export const GAP_BEFORE_TARGET = 14;
 export function rectCrossing(a: Point, b: Point, r: Rect): [number, number] | null {
   let t0 = 0;
   let t1 = 1;
-  for (const [from, arrivee, min, max] of [
+  for (const [from, arrival, min, max] of [
     [a.x, b.x, r.x0, r.x1],
     [a.y, b.y, r.y0, r.y1],
   ] as [number, number, number, number][]) {
-    const d = arrivee - from;
+    const d = arrival - from;
     if (Math.abs(d) < 1e-9) {
       if (from < min || from > max) return null;
       continue;
@@ -54,15 +54,15 @@ export const surSegment = (a: Point, b: Point, t: number): Point => ({ x: a.x + 
 // Découpe un tracé en morceaux visibles, en retirant ce qui tombe dans un
 // rectangle, plus un jeu de part et d'autre.
 export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
-  const morceaux: Point[][] = [];
+  const pieces: Point[][] = [];
   let current: Point[] = [points[0]];
 
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
     const b = points[i + 1];
-    const longueur = Math.hypot(b.x - a.x, b.y - a.y);
-    if (longueur < 1e-9) continue;
-    const jeu = BREAK_PLAY / longueur;
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (length < 1e-9) continue;
+    const jeu = BREAK_PLAY / length;
 
     // Coupures sur ce segment, ordonnées, fusionnées quand elles se touchent.
     //
@@ -70,14 +70,14 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
     // se pose sur le dernier morceau visible, et sans ce reste ce morceau
     // devenait celui d'AVANT le libellé -- la flèche s'arrêtait à son étiquette
     // au lieu de la boîte visée.
-    const plafond =
-      i === points.length - 2 ? 1 - Math.min(0.5, GAP_BEFORE_TARGET / longueur) : 1;
+    const ceiling =
+      i === points.length - 2 ? 1 - Math.min(0.5, GAP_BEFORE_TARGET / length) : 1;
     const cuts: [number, number][] = [];
     for (const r of obstacles) {
       const t = rectCrossing(a, b, r);
       if (!t) continue;
       const start = Math.max(0, t[0] - jeu);
-      const end = Math.min(plafond, t[1] + jeu);
+      const end = Math.min(ceiling, t[1] + jeu);
       if (end > start) cuts.push([start, end]);
     }
     cuts.sort((x, y) => x[0] - y[0]);
@@ -90,15 +90,15 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
 
     for (const [start, end] of merged) {
       if (start > 0) current.push(surSegment(a, b, start));
-      if (current.length > 1) morceaux.push(current);
+      if (current.length > 1) pieces.push(current);
       current = end < 1 ? [surSegment(a, b, end)] : [];
     }
     if (current.length === 0) current = [b];
     else current.push(b);
   }
 
-  if (current.length > 1) morceaux.push(current);
-  return morceaux;
+  if (current.length > 1) pieces.push(current);
+  return pieces;
 }
 
 // Rayon des coudes. Une polyligne orthogonale brute donne un rendu anguleux ;
@@ -120,10 +120,10 @@ export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
   for (let i = 1; i < points.length - 1; i++) {
     const previous = points[i - 1];
     const coude = points[i];
-    const suivant = points[i + 1];
+    const next = points[i + 1];
     const before = Math.hypot(coude.x - previous.x, coude.y - previous.y);
-    const after = Math.hypot(suivant.x - coude.x, suivant.y - coude.y);
-    const aligned = Math.abs((coude.x - previous.x) * (suivant.y - coude.y) - (coude.y - previous.y) * (suivant.x - coude.x)) < 0.01;
+    const after = Math.hypot(next.x - coude.x, next.y - coude.y);
+    const aligned = Math.abs((coude.x - previous.x) * (next.y - coude.y) - (coude.y - previous.y) * (next.x - coude.x)) < 0.01;
 
     if (aligned || before < 0.01 || after < 0.01) {
       d += ` L ${coude.x},${coude.y}`;
@@ -132,7 +132,7 @@ export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
     const ra = Math.min(radius, before / 2);
     const rb = Math.min(radius, after / 2);
     const input = { x: coude.x + ((previous.x - coude.x) / before) * ra, y: coude.y + ((previous.y - coude.y) / before) * ra };
-    const output = { x: coude.x + ((suivant.x - coude.x) / after) * rb, y: coude.y + ((suivant.y - coude.y) / after) * rb };
+    const output = { x: coude.x + ((next.x - coude.x) / after) * rb, y: coude.y + ((next.y - coude.y) / after) * rb };
     d += ` L ${input.x},${input.y} Q ${coude.x},${coude.y} ${output.x},${output.y}`;
   }
   const dernier = points[points.length - 1];
@@ -179,21 +179,21 @@ export function segmentIntersectsRect(a: Point, b: Point, r: Rect): boolean {
 // La pointe d'un trait tiré est à son DÉPART : c'est donc là qu'il faut lui
 // réserver sa place, sans quoi elle se dessinerait par-dessus la boîte de
 // départ au lieu de l'aborder.
-export function reculerPourLaPointe(points: Point[], longueur: number, pulled: boolean): Point[] {
-  if (!pulled) return pointsAvantPointe(points, longueur);
-  return pointsAvantPointe([...points].reverse(), longueur).reverse();
+export function reculerPourLaPointe(points: Point[], length: number, pulled: boolean): Point[] {
+  if (!pulled) return pointsAvantPointe(points, length);
+  return pointsAvantPointe([...points].reverse(), length).reverse();
 }
 
-export function pointsAvantPointe(points: Point[], longueur: number): Point[] {
+export function pointsAvantPointe(points: Point[], length: number): Point[] {
   const n = points.length;
-  const avantDernier = points[n - 2];
+  const penultimate = points[n - 2];
   const dernier = points[n - 1];
-  const dx = dernier.x - avantDernier.x;
-  const dy = dernier.y - avantDernier.y;
+  const dx = dernier.x - penultimate.x;
+  const dy = dernier.y - penultimate.y;
   const dist = Math.hypot(dx, dy);
   if (dist === 0) return points;
-  const recul = Math.min(longueur, dist * 0.95);
-  const t = (dist - recul) / dist;
-  const point = { x: avantDernier.x + dx * t, y: avantDernier.y + dy * t };
+  const setback = Math.min(length, dist * 0.95);
+  const t = (dist - setback) / dist;
+  const point = { x: penultimate.x + dx * t, y: penultimate.y + dy * t };
   return [...points.slice(0, n - 1), point];
 }

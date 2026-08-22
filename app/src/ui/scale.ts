@@ -1,4 +1,4 @@
-import type { Vue } from "./state";
+import type { View } from "./state";
 
 // Le seuil se CALCULE, il ne se devine pas. La littérature donne la formule :
 // densité d = |E| / |V|². Au-delà de vingt nœuds, une planche dense se lit
@@ -13,7 +13,7 @@ const DENSITY_THRESHOLD = 0.15;
 
 export interface ScaleHint {
   message: string;
-  views: Vue[];
+  views: View[];
 }
 
 export function scaleHint(nodeCount: number, edgeCount: number): ScaleHint | null {

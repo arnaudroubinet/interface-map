@@ -8,7 +8,7 @@ function report(overrides: Partial<IntegrityReport> = {}): IntegrityReport {
     infoBlocks: [],
     totalAnomalies: 0,
     totalActions: 0,
-    totalAvertissements: 0,
+    totalWarnings: 0,
     ...overrides,
   };
 }
@@ -73,7 +73,7 @@ describe("rapportEnMarkdown", () => {
         ],
         totalAnomalies: 1,
         totalActions: 1,
-        totalAvertissements: 1,
+        totalWarnings: 1,
       }),
       "carto.xlsx",
       null

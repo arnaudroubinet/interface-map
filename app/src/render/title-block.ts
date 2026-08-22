@@ -10,7 +10,7 @@ export interface DiagramContext {
   milestone: string | null;
   source: string;
   date: string;
-  composants: number;
+  components: number;
   flows: number;
   technologies: number;
   // Ce que la planche compte, quand « composants et flux » ne veut rien dire :
@@ -18,13 +18,13 @@ export interface DiagramContext {
   detail?: string;
 }
 
-const pluriel = (n: number, mot: string, pluriels = `${mot}s`) => `${n} ${n > 1 ? pluriels : mot}`;
+const singularOrPlural = (n: number, word: string, plural = `${word}s`) => `${n} ${n > 1 ? plural : word}`;
 
 export function titleBlockText(c: DiagramContext): { title: string; subtitle: string } {
   const milestone = c.milestone ? `, milestone ${c.milestone}` : "";
   return {
     title: `${c.title} — ${c.reading} reading${milestone}`,
-    subtitle: `${c.source} · ${c.detail ?? `${pluriel(c.composants, "component")}, ${pluriel(c.flows, "flow")}`} · ${c.date}`,
+    subtitle: `${c.source} · ${c.detail ?? `${singularOrPlural(c.components, "component")}, ${singularOrPlural(c.flows, "flow")}`} · ${c.date}`,
   };
 }
 
@@ -33,7 +33,7 @@ export function titleBlockText(c: DiagramContext): { title: string; subtitle: st
 // description, avec les comptes.
 export function descriptionAccessible(c: DiagramContext): string {
   return (
-    `${c.source} · ${c.detail ?? `${pluriel(c.composants, "component")}, ${pluriel(c.flows, "flow")}, ${pluriel(c.technologies, "technology", "technologies")}`}. ` +
+    `${c.source} · ${c.detail ?? `${singularOrPlural(c.components, "component")}, ${singularOrPlural(c.flows, "flow")}, ${singularOrPlural(c.technologies, "technology", "technologies")}`}. ` +
     "Line = data, provider to consumer. Arrowhead = who calls."
   );
 }

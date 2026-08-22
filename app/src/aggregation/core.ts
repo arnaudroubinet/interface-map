@@ -106,8 +106,8 @@ export type EdgeLabelMode = "technology" | "exchanges" | "both";
 
 function namedExchanges(names: readonly string[]): string {
   const named = names.slice(0, NAMED_EXCHANGES).join(", ");
-  const reste = names.length - NAMED_EXCHANGES;
-  return reste > 0 ? `${named} +${reste}` : named;
+  const rest = names.length - NAMED_EXCHANGES;
+  return rest > 0 ? `${named} +${rest}` : named;
 }
 
 export function cellLabel(
@@ -196,8 +196,8 @@ export interface InterfaceLookup {
   ambiguousNameVersion: Set<string>;
 }
 
-function key(...parties: string[]): string {
-  return JSON.stringify(parties.map(normalizeText));
+function key(...parts: string[]): string {
+  return JSON.stringify(parts.map(normalizeText));
 }
 
 export function interfaceKey(sheet: string, flowName: string, version: string): string {
@@ -233,8 +233,8 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
 }
 
 export function findInterfaceForConsumption(lookup: InterfaceLookup, c: Consumption): InterfaceCatalogue | undefined {
-  const parOnglet = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
-  if (parOnglet) return parOnglet;
+  const byTab = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
+  if (byTab) return byTab;
   // The name fallback only applies if that name designates a single publisher.
   // With several, binding it to the first would have this consumer sign with
   // someone it did not choose: nothing is resolved, and the reference check

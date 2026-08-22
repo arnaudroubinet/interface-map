@@ -11,7 +11,7 @@ import {
   buildByTechnologyView,
   buildByActorView,
   buildMatrixView,
-  optionsFiltreMatrice,
+  matrixFilterOptions,
   actorFilterOptions,
 } from "./views";
 import { flowsForReading, reading as lectureDuMode } from "./reading";
@@ -42,7 +42,7 @@ const baseModel: ParsedModel = base.template({
 
 // Deux acteurs dans le groupe Plateforme : c'est ce qui rend visible la
 // différence entre les trois granularités de la matrix.
-const modelDeuxParGroupe: ParsedModel = {
+const modelTwoPerGroup: ParsedModel = {
   ...baseModel,
   actors: [actor({ name: "A", group: "G1" }), actor({ name: "A2", group: "G1" }), actor({ name: "B", group: "G2" })],
   interfaces: [iface({}), iface({ flowName: "F2", providerName: "A2", expectedSheet: "FX_A2_HTTP" })],
@@ -131,12 +131,12 @@ describe("buildMatrixView", () => {
     const matrix = buildMatrixView(baseModel, read(baseModel), { mode: "architecture" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A"]);
     expect(matrix.columns).toEqual(["B"]);
-    expect(matrix.rows[0].cellules.get("B")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["F"] }]);
+    expect(matrix.rows[0].cells.get("B")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["F"] }]);
   });
 
   it("judges each axis on its own: what both emits and receives keeps a row and a column", () => {
     const model: ParsedModel = {
-      ...modelDeuxParGroupe,
+      ...modelTwoPerGroup,
       // A expose F (donc reçoit de B) et consomme F2 (donc émet vers B).
       interfaces: [iface({}), iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_A2_HTTP" })],
       consumptions: [consumption({}), consumption({ flowName: "F2", sheet: "FX_A2_HTTP", consumerName: "A" })],
@@ -150,37 +150,37 @@ describe("buildMatrixView", () => {
     const model = { ...baseModel, consumptions: [consumption({ consumerName: "A" })] };
     const matrix = buildMatrixView(model, read(model), { mode: "architecture" });
     const ligneA = matrix.rows.find((l) => l.actor === "A")!;
-    expect(ligneA.cellules.get("A")).toBeDefined();
+    expect(ligneA.cells.get("A")).toBeDefined();
   });
 
   it("collapses actors onto their groupe when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), { mode: "architecture", grain: "group" });
+    const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), { mode: "architecture", grain: "group" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["G1"]);
     expect(matrix.columns).toEqual(["G2"]);
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
-    expect(ligneG1.cellules.get("G2")).toEqual([{ technology: "HTTP", count: 2, attenuated: false, names: ["F", "F2"] }]);
+    expect(ligneG1.cells.get("G2")).toEqual([{ technology: "HTTP", count: 2, attenuated: false, names: ["F", "F2"] }]);
   });
 
   it("details plateforme actors and collapses the rest when granularité is 'platform'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), { mode: "architecture", grain: "platform" });
+    const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), { mode: "architecture", grain: "platform" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "A2"]);
     expect(matrix.columns).toEqual(["G2"]);
-    expect(matrix.rows.find((l) => l.actor === "A")!.cellules.get("G2")).toHaveLength(1);
-    expect(matrix.rows.find((l) => l.actor === "A2")!.cellules.get("G2")).toHaveLength(1);
+    expect(matrix.rows.find((l) => l.actor === "A")!.cells.get("G2")).toHaveLength(1);
+    expect(matrix.rows.find((l) => l.actor === "A2")!.cells.get("G2")).toHaveLength(1);
   });
 
   it("puts an intra-groupe flow on the diagonal when granularité is 'group'", () => {
     const model: ParsedModel = {
-      ...modelDeuxParGroupe,
+      ...modelTwoPerGroup,
       consumptions: [consumption({ flowName: "F", consumerName: "A2" })],
     };
     const matrix = buildMatrixView(model, read(model), { mode: "architecture", grain: "group" });
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
-    expect(ligneG1.cellules.get("G1")).toBeDefined();
+    expect(ligneG1.cells.get("G1")).toBeDefined();
   });
 
   it("hides an externe groupe wholesale when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), {
+    const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), {
       mode: "architecture",
       grain: "group",
       masquerExternes: true,
@@ -190,7 +190,7 @@ describe("buildMatrixView", () => {
   });
 
   it("masks a whole groupe by its own name when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), {
+    const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), {
       mode: "architecture",
       grain: "group",
       hiddenActors: ["G1"],
@@ -202,16 +202,16 @@ describe("buildMatrixView", () => {
 
 describe("optionsFiltreMatrice", () => {
   it("lists actors when granularité is 'actor'", () => {
-    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "actor" })).toEqual(["A", "A2", "B"]);
+    expect(matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "actor" })).toEqual(["A", "A2", "B"]);
   });
 
   it("lists groupes when granularité is 'group'", () => {
-    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "group" })).toEqual(["G1", "G2"]);
+    expect(matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "group" })).toEqual(["G1", "G2"]);
   });
 
   it("drops externe groupes when the switch is on", () => {
     expect(
-      optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "group", masquerExternes: true })
+      matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "group", masquerExternes: true })
     ).toEqual(["G1"]);
   });
 });
@@ -330,13 +330,13 @@ describe("mode fonctionnel", () => {
     // Tatooine fournit, le Bus consomme : la ligne est donc celle du fournisseur,
     // même en HTTP où c'est le Bus qui passe l'appel.
     const architecture = buildMatrixView(m, read(m, "architecture"), { mode: "architecture" });
-    const ligneTatooineArchi = architecture.rows.find((l) => l.actor === "Tatooine")!;
-    expect(ligneTatooineArchi.cellules.get("Bus")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["Transactions"] }]);
+    const tatooineArchiRow = architecture.rows.find((l) => l.actor === "Tatooine")!;
+    expect(tatooineArchiRow.cells.get("Bus")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["Transactions"] }]);
 
     const fonctionnel = buildMatrixView(m, read(m, "functional"), { mode: "functional" });
     expect(fonctionnel.rows.map((l) => l.actor)).not.toContain("Bus");
-    const ligneTatooine = fonctionnel.rows.find((l) => l.actor === "Tatooine")!;
-    expect(ligneTatooine.cellules.get("Naboo")).toEqual([{ technology: "", count: 1, attenuated: false, names: ["Transactions"] }]);
+    const tatooineRow = fonctionnel.rows.find((l) => l.actor === "Tatooine")!;
+    expect(tatooineRow.cells.get("Naboo")).toEqual([{ technology: "", count: 1, attenuated: false, names: ["Transactions"] }]);
   });
 
   // Une technologie vide n'en est pas une : la proposer comme filtre produit
@@ -382,7 +382,7 @@ describe("mode fonctionnel", () => {
       const matrix = buildMatrixView(m, read(m, "functional"), { mode: "functional" });
       const row = matrix.rows.find((l) => l.actor === "Isolé");
       expect(row).toBeDefined();
-      expect(row?.cellules.size).toBe(0);
+      expect(row?.cells.size).toBe(0);
     });
 
     // Un acteur isolé retiré au palier affiché n'est plus un acteur métier

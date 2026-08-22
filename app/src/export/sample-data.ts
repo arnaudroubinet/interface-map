@@ -107,11 +107,11 @@ const consumption = (
   criticality: string,
   decision = "Keep",
   version = "1.0",
-  arrivee = "v1",
+  arrival = "v1",
   // Renseigné sur les seules entrées du bus : sous laquelle de SES interfaces
   // cette entrée ressort. C'est ce qui raboute la chaîne en lecture métier.
   republishedAs = ""
-) => [flows, version, consumer, usage, criticality, decision, "", republishedAs, arrivee, ""];
+) => [flows, version, consumer, usage, criticality, decision, "", republishedAs, arrival, ""];
 
 const FX = [
   {

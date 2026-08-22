@@ -56,7 +56,7 @@ describe("ouvrirMigration — bouton de relance", () => {
       if (!zone.querySelector(".export-button")) throw new Error("pas encore de bouton de relance");
     });
 
-    const bouton = zone.querySelector(".export-button");
-    expect(bouton?.textContent?.trim()).toBe("Convert another file");
+    const button = zone.querySelector(".export-button");
+    expect(button?.textContent?.trim()).toBe("Convert another file");
   });
 });

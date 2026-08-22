@@ -68,10 +68,10 @@ describe("toutesLesPlanches", () => {
   // Les vues à sélecteur en produisent autant qu'il y a de choix dans le
   // sélecteur : c'est là tout ce que « tous les schémas » veut dire.
   it("unfolds the selector views, one board per choice", () => {
-    const tous = titles(model());
-    expect(tous).toContain("HTTP (technology)");
-    expect(tous).toContain("A (actor)");
-    expect(tous).toContain("B (actor)");
+    const all = titles(model());
+    expect(all).toContain("HTTP (technology)");
+    expect(all).toContain("A (actor)");
+    expect(all).toContain("B (actor)");
   });
 
   // Une technologie que personne n'emploie n'a pas de schéma : ce serait une

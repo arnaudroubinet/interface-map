@@ -18,7 +18,7 @@ const PATHS: Record<string, string[]> = {
   action: ["M13 5h8", "M13 12h8", "M13 19h8", "m3 17 2 2 4-4", "m3 7 2 2 4-4"],
   // « triangle-alert » : l'avertissement se distingue de l'octogone d'erreur
   // par sa forme autant que par sa couleur.
-  alerte: [
+  alert: [
     "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
     "M12 9v4",
     "M12 17h.01",
@@ -38,11 +38,11 @@ function icon(name: keyof typeof PATHS): SVGSVGElement {
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("class", "section-icon");
   if (name === "info") {
-    const cercle = document.createElementNS(SVG_NS, "circle");
-    cercle.setAttribute("cx", "12");
-    cercle.setAttribute("cy", "12");
-    cercle.setAttribute("r", "10");
-    svg.appendChild(cercle);
+    const circle = document.createElementNS(SVG_NS, "circle");
+    circle.setAttribute("cx", "12");
+    circle.setAttribute("cy", "12");
+    circle.setAttribute("r", "10");
+    svg.appendChild(circle);
   }
   for (const d of PATHS[name]) {
     const path = document.createElementNS(SVG_NS, "path");
@@ -54,18 +54,18 @@ function icon(name: keyof typeof PATHS): SVGSVGElement {
 
 // Ce qu'une section signale quand elle n'est pas vide : une faute qui invalide
 // les schémas, une saisie à trancher, ou une simple information.
-type Severity = "erreur" | "action" | "warning" | "info";
+type Severity = "error" | "action" | "warning" | "info";
 
-const CLASSE: Record<Severity, string> = {
-  erreur: "section-alert",
+const CSS_CLASS: Record<Severity, string> = {
+  error: "section-alert",
   action: "section-action",
   warning: "section-warning",
   info: "section-info",
 };
 const ICON: Record<Severity, keyof typeof PATHS> = {
-  erreur: "stop",
+  error: "stop",
   action: "action",
-  warning: "alerte",
+  warning: "alert",
   info: "info",
 };
 
@@ -73,19 +73,19 @@ const ICON: Record<Severity, keyof typeof PATHS> = {
 // et la déplier ne montrerait qu'un « Rien à signaler ». Les sections qui
 // portent quelque chose s'ouvrent d'office.
 function buildSection(
-  classe: string,
+  cssClass: string,
   title: string,
   description: string,
   items: string[],
   severity: Severity
 ): HTMLElement {
-  const vide = items.length === 0;
+  const empty = items.length === 0;
   const section = document.createElement("details");
-  section.className = `${classe} ${vide ? "section-ok" : CLASSE[severity]}`;
-  if (!vide) section.open = true;
+  section.className = `${cssClass} ${empty ? "section-ok" : CSS_CLASS[severity]}`;
+  if (!empty) section.open = true;
 
   const summary = document.createElement("summary");
-  summary.appendChild(icon(vide ? "check" : ICON[severity]));
+  summary.appendChild(icon(empty ? "check" : ICON[severity]));
   const label = document.createElement("span");
   label.textContent = `${title} (${items.length})`;
   summary.appendChild(label);
@@ -95,11 +95,11 @@ function buildSection(
   desc.textContent = description;
   section.appendChild(desc);
 
-  if (vide) {
-    const rien = document.createElement("p");
-    rien.className = "nothing-to-report";
-    rien.textContent = "Nothing to report.";
-    section.appendChild(rien);
+  if (empty) {
+    const nothing = document.createElement("p");
+    nothing.className = "nothing-to-report";
+    nothing.textContent = "Nothing to report.";
+    section.appendChild(nothing);
   } else {
     const list = document.createElement("ul");
     for (const item of items) {
@@ -118,11 +118,11 @@ function buildSection(
 // que soit sa nature -- elle ne porte plus qu'une coche.
 // Les actions passent avant les avertissements : elles s'adressent au lecteur,
 // là où un avertissement ne fait que constater une saisie incomplète.
-const RANK: Record<Severity, number> = { erreur: 0, action: 1, warning: 2, info: 3 };
+const RANK: Record<Severity, number> = { error: 0, action: 1, warning: 2, info: 3 };
 const EMPTY_RANK = 4;
 
-export interface SectionRapport {
-  classe: string;
+export interface ReportSection {
+  cssClass: string;
   title: string;
   description: string;
   items: string[];
@@ -133,19 +133,19 @@ export interface SectionRapport {
 // le lisent tous deux d'ici : deux personnes regardant le même rapport, l'une à
 // l'écran et l'autre dans un ticket, doivent y trouver les mêmes sections dans
 // le même ordre.
-export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
-  const sections: SectionRapport[] = [
+export function sectionsDuRapport(report: IntegrityReport): ReportSection[] {
+  const sections: ReportSection[] = [
     ...report.families.map((f) => ({
-      classe: "block-anomalies",
+      cssClass: "block-anomalies",
       title: f.title,
       description: f.description,
       items: f.anomalies.map((a) => a.message),
-      severity: "erreur" as Severity,
+      severity: "error" as Severity,
     })),
     // Un bloc informatif ne porte jamais de faute : au pire une décision en
     // attente (action) ou une saisie incomplète (avertissement).
     ...report.infoBlocks.map((b) => ({
-      classe: "block-info",
+      cssClass: "block-info",
       title: b.title,
       description: b.description,
       items: b.items,
@@ -153,7 +153,7 @@ export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
     })),
   ];
 
-  const rank = (s: SectionRapport) => (s.items.length === 0 ? EMPTY_RANK : RANK[s.severity]);
+  const rank = (s: ReportSection) => (s.items.length === 0 ? EMPTY_RANK : RANK[s.severity]);
   // Tri stable : à rang égal, les sections gardent l'ordre où les contrôles
   // les ont produites.
   return [...sections].sort((a, b) => rank(a) - rank(b));
@@ -164,7 +164,7 @@ export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
   container.className = "integrity-report";
 
   for (const s of sectionsDuRapport(report)) {
-    container.appendChild(buildSection(s.classe, s.title, s.description, s.items, s.severity));
+    container.appendChild(buildSection(s.cssClass, s.title, s.description, s.items, s.severity));
   }
 
   return container;

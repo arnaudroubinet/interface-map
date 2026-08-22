@@ -37,8 +37,8 @@ describe("couleursDuModele", () => {
   });
 
   it("ne boucle sur la palette qu'au-delà de ses huit teintes", () => {
-    const neuf = SEIZE.slice(0, 9);
-    const colours = coloursOfModel(model(SEIZE, neuf));
+    const fresh = SEIZE.slice(0, 9);
+    const colours = coloursOfModel(model(SEIZE, fresh));
     expect(new Set([...colours.values()]).size).toBe(8);
   });
 

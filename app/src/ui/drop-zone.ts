@@ -8,9 +8,9 @@ import { el } from "../shared/dom";
 // lieu d'en inventer un second.
 export const MESSAGE_CLASSEUR_ILLISIBLE = "Workbook unreadable or corrupted.";
 
-export function buildDropTarget(onTelechargerExemple: () => void, onAide: () => void): HTMLElement {
-  const bouton = el("button", { class: "export-button" }, ["Open a sample workbook"]);
-  bouton.addEventListener("click", onTelechargerExemple);
+export function buildDropTarget(onDownloadSample: () => void, onAide: () => void): HTMLElement {
+  const button = el("button", { class: "export-button" }, ["Open a sample workbook"]);
+  button.addEventListener("click", onDownloadSample);
   const aide = el("button", { class: "export-button" }, ["How it works"]);
   aide.addEventListener("click", onAide);
   return el("div", { class: "drop-target" }, [
@@ -20,7 +20,7 @@ export function buildDropTarget(onTelechargerExemple: () => void, onAide: () => 
     ]),
     // Sans classeur sous la main, le plus utile est d'en essayer un rempli :
     // le modèle vide reste accessible en pied de rail.
-    el("div", { class: "drop-target-actions" }, [bouton, aide]),
+    el("div", { class: "drop-target-actions" }, [button, aide]),
   ]);
 }
 

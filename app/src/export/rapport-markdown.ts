@@ -6,9 +6,9 @@ import { sectionsDuRapport } from "../render/integrity-report";
 // dans un ticket ou un mail et reste lisible tel quel. Chaque item porte déjà
 // son adresse (feuille, ligne) : le classeur se corrige sans rouvrir l'outil.
 
-function compte(n: number, singulier: string, pluriel: string): string | null {
+function count(n: number, singular: string, singularOrPlural: string): string | null {
   if (n === 0) return null;
-  return `${n} ${n > 1 ? pluriel : singulier}`;
+  return `${n} ${n > 1 ? singularOrPlural : singular}`;
 }
 
 // Ce qui vient du classeur est du TEXTE, jamais de la structure. Une cellule
@@ -27,12 +27,12 @@ function texteInline(value: string): string {
   return value.replace(/\s+/g, " ").trim().replace(/([\\`*[\]<>])/g, "\\$1");
 }
 
-// Le bilan compte les puces RÉELLEMENT imprimées, section par section. Calculé
+// Le bilan count les puces RÉELLEMENT imprimées, section par section. Calculé
 // at side, sur les counters du report, il annonçait « 2 pending decisions »
-// au-dessus de dix-neuf puces -- les blocks informatifs n'y entraient pas -- et
+// au-dessus de dix-fresh puces -- les blocks informatifs n'y entraient pas -- et
 // se réduisait at un point solitaire quand aucun compteur n'était renseigné.
 const LIBELLE_GRAVITE: Record<string, [string, string]> = {
-  erreur: ["anomaly", "anomalies"],
+  error: ["anomaly", "anomalies"],
   action: ["pending decision", "pending decisions"],
   warning: ["warning", "warnings"],
   info: ["point of information", "points of information"],
@@ -46,7 +46,7 @@ export function rapportEnMarkdown(
   const rows: string[] = [`# Integrity report — ${nomClasseur}`, ""];
 
   // Les contrôles se lisent AU milestone affiché : sans lui, la list ne dit pas
-  // de quel moment du workbook elle parle. Mais tous ne s'y lisent pas -- ceux
+  // de quel moment du workbook elle parle. Mais all ne s'y lisent pas -- ceux
   // qui jugent le FICHIER portent sur le workbook entier -- et un lecteur qui
   // l'ignore attribue au milestone une faute qui n'en dépend pas.
   if (milestone) {
@@ -58,7 +58,7 @@ export function rapportEnMarkdown(
     );
   }
 
-  // Une section vide rassure at l'écran ; collée dans un ticket, elle encombre.
+  // Une section empty rassure at l'écran ; collée dans un ticket, elle encombre.
   const sections = sectionsDuRapport(report).filter((s) => s.items.length > 0);
 
   if (sections.length === 0) {
@@ -69,7 +69,7 @@ export function rapportEnMarkdown(
   const bySeverity = new Map<string, number>();
   for (const s of sections) bySeverity.set(s.severity, (bySeverity.get(s.severity) ?? 0) + s.items.length);
   const bilan = Object.entries(LIBELLE_GRAVITE)
-    .map(([severity, [singulier, pluriel]]) => compte(bySeverity.get(severity) ?? 0, singulier, pluriel))
+    .map(([severity, [singular, singularOrPlural]]) => count(bySeverity.get(severity) ?? 0, singular, singularOrPlural))
     .filter(Boolean);
   rows.push(`${bilan.join(", ")}.`, "");
 

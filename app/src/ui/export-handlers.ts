@@ -34,7 +34,7 @@ export interface ExportContext {
   svgCourant: () => SVGSVGElement | null;
   // La matrix AFFICHÉE, et non recalculée au clic : la recalculer risquerait
   // de livrer autre chose que ce que l'utilisateur a sous les yeux.
-  matriceCourante: () => MatrixResult | null;
+  currentMatrix: () => MatrixResult | null;
 }
 
 // Ce que le nom de fichier doit porter en plus de la vue : la sélection quand
@@ -57,14 +57,14 @@ function shownRank(state: AppState): number | null {
 }
 
 export function handlersExport(ctx: ExportContext): BannerCallbacks {
-  const fileName = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
+  const fileName = (extension: Parameters<typeof buildExportFilename>[3], withMode = true) => {
     const state = ctx.legacyState();
     return buildExportFilename(
       VIEW_LABEL[state.view],
       nameSelection(state),
       state.shownMilestone,
       extension,
-      avecMode ? state.mode : undefined
+      withMode ? state.mode : undefined
     );
   };
 
@@ -78,7 +78,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     async onExportPng() {
       const svg = ctx.svgCourant();
       if (!svg || !ctx.legacyState().file) return;
-      const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.echellePng);
+      const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.pngScale);
       if (!result.ok) {
         // Le message vient de l'export : il en distingue deux, et le recopier
         // ici en avait effacé un.
@@ -89,7 +89,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     },
 
     onExportXlsx() {
-      const matrix = ctx.matriceCourante();
+      const matrix = ctx.currentMatrix();
       if (!matrix || !ctx.legacyState().file) return;
       downloadMatrixXlsx(matrix, fileName("xlsx"));
     },
@@ -132,7 +132,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
             date: state.file.dateModification
               ? state.file.dateModification.toISOString().slice(0, 10)
               : "save date unknown",
-            composants: board.nodes.filter((n) => n.kind !== "boundary").length,
+            components: board.nodes.filter((n) => n.kind !== "boundary").length,
             flows: board.edges.length,
             technologies: new Set(board.edges.map((e) => e.technology).filter(Boolean)).size,
           },

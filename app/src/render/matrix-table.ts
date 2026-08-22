@@ -57,9 +57,9 @@ export function buildMatrixTable(
     th.textContent = row.actor;
     tr.appendChild(th);
 
-    for (const arrivee of matrix.columns) {
+    for (const arrival of matrix.columns) {
       const td = document.createElement("td");
-      for (const cell of row.cellules.get(arrivee) ?? []) {
+      for (const cell of row.cells.get(arrival) ?? []) {
         const span = document.createElement("span");
         span.className = "matrix-tech";
         // La couleur va sur une pastille, jamais sur le texte. Elle vient du
@@ -93,7 +93,7 @@ export function buildMatrixTable(
     // le moyeu demandait de compter les cases à l'œil.
     const total = document.createElement("td");
     total.className = "matrix-total";
-    total.textContent = String(matrix.totauxLigne.get(row.actor) ?? 0);
+    total.textContent = String(matrix.rowTotals.get(row.actor) ?? 0);
     tr.appendChild(total);
     tbody.appendChild(tr);
   }
@@ -109,7 +109,7 @@ export function buildMatrixTable(
   for (const column of matrix.columns) {
     const td = document.createElement("td");
     td.className = "matrix-total";
-    td.textContent = String(matrix.totauxColonne.get(column) ?? 0);
+    td.textContent = String(matrix.columnTotals.get(column) ?? 0);
     trPied.appendChild(td);
   }
   trPied.appendChild(document.createElement("td"));

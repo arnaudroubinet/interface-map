@@ -112,8 +112,8 @@ describe("reparerClasseur", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
     const reread = buildModel(parseWorkbook(writeTemplate(r.data)));
     if (!reread.ok) throw new Error("illisible");
-    const attendus = new Set(reread.model.interfaces.map((i) => i.expectedSheet));
-    for (const attendu of attendus) expect(reread.model.fxSheetNames).toContain(attendu);
+    const expected = new Set(reread.model.interfaces.map((i) => i.expectedSheet));
+    for (const sheet of expected) expect(reread.model.fxSheetNames).toContain(sheet);
   });
 });
 

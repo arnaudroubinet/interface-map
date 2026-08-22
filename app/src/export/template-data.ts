@@ -77,23 +77,23 @@ export const TYPES_FLUX: [string, string, string][] = [
 // le code -- et la coupure se défaisait dès qu'on élargissait la colonne.
 export type RowRole = "title" | "section" | "body" | "aside";
 
-export interface LigneModeEmploi {
+export interface InstructionsRow {
   role: RowRole;
   gauche: string;
-  droite: string;
+  right: string;
 }
 
-const t = (droite: string): LigneModeEmploi => ({ role: "title", gauche: "INTERFACE MAP", droite });
-const s_ = (gauche: string): LigneModeEmploi => ({ role: "section", gauche, droite: "" });
-const l = (gauche: string, droite: string): LigneModeEmploi => ({ role: "body", gauche, droite });
-const p = (droite: string): LigneModeEmploi => ({ role: "body", gauche: "", droite });
-const d = (droite: string): LigneModeEmploi => ({ role: "aside", gauche: "", droite });
-const vide = (): LigneModeEmploi => ({ role: "body", gauche: "", droite: "" });
+const t = (right: string): InstructionsRow => ({ role: "title", gauche: "INTERFACE MAP", right });
+const s_ = (gauche: string): InstructionsRow => ({ role: "section", gauche, right: "" });
+const l = (gauche: string, right: string): InstructionsRow => ({ role: "body", gauche, right });
+const p = (right: string): InstructionsRow => ({ role: "body", gauche: "", right });
+const d = (right: string): InstructionsRow => ({ role: "aside", gauche: "", right });
+const empty = (): InstructionsRow => ({ role: "body", gauche: "", right: "" });
 
-export const MODE_EMPLOI: LigneModeEmploi[] = [
+export const INSTRUCTIONS: InstructionsRow[] = [
   t("How to fill this workbook in — and what the tool makes of it."),
   d("You never fill the same thing twice: every sheet answers one question, and the drop-down lists are built from the sheets before it."),
-  vide(),
+  empty(),
 
   s_("START HERE"),
   l("1. Groups", "Name your groups and say, for each, whether it is Platform (what your team owns) or External."),
@@ -103,13 +103,13 @@ export const MODE_EMPLOI: LigneModeEmploi[] = [
   l("5. Interfaces", "Declare each interface: its name, its version, WHO PROVIDES it, over which technology."),
   l("6. FX_ sheets", "One sheet per (provider, technology) pair: who consumes what, and how critical it is to them."),
   d("Select any cell: a note tells you what is expected there."),
-  vide(),
+  empty(),
 
   s_("THE PRINCIPLE"),
   p("An interface is PROVIDED once, by one actor, and CONSUMED by one or more others."),
   p("It is described once on Interfaces, and its consumptions are detailed on an FX_<provider>_<flow type> sheet."),
   p("Two actors may publish interfaces of the same name: those are two interfaces, told apart by their provider."),
-  vide(),
+  empty(),
 
   s_("THE TWO READINGS"),
   p("The same workbook is read two ways, and you fill it in only once."),
@@ -118,7 +118,7 @@ export const MODE_EMPLOI: LigneModeEmploi[] = [
   p("Two columns carry the distinction, and both are optional. Nature, on ActorTypes, says which types are technical. Republished as, on the FX_ sheets, is filled on a technical actor's own consumption lines: under which of ITS interfaces that input comes back out."),
   p("A bus that aggregates writes nothing special — it simply has several lines pointing at the same interface."),
   d("Fill neither column and the tool never mentions the distinction."),
-  vide(),
+  empty(),
 
   s_("THE SHEETS"),
   l("Groups", "The perimeter is declared HERE, not on each actor: a group is Platform or External, and everything it holds follows."),
@@ -130,7 +130,7 @@ export const MODE_EMPLOI: LigneModeEmploi[] = [
   l("Interfaces", "The catalogue: a flow, its provider, its technology, its contract."),
   l("FX_…", "One sheet per (provider, flow type) pair: who consumes what."),
   d("Lists and Version are hidden and filled by the tool. Right-click a tab > Unhide to see them; do not edit them."),
-  vide(),
+  empty(),
 
   s_("ENTRY RULES"),
   l("Drop-down lists", "Reference columns carry them and they grow by themselves: add an actor and it appears at once on Interfaces and on the FX_ sheets. Never type a name by hand — a spelling variant creates a phantom actor."),
@@ -141,19 +141,19 @@ export const MODE_EMPLOI: LigneModeEmploi[] = [
   l("Retired at", "The only column that takes a row off the diagrams. A row retired AT v3 is already gone at v3."),
   l("Obsolete row", "Do not delete it: give it a retirement milestone. Deleting it erases the history."),
   l("Renaming an actor", "Breaks every reference to it. Find and replace across the whole workbook, or not at all."),
-  vide(),
+  empty(),
 
   s_("READING AN ARROW"),
   p("Nothing to type in: two things are drawn, and both follow from the flow type."),
   l("The line", "follows the data, always from provider to consumer, so a chain of relays reads like a pipe."),
   l("The arrowhead", "says who takes the initiative. A SOLID head means the provider pushes — Kafka, JMS, a file drop. An OPEN V means the consumer pulls — HTTP, SQL, LDAP — and it sits at the provider's end, pointing back at what is being queried."),
   d("The functional reading keeps the line and drops the nuance: a chain crosses technologies of opposite conventions, and only the data direction survives that."),
-  vide(),
+  empty(),
 
   s_("MISSING FX_ SHEETS"),
   p("Fill Interfaces in first: each row calls for an FX_<provider>_<type> sheet. Create it by hand, or drop this workbook on the tool and use « Repair or upgrade a workbook » — it returns the file with every expected sheet."),
   d("Excel caps a tab name at 31 characters and refuses \\ / ? * [ ] : a long provider therefore gets a shortened tab. The tool cuts it the same way, so the two always agree, and it warns if two pairs land on the same tab."),
-  vide(),
+  empty(),
 
   d("The visualisation tool only READS this workbook: it never modifies it."),
 ];

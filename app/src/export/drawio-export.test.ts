@@ -27,12 +27,12 @@ const board = (l: LayoutResult, title = "v") => [{ title, layout: l }];
 
 // Le libellé d'une boîte est du HTML rangé dans un attribut XML : c'est en
 // relisant le fichier comme draw.io le relit qu'on voit ce qu'il affichera.
-function boite(xml: string, id: string): Element {
+function box(xml: string, id: string): Element {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   return doc.querySelector(`UserObject[id="${id}"]`)!;
 }
 
-const valeurDe = (xml: string, id: string) => boite(xml, id).getAttribute("label")!;
+const valeurDe = (xml: string, id: string) => box(xml, id).getAttribute("label")!;
 
 interface Rect {
   x: number;
@@ -41,10 +41,10 @@ interface Rect {
   height: number;
 }
 
-function geometrie(xml: string, id: string): Rect {
-  const g = boite(xml, id).querySelector("mxGeometry")!;
-  const nombre = (a: string) => Number(g.getAttribute(a));
-  return { x: nombre("x"), y: nombre("y"), width: nombre("width"), height: nombre("height") };
+function geometry(xml: string, id: string): Rect {
+  const g = box(xml, id).querySelector("mxGeometry")!;
+  const number = (a: string) => Number(g.getAttribute(a));
+  return { x: number("x"), y: number("y"), width: number("width"), height: number("height") };
 }
 
 // Ce que draw.io dessinera dans la PAGE : la géométrie d'un enfant se lit dans
@@ -52,7 +52,7 @@ function geometrie(xml: string, id: string): Rect {
 // retrouver le rectangle que l'œil verra.
 function absoluteRect(xml: string, id: string): Rect {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
-  const rect = geometrie(xml, id);
+  const rect = geometry(xml, id);
   let current = doc.querySelector(`UserObject[id="${id}"]`);
   while (current) {
     const parentId = current.querySelector("mxCell")!.getAttribute("parent")!;
@@ -92,7 +92,7 @@ describe("construireDrawio", () => {
     const xml = buildDrawio(board(layout()), colour);
     // Le placement donne le CENTRE de B en (400, 0) ; draw.io lit un coin
     // haut-gauche, soit (400 - 240/2, 0 - 120/2).
-    expect(geometrie(xml, "p0_B")).toEqual({ x: 280, y: -60, width: 240, height: 120 });
+    expect(geometry(xml, "p0_B")).toEqual({ x: 280, y: -60, width: 240, height: 120 });
   });
 
   it("carries the name, the type and the description into the box", () => {
@@ -157,7 +157,7 @@ describe("construireDrawio", () => {
   // infobulle au hover, et les colonnes du classeur dans « Modifier les
   // données ».
   it("carries what the box cannot show as shape data", () => {
-    const b = boite(buildDrawio(board(layout()), colour), "p0_A");
+    const b = box(buildDrawio(board(layout()), colour), "p0_A");
     expect(b.getAttribute("tooltip")).toBe("Un texte");
     expect(b.getAttribute("type")).toBe("Application");
   });
@@ -172,9 +172,9 @@ describe("construireDrawio", () => {
       ],
       colour
     );
-    expect(boite(xml, "p0_B").getAttribute("link")).toBe("data:page/id,page_1");
+    expect(box(xml, "p0_B").getAttribute("link")).toBe("data:page/id,page_1");
     // Sur sa propre planche, la boîte ne renvoie pas vers elle-même.
-    expect(boite(xml, "p1_B").getAttribute("link")).toBeNull();
+    expect(box(xml, "p1_B").getAttribute("link")).toBeNull();
   });
 
   // Un type de flux et un acteur peuvent porter le même nom : le lien vise la
@@ -188,7 +188,7 @@ describe("construireDrawio", () => {
       ],
       colour
     );
-    expect(boite(xml, "p1_B").getAttribute("link")).toBe("data:page/id,page_0");
+    expect(box(xml, "p1_B").getAttribute("link")).toBe("data:page/id,page_0");
   });
 
   // La frontière de plateforme est un cadre qui contient ses boîtes : draw.io
@@ -206,7 +206,7 @@ describe("construireDrawio", () => {
     const xml = buildDrawio(board(l), colour);
     // Coin du cadre : (100 - 250, 50 - 150) = (-150, -100). Coin de A :
     // (130 - 120, 90 - 60) = (10, 30). D'où le relatif (160, 130).
-    const g = geometrie(xml, "p0_A");
+    const g = geometry(xml, "p0_A");
     expect(g).toEqual({ x: 160, y: 130, width: 240, height: 120 });
     // A tient tout entier dans F sur l'écran : ses coordonnées relatives sont
     // donc positives et sa boîte reste dans l'étendue du cadre.
@@ -244,10 +244,10 @@ describe("construireDrawio", () => {
 
     for (const n of l.nodes) {
       const declared = absoluteRect(xml, `p0_${n.id}`);
-      const peint = { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height };
+      const painted = { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height };
       expect(
         paintedRects.some((r) => sameRect(r, declared)),
-        `${n.label} : draw.io ${JSON.stringify(declared)}, écran ${JSON.stringify(peint)}`
+        `${n.label} : draw.io ${JSON.stringify(declared)}, écran ${JSON.stringify(painted)}`
       ).toBe(true);
     }
   });
@@ -289,7 +289,7 @@ describe("construireDrawio — chaque page se décrit", () => {
     title: "Platform detail",
     context: {
       title: "Platform detail", reading: "architecture", milestone: "v2",
-      source: "carto.xlsx", date: "2026-08-22", composants: 2, flows: 1, technologies: 1,
+      source: "carto.xlsx", date: "2026-08-22", components: 2, flows: 1, technologies: 1,
     },
     layout: {
       width: 400, height: 200,

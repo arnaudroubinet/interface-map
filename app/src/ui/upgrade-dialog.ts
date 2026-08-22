@@ -88,7 +88,7 @@ export function openMigration(): void {
             el("p", { class: "drop-target-text" }, [
               `The workbook produced carries ${bilan.totalAnomalies} anomal${bilan.totalAnomalies > 1 ? "ies" : "y"}, ` +
                 `${bilan.totalActions} pending decision${bilan.totalActions > 1 ? "s" : ""} and ` +
-                `${bilan.totalAvertissements} warning${bilan.totalAvertissements > 1 ? "s" : ""}. ` +
+                `${bilan.totalWarnings} warning${bilan.totalWarnings > 1 ? "s" : ""}. ` +
                 "Load it in the tool for the detail: whatever the original format does not hold " +
                 "— perimeters, actor types, usages, criticalities — was left empty.",
             ])
@@ -120,17 +120,17 @@ export function openMigration(): void {
 
   // Le glisser-déposer ne suffit pas : depuis un dossier ou un courriel, on veut
   // pouvoir choisir le fichier.
-  const choisir = el("input", { type: "file", accept: ".xlsx,.xlsm" }) as HTMLInputElement;
-  choisir.className = "file-field";
-  choisir.addEventListener("change", () => {
-    const file = choisir.files?.[0];
+  const choose = el("input", { type: "file", accept: ".xlsx,.xlsm" }) as HTMLInputElement;
+  choose.className = "file-field";
+  choose.addEventListener("change", () => {
+    const file = choose.files?.[0];
     if (file) convertir(file);
   });
 
   box.appendChild(fermer);
   box.appendChild(el("h2", { class: "migration-title" }, ["Repair or upgrade a workbook"]));
   box.appendChild(zone);
-  box.appendChild(choisir);
+  box.appendChild(choose);
   voile.appendChild(box);
 
   voile.addEventListener("click", (e) => {

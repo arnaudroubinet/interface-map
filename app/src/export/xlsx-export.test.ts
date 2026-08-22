@@ -11,7 +11,7 @@ const matrix: MatrixResult = base.matrix({
   rows: [
     {
       actor: "Tatooine",
-      cellules: new Map([
+      cells: new Map([
         ["Kamino", [{ technology: "HTTP", count: 3, attenuated: false, names: [] }]],
         ["Muet", [{ technology: "Kafka", count: 1, attenuated: true, names: [] }]],
       ]),
@@ -66,12 +66,12 @@ describe("export Excel de la matrix", () => {
 // repli, la grille exportée n'a plus que ses en-têtes -- un classeur qui a
 // l'air correct et qui ne dit à personne qu'il ne montre plus rien.
 describe("export Excel de la matrix — mode fonctionnel (technologie vide)", () => {
-  const matriceFonctionnelle: MatrixResult = base.matrix({
+  const functionalMatrix: MatrixResult = base.matrix({
     columns: ["Kamino", "Muet"],
     rows: [
       {
         actor: "Tatooine",
-        cellules: new Map([
+        cells: new Map([
           ["Kamino", [{ technology: "", count: 1, attenuated: false, names: [] }]],
           ["Muet", [{ technology: "", count: 3, attenuated: false, names: [] }]],
         ]),
@@ -80,7 +80,7 @@ describe("export Excel de la matrix — mode fonctionnel (technologie vide)", ()
   });
 
   function functionalWorkbook(): XLSX.WorkBook {
-    const wb = buildMatrixWorkbook(matriceFonctionnelle);
+    const wb = buildMatrixWorkbook(functionalMatrix);
     const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
     return XLSX.read(new Uint8Array(bytes), { type: "array" });
   }
@@ -102,8 +102,8 @@ describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () =>
   const nonAlphabetique = base.matrix({
     columns: ["Zeffo", "Bracca"],
     rows: [
-      { actor: "Zeffo", cellules: new Map([["Bracca", [cellule]]]) },
-      { actor: "Bracca", cellules: new Map([["Zeffo", [cellule]]]) },
+      { actor: "Zeffo", cells: new Map([["Bracca", [cellule]]]) },
+      { actor: "Bracca", cells: new Map([["Zeffo", [cellule]]]) },
     ],
   });
 

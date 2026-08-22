@@ -33,15 +33,15 @@ describe("rayon", () => {
   // Un cycle ne doit pas boucler : le classeur d'exemple en contient un, à
   // quatre composants, signalé par les contrôles.
   it("termine sur un cycle", () => {
-    const boucle = [lien("A", "B"), lien("B", "A")];
-    expect(radius(boucle, "A", "downstream").get("B")).toBe(1);
+    const loop = [lien("A", "B"), lien("B", "A")];
+    expect(radius(loop, "A", "downstream").get("B")).toBe(1);
   });
 
   // La distance doit être la PLUS COURTE : un parcours en profondeur donnerait
   // 2 sauts là où il y en a 1, dès qu'un chemin long arrive avant le court.
   it("rend la distance la plus courte quand deux chemins mènent au même", () => {
-    const losange = [lien("A", "B"), lien("A", "C"), lien("B", "D"), lien("C", "D"), lien("D", "E")];
-    const r = radius(losange, "A", "downstream");
+    const diamond = [lien("A", "B"), lien("A", "C"), lien("B", "D"), lien("C", "D"), lien("D", "E")];
+    const r = radius(diamond, "A", "downstream");
     expect(r.get("D")).toBe(2);
     expect(r.get("E")).toBe(3);
   });

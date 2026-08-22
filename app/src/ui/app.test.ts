@@ -33,9 +33,9 @@ function dropFile(root: HTMLElement): void {
 }
 
 function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
-  const bouton = [...root.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().startsWith(label));
-  if (!bouton) throw new Error(`bouton "${label}" introuvable`);
-  return bouton as HTMLButtonElement;
+  const button = [...root.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().startsWith(label));
+  if (!button) throw new Error(`button "${label}" introuvable`);
+  return button as HTMLButtonElement;
 }
 
 // Le rapport (Markdown) ne dépend pas du mode (§5.3) : les deux lectures
@@ -167,8 +167,8 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
       if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
-    const actif = root.querySelector('.rail-view-item[aria-current="true"]');
-    expect(actif?.textContent?.trim()).toBe("Group to group");
+    const active = root.querySelector('.rail-view-item[aria-current="true"]');
+    expect(active?.textContent?.trim()).toBe("Group to group");
   });
 });
 

@@ -15,12 +15,12 @@ import type {
 import { matchesSheetName, hasPrefix, findHeader } from "./headers";
 import { normalizeText } from "../shared/text";
 
-const CARACTERES_INTERDITS = /[:\\/?*[\]]/;
+const FORBIDDEN_CHARACTERS = /[:\\/?*[\]]/;
 // Les mêmes, un par un : la formule Excel des tables d'appoint doit refaire cet
 // assainissement à l'identique, et une expression régulière ne s'y écrit pas.
-export const CARACTERES_INTERDITS_ONGLET = [":", "\\", "/", "?", "*", "[", "]"];
+export const FORBIDDEN_TAB_CHARACTERS = [":", "\\", "/", "?", "*", "[", "]"];
 export const REMPLACEMENT_ONGLET = "-";
-export const LONGUEUR_MAX_ONGLET = 31;
+export const MAX_TAB_LENGTH = 31;
 
 // L'état appartient au FLUX, pas au composant : un acteur n'a plus de statut.
 // Le porter des deux côtés faisait qu'un acteur marqué décommissionné éteignait
@@ -89,17 +89,17 @@ function findSheet(sheets: RawSheet[], name: string): RawSheet | undefined {
   return sheets.find((s) => matchesSheetName(s.name, name));
 }
 
-function buildHeaderMap(actualHeaders: string[], attendus: string[]): Map<string, string> {
+function buildHeaderMap(actualHeaders: string[], expected: string[]): Map<string, string> {
   const map = new Map<string, string>();
-  for (const attendu of attendus) {
-    const found = findHeader(actualHeaders, attendu);
-    if (found) map.set(attendu, found);
+  for (const column of expected) {
+    const found = findHeader(actualHeaders, column);
+    if (found) map.set(column, found);
   }
   return map;
 }
 
-function get(row: Record<string, string>, headerMap: Map<string, string>, canonique: string): string {
-  const actual = headerMap.get(canonique);
+function get(row: Record<string, string>, headerMap: Map<string, string>, canonical: string): string {
+  const actual = headerMap.get(canonical);
   return actual ? (row[actual] ?? "").toString().trim() : "";
 }
 
@@ -116,7 +116,7 @@ function normSens(raw: string): "provider-to-consumer" | "consumer-to-provider" 
   return toConsumer ? "provider-to-consumer" : "consumer-to-provider";
 }
 
-function normOui(raw: string): boolean {
+function normYes(raw: string): boolean {
   const v = normalizeText(raw);
   return v === normalizeText("yes") || v === normalizeText("oui");
 }
@@ -134,7 +134,7 @@ function validity(row: Record<string, string>, headerMap: Map<string, string>): 
 // migration pourraient un jour juger différemment le même nom, et produire un
 // classeur dont l'onglet manquant n'aurait jamais pu être créé.
 export function isValidTabName(name: string): boolean {
-  return name.length <= 31 && !CARACTERES_INTERDITS.test(name);
+  return name.length <= 31 && !FORBIDDEN_CHARACTERS.test(name);
 }
 
 // La convention qui lie une consommation à son interface (§3.3) : reconstruite
@@ -153,11 +153,11 @@ export const FX_SHEET_SEPARATOR = "_";
 // Deux couples (exposant, type) peuvent désormais tomber sur le même nom une
 // fois coupés : un contrôle d'intégrité le signale plutôt que de les fondre.
 export function sanitiseTabName(name: string): string {
-  const sansInterdits = CARACTERES_INTERDITS_ONGLET.reduce(
+  const withoutForbidden = FORBIDDEN_TAB_CHARACTERS.reduce(
     (current, interdit) => current.split(interdit).join(REMPLACEMENT_ONGLET),
     name
   );
-  return sansInterdits.slice(0, LONGUEUR_MAX_ONGLET);
+  return withoutForbidden.slice(0, MAX_TAB_LENGTH);
 }
 
 export function expectedFxSheet(providerName: string, flowType: string): string {
@@ -194,17 +194,17 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const headersInterfaces = feuilleInterfaces.headers;
 
   const missingOptionalColumns: { sheet: string; column: string }[] = [];
-  function noterColonnesAbsentes(sheet: string, actualHeaders: string[], attendues: string[]) {
-    for (const attendue of attendues) {
-      if (!findHeader(actualHeaders, attendue)) {
-        missingOptionalColumns.push({ sheet, column: attendue });
+  function noteMissingColumns(sheet: string, actualHeaders: string[], expected: string[]) {
+    for (const column of expected) {
+      if (!findHeader(actualHeaders, column)) {
+        missingOptionalColumns.push({ sheet, column });
       }
     }
   }
 
-  noterColonnesAbsentes("Actors", headersActeurs, ACTOR_COLUMNS.filter((c) => c !== "Name"));
-  noterColonnesAbsentes("FlowTypes", headersTypesFlux, FLOW_TYPE_COLUMNS.filter((c) => c !== "Flow type"));
-  noterColonnesAbsentes("Interfaces", headersInterfaces, INTERFACE_COLUMNS.filter((c) => c !== "Flow name"));
+  noteMissingColumns("Actors", headersActeurs, ACTOR_COLUMNS.filter((c) => c !== "Name"));
+  noteMissingColumns("FlowTypes", headersTypesFlux, FLOW_TYPE_COLUMNS.filter((c) => c !== "Flow type"));
+  noteMissingColumns("Interfaces", headersInterfaces, INTERFACE_COLUMNS.filter((c) => c !== "Flow name"));
 
   const headerMapActors = buildHeaderMap(headersActeurs, ACTOR_COLUMNS);
   const actors: Actor[] = actorsSheet.rows
@@ -231,7 +231,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   let groupsSheetMissing = true;
   if (feuilleGroupes && findHeader(feuilleGroupes.headers, "Group")) {
     groupsSheetMissing = false;
-    noterColonnesAbsentes("Groups", feuilleGroupes.headers, GROUP_COLUMNS.filter((c) => c !== "Group"));
+    noteMissingColumns("Groups", feuilleGroupes.headers, GROUP_COLUMNS.filter((c) => c !== "Group"));
     const headerMapGroupes = buildHeaderMap(feuilleGroupes.headers, GROUP_COLUMNS);
     groups = feuilleGroupes.rows
       .filter(({ values: r }) => rowHasContent(r, headerMapGroupes, GROUP_COLUMNS))
@@ -251,7 +251,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const actorTypesSheet = findSheet(workbook.sheets, "ActorTypes");
   let actorTypes: ActorType[] = [];
   if (actorTypesSheet && findHeader(actorTypesSheet.headers, "Actor type")) {
-    noterColonnesAbsentes("ActorTypes", actorTypesSheet.headers, ACTOR_TYPE_COLUMNS.filter((c) => c !== "Actor type"));
+    noteMissingColumns("ActorTypes", actorTypesSheet.headers, ACTOR_TYPE_COLUMNS.filter((c) => c !== "Actor type"));
     const headerMapActorTypes = buildHeaderMap(actorTypesSheet.headers, ACTOR_TYPE_COLUMNS);
     actorTypes = actorTypesSheet.rows
       .filter(({ values: r }) => rowHasContent(r, headerMapActorTypes, ACTOR_TYPE_COLUMNS))
@@ -283,7 +283,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const milestonesSheet = findSheet(workbook.sheets, "Milestones");
   const milestones: Milestone[] = [];
   if (milestonesSheet) {
-    noterColonnesAbsentes("Milestones", milestonesSheet.headers, MILESTONE_COLUMNS.filter((c) => c !== "Milestone"));
+    noteMissingColumns("Milestones", milestonesSheet.headers, MILESTONE_COLUMNS.filter((c) => c !== "Milestone"));
     const headerMapMilestones = buildHeaderMap(milestonesSheet.headers, MILESTONE_COLUMNS);
     for (const { row, values: r } of milestonesSheet.rows) {
       if (!rowHasContent(r, headerMapMilestones, MILESTONE_COLUMNS)) continue;
@@ -326,7 +326,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         contractLink: get(r, headerMapInterfaces, "Contract link"),
         contractReference: get(r, headerMapInterfaces, "Contract reference"),
         comments: get(r, headerMapInterfaces, "Comments"),
-        toConfirm: normOui(get(r, headerMapInterfaces, "To confirm")),
+        toConfirm: normYes(get(r, headerMapInterfaces, "To confirm")),
         expectedSheet,
         // Colonne de la v3, remplacée par « Republished as » sur la consommation.
         // On la lit encore -- et seulement ici -- pour que la mise à niveau puisse
@@ -351,7 +351,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const consumptions: Consumption[] = [];
   for (const sheet of fxSheets) {
     const headersFx = sheet.headers;
-    noterColonnesAbsentes(sheet.name, headersFx, FX_COLUMNS);
+    noteMissingColumns(sheet.name, headersFx, FX_COLUMNS);
     const headerMapFx = buildHeaderMap(headersFx, [...FX_COLUMNS, COLONNE_HERITEE_STATUT]);
     for (const { row, values: r } of sheet.rows) {
       if (!rowHasContent(r, headerMapFx, FX_COLUMNS)) continue;

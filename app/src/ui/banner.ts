@@ -23,7 +23,7 @@ export interface FormatExport {
   label: string;
   rappel: keyof BannerCallbacks;
   // `dessinDisponible` dit qu'un schéma est à l'écran et prêt à être rendu.
-  actif: (state: AppState, dessinDisponible: boolean) => boolean;
+  active: (state: AppState, dessinDisponible: boolean) => boolean;
 }
 
 const onADiagram = (state: AppState, dessinDisponible: boolean) =>
@@ -34,31 +34,31 @@ const onADiagram = (state: AppState, dessinDisponible: boolean) =>
 const surTout = (state: AppState) => state.file !== null && state.view !== "upgrade";
 
 export const EXPORTS: FormatExport[] = [
-  { label: "SVG", rappel: "onExportSvg", actif: onADiagram },
-  { label: "PNG", rappel: "onExportPng", actif: onADiagram },
+  { label: "SVG", rappel: "onExportSvg", active: onADiagram },
+  { label: "PNG", rappel: "onExportPng", active: onADiagram },
   // La matrix n'est pas un dessin : ce qu'on veut en emporter, c'est le
   // tableau, dans l'outil où on le trie et le filtre.
-  { label: "Excel", rappel: "onExportXlsx", actif: (s) => s.file !== null && s.view === "matrix" },
+  { label: "Excel", rappel: "onExportXlsx", active: (s) => s.file !== null && s.view === "matrix" },
   // Le rapport n'est ni un dessin ni un tableau : c'est une liste de lignes à
   // corriger, chacune avec son adresse. Emportée en Markdown, elle se colle
   // dans un ticket et se traite sans rouvrir l'outil.
-  { label: "Markdown", rappel: "onExportMarkdown", actif: (s) => s.file !== null && s.view === "checks" },
+  { label: "Markdown", rappel: "onExportMarkdown", active: (s) => s.file !== null && s.view === "checks" },
   // draw.io est un dessin : il suit le mode de lecture.
-  { label: "draw.io", rappel: "onExportDrawio", actif: surTout },
+  { label: "draw.io", rappel: "onExportDrawio", active: surTout },
   // Ces deux-là étaient fermés en lecture fonctionnelle, au motif qu'un schéma
   // fonctionnel n'est pas une architecture C4. Le motif ne tient pas : un
   // système qui rend un service à un autre est le cas d'usage central d'un
   // systemLandscape. Ce qu'on s'interdit, c'est de livrer un fichier qui
   // raconte autre chose que l'écran -- il suffit donc que le fichier DISE ce
   // qu'il est, ce qu'il fait maintenant.
-  { label: "Structurizr", rappel: "onExportStructurizr", actif: surTout },
-  { label: "LikeC4", rappel: "onExportLikeC4", actif: surTout },
+  { label: "Structurizr", rappel: "onExportStructurizr", active: surTout },
+  { label: "LikeC4", rappel: "onExportLikeC4", active: surTout },
 ];
 
 export function renderBanner(
   root: HTMLElement,
   state: AppState,
-  exportDisponible: boolean,
+  exportAvailable: boolean,
   callbacks: BannerCallbacks
 ): void {
   clear(root);
@@ -88,9 +88,9 @@ export function renderBanner(
   root.appendChild(legacyState);
 
   for (const format of EXPORTS) {
-    const bouton = el("button", { class: "export-button" }, [format.label]);
-    bouton.disabled = !format.actif(state, exportDisponible);
-    bouton.addEventListener("click", callbacks[format.rappel]);
-    root.appendChild(bouton);
+    const button = el("button", { class: "export-button" }, [format.label]);
+    button.disabled = !format.active(state, exportAvailable);
+    button.addEventListener("click", callbacks[format.rappel]);
+    root.appendChild(button);
   }
 }

@@ -65,8 +65,8 @@ describe("palierCourant", () => {
   });
 
   it("sans aucun livré, rend le rang le plus haut déclaré", () => {
-    const aucunLivre = model([milestone("v1", 1, "Planned"), milestone("v2", 2, "Planned")]);
-    expect(currentMilestone(aucunLivre)?.name).toBe("v2");
+    const nothingDelivered = model([milestone("v1", 1, "Planned"), milestone("v2", 2, "Planned")]);
+    expect(currentMilestone(nothingDelivered)?.name).toBe("v2");
   });
 
   it("rend undefined sur une frise vide", () => {

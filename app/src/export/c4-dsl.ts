@@ -9,7 +9,7 @@ import {
 import { PERIMETER_PLATFORM, PERIMETER_EXTERNAL } from "../aggregation/vocabularies";
 import { liveActors } from "../aggregation/milestones";
 import { flowsForReading } from "../aggregation/reading";
-import { identifiants } from "./identifiers";
+import { identifiers } from "./identifiers";
 import { coloursOfModel } from "../render/colors";
 import { normalizeText } from "../shared/text";
 
@@ -57,7 +57,7 @@ const FORME_PAR_TYPE: Record<string, string> = {
   database: "Cylinder",
   storage: "Cylinder",
   person: "Person",
-  humain: "Person",
+  human: "Person",
   batch: "Robot",
   screen: "Window",
   browser: "WebBrowser",
@@ -85,7 +85,7 @@ export function modelToStructurizr(
   mode: Mode = "architecture"
 ): string {
   const actors = liveActors(model, rank);
-  const ids = identifiants(actors.map((a) => a.name.trim()));
+  const ids = identifiers(actors.map((a) => a.name.trim()));
   const name = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
 
   const fonctionnel = mode === "functional";
@@ -105,8 +105,8 @@ export function modelToStructurizr(
   const declaration = (a: Actor, indent: string) => {
     // Un humain n'est pas un système : C4 a un mot pour ça, et le classeur le
     // dit déjà dans son type d'acteur.
-    const mot = isAPerson(a) ? "person" : "softwareSystem";
-    const body = [`${indent}${ids.get(a.name.trim())} = ${mot} "${text(a.name)}" "${text(a.description)}" {`];
+    const word = isAPerson(a) ? "person" : "softwareSystem";
+    const body = [`${indent}${ids.get(a.name.trim())} = ${word} "${text(a.name)}" "${text(a.description)}" {`];
     const tags = [a.actorType, perimeter(model, a.group)].map(text).filter(Boolean);
     if (tags.length > 0) body.push(`${indent}    tags "${tags.join('" "')}"`);
     // Ce que le schéma ne montre pas mais que le classeur sait : responsable,
@@ -251,7 +251,7 @@ function views(
   }
 
   const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
-  const keys = identifiants(techs);
+  const keys = identifiers(techs);
   for (const tech of techs) {
     rows.push(
       ...view(
@@ -299,11 +299,11 @@ function isAPerson(a: Actor): boolean {
 // Un bloc `properties` ne se pose que s'il a quelque chose à dire : un bloc
 // vide passerait la validation mais encombrerait chaque élément.
 function properties(indent: string, paires: [string, string][]): string[] {
-  const remplies = paires.filter(([, v]) => v.trim() !== "");
-  if (remplies.length === 0) return [];
+  const filled = paires.filter(([, v]) => v.trim() !== "");
+  if (filled.length === 0) return [];
   return [
     `${indent}properties {`,
-    ...remplies.map(([key, v]) => `${indent}    "${key}" "${text(v)}"`),
+    ...filled.map(([key, v]) => `${indent}    "${key}" "${text(v)}"`),
     `${indent}}`,
   ];
 }

@@ -343,7 +343,7 @@ describe("7.7 signaux non bloquants", () => {
 
 // Un raccourci pour les modèles à deux versions d'un même contrat : c'est la
 // situation que toute cette famille de contrôles décrit.
-function modelDeuxVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
+function modelTwoVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return model({
     milestones,
     interfaces: [
@@ -357,13 +357,13 @@ function modelDeuxVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
 
 describe("versions d'interface — références", () => {
   it("reports a consumption whose version is absent from the catalogue", () => {
-    const report = runIntegrityChecks(modelDeuxVersions({ consumptions: [consumption({ version: "9.9" })] }));
+    const report = runIntegrityChecks(modelTwoVersions({ consumptions: [consumption({ version: "9.9" })] }));
     const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages.join(" ")).toContain('version "9.9"');
   });
 
   it("does not confuse two versions of the same flux", () => {
-    const report = runIntegrityChecks(modelDeuxVersions());
+    const report = runIntegrityChecks(modelTwoVersions());
     const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages).toEqual([]);
   });
@@ -373,7 +373,7 @@ describe("versions d'interface — références", () => {
 describe("versions d'interface — cohérence", () => {
   it("reports a consumer sitting on two versions of the same contract", () => {
     const report = runIntegrityChecks(
-      modelDeuxVersions({ consumptions: [consumption({ version: "1.0" }), consumption({ version: "2.0" })] })
+      modelTwoVersions({ consumptions: [consumption({ version: "1.0" }), consumption({ version: "2.0" })] })
     );
     const messages = report.families.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message);
     expect(messages.join(" ")).toContain("B");
@@ -382,7 +382,7 @@ describe("versions d'interface — cohérence", () => {
 
   it("says nothing when two different consumers each sit on one version", () => {
     const report = runIntegrityChecks(
-      modelDeuxVersions({
+      modelTwoVersions({
         actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
         consumptions: [consumption({ version: "1.0" }), consumption({ version: "2.0", consumerName: "C" })],
       })
@@ -396,14 +396,14 @@ describe("versions d'interface — cohérence", () => {
 
 describe("versions d'interface — bloc action des migrations", () => {
   it("names the interface, both versions and the consumers left behind", () => {
-    const report = runIntegrityChecks(modelDeuxVersions());
+    const report = runIntegrityChecks(modelTwoVersions());
     const block = report.infoBlocks.find((b) => b.id === "migrations")!;
     expect(block.level).toBe("action");
     expect(block.items).toEqual(["F 1.0 (Interfaces, row 0) → 2.0: B"]);
   });
 
   it("counts towards the action total, not the anomaly one", () => {
-    const report = runIntegrityChecks(modelDeuxVersions());
+    const report = runIntegrityChecks(modelTwoVersions());
     expect(report.totalActions).toBeGreaterThan(0);
   });
 
@@ -434,7 +434,7 @@ describe("versions d'interface — bloc action des migrations", () => {
   });
 
   it("drops an interface nobody consumes any more from the block", () => {
-    const report = runIntegrityChecks(modelDeuxVersions({ consumptions: [consumption({ version: "2.0" })] }));
+    const report = runIntegrityChecks(modelTwoVersions({ consumptions: [consumption({ version: "2.0" })] }));
     expect(report.infoBlocks.find((b) => b.id === "migrations")!.items).toEqual([]);
   });
 });
@@ -701,7 +701,7 @@ describe("cycles de dépendance", () => {
   // Un consommateur dépend de l'exposant de l'interface qu'il consomme.
   // A expose F1 que B consomme ; B expose F2 que A consomme : chacun a besoin
   // de l'autre pour fonctionner.
-  function boucle(names: string[]) {
+  function loop(names: string[]) {
     const interfaces = names.map((name, i) =>
       iface({ flowName: `F${i}`, providerName: name, expectedSheet: `FX_${name}_HTTP` })
     );
@@ -726,12 +726,12 @@ describe("cycles de dépendance", () => {
   });
 
   it("names the two components that need each other", () => {
-    expect(cycles(model(boucle(["A", "B"])))).toEqual(["A, B (2 components)"]);
+    expect(cycles(model(loop(["A", "B"])))).toEqual(["A, B (2 components)"]);
   });
 
   // La dépendance se propage : A a besoin de C sans jamais le citer.
   it("finds a loop that closes through a third component", () => {
-    expect(cycles(model(boucle(["A", "B", "C"])))).toEqual(["A, B, C (3 components)"]);
+    expect(cycles(model(loop(["A", "B", "C"])))).toEqual(["A, B, C (3 components)"]);
   });
 
   // Un acteur qui consomme sa propre interface n'est pas un cycle entre
@@ -746,13 +746,13 @@ describe("cycles de dépendance", () => {
   });
 
   it("reports two independent loops separately", () => {
-    const un = boucle(["A", "B"]);
-    const deux = boucle(["Y", "Z"]);
+    const un = loop(["A", "B"]);
+    const two = loop(["Y", "Z"]);
     const m = model({
-      actors: [...un.actors, ...deux.actors],
-      interfaces: [...un.interfaces, ...deux.interfaces],
-      consumptions: [...un.consumptions, ...deux.consumptions],
-      fxSheetNames: [...un.fxSheetNames, ...deux.fxSheetNames],
+      actors: [...un.actors, ...two.actors],
+      interfaces: [...un.interfaces, ...two.interfaces],
+      consumptions: [...un.consumptions, ...two.consumptions],
+      fxSheetNames: [...un.fxSheetNames, ...two.fxSheetNames],
     });
     expect(cycles(m)).toEqual(["A, B (2 components)", "Y, Z (2 components)"]);
   });
@@ -760,13 +760,13 @@ describe("cycles de dépendance", () => {
   // Le cycle est un état de la plateforme, pas un défaut du fichier : ce qui
   // est retiré au palier affiché ne le referme plus.
   it("reads the loop at the milestone on show", () => {
-    const boucleV1 = boucle(["A", "B"]);
+    const loopV1 = loop(["A", "B"]);
     const m = model({
-      ...boucleV1,
+      ...loopV1,
       milestones,
-      actors: boucleV1.actors.map((a) => ({ ...a, introducedAt: "v1" })),
-      interfaces: boucleV1.interfaces.map((i) => ({ ...i, introducedAt: "v1" })),
-      consumptions: boucleV1.consumptions.map((c, i) => ({
+      actors: loopV1.actors.map((a) => ({ ...a, introducedAt: "v1" })),
+      interfaces: loopV1.interfaces.map((i) => ({ ...i, introducedAt: "v1" })),
+      consumptions: loopV1.consumptions.map((c, i) => ({
         ...c,
         introducedAt: "v1",
         // Un seul des deux liens part au palier 2 : la boucle s'ouvre.
@@ -934,7 +934,7 @@ describe("frise des paliers", () => {
 // même contrat donnaient alors deux items rigoureusement identiques à l'œil,
 // alors que « Migrations under way » sait écrire « F 1.0 » depuis le début.
 describe("blocs informatifs — une interface se nomme avec sa version", () => {
-  const deuxVersions = () =>
+  const twoVersions = () =>
     model({
       interfaces: [
         iface({ flowName: "F", version: "1.0", toConfirm: true }),
@@ -944,7 +944,7 @@ describe("blocs informatifs — une interface se nomme avec sa version", () => {
     });
 
   it("distingue les deux versions dans « Interfaces to confirm »", () => {
-    const block = runIntegrityChecks(deuxVersions()).infoBlocks.find((b) => b.title === "Interfaces to confirm")!;
+    const block = runIntegrityChecks(twoVersions()).infoBlocks.find((b) => b.title === "Interfaces to confirm")!;
     expect(block.items).toHaveLength(2);
     expect(new Set(block.items.map((i) => i.replace(/\(.*\)/, "")))).toHaveProperty("size", 2);
   });
@@ -1000,7 +1000,7 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
       .map((a) => a.message)
       .filter((m) => m.includes("same sheet"));
 
-  const long = (suffixe: string) => `Plateforme de règlement-livraison ${suffixe}`;
+  const long = (suffix: string) => `Plateforme de règlement-livraison ${suffix}`;
 
   it("signale deux exposants dont les noms coupés se confondent", () => {
     const dits = messages([
@@ -1376,7 +1376,7 @@ describe("contrôles — rayon d'impact", () => {
   // Un cycle ramène l'acteur dans son propre aval : « combien j'en entraîne »
   // ne doit pas me compter moi-même.
   it("ne se compte pas soi-même quand un cycle y ramène", () => {
-    const boucle = model({
+    const loop = model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
       interfaces: [
@@ -1388,6 +1388,6 @@ describe("contrôles — rayon d'impact", () => {
         consumption({ flowName: "F2", consumerName: "A", sheet: "FX_B_HTTP" }),
       ],
     });
-    expect(block(boucle)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
+    expect(block(loop)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
   });
 });

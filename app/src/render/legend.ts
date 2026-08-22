@@ -74,8 +74,8 @@ export function legendEntries(
   // pose « du fournisseur vers le consommateur » faute de mieux -- une chaîne
   // traverse plusieurs médias, parfois de sens opposés -- et y annoncer
   // « provider pushes » affirmerait ce que le schéma ne sait pas.
-  const dessin = edges.filter((e) => !e.change && e.arrow);
-  if (dessin.some((e) => e.pulled === true)) {
+  const drawing = edges.filter((e) => !e.change && e.arrow);
+  if (drawing.some((e) => e.pulled === true)) {
     inputs.push({
       sample: { shape: "line", colour: INK, head: "end" },
       text: "provider pushes",
@@ -118,18 +118,18 @@ export function legendEntries(
 
   // La frontière de plateforme est un repère de fond, pas un acteur : la
   // compter ferait apparaître « External » toute seule.
-  const dessinables = nodes.filter((n) => n.kind !== "boundary");
+  const drawable = nodes.filter((n) => n.kind !== "boundary");
 
   // Une forme non annoncée est une notation muette de plus, exactement ce que
   // la pointe était avant.
-  if (dessinables.some((n) => n.technical)) {
+  if (drawable.some((n) => n.technical)) {
     const style = styleOfNode({ kind: "actor", external: false });
     inputs.push({
       sample: { shape: "box", fill: style.fill, stroke: style.stroke, cutCorner: true },
       text: "cut corner: technical component",
     });
   }
-  if (dessinables.some((n) => (n.aggregate ?? 0) > 1)) {
+  if (drawable.some((n) => (n.aggregate ?? 0) > 1)) {
     const style = styleOfNode({ kind: "actor", external: false });
     inputs.push({
       sample: { shape: "box", fill: style.fill, stroke: style.stroke, pile: true },
@@ -137,7 +137,7 @@ export function legendEntries(
     });
   }
 
-  if (dessinables.some((n) => n.external) && dessinables.some((n) => !n.external)) {
+  if (drawable.some((n) => n.external) && drawable.some((n) => !n.external)) {
     for (const [text, external] of [["Platform", false], ["External", true]] as [string, boolean][]) {
       const style = styleOfNode({ kind: "actor", external });
       inputs.push({ sample: { shape: "box", fill: style.fill, stroke: style.stroke, dashed: external }, text });

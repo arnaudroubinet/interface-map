@@ -54,7 +54,7 @@ import { openMigration } from "./upgrade-dialog";
 import {
   initialState,
   withLoadedFile,
-  withVue,
+  withView,
   withMode,
   withOptions,
   withActorSelection,
@@ -77,7 +77,7 @@ import {
   VIEW_LABEL,
   type AppState,
   type LoadedFile,
-  type Vue,
+  type View,
 } from "./state";
 
 
@@ -86,16 +86,16 @@ import {
 // non dans le banner parce qu'elles pilotent CE schéma-là, qui vient d'être
 // construit.
 function buildZoomControls(commandes: { ajuster: () => void; zoomBy: (f: number) => void }): HTMLElement {
-  const barre = el("div", { class: "zoom-controls" });
-  const bouton = (label: string, title: string, action: () => void) => {
+  const toolbar = el("div", { class: "zoom-controls" });
+  const button = (label: string, title: string, action: () => void) => {
     const b = el("button", { type: "button", title: title }, [label]);
     b.addEventListener("click", action);
-    barre.appendChild(b);
+    toolbar.appendChild(b);
   };
-  bouton("Fit", "Fit the whole board", commandes.ajuster);
-  bouton("−", "Zoom out", () => commandes.zoomBy(1 / 1.3));
-  bouton("+", "Zoom in", () => commandes.zoomBy(1.3));
-  return barre;
+  button("Fit", "Fit the whole board", commandes.ajuster);
+  button("−", "Zoom out", () => commandes.zoomBy(1 / 1.3));
+  button("+", "Zoom in", () => commandes.zoomBy(1.3));
+  return toolbar;
 }
 
 // Ce que le schéma dira de lui-même. Tout vient de l'état : la vue, la
@@ -108,7 +108,7 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
     milestone: state.shownMilestone,
     source: file.name,
     date: file.dateModification ? file.dateModification.toISOString().slice(0, 10) : "save date unknown",
-    composants: view.nodes.filter((n) => n.kind !== "boundary").length,
+    components: view.nodes.filter((n) => n.kind !== "boundary").length,
     flows: view.edges.length,
     technologies: new Set(view.edges.map((e) => e.technology).filter(Boolean)).size,
   };
@@ -120,8 +120,8 @@ export function mountApp(root: HTMLElement): void {
   root.innerHTML = "";
   const banner = el("header", { class: "banner" });
   const rail = el("aside", { class: "rail" });
-  const zoneRendu = el("main", { class: "render-area" });
-  const layout = el("div", { class: "layout" }, [rail, zoneRendu]);
+  const renderArea = el("main", { class: "render-area" });
+  const layout = el("div", { class: "layout" }, [rail, renderArea]);
   root.appendChild(banner);
   root.appendChild(layout);
 
@@ -193,7 +193,7 @@ export function mountApp(root: HTMLElement): void {
           dateModification: parsed.savedAt,
         })
       );
-      if (loaded.file) loaded = withVue(loaded, viewOnLoad(loaded.file));
+      if (loaded.file) loaded = withView(loaded, viewOnLoad(loaded.file));
       setState(loaded);
     } catch (err) {
       // Filet de sécurité : un classeur formé mais dont le contenu déclenche
@@ -213,10 +213,10 @@ export function mountApp(root: HTMLElement): void {
   const placements = new Map<string, Promise<LayoutResult>>();
   // La matrix affichée, gardée pour l'export : la recalculer au clic risquerait
   // de livrer autre chose que ce qui est à l'écran.
-  let matriceCourante: MatrixResult | null = null;
+  let currentMatrix: MatrixResult | null = null;
 
   function currentSvg(): SVGSVGElement | null {
-    return zoneRendu.querySelector("svg");
+    return renderArea.querySelector("svg");
   }
 
 
@@ -236,7 +236,7 @@ export function mountApp(root: HTMLElement): void {
     openMigration();
   }
 
-  function telechargerExempleHandler(): void {
+  function downloadSampleHandler(): void {
     downloadTemplateXlsx("carto-interfaces-exemple.xlsx", SAMPLE_DATA);
   }
 
@@ -249,27 +249,27 @@ export function mountApp(root: HTMLElement): void {
     legacyState: () => state,
     setState,
     svgCourant: currentSvg,
-    matriceCourante: () => matriceCourante,
+    currentMatrix: () => currentMatrix,
   });
 
   function render(): void {
     if (!state.file) {
       clear(rail);
       renderPiedDeRail(rail, {
-        onTelechargerModele: telechargerModeleHandler,
-        onTelechargerExemple: telechargerExempleHandler,
+        onDownloadTemplate: telechargerModeleHandler,
+        onDownloadSample: downloadSampleHandler,
         onMigrationLegacy: migrationLegacyHandler,
       });
-      clear(zoneRendu);
+      clear(renderArea);
       // La page d'aide se lit AVANT d'avoir un classeur : c'est justement là
       // qu'on se demande ce que l'outil attend.
       if (state.view === "help") {
         const retour = el("button", { class: "export-button" }, ["Back"]);
-        retour.addEventListener("click", () => setState(withVue(state, "group-to-group")));
-        zoneRendu.appendChild(el("div", { class: "help-standalone" }, [retour, buildAide()]));
+        retour.addEventListener("click", () => setState(withView(state, "group-to-group")));
+        renderArea.appendChild(el("div", { class: "help-standalone" }, [retour, buildAide()]));
       } else {
-        zoneRendu.appendChild(
-          buildDropTarget(telechargerExempleHandler, () => setState(withVue(state, "help")))
+        renderArea.appendChild(
+          buildDropTarget(downloadSampleHandler, () => setState(withView(state, "help")))
         );
       }
       renderBanner(banner, state, false, exportHandlers);
@@ -277,7 +277,7 @@ export function mountApp(root: HTMLElement): void {
     }
 
     try {
-      renderContenu(state.file);
+      renderContent(state.file);
     } catch (err) {
       // Un cas de données non anticipé ne doit jamais laisser un écran vide
       // et muet (§9/§10.3) — la vue précédente reste remplacée (le dépôt a
@@ -286,14 +286,14 @@ export function mountApp(root: HTMLElement): void {
       // dernière étape, donc l'ancien reste affiché et reste navigable —
       // l'effacer transformerait une vue en cul-de-sac sans navigation.
       console.error(err);
-      clear(zoneRendu);
-      zoneRendu.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
+      clear(renderArea);
+      renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
     }
 
     renderBanner(banner, state, currentSvg() !== null, exportHandlers);
   }
 
-  function renderContenu(file: LoadedFile): void {
+  function renderContent(file: LoadedFile): void {
     const model = file.model;
     // Le rang du palier affiché, résolu une fois : c'est lui qui traverse les
     // vues, les filtres et les exports.
@@ -303,12 +303,12 @@ export function mountApp(root: HTMLElement): void {
     // acteurs, jamais une vue.
     const reading = lectureDuMode(model, rank, state.mode);
     const options = { ...state.options };
-    matriceCourante = null;
-    clear(zoneRendu);
+    currentMatrix = null;
+    clear(renderArea);
     let currentTechnologies: string[] = [];
 
     if (state.view === "upgrade") {
-      zoneRendu.appendChild(
+      renderArea.appendChild(
         buildEcranMiseANiveau(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
           downloadTemplateXlsx(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
@@ -325,9 +325,9 @@ export function mountApp(root: HTMLElement): void {
           model.milestones.length === 0
             ? "This workbook declares no milestones, so there is no change to measure."
             : "This workbook declares only one milestone; comparing needs two.";
-        zoneRendu.appendChild(el("p", { class: "no-flow" }, [text]));
+        renderArea.appendChild(el("p", { class: "no-flow" }, [text]));
       } else {
-        zoneRendu.appendChild(
+        renderArea.appendChild(
           buildEcartsReport(
             computeChanges(model, rangCompare, rank, state.mode),
             state.comparedMilestone!,
@@ -341,10 +341,10 @@ export function mountApp(root: HTMLElement): void {
         const changesView = buildEcartsView(model, rangCompare, rank, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
-          zoneRendu.appendChild(buildEcartsTitreSchema(state.comparedMilestone!, state.shownMilestone!));
+          renderArea.appendChild(buildEcartsTitreSchema(state.comparedMilestone!, state.shownMilestone!));
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
-            zoneRendu.appendChild(
+            renderArea.appendChild(
               buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, changesView))
             );
             // Le schéma d'écart s'exporte comme les autres. Les boutons en
@@ -354,40 +354,40 @@ export function mountApp(root: HTMLElement): void {
         }
       }
     } else if (state.view === "help") {
-      zoneRendu.appendChild(buildAide());
+      renderArea.appendChild(buildAide());
     } else if (state.view === "checks") {
-      zoneRendu.appendChild(buildIntegrityReport(file.report));
+      renderArea.appendChild(buildIntegrityReport(file.report));
     } else if (state.view === "roadmap") {
       // Pas d'ELK : une frise est une grille, un axe et une ligne par sujet.
       // Le moteur de placement n'y aurait rien à placer.
       const timeline = buildRoadmap(model, state.roadmapSubject);
       if (timeline.segments.length === 0) {
-        zoneRendu.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
+        renderArea.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
       } else {
         const svg = buildRoadmapSvg(timeline, state.shownMilestone, {
           ...diagramContext(state, file, { nodes: [], edges: [] }),
           detail: `${timeline.segments.length} ${state.roadmapSubject === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
         });
-        zoneRendu.appendChild(svg);
-        zoneRendu.appendChild(buildZoomControls(brancherZoom(svg)));
+        renderArea.appendChild(svg);
+        renderArea.appendChild(buildZoomControls(brancherZoom(svg)));
         renderBanner(banner, state, true, exportHandlers);
       }
     } else if (state.view === "matrix") {
       const matrix = buildMatrixView(model, reading, {
         mode: state.mode,
-        grain: state.filtresMatrice.grain,
-        order: state.filtresMatrice.order,
-        masquerExternes: state.filtresMatrice.masquerExternes,
-        hiddenActors: state.filtresMatrice.hiddenActors,
+        grain: state.matrixFilters.grain,
+        order: state.matrixFilters.order,
+        masquerExternes: state.matrixFilters.masquerExternes,
+        hiddenActors: state.matrixFilters.hiddenActors,
       });
-      matriceCourante = matrix;
-      currentTechnologies = [...new Set(matrix.rows.flatMap((l) => [...l.cellules.values()].flat().map((c) => c.technology)))];
+      currentMatrix = matrix;
+      currentTechnologies = [...new Set(matrix.rows.flatMap((l) => [...l.cells.values()].flat().map((c) => c.technology)))];
       // Le tableau d'abord, la couleur ensuite. La palette reste indexée sur
       // les types déclarés au classeur, et non sur les seuls survivants du
       // filtrage : sinon une technologie changerait de couleur d'un filtre à
       // l'autre, et entre la matrix et les schémas.
       const colours = coloursOfModel(model);
-      zoneRendu.appendChild(
+      renderArea.appendChild(
         buildMatrixTable(matrix, (t) => colours.get(t) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
       );
     } else {
@@ -405,11 +405,11 @@ export function mountApp(root: HTMLElement): void {
         view = buildPlatformOnlyView(model, reading, options);
       } else if (state.view === "chain") {
         const chains = availableChains(model, rank);
-        const retenue = chains.find((c) => c.id === state.chainSelection);
-        if (!retenue && chains.length > 0) {
+        const kept = chains.find((c) => c.id === state.chainSelection);
+        if (!kept && chains.length > 0) {
           defaultChain = chains[0].id;
         }
-        view = retenue ? buildChainView(model, retenue) : { nodes: [], edges: [] };
+        view = kept ? buildChainView(model, kept) : { nodes: [], edges: [] };
       } else if (state.view === "by-actor") {
         // Même liste que le sélecteur du rail (§5.2) : un défaut piochant hors
         // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
@@ -461,7 +461,7 @@ export function mountApp(root: HTMLElement): void {
       // n'est pas rien à montrer, c'est PRÉCISÉMENT ce qu'il faut montrer. Le
       // message ne vaut que pour une sélection réellement vide.
       if (view.nodes.length === 0) {
-        zoneRendu.appendChild(el("p", { class: "no-flow" }, ["No flow to display for this selection."]));
+        renderArea.appendChild(el("p", { class: "no-flow" }, ["No flow to display for this selection."]));
       } else {
         // Une planche qui a dépassé ce que le nœud-lien sert bien doit le
         // DIRE, et proposer où aller. Jamais bloquer, jamais tronquer.
@@ -469,11 +469,11 @@ export function mountApp(root: HTMLElement): void {
         if (hint) {
           const bandeauEchelle = el("div", { class: "scale-hint" }, [hint.message]);
           for (const target of hint.views) {
-            const bouton = el("button", { type: "button" }, [VIEW_LABEL[target]]);
-            bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), target)));
-            bandeauEchelle.appendChild(bouton);
+            const button = el("button", { type: "button" }, [VIEW_LABEL[target]]);
+            button.addEventListener("click", () => setState(withView(withMessageBandeau(state, null), target)));
+            bandeauEchelle.appendChild(button);
           }
-          zoneRendu.appendChild(bandeauEchelle);
+          renderArea.appendChild(bandeauEchelle);
         }
         // Le calcul de placement est asynchrone (ELK). Une génération protège
         // d'un rendu périmé : si l'utilisateur change de vue pendant le calcul,
@@ -500,8 +500,8 @@ export function mountApp(root: HTMLElement): void {
             const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, vueDuCalcul), {
               weightByCriticality: state.options.weightByCriticality,
             });
-            zoneRendu.appendChild(svg);
-            zoneRendu.appendChild(buildZoomControls(brancherZoom(svg)));
+            renderArea.appendChild(svg);
+            renderArea.appendChild(buildZoomControls(brancherZoom(svg)));
             // Les boutons d'export dépendent de la présence du SVG, qui
             // n'existait pas encore au moment du rendu du banner.
             renderBanner(banner, state, true, exportHandlers);
@@ -509,8 +509,8 @@ export function mountApp(root: HTMLElement): void {
           .catch((err) => {
             if (generation !== renderGeneration) return;
             console.error(err);
-            clear(zoneRendu);
-            zoneRendu.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
+            clear(renderArea);
+            renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
           });
         currentTechnologies = [...new Set(view.edges.map((e) => e.technology))];
       }
@@ -518,30 +518,30 @@ export function mountApp(root: HTMLElement): void {
 
     renderRail(rail, state, reading, currentTechnologies.sort((a, b) => a.localeCompare(b, "fr")), {
       onMode: (mode) => setState(withMode(state, mode)),
-      onVue: (view) => setState(withVue(withMessageBandeau(state, null), view)),
+      onView: (view) => setState(withView(withMessageBandeau(state, null), view)),
       onActorSelection: (name) => setState(withActorSelection(withMessageBandeau(state, null), name)),
       onWeightByCriticality: (value) => setState(withOptions(withMessageBandeau(state, null), { weightByCriticality: value })),
       onRoadmapSubject: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
-      onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
+      onNeighbourhood: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onChainSelection: (chain) => setState(withChainSelection(withMessageBandeau(state, null), chain)),
       onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),
       onDisplayedMilestone: (milestone) => setState(recalculerRapport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
       onPalierCompare: (milestone) => setState(withPalierCompare(withMessageBandeau(state, null), milestone)),
-      onOptionCompteurs: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
+      onCounterOption: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
       onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
-      onTelechargerModele: telechargerModeleHandler,
-      onTelechargerExemple: telechargerExempleHandler,
+      onDownloadTemplate: telechargerModeleHandler,
+      onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: migrationLegacyHandler,
       onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
       onActorHidden: (actor, hidden) => setState(withActeurMasque(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
       onActorHiddenForTechnology: (actor, hidden) =>
         setState(withActeurMasqueTechnologie(withMessageBandeau(state, null), actor, hidden)),
-      onMasquerExternesMatrice: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
+      onHideExternalsInMatrix: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
       onActorHiddenInMatrix: (actor, hidden) =>
         setState(withActorHiddenInMatrix(withMessageBandeau(state, null), actor, hidden)),
-      onEchellePng: (value) => setState(withOptions(withMessageBandeau(state, null), { echellePng: value })),
-      onOrdreMatrice: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
+      onPngScale: (value) => setState(withOptions(withMessageBandeau(state, null), { pngScale: value })),
+      onMatrixOrder: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
       onMatrixGrain: (grain) => setState(withMatrixGrain(withMessageBandeau(state, null), grain)),
     });
   }

@@ -16,9 +16,9 @@ import {
   SCHEMA_VERSION_COLUMN,
   PREFIXE_FEUILLE_FX,
   sanitiseTabName,
-  CARACTERES_INTERDITS_ONGLET,
+  FORBIDDEN_TAB_CHARACTERS,
   REMPLACEMENT_ONGLET,
-  LONGUEUR_MAX_ONGLET,
+  MAX_TAB_LENGTH,
   FX_SHEET_SEPARATOR,
 } from "../parsing/build-model";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
@@ -36,7 +36,7 @@ import {
   type ValidationToApply,
   type StyleToApply,
 } from "./xlsx-tables";
-import { DEFAULT_ICONS, LISTES, MODE_EMPLOI, TYPES_FLUX, type RowRole } from "./template-data";
+import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, TYPES_FLUX, type RowRole } from "./template-data";
 
 // Les vocabulaires et le mode d'emploi vivent dans modele-donnees.ts ; ce
 // module-ci n'est plus que la machinerie qui les assemble en classeur.
@@ -44,9 +44,9 @@ export { LISTES, TYPES_FLUX } from "./template-data";
 
 
 
-function sheet(rows: (string | number)[][], largeurs: number[], filtrable = true): XLSX.WorkSheet {
+function sheet(rows: (string | number)[][], widths: number[], filtrable = true): XLSX.WorkSheet {
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws["!cols"] = largeurs.map((wch) => ({ wch }));
+  ws["!cols"] = widths.map((wch) => ({ wch }));
   // L'autofiltre engendre un nom défini « _xlnm._FilterDatabase » qui cite le
   // nom de la feuille entre apostrophes. SheetJS ne double PAS l'apostrophe
   // interne de « Mode d'emploi », ce qui produit un nom défini malformé --
@@ -126,8 +126,8 @@ function feuilleVersion(): XLSX.WorkSheet {
 // feuille plutôt que l'expression répétée dans chaque validation : CELL est
 // volatile.
 export const EXTRA_COLUMN = XLSX.utils.encode_col(FX_COLUMNS.length + 1);
-export const CELLULE_ONGLET = `${EXTRA_COLUMN}1`;
-const FORMULE_NOM_ONGLET =
+export const TAB_CELL = `${EXTRA_COLUMN}1`;
+const TAB_NAME_FORMULA =
   'MID(CELL("filename",$A$1),FIND("]",CELL("filename",$A$1))+1,255)';
 
 // Une fonction postérieure à Excel 2007 se STOCKE dans le fichier sous un nom
@@ -167,7 +167,7 @@ function extraColumns() {
   return {
     versionKey: col(1),
     version: col(2),
-    ongletFlux: col(4),
+    flowTab: col(4),
     flows: col(5),
     provider: col(7),
     publishedInterface: col(8),
@@ -182,12 +182,12 @@ function extraColumns() {
 // Elle reconstruit le nom d'onglet pour retrouver les flux qui s'y rattachent :
 // raccourci d'un seul côté, ce nom ne désignerait plus rien et les listes
 // dépendantes d'un onglet au nom long resteraient vides.
-function formuleAssainirOnglet(expression: string): string {
-  const sanitised = CARACTERES_INTERDITS_ONGLET.reduce(
+function sanitiseTabFormula(expression: string): string {
+  const sanitised = FORBIDDEN_TAB_CHARACTERS.reduce(
     (current, interdit) => `SUBSTITUTE(${current},"${interdit}","${REMPLACEMENT_ONGLET}")`,
     expression
   );
-  return `LEFT(${sanitised},${LONGUEUR_MAX_ONGLET})`;
+  return `LEFT(${sanitised},${MAX_TAB_LENGTH})`;
 }
 
 function formulesDAppoint(lastRow: number): { cellule: string; ref: string; formule: string }[] {
@@ -199,8 +199,8 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
   const type = plage(columnOf(INTERFACE_COLUMNS, "Flow type"));
   // L'onglet attendu, reconstruit comme partout ailleurs dans le projet
   // (feuilleFxAttendue, dans parsing/build-model.ts, fait foi).
-  const tab = formuleAssainirOnglet(`"${PREFIXE_FEUILLE_FX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
-  const nonVide = `${flows}<>""`;
+  const tab = sanitiseTabFormula(`"${PREFIXE_FEUILLE_FX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
+  const notEmpty = `${flows}<>""`;
   const spread = (table: string) =>
     nameForExcel(`IFERROR(INDEX(${table},SEQUENCE(${lastRow - 1}),{1,2}),"")`);
 
@@ -210,14 +210,14 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       // les versions d'un même flux contiguës, condition de MATCH + COUNTIF.
       cellule: `${c.versionKey}2`,
       ref: `${c.versionKey}2:${c.version}${lastRow}`,
-      formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${nonVide}),1,1)`),
+      formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${notEmpty}),1,1)`),
     },
     {
       // Couples (onglet, flux) dédoublonnés : sans UNIQUE, un flux à trois
       // versions apparaîtrait trois fois dans la liste déroulante.
-      cellule: `${c.ongletFlux}2`,
-      ref: `${c.ongletFlux}2:${c.flows}${lastRow}`,
-      formule: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${nonVide})),1,1)`),
+      cellule: `${c.flowTab}2`,
+      ref: `${c.flowTab}2:${c.flows}${lastRow}`,
+      formule: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${notEmpty})),1,1)`),
     },
     {
       // Couples (exposant, interface versionnée), triés par exposant : c'est ce
@@ -230,26 +230,26 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       // Le libellé versionné, construit comme libelleInterface : le nom, une
       // espace seulement s'il y a une version, puis la version.
       formule: spread(
-        `SORT(UNIQUE(FILTER(HSTACK(${provider},${flows}&IF(${version}="",""," ")&${version}),${nonVide})),1,1)`
+        `SORT(UNIQUE(FILTER(HSTACK(${provider},${flows}&IF(${version}="",""," ")&${version}),${notEmpty})),1,1)`
       ),
     },
   ];
 }
 
 function feuilleListes(lastRow: number): XLSX.WorkSheet {
-  const entetes = Object.keys(LISTES);
-  const height = Math.max(...entetes.map((e) => LISTES[e].length));
-  const rows: string[][] = [entetes];
+  const headers = Object.keys(LISTES);
+  const height = Math.max(...headers.map((e) => LISTES[e].length));
+  const rows: string[][] = [headers];
   for (let i = 0; i < height; i++) {
-    rows.push(entetes.map((e) => LISTES[e][i] ?? ""));
+    rows.push(headers.map((e) => LISTES[e][i] ?? ""));
   }
-  const ws = sheet(rows, entetes.map((e) => Math.max(16, e.length + 4)), false);
+  const ws = sheet(rows, headers.map((e) => Math.max(16, e.length + 4)), false);
 
   const c = extraColumns();
   const titles: [string, string][] = [
     [`${c.versionKey}1`, "CleFluxVersion"],
     [`${c.version}1`, "VersionDuFlux"],
-    [`${c.ongletFlux}1`, "OngletDuFlux"],
+    [`${c.flowTab}1`, "OngletDuFlux"],
     [`${c.flows}1`, "FluxDeLOnglet"],
     [`${c.provider}1`, "ActeurExposant"],
     [`${c.publishedInterface}1`, "InterfaceExposee"],
@@ -297,15 +297,15 @@ function fxTabs(data: WorkbookData): WorkbookData["fx"] {
   return data.fx.map((o) => ({ ...o, name: sanitiseTabName(o.name) }));
 }
 
-function filledSheet(columns: readonly string[], rows: readonly (readonly string[])[], largeurs: number[]) {
-  return sheet([[...columns], ...rows.map((l) => [...l])], largeurs);
+function filledSheet(columns: readonly string[], rows: readonly (readonly string[])[], widths: number[]) {
+  return sheet([[...columns], ...rows.map((l) => [...l])], widths);
 }
 
 // Un onglet de consommations : le tableau de saisie, plus la cellule qui le
 // nomme, dans une colonne masquée au-delà du tableau.
-function feuilleFx(rows: readonly (readonly string[])[], largeurs: number[]): XLSX.WorkSheet {
-  const ws = filledSheet(FX_COLUMNS, rows, largeurs);
-  ws[CELLULE_ONGLET] = { t: "s", v: "", f: FORMULE_NOM_ONGLET };
+function feuilleFx(rows: readonly (readonly string[])[], widths: number[]): XLSX.WorkSheet {
+  const ws = filledSheet(FX_COLUMNS, rows, widths);
+  ws[TAB_CELL] = { t: "s", v: "", f: TAB_NAME_FORMULA };
   ws["!ref"] = `A1:${EXTRA_COLUMN}${Math.max(2, rows.length + 1)}`;
   const cols = (ws["!cols"] ??= []);
   while (cols.length <= FX_COLUMNS.length + 1) cols.push({ wch: 10 });
@@ -316,10 +316,10 @@ function feuilleFx(rows: readonly (readonly string[])[], largeurs: number[]): XL
 export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const actorWidths = ACTOR_COLUMNS.map((c) => Math.max(16, c.length + 4));
-  const largeursInterfaces = INTERFACE_COLUMNS.map((c) => Math.max(18, c.length + 4));
-  const largeursFx = FX_COLUMNS.map((c) => Math.max(16, c.length + 4));
+  const interfaceWidths = INTERFACE_COLUMNS.map((c) => Math.max(18, c.length + 4));
+  const fxWidths = FX_COLUMNS.map((c) => Math.max(16, c.length + 4));
 
-  XLSX.utils.book_append_sheet(wb, sheet(MODE_EMPLOI.map((l) => [l.gauche, l.droite]), [26, 104], false), "Instructions");
+  XLSX.utils.book_append_sheet(wb, sheet(INSTRUCTIONS.map((l) => [l.gauche, l.right]), [26, 104], false), "Instructions");
   XLSX.utils.book_append_sheet(wb, filledSheet(ACTOR_COLUMNS, data.actors, actorWidths), "Actors");
   XLSX.utils.book_append_sheet(wb, filledSheet(GROUP_COLUMNS, data.groups, [24, 16]), "Groups");
   // Visible, et placé tôt : la chronologie de la plateforme se saisit, elle ne
@@ -341,9 +341,9 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
     ),
     "FlowTypes"
   );
-  XLSX.utils.book_append_sheet(wb, filledSheet(INTERFACE_COLUMNS, data.interfaces, largeursInterfaces), "Interfaces");
+  XLSX.utils.book_append_sheet(wb, filledSheet(INTERFACE_COLUMNS, data.interfaces, interfaceWidths), "Interfaces");
   for (const tab of fxTabs(data)) {
-    XLSX.utils.book_append_sheet(wb, feuilleFx(tab.rows, largeursFx), tab.name);
+    XLSX.utils.book_append_sheet(wb, feuilleFx(tab.rows, fxWidths), tab.name);
   }
   XLSX.utils.book_append_sheet(wb, feuilleListes(lastListRow(data.interfaces.length)), FEUILLE_LISTES);
   XLSX.utils.book_append_sheet(wb, feuilleVersion(), FEUILLE_VERSION);
@@ -365,8 +365,8 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
 // doit compter les MÊMES lignes : dimensionné sur l'amorce, il déborde en
 // lignes vides quand l'équipe en a retiré, et laisse hors du tableau les types
 // qu'elle a ajoutés, donc hors de la liste déroulante qui le vise.
-const writtenRows = (declared: readonly unknown[], amorce: readonly unknown[]) =>
-  declared.length > 0 ? declared.length : amorce.length;
+const writtenRows = (declared: readonly unknown[], seed: readonly unknown[]) =>
+  declared.length > 0 ? declared.length : seed.length;
 
 export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToApply[] {
   return [
@@ -440,7 +440,7 @@ export function columnOf(columns: readonly string[], heading: string): string {
 // Les deux listes dépendantes d'un onglet FX_. OFFSET découpe dans la table
 // d'appoint le bloc contigu que MATCH localise et que COUNTIF dimensionne --
 // MAX(1,...) parce qu'Excel refuse une plage de hauteur nulle.
-function formulesDependantes(lastRow: number) {
+function dependentFormulas(lastRow: number) {
   const c = extraColumns();
   const flowColumn = columnOf(FX_COLUMNS, "Flow name");
   const consumerColumn = columnOf(FX_COLUMNS, "Consumer");
@@ -451,7 +451,7 @@ function formulesDependantes(lastRow: number) {
   return {
     // Les flux de CET onglet : la clé est le nom de l'onglet, porté par la
     // cellule d'appoint.
-    flows: block(`$${EXTRA_COLUMN}$1`, c.ongletFlux, c.flows),
+    flows: block(`$${EXTRA_COLUMN}$1`, c.flowTab, c.flows),
     // Les versions du flux de CETTE ligne : la référence à la colonne du flux
     // est relative en ligne, Excel décale donc la formule d'une ligne à l'autre.
     version: block(`$${EXTRA_COLUMN}$1&"|"&$${flowColumn}2`, c.versionKey, c.version),
@@ -535,9 +535,9 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
   // LISTE DES COLONNES et non d'une énumération à la main -- une colonne
   // ajoutée demain hérite ainsi du même traitement, ou se signale par son
   // absence d'invite.
-  const libres = (sheet: string, columns: readonly string[], guidées: readonly string[]) =>
-    columns.filter((c) => !guidées.includes(c) && invitePour(sheet, c)).map((c) => v(sheet, columns, c));
-  const dependent = formulesDependantes(lastListRow(data.interfaces.length));
+  const free = (sheet: string, columns: readonly string[], guided: readonly string[]) =>
+    columns.filter((c) => !guided.includes(c) && invitePour(sheet, c)).map((c) => v(sheet, columns, c));
+  const dependent = dependentFormulas(lastListRow(data.interfaces.length));
   // Les deux bornes de validité se posent partout où l'on date des objets, et
   // toujours de la même façon.
   const bounds = (sheet: string, columns: readonly string[]) =>
@@ -560,7 +560,7 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     v(sheet, FX_COLUMNS, "Decision", "L_Decision"),
     v(sheet, FX_COLUMNS, REPUBLICATION_COLUMN, dependent.republication),
     ...bounds(sheet, FX_COLUMNS),
-    ...libres(sheet, FX_COLUMNS, GUIDEES_FX),
+    ...free(sheet, FX_COLUMNS, GUIDEES_FX),
   ];
   return [
     v("Actors", ACTOR_COLUMNS, "Group", "L_Groupe"),
@@ -574,12 +574,12 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     v("Interfaces", INTERFACE_COLUMNS, "To confirm", "L_Confirmation"),
     ...bounds("Actors", ACTOR_COLUMNS),
     ...bounds("Interfaces", INTERFACE_COLUMNS),
-    ...libres("Actors", ACTOR_COLUMNS, ["Group", "Actor type", ...VALIDITY_COLUMNS]),
-    ...libres("Groups", GROUP_COLUMNS, ["Perimeter"]),
-    ...libres("Milestones", MILESTONE_COLUMNS, []),
-    ...libres("ActorTypes", ACTOR_TYPE_COLUMNS, ["Icon", "Nature"]),
-    ...libres("FlowTypes", FLOW_TYPE_COLUMNS, ["Direction"]),
-    ...libres("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
+    ...free("Actors", ACTOR_COLUMNS, ["Group", "Actor type", ...VALIDITY_COLUMNS]),
+    ...free("Groups", GROUP_COLUMNS, ["Perimeter"]),
+    ...free("Milestones", MILESTONE_COLUMNS, []),
+    ...free("ActorTypes", ACTOR_TYPE_COLUMNS, ["Icon", "Nature"]),
+    ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Direction"]),
+    ...free("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
     // Les onglets de flux garnis reçoivent les mêmes listes que leur patron.
     ...fxTabs(data).flatMap((o) => listesFx(o.name)),
   ];
@@ -602,29 +602,29 @@ const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
 // gauche serait colorée aurait l'air d'une erreur d'alignement.
 export function stylesOfTemplate(): StyleToApply[] {
   const byRole = new Map<RowRole, string[]>();
-  MODE_EMPLOI.forEach((row, i) => {
-    const cellules = byRole.get(row.role) ?? [];
-    cellules.push(`A${i + 1}`, `B${i + 1}`);
-    byRole.set(row.role, cellules);
+  INSTRUCTIONS.forEach((row, i) => {
+    const cells = byRole.get(row.role) ?? [];
+    cells.push(`A${i + 1}`, `B${i + 1}`);
+    byRole.set(row.role, cells);
   });
-  const misesEnForme: StyleToApply[] = [...byRole.entries()].map(([role, cellules]) => ({
+  const styles: StyleToApply[] = [...byRole.entries()].map(([role, cells]) => ({
     sheet: "Instructions",
-    cellules,
+    cells,
     role,
   }));
   // La ligne d'en-tête de chaque feuille de saisie : elle reste à l'écran
   // (volet figé) et doit se distinguer des données qu'elle nomme.
   for (const [name, columns] of FEUILLES_DE_SAISIE) {
-    misesEnForme.push({
+    styles.push({
       sheet: name,
-      cellules: columns.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
+      cells: columns.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
       role: "header",
     });
   }
-  return misesEnForme;
+  return styles;
 }
 
-export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, écritLe: Date = new Date()): ArrayBuffer {
+export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Date = new Date()): ArrayBuffer {
   const workbook = buildTemplateWorkbook(data);
   // Les propriétés de document, que l'outil ne posait pas : un classeur qu'il
   // venait de produire se relisait donc SANS date de sauvegarde, et le
@@ -638,25 +638,25 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, écritLe: Dat
     ...workbook.Props,
     Title: "Interface map",
     Application: "Interface Map",
-    CreatedDate: écritLe,
-    ModifiedDate: écritLe,
+    CreatedDate: writtenOn,
+    ModifiedDate: writtenOn,
   };
   const brut = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   const completed = applyOoxmlExtras(brut, {
     tables: tablesOfTemplate(data),
     lists: listsOfTemplate(),
     validations: validationsOfTemplate(data),
-    misesEnForme: [
+    styles: [
       ...stylesOfTemplate(),
       // Les onglets de flux garnis portent la même ligne d'en-tête que leur
       // patron : sans cette ligne, seuls les onglets vides l'auraient.
       ...fxTabs(data).map((o) => ({
         sheet: o.name,
-        cellules: FX_COLUMNS.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
+        cells: FX_COLUMNS.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
         role: "header" as const,
       })),
     ],
-    volets: [...FEUILLES_DE_SAISIE.map(([name]) => name), ...fxTabs(data).map((o) => o.name)],
+    panes: [...FEUILLES_DE_SAISIE.map(([name]) => name), ...fxTabs(data).map((o) => o.name)],
   });
   return completed;
 }

@@ -1,5 +1,5 @@
 import { el, clear } from "../shared/dom";
-import { actorFilterOptions, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
+import { actorFilterOptions, optionsFiltreTechnologie, matrixFilterOptions } from "../aggregation/views";
 import type { MatrixGrain } from "../aggregation/views";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import type { MatrixOrder } from "../aggregation/seriation";
@@ -15,13 +15,13 @@ const EDGE_LABELS: [EdgeLabelMode, string][] = [
   ["both", "both"],
 ];
 import type { Reading } from "../aggregation/reading";
-import type { AppState, Vue } from "./state";
-import { VUES_SANS_OBJET_EN_FONCTIONNEL, VIEW_LABEL } from "./state";
+import type { AppState, View } from "./state";
+import { VIEWS_MOOT_IN_FUNCTIONAL, VIEW_LABEL } from "./state";
 
 // L'ordre du rail, et lui seul : les libellés viennent de LIBELLE_VUE, qui est
 // la seule table. « mise-a-niveau » n'y figure pas -- on n'y navigue pas, on y
 // est envoyé.
-const ORDRE_DES_VUES: Vue[] = [
+const VIEW_ORDER: View[] = [
   "group-to-group",
   "platform-detail",
   "platform-only",
@@ -35,18 +35,18 @@ const ORDRE_DES_VUES: Vue[] = [
   "help",
 ];
 
-export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ id, label: VIEW_LABEL[id] }));
+export const VUES: { id: View; label: string }[] = VIEW_ORDER.map((id) => ({ id, label: VIEW_LABEL[id] }));
 
 // Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
-const GRANULARITES_MATRICE: { id: MatrixGrain; label: string; titreFiltre: string }[] = [
-  { id: "actor", label: "Actor to actor", titreFiltre: "Actors" },
-  { id: "group", label: "Group to group", titreFiltre: "Groups" },
-  { id: "platform", label: "Platform to group", titreFiltre: "Actors and groups" },
+const GRANULARITES_MATRICE: { id: MatrixGrain; label: string; filterTitle: string }[] = [
+  { id: "actor", label: "Actor to actor", filterTitle: "Actors" },
+  { id: "group", label: "Group to group", filterTitle: "Groups" },
+  { id: "platform", label: "Platform to group", filterTitle: "Actors and groups" },
 ];
 
 // Les quatre ordres proposés, du plus neutre au plus interprétatif.
-const ORDRES_MATRICE: { id: MatrixOrder; label: string }[] = [
+const MATRIX_ORDERS: { id: MatrixOrder; label: string }[] = [
   { id: "alphabetical", label: "Order: alphabetical" },
   { id: "group", label: "Order: by group" },
   { id: "degree", label: "Order: by degree" },
@@ -54,7 +54,7 @@ const ORDRES_MATRICE: { id: MatrixOrder; label: string }[] = [
 ];
 
 // Jusqu'où la planche par acteur porte le regard.
-const VOISINAGES: { id: Neighbourhood; label: string }[] = [
+const NEIGHBOURHOODS: { id: Neighbourhood; label: string }[] = [
   { id: "direct", label: "Neighbours: direct" },
   { id: "upstream", label: "Neighbours: what it depends on" },
   { id: "downstream", label: "Neighbours: what depends on it" },
@@ -62,28 +62,28 @@ const VOISINAGES: { id: Neighbourhood; label: string }[] = [
 
 export interface RailCallbacks {
   onMode: (mode: Mode) => void;
-  onVue: (view: Vue) => void;
+  onView: (view: View) => void;
   onActorSelection: (name: string) => void;
   onTechnologySelection: (type: string) => void;
   onChainSelection: (chain: string) => void;
-  onVoisinage: (value: Neighbourhood) => void;
+  onNeighbourhood: (value: Neighbourhood) => void;
   onRoadmapSubject: (value: RoadmapSubject) => void;
   onWeightByCriticality: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
-  onOptionCompteurs: (value: boolean) => void;
+  onCounterOption: (value: boolean) => void;
   onEdgeLabel: (value: EdgeLabelMode) => void;
-  onOrdreMatrice: (value: MatrixOrder) => void;
-  onEchellePng: (value: 1 | 2 | 4) => void;
+  onMatrixOrder: (value: MatrixOrder) => void;
+  onPngScale: (value: 1 | 2 | 4) => void;
   onTechnologyHidden: (tech: string, hidden: boolean) => void;
   onActorHidden: (actor: string, hidden: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
   onActorHiddenForTechnology: (actor: string, hidden: boolean) => void;
-  onMasquerExternesMatrice: (value: boolean) => void;
+  onHideExternalsInMatrix: (value: boolean) => void;
   onActorHiddenInMatrix: (actor: string, hidden: boolean) => void;
   onMatrixGrain: (grain: MatrixGrain) => void;
-  onTelechargerModele: () => void;
-  onTelechargerExemple: () => void;
+  onDownloadTemplate: () => void;
+  onDownloadSample: () => void;
   onMigrationLegacy: () => void;
 }
 
@@ -93,16 +93,16 @@ export interface RailCallbacks {
 function milestoneSelect(
   title: string,
   milestones: readonly { name: string; label: string; status: string }[],
-  choisi: string | null,
+  chosen: string | null,
   onChange: (milestone: string) => void
 ): HTMLElement {
   const block = el("label", { class: "rail-milestone" });
   block.appendChild(el("span", { class: "rail-milestone-title" }, [title]));
   const select = el("select", { class: "rail-select" });
   for (const p of milestones) {
-    const suffixe = p.label.trim() ? ` — ${p.label.trim()}` : "";
-    const option = el("option", { value: p.name }, [`${p.name}${suffixe} (${p.status || "?"})`]);
-    if (p.name === choisi) option.selected = true;
+    const suffix = p.label.trim() ? ` — ${p.label.trim()}` : "";
+    const option = el("option", { value: p.name }, [`${p.name}${suffix} (${p.status || "?"})`]);
+    if (p.name === chosen) option.selected = true;
     select.appendChild(option);
   }
   select.addEventListener("change", () => onChange(select.value));
@@ -135,10 +135,10 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
 }
 
 // Interrupteur « masquer les externes », identique d'une vue à l'autre.
-function basculeExternes(coché: boolean, onChange: (value: boolean) => void): HTMLElement {
+function basculeExternes(checked: boolean, onChange: (value: boolean) => void): HTMLElement {
   const label = el("label", { class: "rail-toggle" });
   const input = el("input", { type: "checkbox" });
-  input.checked = coché;
+  input.checked = checked;
   input.addEventListener("change", () => onChange(input.checked));
   label.appendChild(input);
   label.appendChild(document.createTextNode(" hide external"));
@@ -147,7 +147,7 @@ function basculeExternes(coché: boolean, onChange: (value: boolean) => void): H
 
 // Un groupe de cases à cocher repliable. Coché = visible, décoché = masqué :
 // on décrit ce qu'on voit, pas ce qu'on retire.
-function blocFiltre(
+function filterBlock(
   title: string,
   values: string[],
   hidden: readonly string[],
@@ -173,16 +173,16 @@ function blocFiltre(
 // c'est précisément là qu'on cherche un modèle ou un exemple.
 export function renderPiedDeRail(
   root: HTMLElement,
-  callbacks: Pick<RailCallbacks, "onTelechargerModele" | "onTelechargerExemple" | "onMigrationLegacy">
+  callbacks: Pick<RailCallbacks, "onDownloadTemplate" | "onDownloadSample" | "onMigrationLegacy">
 ): void {
   const starts = el("div", { class: "rail-starts" });
-  const exemple = el("button", { class: "rail-button" }, ["Sample workbook"]);
-  exemple.title = "A complete fictional repository, to see the tool at work";
-  exemple.addEventListener("click", callbacks.onTelechargerExemple);
-  starts.appendChild(exemple);
+  const sample = el("button", { class: "rail-button" }, ["Sample workbook"]);
+  sample.title = "A complete fictional repository, to see the tool at work";
+  sample.addEventListener("click", callbacks.onDownloadSample);
+  starts.appendChild(sample);
   const template = el("button", { class: "rail-button" }, ["Blank template"]);
   template.title = "An empty workbook, ready to fill in";
-  template.addEventListener("click", callbacks.onTelechargerModele);
+  template.addEventListener("click", callbacks.onDownloadTemplate);
   starts.appendChild(template);
   const migration = el("button", { class: "rail-button" }, ["Repair or upgrade a workbook"]);
   migration.title = "Bring any workbook up to the current format and create the sheets it is missing";
@@ -217,11 +217,11 @@ export function renderRail(
   renderMode(root, state, callbacks.onMode);
 
   const nav = el("nav", { class: "rail-views" });
-  const views = state.mode === "functional" ? VUES.filter((v) => !VUES_SANS_OBJET_EN_FONCTIONNEL.includes(v.id)) : VUES;
+  const views = state.mode === "functional" ? VUES.filter((v) => !VIEWS_MOOT_IN_FUNCTIONAL.includes(v.id)) : VUES;
   for (const v of views) {
-    const bouton = el("button", { class: "rail-view-item" }, [v.label]);
-    if (blocked) bouton.disabled = true;
-    if (v.id === state.view) bouton.setAttribute("aria-current", "true");
+    const button = el("button", { class: "rail-view-item" }, [v.label]);
+    if (blocked) button.disabled = true;
+    if (v.id === state.view) button.setAttribute("aria-current", "true");
     // Trois compteurs, trois natures : les anomalies invalident les schémas
     // (rouge), les actions attendent une décision (bleu), les avertissements
     // signalent une saisie incomplète (jaune). Seul le rouge détourne
@@ -230,25 +230,25 @@ export function renderRail(
     // (§ vueAuChargement) : ses comptes ne veulent rien dire, les montrer
     // laisserait croire à un diagnostic qu'on n'a pas.
     if (v.id === "checks" && !blocked) {
-      const { totalAnomalies, totalActions, totalAvertissements } = state.file.report;
+      const { totalAnomalies, totalActions, totalWarnings } = state.file.report;
       if (totalAnomalies > 0) {
-        bouton.appendChild(
+        button.appendChild(
           el("span", { class: "count-anomalies", title: "Blocking anomalies" }, [String(totalAnomalies)])
         );
       }
       if (totalActions > 0) {
-        bouton.appendChild(
+        button.appendChild(
           el("span", { class: "count-actions", title: "Pending decisions" }, [String(totalActions)])
         );
       }
-      if (totalAvertissements > 0) {
-        bouton.appendChild(
-          el("span", { class: "count-warnings", title: "Points to confirm" }, [String(totalAvertissements)])
+      if (totalWarnings > 0) {
+        button.appendChild(
+          el("span", { class: "count-warnings", title: "Points to confirm" }, [String(totalWarnings)])
         );
       }
     }
-    bouton.addEventListener("click", () => callbacks.onVue(v.id));
-    nav.appendChild(bouton);
+    button.addEventListener("click", () => callbacks.onView(v.id));
+    nav.appendChild(button);
   }
   root.appendChild(nav);
 
@@ -283,12 +283,12 @@ export function renderRail(
     // qu'on pose le jour où il faut arbitrer une migration : si cet acteur
     // tombe, qui est touché ?
     const neighbourhood = el("select", { class: "rail-select rail-neighbourhood" });
-    for (const v of VOISINAGES) {
+    for (const v of NEIGHBOURHOODS) {
       const option = el("option", { value: v.id }, [v.label]);
       if (v.id === state.actorFilters.neighbourhood) option.selected = true;
       neighbourhood.appendChild(option);
     }
-    neighbourhood.addEventListener("change", () => callbacks.onVoisinage(neighbourhood.value as Neighbourhood));
+    neighbourhood.addEventListener("change", () => callbacks.onNeighbourhood(neighbourhood.value as Neighbourhood));
     root.appendChild(neighbourhood);
   }
 
@@ -306,20 +306,20 @@ export function renderRail(
   // Filtres de la vue par acteur : l'acteur regardé n'est pas décochable, sans
   // quoi la vue perdrait son sujet.
   if (state.view === "by-actor" && state.actorSelection) {
-    const dispo = actorFilterOptions(flows, state.actorSelection);
-    const techs = blocFiltre("Technologies", dispo.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnologyHidden);
+    const available = actorFilterOptions(flows, state.actorSelection);
+    const techs = filterBlock("Technologies", available.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnologyHidden);
     if (techs) root.appendChild(techs);
-    const actors = blocFiltre("Related actors", dispo.actors, state.actorFilters.hiddenActors, callbacks.onActorHidden);
+    const actors = filterBlock("Related actors", available.actors, state.actorFilters.hiddenActors, callbacks.onActorHidden);
     if (actors) root.appendChild(actors);
   }
 
   if (state.view === "by-technology" && state.technologySelection) {
     root.appendChild(basculeExternes(state.technologyFilters.masquerExternes, callbacks.onMasquerExternes));
 
-    const dispo = optionsFiltreTechnologie(state.file.model, flows, state.technologySelection, {
+    const available = optionsFiltreTechnologie(state.file.model, flows, state.technologySelection, {
       masquerExternes: state.technologyFilters.masquerExternes,
     });
-    const actors = blocFiltre("Actors", dispo, state.technologyFilters.hiddenActors, callbacks.onActorHiddenForTechnology);
+    const actors = filterBlock("Actors", available, state.technologyFilters.hiddenActors, callbacks.onActorHiddenForTechnology);
     if (actors) root.appendChild(actors);
   }
 
@@ -353,7 +353,7 @@ export function renderRail(
   }
 
   if (state.view === "matrix") {
-    const grain = state.filtresMatrice.grain;
+    const grain = state.matrixFilters.grain;
     const select = el("select", { class: "rail-select" });
     for (const g of GRANULARITES_MATRICE) {
       const option = el("option", { value: g.id }, [g.label]);
@@ -367,34 +367,34 @@ export function renderRail(
     // était inutilisé. L'alphabétique reste le défaut -- une seriation ne doit
     // jamais s'imposer en silence.
     const order = el("select", { class: "rail-select rail-matrix-order" });
-    for (const o of ORDRES_MATRICE) {
+    for (const o of MATRIX_ORDERS) {
       const option = el("option", { value: o.id }, [o.label]);
-      if (o.id === state.filtresMatrice.order) option.selected = true;
+      if (o.id === state.matrixFilters.order) option.selected = true;
       order.appendChild(option);
     }
-    order.addEventListener("change", () => callbacks.onOrdreMatrice(order.value as MatrixOrder));
+    order.addEventListener("change", () => callbacks.onMatrixOrder(order.value as MatrixOrder));
     root.appendChild(order);
 
-    root.appendChild(basculeExternes(state.filtresMatrice.masquerExternes, callbacks.onMasquerExternesMatrice));
-    const dispo = optionsFiltreMatrice(state.file.model, flows, {
+    root.appendChild(basculeExternes(state.matrixFilters.masquerExternes, callbacks.onHideExternalsInMatrix));
+    const available = matrixFilterOptions(state.file.model, flows, {
       grain,
-      masquerExternes: state.filtresMatrice.masquerExternes,
+      masquerExternes: state.matrixFilters.masquerExternes,
     });
-    const title = GRANULARITES_MATRICE.find((g) => g.id === grain)!.titreFiltre;
-    const actors = blocFiltre(title, dispo, state.filtresMatrice.hiddenActors, callbacks.onActorHiddenInMatrix);
+    const title = GRANULARITES_MATRICE.find((g) => g.id === grain)!.filterTitle;
+    const actors = filterBlock(title, available, state.matrixFilters.hiddenActors, callbacks.onActorHiddenInMatrix);
     if (actors) root.appendChild(actors);
   }
 
   if (state.view !== "checks" && !blocked) {
     const options = el("fieldset", { class: "rail-options" });
 
-    const compteursLabel = el("label", {});
-    const compteursInput = el("input", { type: "checkbox" });
-    compteursInput.checked = state.options.counters;
-    compteursInput.addEventListener("change", () => callbacks.onOptionCompteurs(compteursInput.checked));
-    compteursLabel.appendChild(compteursInput);
-    compteursLabel.appendChild(document.createTextNode(" counters"));
-    options.appendChild(compteursLabel);
+    const countersLabel = el("label", {});
+    const countersInput = el("input", { type: "checkbox" });
+    countersInput.checked = state.options.counters;
+    countersInput.addEventListener("change", () => callbacks.onCounterOption(countersInput.checked));
+    countersLabel.appendChild(countersInput);
+    countersLabel.appendChild(document.createTextNode(" counters"));
+    options.appendChild(countersLabel);
 
     // Nommer le seul protocole fait une carte des TUYAUX ; nommer l'échange en
     // fait une carte de ce qui CIRCULE. Les deux se valent selon la question
@@ -413,14 +413,14 @@ export function renderRail(
     // L'échelle du PNG, à côté de ce qu'elle sert : un schéma d'architecture
     // est du trait fin, c'est le cas où une haute résolution paie encore.
     const echelleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
-    const echelleSelect = el("select", { class: "rail-select" });
-    for (const facteur of [1, 2, 4] as const) {
-      const option = el("option", { value: String(facteur) }, [`${facteur}×`]);
-      if (facteur === state.options.echellePng) option.selected = true;
-      echelleSelect.appendChild(option);
+    const scaleSelect = el("select", { class: "rail-select" });
+    for (const factor of [1, 2, 4] as const) {
+      const option = el("option", { value: String(factor) }, [`${factor}×`]);
+      if (factor === state.options.pngScale) option.selected = true;
+      scaleSelect.appendChild(option);
     }
-    echelleSelect.addEventListener("change", () => callbacks.onEchellePng(Number(echelleSelect.value) as 1 | 2 | 4));
-    echelleLabel.appendChild(echelleSelect);
+    scaleSelect.addEventListener("change", () => callbacks.onPngScale(Number(scaleSelect.value) as 1 | 2 | 4));
+    echelleLabel.appendChild(scaleSelect);
     options.appendChild(echelleLabel);
 
     // La criticité est saisie, contrôlée et exportée depuis toujours, et
