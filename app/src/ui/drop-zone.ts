@@ -9,18 +9,18 @@ import { el } from "../shared/dom";
 export const MESSAGE_CLASSEUR_ILLISIBLE = "Workbook unreadable or corrupted.";
 
 export function buildDropTarget(onTelechargerExemple: () => void, onAide: () => void): HTMLElement {
-  const bouton = el("button", { class: "bouton-export" }, ["Open a sample workbook"]);
+  const bouton = el("button", { class: "export-button" }, ["Open a sample workbook"]);
   bouton.addEventListener("click", onTelechargerExemple);
-  const aide = el("button", { class: "bouton-export" }, ["How it works"]);
+  const aide = el("button", { class: "export-button" }, ["How it works"]);
   aide.addEventListener("click", onAide);
-  return el("div", { class: "cible-depot" }, [
-    el("p", { class: "cible-depot-titre" }, ["Drop an .xlsx or .xlsm workbook"]),
-    el("p", { class: "cible-depot-texte" }, [
+  return el("div", { class: "drop-target" }, [
+    el("p", { class: "drop-target-title" }, ["Drop an .xlsx or .xlsm workbook"]),
+    el("p", { class: "drop-target-text" }, [
       "The workbook is never uploaded or stored: everything happens in this browser.",
     ]),
     // Sans classeur sous la main, le plus utile est d'en essayer un rempli :
     // le modèle vide reste accessible en pied de rail.
-    el("div", { class: "cible-depot-actions" }, [bouton, aide]),
+    el("div", { class: "drop-target-actions" }, [bouton, aide]),
   ]);
 }
 
@@ -30,14 +30,14 @@ export function wireDropZone(
 ): void {
   root.addEventListener("dragover", (e) => {
     e.preventDefault();
-    root.classList.add("survol");
+    root.classList.add("hover");
   });
   root.addEventListener("dragleave", () => {
-    root.classList.remove("survol");
+    root.classList.remove("hover");
   });
   root.addEventListener("drop", (e) => {
     e.preventDefault();
-    root.classList.remove("survol");
+    root.classList.remove("hover");
     const file = e.dataTransfer?.files?.[0];
     if (file) onFile(file);
   });

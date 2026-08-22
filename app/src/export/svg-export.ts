@@ -1,4 +1,4 @@
-import { téléchargerBlob } from "./telechargement";
+import { téléchargerBlob } from "./download";
 
 export function serializeSvg(svg: SVGSVGElement, backgroundColor: string): string {
   const clone = svg.cloneNode(true) as SVGSVGElement;

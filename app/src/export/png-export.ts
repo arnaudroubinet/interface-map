@@ -1,5 +1,5 @@
 import { serializeSvg } from "./svg-export";
-import { téléchargerBlob } from "./telechargement";
+import { téléchargerBlob } from "./download";
 
 export type PngResult = { ok: true; blob: Blob } | { ok: false; error: string };
 

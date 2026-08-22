@@ -21,7 +21,7 @@ describe("parseWorkbook", () => {
     const result = parseWorkbook(buffer);
     expect(result.sheets).toHaveLength(1);
     expect(result.sheets[0].name).toBe("Actors");
-    expect(result.sheets[0].rows[0].valeurs).toEqual({ Name: "Tatooine", Group: "Socle" });
+    expect(result.sheets[0].rows[0].values).toEqual({ Name: "Tatooine", Group: "Socle" });
   });
 
   it("reads the core.xml modified date", () => {
@@ -77,8 +77,8 @@ describe("parseWorkbook — numéro de ligne", () => {
     ]);
     XLSX.utils.book_append_sheet(wb, sheet, "Actors");
     const result = parseWorkbook(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
-    expect(result.sheets[0].rows.map((r) => r.ligne)).toEqual([2, 3]);
-    expect(result.sheets[0].rows[0].valeurs).toEqual({ Name: "Tatooine", Group: "Core" });
+    expect(result.sheets[0].rows.map((r) => r.row)).toEqual([2, 3]);
+    expect(result.sheets[0].rows[0].values).toEqual({ Name: "Tatooine", Group: "Core" });
   });
 
   it("keeps counting across a blank row rather than closing the gap", () => {
@@ -92,7 +92,7 @@ describe("parseWorkbook — numéro de ligne", () => {
     XLSX.utils.book_append_sheet(wb, sheet, "Actors");
     const result = parseWorkbook(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
     // La ligne vide est écartée, mais Mygeeto reste en ligne 4 du classeur.
-    expect(result.sheets[0].rows.map((r) => r.valeurs.Name)).toEqual(["Tatooine", "Mygeeto"]);
-    expect(result.sheets[0].rows.map((r) => r.ligne)).toEqual([2, 4]);
+    expect(result.sheets[0].rows.map((r) => r.values.Name)).toEqual(["Tatooine", "Mygeeto"]);
+    expect(result.sheets[0].rows.map((r) => r.row)).toEqual([2, 4]);
   });
 });

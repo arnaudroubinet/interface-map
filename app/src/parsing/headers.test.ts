@@ -18,7 +18,7 @@ describe("findHeader", () => {
 
 describe("matchesSheetName", () => {
   it("matches ignoring case and accents", () => {
-    expect(matchesSheetName("acteurs", "Actors")).toBe(true);
+    expect(matchesSheetName("actors", "Actors")).toBe(true);
     expect(matchesSheetName("MODE D'EMPLOI", "Mode d'emploi")).toBe(true);
   });
 

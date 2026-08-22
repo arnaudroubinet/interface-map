@@ -8,25 +8,25 @@ import { poserLesTableaux, type TableauÀPoser } from "./xlsx-tables";
 
 // Un classeur minimal, juste assez pour que poserLesTableaux trouve les
 // feuilles qu'on lui demande de compléter.
-function classeurMinimal(feuilles: readonly string[]): ArrayBuffer {
+function classeurMinimal(sheets: readonly string[]): ArrayBuffer {
   const wb = XLSX.utils.book_new();
-  for (const nom of feuilles) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Flow name"], ["a"]]), nom);
+  for (const name of sheets) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Flow name"], ["a"]]), name);
   }
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
 function displayNamesDesTables(paquet: ArrayBuffer): string[] {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
-  const noms: string[] = [];
-  for (const chemin of cfb.FullPaths) {
-    if (!/\/xl\/tables\/table\d+\.xml$/.test(chemin)) continue;
-    const entrée = XLSX.CFB.find(cfb, chemin.replace(/^[^/]*/, ""));
-    const xml = new TextDecoder().decode(new Uint8Array(entrée!.content as unknown as ArrayBufferLike));
+  const names: string[] = [];
+  for (const path of cfb.FullPaths) {
+    if (!/\/xl\/tables\/table\d+\.xml$/.test(path)) continue;
+    const input = XLSX.CFB.find(cfb, path.replace(/^[^/]*/, ""));
+    const xml = new TextDecoder().decode(new Uint8Array(input!.content as unknown as ArrayBufferLike));
     const m = xml.match(/displayName="([^"]*)"/);
-    noms.push(m![1]);
+    names.push(m![1]);
   }
-  return noms;
+  return names;
 }
 
 // nomDeTableau() assainit un nom de feuille en remplaçant tout caractère non
@@ -35,24 +35,24 @@ function displayNamesDesTables(paquet: ArrayBuffer): string[] {
 // unique dans le classeur ; Excel résout la collision en supprimant l'un des
 // deux tableaux (« Enregistrements supprimés ») et en proposant de réparer.
 describe("poserLesTableaux — collision de noms de tableau", () => {
-  const feuilles = ["FX_A B_HTTP", "FX_A-B_HTTP"];
-  const tableaux: TableauÀPoser[] = feuilles.map((feuille) => ({
-    feuille,
-    colonnes: ["Flow name"],
-    lignes: 1,
+  const sheets = ["FX_A B_HTTP", "FX_A-B_HTTP"];
+  const tables: TableauÀPoser[] = sheets.map((sheet) => ({
+    sheet,
+    columns: ["Flow name"],
+    rows: 1,
   }));
 
   it("donne un displayName distinct à deux feuilles qui s'assainissent à l'identique", () => {
-    const paquet = poserLesTableaux(classeurMinimal(feuilles), { tableaux });
-    const noms = displayNamesDesTables(paquet);
-    expect(noms).toHaveLength(2);
-    expect(new Set(noms).size).toBe(2);
+    const paquet = poserLesTableaux(classeurMinimal(sheets), { tables });
+    const names = displayNamesDesTables(paquet);
+    expect(names).toHaveLength(2);
+    expect(new Set(names).size).toBe(2);
   });
 
   it("nomme les tableaux de façon stable d'une génération à l'autre", () => {
-    const brut = classeurMinimal(feuilles);
-    const premier = displayNamesDesTables(poserLesTableaux(brut, { tableaux }));
-    const second = displayNamesDesTables(poserLesTableaux(brut, { tableaux }));
+    const brut = classeurMinimal(sheets);
+    const premier = displayNamesDesTables(poserLesTableaux(brut, { tables }));
+    const second = displayNamesDesTables(poserLesTableaux(brut, { tables }));
     expect(second).toEqual(premier);
   });
 });

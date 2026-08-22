@@ -2,24 +2,24 @@ import { describe, it, expect, vi } from "vitest";
 import { mountApp } from "./app";
 import { écrireModele, type DonneesClasseur } from "../export/template-export";
 
-vi.mock("../export/telechargement", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../export/telechargement")>();
+vi.mock("../export/download", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../export/download")>();
   return { ...actual, téléchargerTexte: vi.fn() };
 });
 
-import { téléchargerTexte } from "../export/telechargement";
+import { téléchargerTexte } from "../export/download";
 
 const donnees: DonneesClasseur = {
-  typesFlux: [["HTTP", "consumer → provider", ""]],
+  flowTypes: [["HTTP", "consumer → provider", ""]],
   typesActeur: [],
-  paliers: [],
-  groupes: [["Core", "Platform"]],
-  acteurs: [
+  milestones: [],
+  groups: [["Core", "Platform"]],
+  actors: [
     ["Tatooine", "Core", "Application", "", "", "", "", ""],
     ["Mygeeto", "Core", "Application", "", "", "", "", ""],
   ],
   interfaces: [["Authent", "", "Tatooine", "HTTP", "", "", "", "", "No", "", ""]],
-  fx: [{ nom: "FX_Tatooine_HTTP", lignes: [["Authent", "", "Mygeeto", "", "", "Keep", "", "", "", ""]] }],
+  fx: [{ name: "FX_Tatooine_HTTP", rows: [["Authent", "", "Mygeeto", "", "", "Keep", "", "", "", ""]] }],
 };
 
 // jsdom's File n'implémente pas arrayBuffer() : on ne construit pas un vrai
@@ -32,9 +32,9 @@ function dropFile(root: HTMLElement): void {
   root.dispatchEvent(event);
 }
 
-function boutonParLibellé(root: HTMLElement, libellé: string): HTMLButtonElement {
-  const bouton = [...root.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().startsWith(libellé));
-  if (!bouton) throw new Error(`bouton "${libellé}" introuvable`);
+function boutonParLibellé(root: HTMLElement, label: string): HTMLButtonElement {
+  const bouton = [...root.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().startsWith(label));
+  if (!bouton) throw new Error(`bouton "${label}" introuvable`);
   return bouton as HTMLButtonElement;
 }
 
@@ -47,16 +47,16 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
     mountApp(root);
     dropFile(root);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-vue-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
     boutonParLibellé(root, "Integrity checks").click();
     boutonParLibellé(root, "Markdown").click();
 
     const modeSelect = [...root.querySelectorAll("select")].find((s) =>
-      [...s.options].some((o) => o.value === "fonctionnel")
+      [...s.options].some((o) => o.value === "functional")
     ) as HTMLSelectElement;
-    modeSelect.value = "fonctionnel";
+    modeSelect.value = "functional";
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
     boutonParLibellé(root, "Integrity checks").click();
     boutonParLibellé(root, "Markdown").click();
@@ -73,14 +73,14 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
 // relayer : la chaîne fonctionnelle s'arrête là, Ghost n'a plus aucun flux en
 // fonctionnel. §5.2 : il doit rester affiché, seul.
 const donneesAvecActeurIsole: DonneesClasseur = {
-  typesFlux: [["HTTP", "consumer → provider", ""]],
+  flowTypes: [["HTTP", "consumer → provider", ""]],
   typesActeur: [
     ["Application", "", "Business"],
     ["Middleware", "", "Technical"],
   ],
-  paliers: [],
-  groupes: [["Core", "Platform"]],
-  acteurs: [
+  milestones: [],
+  groups: [["Core", "Platform"]],
+  actors: [
     ["Tatooine", "Core", "Application", "", "", "", "", ""],
     ["Bus", "Core", "Middleware", "", "", "", "", ""],
     ["Naboo", "Core", "Application", "", "", "", "", ""],
@@ -92,9 +92,9 @@ const donneesAvecActeurIsole: DonneesClasseur = {
     ["GhostFeed", "", "Ghost", "HTTP", "", "", "", "", "No", "", "", ""],
   ],
   fx: [
-    { nom: "FX_Tatooine_HTTP", lignes: [["Transactions", "", "Bus", "", "", "Keep", "", "", ""]] },
-    { nom: "FX_Bus_HTTP", lignes: [["trx.norm", "", "Naboo", "", "", "Keep", "", "", ""]] },
-    { nom: "FX_Ghost_HTTP", lignes: [["GhostFeed", "", "Bus", "", "", "Keep", "", "", ""]] },
+    { name: "FX_Tatooine_HTTP", rows: [["Transactions", "", "Bus", "", "", "Keep", "", "", ""]] },
+    { name: "FX_Bus_HTTP", rows: [["trx.norm", "", "Naboo", "", "", "Keep", "", "", ""]] },
+    { name: "FX_Ghost_HTTP", rows: [["GhostFeed", "", "Bus", "", "", "Keep", "", "", ""]] },
   ],
 };
 
@@ -110,13 +110,13 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-vue-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
     const modeSelect = [...root.querySelectorAll("select")].find((s) =>
-      [...s.options].some((o) => o.value === "fonctionnel")
+      [...s.options].some((o) => o.value === "functional")
     ) as HTMLSelectElement;
-    modeSelect.value = "fonctionnel";
+    modeSelect.value = "functional";
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
     boutonParLibellé(root, "By actor").click();
@@ -129,7 +129,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
     await vi.waitFor(() => {
       if (!root.querySelector("svg")) throw new Error("schéma pas encore dessiné");
     });
-    expect(root.querySelector(".aucun-flux")).toBeNull();
+    expect(root.querySelector(".no-flow")).toBeNull();
   });
 });
 
@@ -139,19 +139,19 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
 // celui — non filtré — qui a servi à choisir la vue avant le calage sur le
 // palier courant.
 const donneesAvecAnomalieRetiree: DonneesClasseur = {
-  typesFlux: [["HTTP", "consumer → provider", ""]],
+  flowTypes: [["HTTP", "consumer → provider", ""]],
   typesActeur: [["Application", "box", "Business"]],
-  paliers: [
+  milestones: [
     ["V1", "1", "", "Delivered", "", ""],
     ["V2", "2", "", "Delivered", "", ""],
   ],
-  groupes: [["Core", "Platform"]],
-  acteurs: [
+  groups: [["Core", "Platform"]],
+  actors: [
     ["Tatooine", "Core", "Application", "", "", "", "V1", ""],
     ["Mygeeto", "Core", "Application", "", "", "", "V1", ""],
   ],
   interfaces: [["RetiredIface", "", "Tatooine", "HTTP", "", "https://example", "", "", "No", "V1", "V2"]],
-  fx: [{ nom: "FX_Tatooine_HTTP", lignes: [["RetiredIface", "", "Mygeeto", "test usage", "", "Keep", "", "", "V1", "V2"]] }],
+  fx: [{ name: "FX_Tatooine_HTTP", rows: [["RetiredIface", "", "Mygeeto", "test usage", "", "Keep", "", "", "V1", "V2"]] }],
 };
 
 describe("vue d'atterrissage — anomalie sur une ligne retirée au palier courant", () => {
@@ -164,10 +164,10 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-vue-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
-    const actif = root.querySelector('.rail-vue-item[aria-current="true"]');
+    const actif = root.querySelector('.rail-view-item[aria-current="true"]');
     expect(actif?.textContent?.trim()).toBe("Group to group");
   });
 });
@@ -176,11 +176,11 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
 // bornes, la seconde manque, mais le classeur n'est pas silencieux sur son
 // axe du temps -- le dire autrement le contredirait.
 const donneesAvecUnSeulPalier: DonneesClasseur = {
-  typesFlux: [["HTTP", "consumer → provider", ""]],
+  flowTypes: [["HTTP", "consumer → provider", ""]],
   typesActeur: [],
-  paliers: [["V1", "1", "", "Delivered", "", ""]],
-  groupes: [["Core", "Platform"]],
-  acteurs: [["Tatooine", "Core", "Application", "", "", "", "", ""]],
+  milestones: [["V1", "1", "", "Delivered", "", ""]],
+  groups: [["Core", "Platform"]],
+  actors: [["Tatooine", "Core", "Application", "", "", "", "", ""]],
   interfaces: [],
   fx: [],
 };
@@ -195,12 +195,12 @@ describe("vue Écarts — un seul palier déclaré", () => {
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-vue-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
     boutonParLibellé(root, "Changes").click();
 
-    const message = root.querySelector(".aucun-flux");
+    const message = root.querySelector(".no-flow");
     expect(message?.textContent).toBe("This workbook declares only one milestone; comparing needs two.");
   });
 });
@@ -214,11 +214,11 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   // détectable -- avec une plomberie partagée, le dessin resterait plausible
   // même en réutilisant le placement de l'autre chaîne.
   const deuxChaines: DonneesClasseur = {
-    typesFlux: [["Kafka", "provider → consumer", ""]],
+    flowTypes: [["Kafka", "provider → consumer", ""]],
     typesActeur: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
-    paliers: [],
-    groupes: [["Core", "Platform"]],
-    acteurs: [
+    milestones: [],
+    groups: [["Core", "Platform"]],
+    actors: [
       ["Amont1", "Core", "Application", "", "", "", "", ""],
       ["Amont2", "Core", "Application", "", "", "", "", ""],
       ["Bus1", "Core", "Infra", "", "", "", "", ""],
@@ -233,10 +233,10 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
       ["Sortie2", "", "Bus2", "Kafka", "", "", "", "", "No", "", ""],
     ],
     fx: [
-      { nom: "FX_Amont1_Kafka", lignes: [["Un", "", "Bus1", "", "", "Keep", "", "Sortie1", "", ""]] },
-      { nom: "FX_Amont2_Kafka", lignes: [["Deux", "", "Bus2", "", "", "Keep", "", "Sortie2", "", ""]] },
-      { nom: "FX_Bus1_Kafka", lignes: [["Sortie1", "", "Aval1", "", "", "Keep", "", "", "", ""]] },
-      { nom: "FX_Bus2_Kafka", lignes: [["Sortie2", "", "Aval2", "", "", "Keep", "", "", "", ""]] },
+      { name: "FX_Amont1_Kafka", rows: [["Un", "", "Bus1", "", "", "Keep", "", "Sortie1", "", ""]] },
+      { name: "FX_Amont2_Kafka", rows: [["Deux", "", "Bus2", "", "", "Keep", "", "Sortie2", "", ""]] },
+      { name: "FX_Bus1_Kafka", rows: [["Sortie1", "", "Aval1", "", "", "Keep", "", "", "", ""]] },
+      { name: "FX_Bus2_Kafka", rows: [["Sortie2", "", "Aval2", "", "", "Keep", "", "", "", ""]] },
     ],
   };
 
@@ -248,35 +248,35 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
-    await vi.waitFor(() => expect(root.querySelector(".rail-vue-item")).not.toBeNull());
+    await vi.waitFor(() => expect(root.querySelector(".rail-view-item")).not.toBeNull());
 
     boutonParLibellé(root, "Chain").click();
     const select = await vi.waitFor(() => {
-      const s = root.querySelector(".rail-chaine") as HTMLSelectElement | null;
+      const s = root.querySelector(".rail-chain") as HTMLSelectElement | null;
       if (!s || s.options.length < 2) throw new Error("sélecteur pas prêt");
       return s;
     });
-    const libellés = [...select.options].map((o) => o.textContent);
-    expect(libellés).toHaveLength(2);
+    const labels = [...select.options].map((o) => o.textContent);
+    expect(labels).toHaveLength(2);
 
     // Les BOÎTES, pas seulement les étiquettes : celles-ci viennent de la vue
     // courante et changeraient même sur un placement périmé. Les boîtes, elles,
     // viennent du placement -- c'est là que le défaut se voit.
-    const boîtes = async () =>
+    const boxes = async () =>
       vi.waitFor(() => {
-        const svg = root.querySelector(".zone-rendu svg");
+        const svg = root.querySelector(".render-area svg");
         if (!svg) throw new Error("pas de schéma");
-        const b = [...svg.querySelectorAll(".fx-noeuds > g")].map((g) => g.querySelector("text")?.textContent);
+        const b = [...svg.querySelectorAll(".fx-nodes > g")].map((g) => g.querySelector("text")?.textContent);
         if (b.length === 0) throw new Error("pas de boîte");
         return b;
       });
 
-    const premier = await boîtes();
+    const premier = await boxes();
     expect(premier).toContain("Amont1");
     select.value = select.options[1].value;
     select.dispatchEvent(new Event("change", { bubbles: true }));
     const second = await vi.waitFor(async () => {
-      const b = await boîtes();
+      const b = await boxes();
       expect(b).not.toEqual(premier);
       return b;
     });

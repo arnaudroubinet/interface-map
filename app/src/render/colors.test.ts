@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { colorForTechnologies, couleursDuModele, PALETTE } from "./colors";
-import { ratioDeContraste } from "./contraste";
+import { ratioDeContraste } from "./contrast";
 import type { ParsedModel, InterfaceCatalogue, TypeFlux } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
@@ -9,8 +9,8 @@ function typeFlux(type: string): TypeFlux {
   return base.typeFlux({ type });
 }
 
-function iface(nomDuFlux: string, typeDeFlux: string): InterfaceCatalogue {
-  return base.iface({ nomDuFlux, typeDeFlux });
+function iface(flowName: string, flowType: string): InterfaceCatalogue {
+  return base.iface({ flowName, flowType });
 }
 
 // La feuille FlowTypes est un RÉFÉRENTIEL : le gabarit livré en compte seize,
@@ -20,10 +20,10 @@ function iface(nomDuFlux: string, typeDeFlux: string): InterfaceCatalogue {
 // comprise.
 describe("couleursDuModele", () => {
   const model = (types: string[], utilisés: string[]): ParsedModel => ({
-    acteurs: [], groupes: [], groupesAbsents: false, typesActeur: [], paliers: [],
-    typesFlux: types.map(typeFlux),
+    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    flowTypes: types.map(typeFlux),
     interfaces: utilisés.map((t, i) => iface(`F${i}`, t)),
-    consommations: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
+    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
 
@@ -31,15 +31,15 @@ describe("couleursDuModele", () => {
     "Manual", "SQL", "Syslog", "gRPC", "Proprietary", "Screen entry", "Screen lookup", "Object storage (S3)"];
 
   it("donne une couleur distincte à chaque technologie réellement dessinée", () => {
-    const couleurs = couleursDuModele(model(SEIZE, ["HTTP", "Kafka", "File", "SFTP", "SMTP"]));
-    const distinctes = new Set([...couleurs.values()]);
+    const colours = couleursDuModele(model(SEIZE, ["HTTP", "Kafka", "File", "SFTP", "SMTP"]));
+    const distinctes = new Set([...colours.values()]);
     expect(distinctes.size).toBe(5);
   });
 
   it("ne boucle sur la palette qu'au-delà de ses huit teintes", () => {
     const neuf = SEIZE.slice(0, 9);
-    const couleurs = couleursDuModele(model(SEIZE, neuf));
-    expect(new Set([...couleurs.values()]).size).toBe(8);
+    const colours = couleursDuModele(model(SEIZE, neuf));
+    expect(new Set([...colours.values()]).size).toBe(8);
   });
 
   it("garde la même couleur pour une technologie d'une vue à l'autre", () => {
@@ -65,10 +65,10 @@ describe("colorForTechnologies", () => {
 // déclarent aucune.
 describe("couleursDuModele — couleur déclarée par le référentiel", () => {
   const parc = (types: [string, string][], utilisés: string[]): ParsedModel => ({
-    acteurs: [], groupes: [], groupesAbsents: false, typesActeur: [], paliers: [],
-    typesFlux: types.map(([type, couleur]) => ({ ...typeFlux(type), couleur })),
+    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    flowTypes: types.map(([type, colour]) => ({ ...typeFlux(type), colour })),
     interfaces: utilisés.map((t, i) => iface(`F${i}`, t)),
-    consommations: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
+    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
 
@@ -115,10 +115,10 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
 // 1re, 3e et 4e teintes parce que deux inconnues s'étaient glissées entre.
 describe("couleursDuModele — une technologie non déclarée ne prend pas de teinte", () => {
   const parc = (déclarées: string[], employées: string[]): ParsedModel => ({
-    acteurs: [], groupes: [], groupesAbsents: false, typesActeur: [], paliers: [],
-    typesFlux: déclarées.map((t) => typeFlux(t)),
+    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    flowTypes: déclarées.map((t) => typeFlux(t)),
     interfaces: employées.map((t, i) => iface(`F${i}`, t)),
-    consommations: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
+    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
 
@@ -153,9 +153,9 @@ describe("la palette de repli est lisible", () => {
 // --- Le référentiel peut imposer n'importe quelle teinte. Un jaune clair
 // déclaré au classeur produisait un trait invisible, sans un mot.
 describe("couleursDuModele — garde-fou de contraste", () => {
-  const parc = (couleur: string) => ({
-    interfaces: [{ typeDeFlux: "HTTP" }],
-    typesFlux: [{ type: "HTTP", couleur }],
+  const parc = (colour: string) => ({
+    interfaces: [{ flowType: "HTTP" }],
+    flowTypes: [{ type: "HTTP", colour }],
   });
 
   it("assombrit une couleur déclarée illisible plutôt que de la dessiner telle quelle", () => {

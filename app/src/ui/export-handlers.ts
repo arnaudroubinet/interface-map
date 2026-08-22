@@ -2,9 +2,9 @@ import type { AppState } from "./state";
 import { LIBELLE_VUE, withMessageBandeau } from "./state";
 import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
-import { rangDuPalier } from "../aggregation/paliers";
+import { rankOfMilestone } from "../aggregation/milestones";
 import { couleursDuModele } from "../render/colors";
-import { toutesLesPlanches } from "../aggregation/planches";
+import { toutesLesPlanches } from "../aggregation/boards";
 import { computeLayout } from "../layout/graph-layout";
 import { construireDrawio } from "../export/drawio-export";
 import { modeleEnStructurizr } from "../export/c4-dsl";
@@ -14,13 +14,13 @@ import { buildExportFilename } from "../export/filename";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { téléchargerTexte } from "../export/telechargement";
+import { téléchargerTexte } from "../export/download";
 
 // Les sept exports, hors de la fermeture de mountApp.
 //
 // Ils y vivaient parmi dix-huit fonctions imbriquées, et l'on ne pouvait en
 // éprouver aucun sans monter le DOM entier. Or ils ne dépendent que de quatre
-// choses : l'état, de quoi le remplacer, le SVG à l'écran et la matrice
+// choses : l'état, de quoi le remplacer, le SVG à l'écran et la matrix
 // affichée. C'est ce contrat-là qui est déclaré ci-dessous, et il tient en
 // quatre lignes.
 //
@@ -30,9 +30,9 @@ import { téléchargerTexte } from "../export/telechargement";
 export interface ContexteExport {
   etat: () => AppState;
   setState: (state: AppState) => void;
-  // Le schéma à l'écran. Absent sur la matrice, le rapport et l'aide.
+  // Le schéma à l'écran. Absent sur la matrix, le rapport et l'aide.
   svgCourant: () => SVGSVGElement | null;
-  // La matrice AFFICHÉE, et non recalculée au clic : la recalculer risquerait
+  // La matrix AFFICHÉE, et non recalculée au clic : la recalculer risquerait
   // de livrer autre chose que ce que l'utilisateur a sous les yeux.
   matriceCourante: () => MatrixResult | null;
 }
@@ -41,28 +41,28 @@ export interface ContexteExport {
 // il y en a une, sans quoi deux lectures différentes se téléchargent sous le
 // même nom.
 function selectionDuNom(state: AppState): string | null {
-  if (state.vue === "par-acteur") return state.selectionActeur;
-  if (state.vue === "par-technologie") return state.selectionTechnologie;
+  if (state.view === "by-actor") return state.selectionActeur;
+  if (state.view === "by-technology") return state.selectionTechnologie;
   // Un écart se lit ENTRE deux paliers : le nom doit porter les deux. Le palier
   // d'arrivée est déjà ajouté par ailleurs.
-  if (state.vue === "ecarts") return state.palierCompare;
+  if (state.view === "changes") return state.comparedMilestone;
   return null;
 }
 
 // Le palier affiché vaut pour tout ce qui décrit le MODÈLE plutôt qu'une
 // planche : ces exports ne portent ni nom de vue ni sélection.
 function rangAffiché(state: AppState): number | null {
-  if (!state.fichier || state.palierAffiche === null) return null;
-  return rangDuPalier(state.fichier.model, state.palierAffiche) ?? null;
+  if (!state.fichier || state.shownMilestone === null) return null;
+  return rankOfMilestone(state.fichier.model, state.shownMilestone) ?? null;
 }
 
 export function handlersExport(ctx: ContexteExport): BannerCallbacks {
   const nomDeFichier = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
     const state = ctx.etat();
     return buildExportFilename(
-      LIBELLE_VUE[state.vue],
+      LIBELLE_VUE[state.view],
       selectionDuNom(state),
-      state.palierAffiche,
+      state.shownMilestone,
       extension,
       avecMode ? state.mode : undefined
     );
@@ -89,9 +89,9 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     },
 
     onExportXlsx() {
-      const matrice = ctx.matriceCourante();
-      if (!matrice || !ctx.etat().fichier) return;
-      downloadMatrixXlsx(matrice, nomDeFichier("xlsx"));
+      const matrix = ctx.matriceCourante();
+      if (!matrix || !ctx.etat().fichier) return;
+      downloadMatrixXlsx(matrix, nomDeFichier("xlsx"));
     },
 
     onExportMarkdown() {
@@ -101,7 +101,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
       // ne doit donc pas bouger non plus.
       téléchargerTexte(
-        rapportEnMarkdown(state.fichier.report, state.fichier.nom, state.palierAffiche),
+        rapportEnMarkdown(state.fichier.report, state.fichier.name, state.shownMilestone),
         nomDeFichier("md", false)
       );
     },
@@ -114,33 +114,33 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const state = ctx.etat();
       if (!state.fichier) return;
       const model = state.fichier.model;
-      const couleurs = couleursDuModele(model);
+      const colours = couleursDuModele(model);
       const placées = [];
-      for (const planche of toutesLesPlanches(model, rangAffiché(state), state.mode)) {
-        const layout = await computeLayout(planche.nodes, planche.edges);
+      for (const board of toutesLesPlanches(model, rangAffiché(state), state.mode)) {
+        const layout = await computeLayout(board.nodes, board.edges);
         placées.push({
-          titre: planche.titre,
-          acteur: planche.acteur,
+          title: board.title,
+          actor: board.actor,
           layout,
           // Chaque page se décrit, comme chaque SVG : draw.io est le format
           // destiné à CIRCULER, et ses pages partaient sans titre ni légende.
           contexte: {
-            titre: planche.titre,
-            lecture: state.mode === "fonctionnel" ? "functional" : "architecture",
-            palier: state.palierAffiche,
-            source: state.fichier.nom,
+            title: board.title,
+            reading: state.mode === "functional" ? "functional" : "architecture",
+            milestone: state.shownMilestone,
+            source: state.fichier.name,
             date: state.fichier.dateModification
               ? state.fichier.dateModification.toISOString().slice(0, 10)
               : "save date unknown",
-            composants: planche.nodes.filter((n) => n.kind !== "frontiere").length,
-            flux: planche.edges.length,
-            technologies: new Set(planche.edges.map((e) => e.technologie).filter(Boolean)).size,
+            composants: board.nodes.filter((n) => n.kind !== "boundary").length,
+            flows: board.edges.length,
+            technologies: new Set(board.edges.map((e) => e.technology).filter(Boolean)).size,
           },
         });
       }
       téléchargerTexte(
-        construireDrawio(placées, (t) => couleurs.get(t) ?? "#000"),
-        buildExportFilename("boards", null, state.palierAffiche, "drawio", state.mode)
+        construireDrawio(placées, (t) => colours.get(t) ?? "#000"),
+        buildExportFilename("boards", null, state.shownMilestone, "drawio", state.mode)
       );
     },
 
@@ -148,8 +148,8 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const state = ctx.etat();
       if (!state.fichier) return;
       téléchargerTexte(
-        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.nom, state.palierAffiche, state.mode),
-        buildExportFilename("model", null, state.palierAffiche, "dsl")
+        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.name, state.shownMilestone, state.mode),
+        buildExportFilename("model", null, state.shownMilestone, "dsl")
       );
     },
 
@@ -158,7 +158,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       if (!state.fichier) return;
       téléchargerTexte(
         modeleEnLikeC4(state.fichier.model, rangAffiché(state), state.mode),
-        buildExportFilename("model", null, state.palierAffiche, "c4")
+        buildExportFilename("model", null, state.shownMilestone, "c4")
       );
     },
   };

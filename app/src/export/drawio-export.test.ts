@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { entreesDeLegende } from "../render/legende";
+import { entreesDeLegende } from "../render/legend";
 import type { PlanchePlacée } from "./drawio-export";
 import { construireDrawio } from "./drawio-export";
 import { computeLayout, type LayoutResult } from "../layout/graph-layout";
@@ -9,11 +9,11 @@ import type { GraphNode, GraphEdge } from "../aggregation/core";
 function layout(o: Partial<LayoutResult> = {}): LayoutResult {
   return {
     nodes: [
-      { id: "A", label: "A", kind: "acteur", sousTitre: "Application", description: "Un texte", x: 0, y: 0, width: 240, height: 120 },
-      { id: "B", label: "B", kind: "acteur", externe: true, x: 400, y: 0, width: 240, height: 120 },
+      { id: "A", label: "A", kind: "actor", subtitle: "Application", description: "Un texte", x: 0, y: 0, width: 240, height: 120 },
+      { id: "B", label: "B", kind: "actor", external: true, x: 400, y: 0, width: 240, height: 120 },
     ],
     edges: [
-      { from: "A", to: "B", technologie: "HTTP", count: 1, label: "F", atténué: false, points: [{ x: 240, y: 60 }, { x: 400, y: 60 }] },
+      { from: "A", to: "B", technology: "HTTP", count: 1, label: "F", attenuated: false, points: [{ x: 240, y: 60 }, { x: 400, y: 60 }] },
     ],
     width: 640,
     height: 120,
@@ -21,9 +21,9 @@ function layout(o: Partial<LayoutResult> = {}): LayoutResult {
   };
 }
 
-const couleur = () => "#336699";
+const colour = () => "#336699";
 
-const planche = (l: LayoutResult, titre = "v") => [{ titre, layout: l }];
+const board = (l: LayoutResult, title = "v") => [{ title, layout: l }];
 
 // Le libellé d'une boîte est du HTML rangé dans un attribut XML : c'est en
 // relisant le fichier comme draw.io le relit qu'on voit ce qu'il affichera.
@@ -75,12 +75,12 @@ describe("construireDrawio", () => {
     const l = layout();
     l.nodes[0].label = "A & <B>";
     l.nodes[0].description = 'Avec "guillemets" & signes';
-    const doc = new DOMParser().parseFromString(construireDrawio(planche(l, "Group & co"), couleur), "application/xml");
+    const doc = new DOMParser().parseFromString(construireDrawio(board(l, "Group & co"), colour), "application/xml");
     expect(doc.querySelector("parsererror")).toBeNull();
   });
 
   it("produces a drawio file holding one diagram", () => {
-    const xml = construireDrawio(planche(layout(), "Group to group"), couleur);
+    const xml = construireDrawio(board(layout(), "Group to group"), colour);
     expect(xml).toContain("<mxfile");
     expect(xml).toContain('<diagram name="Group to group"');
     expect(xml).toContain("<mxGraphModel");
@@ -89,21 +89,21 @@ describe("construireDrawio", () => {
   // Le placement est déjà calculé pour l'écran : le refaire dans draw.io
   // donnerait une autre planche que celle qu'on vient de regarder.
   it("keeps the geometry the diagram was laid out with", () => {
-    const xml = construireDrawio(planche(layout()), couleur);
+    const xml = construireDrawio(board(layout()), colour);
     // Le placement donne le CENTRE de B en (400, 0) ; draw.io lit un coin
     // haut-gauche, soit (400 - 240/2, 0 - 120/2).
     expect(geometrie(xml, "p0_B")).toEqual({ x: 280, y: -60, width: 240, height: 120 });
   });
 
   it("carries the name, the type and the description into the box", () => {
-    const valeur = valeurDe(construireDrawio(planche(layout()), couleur), "p0_A");
-    expect(valeur).toContain("<b>A</b>");
-    expect(valeur).toContain("[Application]");
-    expect(valeur).toContain("Un texte");
+    const value = valeurDe(construireDrawio(board(layout()), colour), "p0_A");
+    expect(value).toContain("<b>A</b>");
+    expect(value).toContain("[Application]");
+    expect(value).toContain("Un texte");
   });
 
   it("colours an edge with the colour its technology has on screen", () => {
-    const xml = construireDrawio(planche(layout()), couleur);
+    const xml = construireDrawio(board(layout()), colour);
     expect(xml).toContain("strokeColor=#336699");
     expect(xml).toMatch(/source="[^"]*A"/);
     expect(xml).toMatch(/target="[^"]*B"/);
@@ -116,17 +116,17 @@ describe("construireDrawio", () => {
     l.nodes[0].label = "A & <B>";
     // Ce que draw.io lit dans l'attribut est du HTML : le nom y est encore
     // échappé une fois, et s'affichera donc tel qu'il a été saisi.
-    expect(valeurDe(construireDrawio(planche(l), couleur), "p0_A")).toContain("A &amp; &lt;B&gt;");
+    expect(valeurDe(construireDrawio(board(l), colour), "p0_A")).toContain("A &amp; &lt;B&gt;");
   });
 
   it("gives every board its own tab", () => {
     const xml = construireDrawio(
       [
-        { titre: "Group to group", layout: layout() },
-        { titre: "HTTP", layout: layout() },
-        { titre: "Tatooine", layout: layout() },
+        { title: "Group to group", layout: layout() },
+        { title: "HTTP", layout: layout() },
+        { title: "Tatooine", layout: layout() },
       ],
-      couleur
+      colour
     );
     const doc = new DOMParser().parseFromString(xml, "application/xml");
     expect([...doc.querySelectorAll("diagram")].map((d) => d.getAttribute("name"))).toEqual([
@@ -141,10 +141,10 @@ describe("construireDrawio", () => {
   it("keeps the cells of one board out of the next", () => {
     const xml = construireDrawio(
       [
-        { titre: "Un", layout: layout() },
-        { titre: "Deux", layout: layout() },
+        { title: "Un", layout: layout() },
+        { title: "Deux", layout: layout() },
       ],
-      couleur
+      colour
     );
     const doc = new DOMParser().parseFromString(xml, "application/xml");
     const ids = [...doc.querySelectorAll("mxCell, UserObject")]
@@ -154,10 +154,10 @@ describe("construireDrawio", () => {
   });
 
   // Ce que la boîte ne peut pas montrer, draw.io sait le garder à côté : une
-  // infobulle au survol, et les colonnes du classeur dans « Modifier les
+  // infobulle au hover, et les colonnes du classeur dans « Modifier les
   // données ».
   it("carries what the box cannot show as shape data", () => {
-    const b = boite(construireDrawio(planche(layout()), couleur), "p0_A");
+    const b = boite(construireDrawio(board(layout()), colour), "p0_A");
     expect(b.getAttribute("tooltip")).toBe("Un texte");
     expect(b.getAttribute("type")).toBe("Application");
   });
@@ -167,10 +167,10 @@ describe("construireDrawio", () => {
   it("links a box to the board that details it", () => {
     const xml = construireDrawio(
       [
-        { titre: "Group to group", layout: layout() },
-        { titre: "B (actor)", acteur: "B", layout: layout() },
+        { title: "Group to group", layout: layout() },
+        { title: "B (actor)", actor: "B", layout: layout() },
       ],
-      couleur
+      colour
     );
     expect(boite(xml, "p0_B").getAttribute("link")).toBe("data:page/id,page_1");
     // Sur sa propre planche, la boîte ne renvoie pas vers elle-même.
@@ -183,10 +183,10 @@ describe("construireDrawio", () => {
   it("links a box to the actor board, never to the flow type tab of the same name", () => {
     const xml = construireDrawio(
       [
-        { titre: "B (actor)", acteur: "B", layout: layout() },
-        { titre: "B (technology)", layout: layout() },
+        { title: "B (actor)", actor: "B", layout: layout() },
+        { title: "B (technology)", layout: layout() },
       ],
-      couleur
+      colour
     );
     expect(boite(xml, "p1_B").getAttribute("link")).toBe("data:page/id,page_0");
   });
@@ -198,12 +198,12 @@ describe("construireDrawio", () => {
   it("places a boxed child relative to the frame that holds it", () => {
     const l = layout({
       nodes: [
-        { id: "F", label: "Platform", kind: "frontiere", x: 100, y: 50, width: 500, height: 300 },
-        { id: "A", label: "A", kind: "acteur", parent: "F", x: 130, y: 90, width: 240, height: 120 },
+        { id: "F", label: "Platform", kind: "boundary", x: 100, y: 50, width: 500, height: 300 },
+        { id: "A", label: "A", kind: "actor", parent: "F", x: 130, y: 90, width: 240, height: 120 },
       ],
       edges: [],
     });
-    const xml = construireDrawio(planche(l), couleur);
+    const xml = construireDrawio(board(l), colour);
     // Coin du cadre : (100 - 250, 50 - 150) = (-150, -100). Coin de A :
     // (130 - 120, 90 - 60) = (10, 30). D'où le relatif (160, 130).
     const g = geometrie(xml, "p0_A");
@@ -221,21 +221,21 @@ describe("construireDrawio", () => {
   // dise ; ce contrôle les tient sur le même rectangle, dans le même repère.
   it("declares the same rectangles the SVG paints", async () => {
     const nodes: GraphNode[] = [
-      { id: "F", label: "Platform", kind: "frontiere" },
-      { id: "A", label: "Tatooine", kind: "acteur", parent: "F", sousTitre: "Application" },
-      { id: "B", label: "Geonosis", kind: "acteur", parent: "F" },
-      { id: "C", label: "Mustafar", kind: "acteur", parent: "F", description: "Un texte un peu plus long" },
-      { id: "D", label: "Takodana", kind: "acteur", externe: true },
+      { id: "F", label: "Platform", kind: "boundary" },
+      { id: "A", label: "Tatooine", kind: "actor", parent: "F", subtitle: "Application" },
+      { id: "B", label: "Geonosis", kind: "actor", parent: "F" },
+      { id: "C", label: "Mustafar", kind: "actor", parent: "F", description: "Un texte un peu plus long" },
+      { id: "D", label: "Takodana", kind: "actor", external: true },
     ];
     const edges: GraphEdge[] = [
-      { from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false },
-      { from: "B", to: "C", technologie: "SFTP", count: 2, label: "SFTP", atténué: false },
-      { from: "C", to: "D", technologie: "HTTP", count: 1, label: "HTTP", atténué: false },
+      { from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false },
+      { from: "B", to: "C", technology: "SFTP", count: 2, label: "SFTP", attenuated: false },
+      { from: "C", to: "D", technology: "HTTP", count: 1, label: "HTTP", attenuated: false },
     ];
     const l = await computeLayout(nodes, edges);
-    const xml = construireDrawio(planche(l, "Platform detail"), couleur);
+    const xml = construireDrawio(board(l, "Platform detail"), colour);
 
-    const rectsPeints = [...buildGraphSvg(l, couleur).querySelectorAll("rect")].map((r) => ({
+    const rectsPeints = [...buildGraphSvg(l, colour).querySelectorAll("rect")].map((r) => ({
       x: Number(r.getAttribute("x")),
       y: Number(r.getAttribute("y")),
       width: Number(r.getAttribute("width")),
@@ -257,14 +257,14 @@ describe("construireDrawio", () => {
 // raconter la même chose que le schéma à l'écran, sans quoi le fichier ouvert
 // dans l'outil de dessin contredirait celui d'où il sort.
 describe("export draw.io — un trait tiré", () => {
-  const xml = async (tire: boolean) => {
+  const xml = async (pulled: boolean) => {
     const nodes: GraphNode[] = [
-      { id: "A", label: "A", kind: "acteur" },
-      { id: "B", label: "B", kind: "acteur" },
+      { id: "A", label: "A", kind: "actor" },
+      { id: "B", label: "B", kind: "actor" },
     ];
-    const edges: GraphEdge[] = [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, tire }];
+    const edges: GraphEdge[] = [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, pulled }];
     const layout = await computeLayout(nodes, edges);
-    return construireDrawio([{ titre: "T", layout }], () => "#2a78d6");
+    return construireDrawio([{ title: "T", layout }], () => "#2a78d6");
   };
 
   it("retourne la pointe sans retourner le trait", async () => {
@@ -285,45 +285,45 @@ describe("export draw.io — un trait tiré", () => {
 // --- §2.14 : 23 pages sans légende ni titre, dans le format justement destiné
 // à circuler.
 describe("construireDrawio — chaque page se décrit", () => {
-  const planche = (): PlanchePlacée => ({
-    titre: "Platform detail",
+  const board = (): PlanchePlacée => ({
+    title: "Platform detail",
     contexte: {
-      titre: "Platform detail", lecture: "architecture", palier: "v2",
-      source: "carto.xlsx", date: "2026-08-22", composants: 2, flux: 1, technologies: 1,
+      title: "Platform detail", reading: "architecture", milestone: "v2",
+      source: "carto.xlsx", date: "2026-08-22", composants: 2, flows: 1, technologies: 1,
     },
     layout: {
       width: 400, height: 200,
       nodes: [
-        { id: "A", label: "A", kind: "acteur", x: 60, y: 60, width: 80, height: 40 },
-        { id: "B", label: "B", kind: "acteur", externe: true, x: 300, y: 60, width: 80, height: 40 },
+        { id: "A", label: "A", kind: "actor", x: 60, y: 60, width: 80, height: 40 },
+        { id: "B", label: "B", kind: "actor", external: true, x: 300, y: 60, width: 80, height: 40 },
       ],
-      edges: [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, points: [{ x: 100, y: 60 }, { x: 260, y: 60 }] }],
+      edges: [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, points: [{ x: 100, y: 60 }, { x: 260, y: 60 }] }],
     },
   });
 
   it("pose le titre de la planche sur la page", () => {
-    expect(construireDrawio([planche()], () => "#111")).toContain("Platform detail — architecture reading, milestone v2");
+    expect(construireDrawio([board()], () => "#111")).toContain("Platform detail — architecture reading, milestone v2");
   });
 
   it("reprend la MÊME légende que le SVG, entrée pour entrée", () => {
-    const p = planche();
+    const p = board();
     const xml = construireDrawio([p], () => "#111");
     for (const e of entreesDeLegende(p.layout.edges, p.layout.nodes, () => "#111")) {
-      expect(xml, `entrée « ${e.texte} » absente`).toContain(e.texte);
+      expect(xml, `input « ${e.text} » absente`).toContain(e.text);
     }
   });
 
   // La légende ne doit pas se poser SUR le dessin : c'est un bloc à côté,
   // comme dans le SVG.
   it("pose la légende sous la boîte englobante des nœuds", () => {
-    const xml = construireDrawio([planche()], () => "#111");
+    const xml = construireDrawio([board()], () => "#111");
     const y = Number(/id="p0_legende_0"[\s\S]*?y="(-?\d+)"/.exec(xml)![1]);
     expect(y).toBeGreaterThan(80);
   });
 
   // Sans contexte, pas de cartouche inventé : le titre de la planche suffit.
   it("se contente du titre de la planche quand aucun contexte n'est fourni", () => {
-    const sans = { ...planche(), contexte: undefined };
+    const sans = { ...board(), contexte: undefined };
     const xml = construireDrawio([sans], () => "#111");
     expect(xml).toContain("Platform detail");
     expect(xml).not.toContain("milestone");

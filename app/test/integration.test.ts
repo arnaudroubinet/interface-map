@@ -3,11 +3,11 @@ import { parseWorkbook } from "../src/parsing/workbook";
 import { buildModel } from "../src/parsing/build-model";
 import { runIntegrityChecks } from "../src/integrity/checks";
 import { buildGroupToGroupView, buildPlatformDetailView } from "../src/aggregation/views";
-import { lecture, chainesCoupees } from "../src/aggregation/fonctionnel";
-import { estActeurTechnique } from "../src/aggregation/nature";
-import { acteurEstPlateforme } from "../src/aggregation/core";
+import { reading, chainesCoupees } from "../src/aggregation/reading";
+import { isTechnicalActor } from "../src/aggregation/nature";
+import { actorIsPlatform } from "../src/aggregation/core";
 import { écrireModele } from "../src/export/template-export";
-import { DONNEES_EXEMPLE } from "../src/export/exemple-donnees";
+import { DONNEES_EXEMPLE } from "../src/export/sample-data";
 
 // Le classeur d'exemple, écrit par l'outil puis relu par lui : c'est le seul
 // test qui fait tourner toute la chaîne d'un bout à l'autre. Il portait
@@ -23,18 +23,18 @@ describe("chaîne complète sur le classeur d'exemple", () => {
     expect(built.ok).toBe(true);
     if (!built.ok) return;
 
-    expect(built.model.acteurs.length).toBeGreaterThan(0);
+    expect(built.model.actors.length).toBeGreaterThan(0);
     expect(built.model.interfaces.length).toBeGreaterThan(0);
-    expect(built.model.consommations.length).toBeGreaterThan(0);
+    expect(built.model.consumptions.length).toBeGreaterThan(0);
     // FX_Modèle must not be picked up as a real consumption tab.
     expect(built.model.fxSheetNames).not.toContain("FX_Modèle");
 
     const report = runIntegrityChecks(built.model);
-    expect(report.familles).toHaveLength(5);
-    expect(report.blocsInformatifs).toHaveLength(11);
+    expect(report.families).toHaveLength(5);
+    expect(report.infoBlocks).toHaveLength(11);
     // Les identifiants, pas seulement le compte : un bloc qui disparaît en
     // même temps qu'un autre arrive laisserait le compte intact.
-    expect(new Set(report.blocsInformatifs.map((b) => b.id)).size).toBe(report.blocsInformatifs.length);
+    expect(new Set(report.infoBlocks.map((b) => b.id)).size).toBe(report.infoBlocks.length);
     // L'exemple est construit pour ne déclencher aucune anomalie (voir le
     // commentaire d'exemple-donnees.ts) : un décalage de colonne dans
     // l'exemple, le gabarit ou le modèle fait aussitôt rougir cette ligne.
@@ -42,8 +42,8 @@ describe("chaîne complète sur le classeur d'exemple", () => {
 
     const view = buildGroupToGroupView(
       built.model,
-      lecture(built.model, null, "architecture"),
-      { compteurs: true }
+      reading(built.model, null, "architecture"),
+      { counters: true }
     );
     expect(view.nodes.length).toBeGreaterThan(0);
     expect(view.edges.length).toBeGreaterThan(0);
@@ -55,30 +55,30 @@ describe("chaîne complète sur le classeur d'exemple", () => {
 // lecture métier à qui découvre l'outil, ni protéger la traversée d'une
 // régression -- et rien ne le disait, tout était vert.
 describe("le classeur d'exemple exerce la lecture métier", () => {
-  const modele = () => {
+  const template = () => {
     const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
 
   it("déclare au moins un acteur technique et le fait disparaître en fonctionnel", () => {
-    const m = modele();
-    const archi = lecture(m, null, "architecture").acteurs.length;
-    const métier = lecture(m, null, "fonctionnel").acteurs.length;
+    const m = template();
+    const archi = reading(m, null, "architecture").actors.length;
+    const métier = reading(m, null, "functional").actors.length;
     expect(métier).toBeLessThan(archi);
   });
 
   it("raboute une chaîne : deux acteurs métier que seul le mode fonctionnel relie", () => {
-    const m = modele();
-    const paires = (mode: "architecture" | "fonctionnel") =>
-      new Set(lecture(m, null, mode).flux.map((f) => `${f.exposant} → ${f.consommateur}`));
+    const m = template();
+    const paires = (mode: "architecture" | "functional") =>
+      new Set(reading(m, null, mode).flows.map((f) => `${f.provider} → ${f.consumer}`));
     const archi = paires("architecture");
-    const nouvelles = [...paires("fonctionnel")].filter((p) => !archi.has(p));
+    const nouvelles = [...paires("functional")].filter((p) => !archi.has(p));
     expect(nouvelles.length).toBeGreaterThan(0);
   });
 
   it("ne casse aucune chaîne", () => {
-    expect(chainesCoupees(modele(), null)).toHaveLength(0);
+    expect(chainesCoupees(template(), null)).toHaveLength(0);
   });
 });
 
@@ -87,23 +87,23 @@ describe("le classeur d'exemple exerce la lecture métier", () => {
 // récursivement, et c'est sur plusieurs sauts qu'elle peut s'arrêter trop tôt,
 // se perdre, ou franchir la frontière de la plateforme sans le dire.
 describe("le classeur d'exemple porte une chaîne à trois relais", () => {
-  const modele = () => {
+  const template = () => {
     const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
 
   it("déclare les trois relais techniques, deux sur la plateforme et un dehors", () => {
-    const m = modele();
-    const relais = ["Kafka", "Dagobah", "ESB"].map((nom) => m.acteurs.find((a) => a.nom === nom)!);
-    expect(relais.every((a) => estActeurTechnique(m, a.nom))).toBe(true);
-    expect(relais.filter((a) => acteurEstPlateforme(m, a)).map((a) => a.nom)).toEqual(["Kafka", "Dagobah"]);
+    const m = template();
+    const relais = ["Kafka", "Dagobah", "ESB"].map((name) => m.actors.find((a) => a.name === name)!);
+    expect(relais.every((a) => isTechnicalActor(m, a.name))).toBe(true);
+    expect(relais.filter((a) => actorIsPlatform(m, a)).map((a) => a.name)).toEqual(["Kafka", "Dagobah"]);
   });
 
   it("dessine les quatre segments en architecture", () => {
-    const segments = lecture(modele(), null, "architecture")
-      .flux.filter((f) => f.interfaceNom === "Policy notice" || f.interfaceNom.startsWith("notice."))
-      .map((f) => `${f.exposant}→${f.consommateur}`);
+    const segments = reading(template(), null, "architecture")
+      .flows.filter((f) => f.interfaceName === "Policy notice" || f.interfaceName.startsWith("notice."))
+      .map((f) => `${f.provider}→${f.consumer}`);
     expect(segments).toEqual(["Chandrila→Kafka", "Kafka→Dagobah", "Dagobah→ESB", "ESB→Bracca"]);
   });
 
@@ -112,26 +112,26 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
   // interne. Rien dans la ligne d'interface du bus ne les distingue -- c'est la
   // ligne de consommation qui le dit, une par entrée.
   it("fait servir le même relais à deux chaînes sans les confondre", () => {
-    const m = modele();
-    const métier = lecture(m, null, "fonctionnel").flux;
-    const cible = (nom: string) =>
-      métier.filter((f) => f.exposant === "Chandrila" && f.consommateur === nom).map((f) => f.interfaceNom);
+    const m = template();
+    const métier = reading(m, null, "functional").flows;
+    const target = (name: string) =>
+      métier.filter((f) => f.provider === "Chandrila" && f.consumer === name).map((f) => f.interfaceName);
 
     // vers l'extérieur, par trois relais
-    expect(cible("Bracca")).toContain("Policy notice");
-    expect(acteurEstPlateforme(m, m.acteurs.find((a) => a.nom === "Bracca")!)).toBe(false);
+    expect(target("Bracca")).toContain("Policy notice");
+    expect(actorIsPlatform(m, m.actors.find((a) => a.name === "Bracca")!)).toBe(false);
 
     // et vers la plateforme, par le seul Kafka
-    expect(cible("Takodana")).toEqual(["Policy events"]);
-    expect(acteurEstPlateforme(m, m.acteurs.find((a) => a.nom === "Takodana")!)).toBe(true);
+    expect(target("Takodana")).toEqual(["Policy events"]);
+    expect(actorIsPlatform(m, m.actors.find((a) => a.name === "Takodana")!)).toBe(true);
   });
 
   it("les raboute en un seul lien métier, les trois relais retirés", () => {
-    const m = modele();
-    const métier = lecture(m, null, "fonctionnel");
-    expect(métier.acteurs.map((a) => a.nom)).not.toContain("Dagobah");
+    const m = template();
+    const métier = reading(m, null, "functional");
+    expect(métier.actors.map((a) => a.name)).not.toContain("Dagobah");
     expect(
-      métier.flux.filter((f) => f.exposant === "Chandrila" && f.consommateur === "Bracca" && f.interfaceNom === "Policy notice")
+      métier.flows.filter((f) => f.provider === "Chandrila" && f.consumer === "Bracca" && f.interfaceName === "Policy notice")
     ).toHaveLength(1);
   });
 });
@@ -145,7 +145,7 @@ describe("la chaîne à trois relais se lit dans un seul sens", () => {
     const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     const m = built.model;
-    const vue = buildPlatformDetailView(m, lecture(m, null, "architecture"), { compteurs: true });
+    const view = buildPlatformDetailView(m, reading(m, null, "architecture"), { counters: true });
 
     // « Support » est le groupe qui porte l'ESB : hors plateforme, il est
     // dessiné replié sur son groupe.
@@ -156,7 +156,7 @@ describe("la chaîne à trois relais se lit dans un seul sens", () => {
       ["Support", "Sales network"],
     ];
     for (const [de, vers] of enchaînement) {
-      expect(vue.edges.some((e) => e.from === de && e.to === vers)).toBe(true);
+      expect(view.edges.some((e) => e.from === de && e.to === vers)).toBe(true);
     }
   });
 });

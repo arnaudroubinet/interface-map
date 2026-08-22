@@ -9,17 +9,17 @@ describe("serializeSvg", () => {
     // comme dans "sizes the viewBox from the actual path" (svg-builder.test.ts).
     const layout: LayoutResult = {
       nodes: [
-        { id: "A", label: "A", kind: "groupe", x: 40, y: 0, width: 80, height: 40 },
-        { id: "B", label: "B", kind: "groupe", x: 360, y: 200, width: 80, height: 40 },
+        { id: "A", label: "A", kind: "group", x: 40, y: 0, width: 80, height: 40 },
+        { id: "B", label: "B", kind: "group", x: 360, y: 200, width: 80, height: 40 },
       ],
       edges: [
         {
           from: "A",
           to: "B",
-          technologie: "HTTP",
+          technology: "HTTP",
           count: 1,
           label: "HTTP",
-          atténué: false,
+          attenuated: false,
           points: [
             { x: 40, y: 0 },
             { x: 200, y: -150 },

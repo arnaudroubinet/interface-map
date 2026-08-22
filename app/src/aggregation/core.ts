@@ -1,10 +1,10 @@
-import type { Acteur, InterfaceCatalogue, ParsedModel, Consommation, ValiditePalier } from "../parsing/model";
-import { intervalleDeVie, estVivant } from "./paliers";
+import type { Actor, InterfaceCatalogue, ParsedModel, Consommation, ValiditePalier } from "../parsing/model";
+import { lifespanOf, isLiveAt } from "./milestones";
 import { normalizeText } from "../shared/text";
-import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE, VOCABULAIRE_CRITICITE } from "./vocabulaires";
+import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE, VOCABULAIRE_CRITICITE } from "./vocabularies";
 
 export type NodeId = string;
-export type NodeKind = "groupe" | "plateforme" | "acteur" | "acteur-selectionne" | "frontiere";
+export type NodeKind = "group" | "platform" | "actor" | "focus-actor" | "boundary";
 
 export interface GraphNode {
   id: NodeId;
@@ -12,9 +12,9 @@ export interface GraphNode {
   kind: NodeKind;
   // Style C4 : « Type » et description courte affichés sous le nom, quand
   // le nœud correspond à un acteur réel (pas un groupe agrégé).
-  sousTitre?: string;
+  subtitle?: string;
   description?: string;
-  externe?: boolean;
+  external?: boolean;
   // Ce que la FORME doit redire, faute de quoi la couleur reste seule à le
   // porter -- donc rien du tout à l'impression et pour un daltonien (WCAG
   // 1.4.1). Deux variantes, pas plus : au-delà on tombe dans le zoo UML.
@@ -39,38 +39,38 @@ export interface GraphNode {
 export interface GraphEdge {
   from: NodeId;
   to: NodeId;
-  technologie: string;
+  technology: string;
   count: number;
   // La criticité la plus forte portée par ce trait, quand la vue veut la
   // dessiner. Saisie, contrôlée et exportée depuis toujours, elle n'était
   // jamais dessinée -- c'est pourtant la donnée la plus décisionnelle du
   // classeur.
-  criticite?: string;
+  criticality?: string;
   label: string;
-  atténué: boolean;
+  attenuated: boolean;
   // La pointe va au départ du trait plutôt qu'à son arrivée : le consommateur
   // interroge le fournisseur, mais la donnée descend toujours dans l'autre sens.
-  tire?: boolean;
+  pulled?: boolean;
   // Les échanges que ce trait rassemble. L'étiquette n'en nomme que les
-  // premiers ; la liste entière se lit au survol, sans quoi la vue métier
+  // premiers ; la liste entière se lit au hover, sans quoi la vue métier
   // cacherait ce qu'elle est censée montrer.
-  noms?: string[];
+  names?: string[];
   // Marque de la vue Écarts : ce trait apparaît ou disparaît entre les deux
   // paliers comparés. Absent partout ailleurs -- ce n'est pas une propriété du
   // flux, c'est le résultat d'une comparaison.
-  ecart?: "ajout" | "retrait";
+  ecart?: "added" | "removed";
 }
 
 export interface FlowInstance {
-  interfaceNom: string;
+  interfaceName: string;
   // La version du contrat exposé, telle qu'elle figure au catalogue -- pas
   // celle saisie côté consommation : c'est l'interface qu'on nomme.
   version: string;
-  typeDeFlux: string;
-  exposant: string;
-  consommateur: string;
-  sens: "exposant-consommateur" | "consommateur-exposant";
-  atténué: boolean;
+  flowType: string;
+  provider: string;
+  consumer: string;
+  direction: "provider-to-consumer" | "consumer-to-provider";
+  attenuated: boolean;
   // Les deux lignes du classeur d'où ce flux vient. Les schémas n'en ont pas
   // besoin -- ils ne dessinent qu'un trait -- mais les exports vers un outil
   // d'architecture, eux, y trouvent tout ce que le trait ne montre pas :
@@ -82,10 +82,10 @@ export interface FlowInstance {
 // Comment on nomme une interface, partout : « Authent 1.0 », ou « Authent »
 // tout court si elle n'est pas versionnée. Une seule définition, pour que le
 // schéma et le rapport ne désignent pas la même interface de deux façons.
-export function libelleInterface(nomDuFlux: string, version: string): string {
-  const nom = nomDuFlux.trim();
+export function interfaceLabel(flowName: string, version: string): string {
+  const name = flowName.trim();
   const v = version.trim();
-  return v ? `${nom} ${v}` : nom;
+  return v ? `${name} ${v}` : name;
 }
 
 // Combien d'échanges se nomment sur un trait fusionné avant qu'on ne compte le
@@ -93,7 +93,7 @@ export function libelleInterface(nomDuFlux: string, version: string): string {
 // mangerait le dessin -- l'infobulle du trait porte alors la liste entière.
 const ECHANGES_NOMMES = 2;
 
-// Le libellé d'un trait fusionné, partagé par la matrice (écran et export) et
+// Le libellé d'un trait fusionné, partagé par la matrix (écran et export) et
 // les schémas.
 //
 // Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
@@ -107,26 +107,26 @@ const ECHANGES_NOMMES = 2;
 // échanges.
 export type LibelléArête = "technology" | "exchanges" | "both";
 
-function échangesNommés(noms: readonly string[]): string {
-  const nommés = noms.slice(0, ECHANGES_NOMMES).join(", ");
-  const reste = noms.length - ECHANGES_NOMMES;
+function échangesNommés(names: readonly string[]): string {
+  const nommés = names.slice(0, ECHANGES_NOMMES).join(", ");
+  const reste = names.length - ECHANGES_NOMMES;
   return reste > 0 ? `${nommés} +${reste}` : nommés;
 }
 
-export function libelleCellule(
-  technologie: string,
+export function cellLabel(
+  technology: string,
   count: number,
-  noms: readonly string[] = [],
-  quoi: LibelléArête = "technology"
+  names: readonly string[] = [],
+  what: LibelléArête = "technology"
 ): string {
-  const tuyau = technologie ? (count > 1 ? `${technologie} ×${count}` : technologie) : "";
+  const tuyau = technology ? (count > 1 ? `${technology} ×${count}` : technology) : "";
   // Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
   // traits d'une même paire fusionnent -- « technology » retomberait sur un
   // compteur seul. Or « 2 » n'apprend ni ce qui circule ni pourquoi.
-  if (quoi === "technology" && tuyau) return tuyau;
-  if (noms.length === 0) return tuyau || String(count);
-  const échanges = échangesNommés(noms);
-  if (quoi === "both" && tuyau) return `${échanges} — ${tuyau}`;
+  if (what === "technology" && tuyau) return tuyau;
+  if (names.length === 0) return tuyau || String(count);
+  const échanges = échangesNommés(names);
+  if (what === "both" && tuyau) return `${échanges} — ${tuyau}`;
   return échanges;
 }
 
@@ -134,9 +134,9 @@ function isATransformer(decision: string): boolean {
   return normalizeText(decision) === normalizeText("Transform");
 }
 
-function acteurByNom(model: ParsedModel): Map<string, Acteur> {
-  const map = new Map<string, Acteur>();
-  for (const a of model.acteurs) map.set(a.nom.trim(), a);
+function actorByName(model: ParsedModel): Map<string, Actor> {
+  const map = new Map<string, Actor>();
+  for (const a of model.actors) map.set(a.name.trim(), a);
   return map;
 }
 
@@ -144,34 +144,34 @@ function acteurByNom(model: ParsedModel): Map<string, Acteur> {
 // plateforme, donc chacun de ses composants en fait partie. Lu acteur par
 // acteur, un groupe mixte se peignait aux couleurs de la plateforme tout en
 // n'affichant qu'une partie de ses membres.
-function perimetreDuGroupe(model: ParsedModel, groupe: string): string {
-  const nom = normalizeText(groupe);
-  return model.groupes.find((g) => normalizeText(g.nom) === nom)?.perimetre ?? "";
+function perimetreDuGroupe(model: ParsedModel, group: string): string {
+  const name = normalizeText(group);
+  return model.groups.find((g) => normalizeText(g.name) === name)?.perimeter ?? "";
 }
 
-export function groupeEstPlateforme(model: ParsedModel, groupe: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText(PERIMETRE_PLATEFORME);
+export function groupIsPlatform(model: ParsedModel, group: string): boolean {
+  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETRE_PLATEFORME);
 }
 
-export function groupeEstExterne(model: ParsedModel, groupe: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, groupe)) === normalizeText(PERIMETRE_EXTERNE);
+export function groupIsExternal(model: ParsedModel, group: string): boolean {
+  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETRE_EXTERNE);
 }
 
-export function acteurEstPlateforme(model: ParsedModel, acteur: Acteur): boolean {
-  return groupeEstPlateforme(model, acteur.groupe);
+export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
+  return groupIsPlatform(model, actor.group);
 }
 
 // Icône déclarée pour un type d'acteur. Le classeur fait foi ; sans
 // déclaration, le rendu retombe sur le jeton neutre.
-export function icôneDuTypeActeur(model: ParsedModel, typeActeur: string): string | undefined {
+export function iconForActorType(model: ParsedModel, typeActeur: string): string | undefined {
   const cherché = normalizeText(typeActeur);
   if (!cherché) return undefined;
   return model.typesActeur.find((t) => normalizeText(t.type) === cherché)?.icone || undefined;
 }
 
-export function nomEstExterne(model: ParsedModel, nom: string): boolean {
-  const acteur = model.acteurs.find((a) => a.nom.trim() === nom.trim());
-  return acteur ? groupeEstExterne(model, acteur.groupe) : false;
+export function nomEstExterne(model: ParsedModel, name: string): boolean {
+  const actor = model.actors.find((a) => a.name.trim() === name.trim());
+  return actor ? groupIsExternal(model, actor.group) : false;
 }
 
 // Rattachement (feuille, nom du flux) plutôt que nom seul (§3.3) : deux
@@ -199,24 +199,24 @@ export interface InterfaceLookup {
   nomVersionAmbigu: Set<string>;
 }
 
-function cle(...parties: string[]): string {
+function key(...parties: string[]): string {
   return JSON.stringify(parties.map(normalizeText));
 }
 
-export function interfaceKey(feuille: string, nomDuFlux: string, version: string): string {
-  return cle(feuille, nomDuFlux, version);
+export function interfaceKey(sheet: string, flowName: string, version: string): string {
+  return key(sheet, flowName, version);
 }
 
-export function nomVersionKey(nomDuFlux: string, version: string): string {
-  return cle(nomDuFlux, version);
+export function nomVersionKey(flowName: string, version: string): string {
+  return key(flowName, version);
 }
 
 // Le nom seul, normalisé comme les deux autres clés. Il l'était par un simple
 // trim, quand le rattachement, lui, normalise : un « Order status » écrit
 // « ORDER STATUS » dans une consommation était bel et bien dessiné, et le
 // rapport le déclarait pourtant absent du catalogue.
-export function nomKey(nomDuFlux: string): string {
-  return cle(nomDuFlux);
+export function nomKey(flowName: string): string {
+  return key(flowName);
 }
 
 export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
@@ -225,24 +225,24 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
   const byNom = new Map<string, InterfaceCatalogue>();
   const nomVersionAmbigu = new Set<string>();
   for (const i of model.interfaces) {
-    byKey.set(interfaceKey(i.feuilleAttendue, i.nomDuFlux, i.version), i);
-    const kNomVersion = nomVersionKey(i.nomDuFlux, i.version);
+    byKey.set(interfaceKey(i.expectedSheet, i.flowName, i.version), i);
+    const kNomVersion = nomVersionKey(i.flowName, i.version);
     const déjà = byNomVersion.get(kNomVersion);
     if (!déjà) byNomVersion.set(kNomVersion, i);
-    else if (normalizeText(déjà.acteurExposant) !== normalizeText(i.acteurExposant)) nomVersionAmbigu.add(kNomVersion);
-    if (!byNom.has(nomKey(i.nomDuFlux))) byNom.set(nomKey(i.nomDuFlux), i);
+    else if (normalizeText(déjà.providerName) !== normalizeText(i.providerName)) nomVersionAmbigu.add(kNomVersion);
+    if (!byNom.has(nomKey(i.flowName))) byNom.set(nomKey(i.flowName), i);
   }
   return { byKey, byNomVersion, byNom, nomVersionAmbigu };
 }
 
 export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consommation): InterfaceCatalogue | undefined {
-  const parOnglet = lookup.byKey.get(interfaceKey(c.feuille, c.nomDuFlux, c.version));
+  const parOnglet = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
   if (parOnglet) return parOnglet;
   // Le repli par le nom ne joue que si ce nom ne désigne qu'un seul exposant.
   // Plusieurs, et le rattacher au premier ferait signer ce consommateur chez
   // quelqu'un qu'il n'a pas choisi : on ne résout pas, et le contrôle de
   // référence le dit clairement.
-  const kNomVersion = nomVersionKey(c.nomDuFlux, c.version);
+  const kNomVersion = nomVersionKey(c.flowName, c.version);
   if (lookup.nomVersionAmbigu.has(kNomVersion)) return undefined;
   return lookup.byNomVersion.get(kNomVersion);
 }
@@ -254,72 +254,72 @@ export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consomm
 // -- exposant, interface, consommation, consommateur -- est vivante à ce rang.
 // `null` veut dire « aucun palier affiché » : rien n'est filtré, et un classeur
 // qui ne déclare aucun palier se comporte donc exactement comme avant.
-export function buildFlowInstances(model: ParsedModel, rang: number | null = null): FlowInstance[] {
-  const acteurs = acteurByNom(model);
-  const sensParType = new Map(model.typesFlux.map((t) => [t.type.trim(), t.sensRepresentation]));
+export function buildFlowInstances(model: ParsedModel, rank: number | null = null): FlowInstance[] {
+  const actors = actorByName(model);
+  const sensParType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.sensRepresentation]));
   const lookup = buildInterfaceLookup(model);
   const flows: FlowInstance[] = [];
 
-  for (const consommation of model.consommations) {
-    const iface = findInterfaceForConsommation(lookup, consommation);
+  for (const consumption of model.consumptions) {
+    const iface = findInterfaceForConsommation(lookup, consumption);
     if (!iface) continue;
 
-    const sens = sensParType.get(iface.typeDeFlux.trim());
-    if (!sens) continue;
+    const direction = sensParType.get(iface.flowType.trim());
+    if (!direction) continue;
 
-    const exposantActeur = acteurs.get(iface.acteurExposant.trim());
-    const consommateurActeur = acteurs.get(consommation.acteurConsommateur.trim());
+    const exposantActeur = actors.get(iface.providerName.trim());
+    const consommateurActeur = actors.get(consumption.consumerName.trim());
 
-    if (rang !== null) {
-      const vivant = (v: ValiditePalier | undefined) =>
-        v === undefined || estVivant(intervalleDeVie(model, v), rang);
-      if (!vivant(iface) || !vivant(consommation) || !vivant(exposantActeur) || !vivant(consommateurActeur)) {
+    if (rank !== null) {
+      const live = (v: ValiditePalier | undefined) =>
+        v === undefined || isLiveAt(lifespanOf(model, v), rank);
+      if (!live(iface) || !live(consumption) || !live(exposantActeur) || !live(consommateurActeur)) {
         continue;
       }
     }
 
     flows.push({
-      interfaceNom: iface.nomDuFlux,
+      interfaceName: iface.flowName,
       version: iface.version,
-      typeDeFlux: iface.typeDeFlux,
-      exposant: iface.acteurExposant,
-      consommateur: consommation.acteurConsommateur,
-      sens,
-      atténué: isATransformer(consommation.decision),
+      flowType: iface.flowType,
+      provider: iface.providerName,
+      consumer: consumption.consumerName,
+      direction,
+      attenuated: isATransformer(consumption.decision),
       iface,
-      conso: consommation,
+      conso: consumption,
     });
   }
 
   return flows;
 }
 
-export type NodeKeyFn = (acteurNom: string) => NodeId;
+export type NodeKeyFn = (actorName: string) => NodeId;
 
-export function identityNodeKey(acteurNom: string): NodeId {
-  return acteurNom;
+export function identityNodeKey(actorName: string): NodeId {
+  return actorName;
 }
 
 // Une chaîne vide est le sentinel "pas de nœud" : un acteur connu mais sans
 // Groupe renseigné est absent des vues agrégées (§7.4), pas replié sur son
 // propre nom — groupFlows() élimine les flux dont une extrémité y résout.
 export function groupNodeKey(model: ParsedModel): NodeKeyFn {
-  const acteurs = acteurByNom(model);
-  return (nom: string) => {
-    const acteur = acteurs.get(nom.trim());
-    if (!acteur) return nom;
-    return acteur.groupe.trim();
+  const actors = actorByName(model);
+  return (name: string) => {
+    const actor = actors.get(name.trim());
+    if (!actor) return name;
+    return actor.group.trim();
   };
 }
 
 export function platformDetailNodeKey(model: ParsedModel): NodeKeyFn {
-  const acteurs = acteurByNom(model);
-  return (nom: string) => {
-    const acteur = acteurs.get(nom.trim());
-    if (!acteur) return nom;
+  const actors = actorByName(model);
+  return (name: string) => {
+    const actor = actors.get(name.trim());
+    if (!actor) return name;
     // Un acteur d'un groupe « Plateforme » est détaillé sous son propre nom ;
     // tout le reste est replié sur son groupe.
-    return acteurEstPlateforme(model, acteur) ? acteur.nom : acteur.groupe.trim();
+    return actorIsPlatform(model, actor) ? actor.name : actor.group.trim();
   };
 }
 
@@ -335,34 +335,34 @@ export function platformDetailNodeKey(model: ParsedModel): NodeKeyFn {
 // au départ du trait quand c'est le consommateur qui appelle. Deux
 // informations, deux supports.
 function directedEndpoints(flow: FlowInstance, nodeKey: NodeKeyFn): { from: NodeId; to: NodeId } {
-  return { from: nodeKey(flow.exposant), to: nodeKey(flow.consommateur) };
+  return { from: nodeKey(flow.provider), to: nodeKey(flow.consumer) };
 }
 
 // Le consommateur prend l'initiative : la pointe se pose à l'autre bout du
 // trait, sur le fournisseur qu'il interroge.
-const estTire = (flow: FlowInstance) => flow.sens === "consommateur-exposant";
+const estTire = (flow: FlowInstance) => flow.direction === "consumer-to-provider";
 
 export interface EdgeGroup {
   from: NodeId;
   to: NodeId;
-  technologie: string;
+  technology: string;
   count: number;
-  atténué: boolean;
+  attenuated: boolean;
   // La pointe se pose au DÉPART du trait : c'est le consommateur qui appelle.
-  tire: boolean;
+  pulled: boolean;
   // Les échanges rassemblés sous ce trait, dans l'ordre où ils se présentent et
   // sans doublon : c'est d'eux que le libellé tire son sens quand la
   // technologie n'est plus là pour le porter.
-  noms: string[];
+  names: string[];
   // La criticité la PLUS FORTE des consommations rassemblées sous ce trait :
   // un trait qui porte un flux vital et deux flux ordinaires est vital.
-  criticite?: string;
+  criticality?: string;
 }
 
 // L'ordre du vocabulaire, du plus critique au moins. On le lit dans la liste
 // elle-même plutôt que d'en tenir une seconde : les deux divergeraient.
-function rangDeCriticite(valeur: string): number {
-  const i = VOCABULAIRE_CRITICITE.findIndex((v) => normalizeText(v) === normalizeText(valeur));
+function rangDeCriticite(value: string): number {
+  const i = VOCABULAIRE_CRITICITE.findIndex((v) => normalizeText(v) === normalizeText(value));
   return i < 0 ? VOCABULAIRE_CRITICITE.length : i;
 }
 
@@ -386,24 +386,24 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
     // une techno peut contenir un espace ("Ryloth") ou même un saut de
     // ligne (Excel autorise Alt+Entrée dans une cellule) ; JSON.stringify évite
     // toute ambiguïté sans introduire de caractère de contrôle dans le code source.
-    const key = JSON.stringify([from, to, flow.typeDeFlux]);
-    const nom = libelleInterface(flow.interfaceNom, flow.version);
+    const key = JSON.stringify([from, to, flow.flowType]);
+    const name = interfaceLabel(flow.interfaceName, flow.version);
     const existing = groups.get(key);
     if (existing) {
       existing.count += 1;
-      existing.atténué = existing.atténué && flow.atténué;
-      existing.criticite = laPlusForte(existing.criticite, flow.conso.criticite);
-      if (!existing.noms.includes(nom)) existing.noms.push(nom);
+      existing.attenuated = existing.attenuated && flow.attenuated;
+      existing.criticality = laPlusForte(existing.criticality, flow.conso.criticality);
+      if (!existing.names.includes(name)) existing.names.push(name);
     } else {
       groups.set(key, {
         from,
         to,
-        technologie: flow.typeDeFlux,
+        technology: flow.flowType,
         count: 1,
-        atténué: flow.atténué,
-        tire: estTire(flow),
-        noms: [nom],
-        criticite: flow.conso.criticite.trim() || undefined,
+        attenuated: flow.attenuated,
+        pulled: estTire(flow),
+        names: [name],
+        criticality: flow.conso.criticality.trim() || undefined,
       });
     }
   }
@@ -413,12 +413,12 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
 
 // Les deux lectures du parc. L'architecture répond à « par quoi ça passe », le
 // fonctionnel à « qui alimente qui » : mêmes données, deux questions.
-export type Mode = "architecture" | "fonctionnel";
+export type Mode = "architecture" | "functional";
 
 // Le mode ne s'y lit plus (§ Lecture, fonctionnel.ts) : une vue qui agrège
 // des flux déjà résolus au bon (rang, mode) n'a plus besoin de la redemander.
 export interface AggregationOptions {
-  compteurs: boolean;
+  counters: boolean;
   libelléArête?: LibelléArête;
 }
 
@@ -431,18 +431,18 @@ export function aggregateEdges(
   return groupFlows(flows, nodeKey, maskLoops).map((g) => ({
     from: g.from,
     to: g.to,
-    technologie: g.technologie,
+    technology: g.technology,
     count: g.count,
-    criticite: g.criticite,
+    criticality: g.criticality,
     // Sans compteur on ne nomme que le tuyau, sauf si l'utilisateur a demandé
     // autre chose : « counters » décide du ×N, pas de ce qui est nommé.
     label:
-      options.compteurs || (options.libelléArête ?? "technology") !== "technology"
-        ? libelleCellule(g.technologie, g.count, g.noms, options.libelléArête ?? "technology")
-        : g.technologie,
-    atténué: g.atténué,
-    tire: g.tire,
-    noms: g.noms,
+      options.counters || (options.libelléArête ?? "technology") !== "technology"
+        ? cellLabel(g.technology, g.count, g.names, options.libelléArête ?? "technology")
+        : g.technology,
+    attenuated: g.attenuated,
+    pulled: g.pulled,
+    names: g.names,
   }));
 }
 
@@ -450,7 +450,7 @@ export function nodesFromEdges(
   edges: (GraphEdge | EdgeGroup)[],
   labelFor: (id: NodeId) => string,
   kindFor: (id: NodeId) => NodeKind,
-  detailsFor: (id: NodeId) => { sousTitre?: string; description?: string } = () => ({})
+  detailsFor: (id: NodeId) => { subtitle?: string; description?: string } = () => ({})
 ): GraphNode[] {
   const ids = new Set<NodeId>();
   for (const e of edges) {

@@ -74,23 +74,23 @@ export function nomTronque(label: string): string {
 
 // Découpe la description en lignes tenant dans la largeur utile, sans couper
 // un mot. Au-delà du nombre de lignes admis, la dernière est tronquée.
-export function lignesDescription(texte: string | undefined): string[] {
-  if (!texte) return [];
+export function lignesDescription(text: string | undefined): string[] {
+  if (!text) return [];
   const parCaractere = Math.max(1, Math.floor(LARGEUR_UTILE / LARGEUR_CARACTERE_DESC));
-  const lignes: string[] = [];
+  const rows: string[] = [];
   let courante = "";
-  for (const mot of texte.split(/\s+/)) {
+  for (const mot of text.split(/\s+/)) {
     const essai = courante ? `${courante} ${mot}` : mot;
     if (essai.length <= parCaractere) {
       courante = essai;
       continue;
     }
-    if (courante) lignes.push(courante);
+    if (courante) rows.push(courante);
     courante = mot;
   }
-  if (courante) lignes.push(courante);
-  if (lignes.length <= MAX_LIGNES_DESC) return lignes;
-  const gardées = lignes.slice(0, MAX_LIGNES_DESC);
+  if (courante) rows.push(courante);
+  if (rows.length <= MAX_LIGNES_DESC) return rows;
+  const gardées = rows.slice(0, MAX_LIGNES_DESC);
   gardées[MAX_LIGNES_DESC - 1] = gardées[MAX_LIGNES_DESC - 1].slice(0, parCaractere - 1).trimEnd() + "…";
   return gardées;
 }
@@ -107,15 +107,15 @@ const HAUTEUR_SOUS_LIGNE = 12;
 // réservée -- c'est ICI que la taille du texte se paie.
 const LARGEUR_CAR_LIBELLE = 6.2;
 
-export function largeurPastille(texte: string): number {
-  return texte.length * LARGEUR_CAR_LIBELLE + 14;
+export function largeurPastille(text: string): number {
+  return text.length * LARGEUR_CAR_LIBELLE + 14;
 }
 
 // La technologie n'est rappelée sous le libellé que si celui-ci dit autre
 // chose qu'elle : dans les vues agrégées le libellé EST la technologie.
-export function sousLibellé(label: string | undefined, technologie: string): string | undefined {
+export function sousLibellé(label: string | undefined, technology: string): string | undefined {
   if (!label) return undefined;
-  const tech = technologie.trim();
+  const tech = technology.trim();
   return tech && !label.startsWith(tech) ? `[${tech}]` : undefined;
 }
 
@@ -124,10 +124,10 @@ export function sousLibellé(label: string | undefined, technologie: string): st
 // de la boîte qu'ELK lui a gardée.
 const LARGEUR_DISQUE = 11;
 
-export function taillePastille(label: string | undefined, technologie: string): { width: number; height: number } {
+export function taillePastille(label: string | undefined, technology: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
-  const sous = sousLibellé(label, technologie);
-  const disque = technologie.trim() !== "" ? LARGEUR_DISQUE : 0;
+  const sous = sousLibellé(label, technology);
+  const disque = technology.trim() !== "" ? LARGEUR_DISQUE : 0;
   return {
     width: Math.max(largeurPastille(label) + disque, sous ? largeurPastille(sous) : 0),
     height: HAUTEUR_PASTILLE + (sous ? HAUTEUR_SOUS_LIGNE : 0),
@@ -135,11 +135,11 @@ export function taillePastille(label: string | undefined, technologie: string): 
 }
 
 export function hauteurTexteNoeud(node: GraphNode): number {
-  const lignes = lignesDescription(node.description).length;
+  const rows = lignesDescription(node.description).length;
   return (
     HAUTEUR_LIGNE_NOM +
-    (node.sousTitre ? HAUTEUR_LIGNE_TYPE : 0) +
-    (lignes ? HAUTEUR_LIGNE_VIDE + lignes * HAUTEUR_LIGNE_DESC : 0)
+    (node.subtitle ? HAUTEUR_LIGNE_TYPE : 0) +
+    (rows ? HAUTEUR_LIGNE_VIDE + rows * HAUTEUR_LIGNE_DESC : 0)
   );
 }
 
@@ -287,7 +287,7 @@ function hauteurPourAccroches(n: number): number {
 // et la « confluence » du rendu ne serait qu'une diagonale plaquée par-dessus
 // un routage orthogonal.
 function cléEntrée(edge: GraphEdge): string {
-  return JSON.stringify([edge.to, edge.technologie, edge.atténué]);
+  return JSON.stringify([edge.to, edge.technology, edge.attenuated]);
 }
 
 interface NoeudElk {
@@ -351,7 +351,7 @@ function pointsDeLArete(
   arete: AreteElk | undefined,
   départ: LayoutNode,
   arrivée: LayoutNode,
-  décalage: { x: number; y: number }
+  offset: { x: number; y: number }
 ): { x: number; y: number }[] {
   const section = arete?.sections?.[0];
   if (!section) {
@@ -363,8 +363,8 @@ function pointsDeLArete(
     ];
   }
   return [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map((p) => ({
-    x: p.x + décalage.x,
-    y: p.y + décalage.y,
+    x: p.x + offset.x,
+    y: p.y + offset.y,
   }));
 }
 
@@ -373,7 +373,7 @@ type Point = { x: number; y: number };
 // Nombre de PAIRES d'arêtes qui se croisent. C'est l'arbitre entre deux
 // dispositions : un croisement est ce que le lecteur paie le plus cher.
 function croisements(tracés: Point[][]): number {
-  const bornes = tracés.map((pts) => {
+  const bounds = tracés.map((pts) => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const p of pts) {
       x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
@@ -391,7 +391,7 @@ function croisements(tracés: Point[][]): number {
     for (let j = i + 1; j < tracés.length; j++) {
       // Sans ce filtre par boîte englobante, le comptage est quadratique en
       // segments et fige le rendu sur les grandes vues.
-      const A = bornes[i], B = bornes[j];
+      const A = bounds[i], B = bounds[j];
       if (A.x1 < B.x0 || B.x1 < A.x0 || A.y1 < B.y0 || B.y1 < A.y0) continue;
       const P = tracés[i], Q = tracés[j];
       let trouvé = false;
@@ -413,28 +413,28 @@ const ENTETE_FRONTIERE = 22;
 
 // La clé d'une arête, indépendante de son libellé : celui-ci porte le compteur
 // « ×N », qui n'est pas le même sur l'union et sur un palier.
-function cléArête(e: { from: string; to: string; technologie: string }): string {
-  return JSON.stringify([e.from, e.to, e.technologie]);
+function cléArête(e: { from: string; to: string; technology: string }): string {
+  return JSON.stringify([e.from, e.to, e.technology]);
 }
 
 // Le placement de l'union, restreint à ce qu'un palier montre. Les positions ne
 // sont PAS recalculées : c'est tout l'objet -- une boîte présente aux deux
 // paliers ne bouge pas d'un pixel. Les libellés, eux, viennent de la vue du
 // palier : « HTTP ×2 » à v1 n'est pas « HTTP ×3 » à v2.
-export function restreindreLayout(union: LayoutResult, vue: { nodes: GraphNode[]; edges: GraphEdge[] }): LayoutResult {
-  const idsVivants = new Set(vue.nodes.map((n) => n.id));
-  const arêtesVivantes = new Map(vue.edges.map((e) => [cléArête(e), e]));
+export function restreindreLayout(union: LayoutResult, view: { nodes: GraphNode[]; edges: GraphEdge[] }): LayoutResult {
+  const idsVivants = new Set(view.nodes.map((n) => n.id));
+  const arêtesVivantes = new Map(view.edges.map((e) => [cléArête(e), e]));
   return {
     // La taille reste celle de l'UNION : c'est ce qui garde le cadre immobile
     // d'un palier à l'autre, et donc les boîtes à la même place à l'écran.
     width: union.width,
     height: union.height,
-    nodes: union.nodes.filter((n) => idsVivants.has(n.id) || n.kind === "frontiere"),
+    nodes: union.nodes.filter((n) => idsVivants.has(n.id) || n.kind === "boundary"),
     edges: union.edges
       .filter((e) => arêtesVivantes.has(cléArête(e)))
       .map((e) => {
-        const vivante = arêtesVivantes.get(cléArête(e))!;
-        return { ...e, label: vivante.label, count: vivante.count, noms: vivante.noms, atténué: vivante.atténué, ecart: vivante.ecart };
+        const live = arêtesVivantes.get(cléArête(e))!;
+        return { ...e, label: live.label, count: live.count, names: live.names, attenuated: live.attenuated, ecart: live.ecart };
       }),
   };
 }
@@ -469,11 +469,11 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
       // façades : la boîte doublait de hauteur, aux deux tiers vide.
       const nOuest = new Set(edges.filter((e) => e.to === node.id).map(cléEntrée)).size;
       const nEst = edges.filter((e) => e.from === node.id).length;
-      const hauteur = Math.max(hauteurNoeud(node), hauteurPourAccroches(Math.max(nOuest, nEst)));
+      const height = Math.max(hauteurNoeud(node), hauteurPourAccroches(Math.max(nOuest, nEst)));
       return {
         id: node.id,
         width: LARGEUR_NOEUD,
-        height: hauteur,
+        height: height,
         // Option NODALE : posée sur le graphe, elle ne descendrait pas
         // jusqu'aux nœuds. Une boîte C4 fait 56 à 68 px de haut ; un moyeu qui
         // reçoit onze flux ne peut pas les écarter sur une façade si courte, et
@@ -482,7 +482,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
         layoutOptions: {
           ...(ports.length ? { "elk.portConstraints": "FIXED_SIDE" } : {}),
           "elk.nodeSize.constraints": "MINIMUM_SIZE",
-          "elk.nodeSize.minimum": `(${LARGEUR_NOEUD},${hauteur})`,
+          "elk.nodeSize.minimum": `(${LARGEUR_NOEUD},${height})`,
         },
       };
   };
@@ -490,9 +490,9 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   const enfantsDe = new Map<string, GraphNode[]>();
   for (const node of nodes) {
     if (!node.parent) continue;
-    const liste = enfantsDe.get(node.parent) ?? [];
-    liste.push(node);
-    enfantsDe.set(node.parent, liste);
+    const list = enfantsDe.get(node.parent) ?? [];
+    list.push(node);
+    enfantsDe.set(node.parent, list);
   }
 
   const construireGraphe = (retours: Map<number, CôtéRetour>): GrapheElk => ({
@@ -519,7 +519,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     // de technologies différentes relient les mêmes nœuds et doivent rester
     // deux arêtes distinctes.
     edges: edges.map((edge, i) => {
-      const taille = taillePastille(edge.label, edge.technologie);
+      const size = taillePastille(edge.label, edge.technology);
       return {
         id: `e${i}`,
         sources: [edge.from],
@@ -535,8 +535,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
           ? [
               {
                 text: edge.label,
-                width: taille.width,
-                height: taille.height,
+                width: size.width,
+                height: size.height,
                 layoutOptions: {
                   "elk.edgeLabels.placement": "CENTER",
                   // Le libellé est posé SUR le trait, pas à côté. La
@@ -561,8 +561,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // pour ramener tout le monde dans le même repère que les arêtes.
   const aplatirEn = (r: GrapheElk) => {
     const m = new Map<string, NoeudElk>();
-    const parcourir = (liste: NoeudElk[] | undefined, dx: number, dy: number) => {
-      for (const n of liste ?? []) {
+    const parcourir = (list: NoeudElk[] | undefined, dx: number, dy: number) => {
+      for (const n of list ?? []) {
         const absolu = { ...n, x: (n.x ?? 0) + dx, y: (n.y ?? 0) + dy };
         m.set(n.id, absolu);
         parcourir(n.children, absolu.x, absolu.y);
@@ -588,16 +588,16 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // donnée. Seule « EAST » nous intéresse : c'est la face réservée aux sorties.
   const entreParLEst = (r: GrapheElk, ids: Map<string, NoeudElk>, i: number): boolean => {
     const arete = (r.edges ?? []).find((e) => e.id === `e${i}`);
-    const fin = arete?.sections?.[0]?.endPoint;
-    const cible = ids.get(edges[i].to);
-    if (!fin || !cible) return false;
+    const end = arete?.sections?.[0]?.endPoint;
+    const target = ids.get(edges[i].to);
+    if (!end || !target) return false;
     const conteneur = arete?.container ? ids.get(arete.container) : undefined;
-    const x = fin.x + (conteneur?.x ?? 0);
-    const y = fin.y + (conteneur?.y ?? 0);
-    const gauche = cible.x ?? 0;
-    const haut = cible.y ?? 0;
-    if (y < haut || y > haut + cible.height) return false;
-    return Math.abs(x - (gauche + cible.width)) < Math.abs(x - gauche);
+    const x = end.x + (conteneur?.x ?? 0);
+    const y = end.y + (conteneur?.y ?? 0);
+    const gauche = target.x ?? 0;
+    const haut = target.y ?? 0;
+    if (y < haut || y > haut + target.height) return false;
+    return Math.abs(x - (gauche + target.width)) < Math.abs(x - gauche);
   };
 
   // Polyligne de chaque arête, dans le repère du graphe : de quoi comparer deux
@@ -619,11 +619,11 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   edges.forEach((edge, i) => {
     if (!entreParLEst(libre, idsLibre, i)) return;
     const source = idsLibre.get(edge.from);
-    const cible = idsLibre.get(edge.to);
-    if (!source || !cible) return;
+    const target = idsLibre.get(edge.to);
+    if (!source || !target) return;
     // Par le haut ou par le bas « suivant par où elle passe » : du côté d'où
     // vient le flux.
-    const côté = (source.y ?? 0) + source.height / 2 <= (cible.y ?? 0) + cible.height / 2;
+    const côté = (source.y ?? 0) + source.height / 2 <= (target.y ?? 0) + target.height / 2;
     retours.set(i, côté ? "NORTH" : "SOUTH");
   });
 
@@ -644,10 +644,10 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   const layoutNodes: LayoutNode[] = nodes.map((node) => {
     const n = parId.get(node.id);
-    const largeur = n?.width ?? LARGEUR_NOEUD;
-    const hauteur = n?.height ?? hauteurNoeud(node);
+    const width = n?.width ?? LARGEUR_NOEUD;
+    const height = n?.height ?? hauteurNoeud(node);
     const c = n ? centre(n) : { x: 0, y: 0 };
-    return { ...node, x: c.x, y: c.y, width: largeur, height: hauteur };
+    return { ...node, x: c.x, y: c.y, width: width, height: height };
   });
 
   const noeudsParId = new Map(layoutNodes.map((n) => [n.id, n]));
@@ -667,16 +667,16 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const arrivée = noeudsParId.get(edge.to);
     if (!départ || !arrivée) return { ...edge, points: [] };
     const arete = arêtesParId.get(`e${i}`);
-    const décalage = origineDe(arete);
+    const offset = origineDe(arete);
     const étiquette = arete?.labels?.[0];
     return {
       ...edge,
-      points: pointsDeLArete(arete, départ, arrivée, décalage),
+      points: pointsDeLArete(arete, départ, arrivée, offset),
       centreLibellé:
         étiquette && étiquette.x !== undefined && étiquette.y !== undefined
           ? {
-              x: étiquette.x + (étiquette.width ?? 0) / 2 + décalage.x,
-              y: étiquette.y + (étiquette.height ?? 0) / 2 + décalage.y,
+              x: étiquette.x + (étiquette.width ?? 0) / 2 + offset.x,
+              y: étiquette.y + (étiquette.height ?? 0) / 2 + offset.y,
             }
           : undefined,
     };

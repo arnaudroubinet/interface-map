@@ -6,14 +6,14 @@ import * as base from "../testing/fixtures";
 
 // Le tableau arrive déjà élagué : ni Kamino ni Muet n'émettent, ils n'ont donc
 // pas de ligne, et Tatooine ne reçoit rien, il n'a pas de colonne.
-const matrice: MatrixResult = base.matrice({
-  colonnes: ["Kamino", "Muet"],
-  lignes: [
+const matrix: MatrixResult = base.matrix({
+  columns: ["Kamino", "Muet"],
+  rows: [
     {
-      acteur: "Tatooine",
+      actor: "Tatooine",
       cellules: new Map([
-        ["Kamino", [{ technologie: "HTTP", count: 3, atténué: false, noms: [] }]],
-        ["Muet", [{ technologie: "Kafka", count: 1, atténué: true, noms: [] }]],
+        ["Kamino", [{ technology: "HTTP", count: 3, attenuated: false, names: [] }]],
+        ["Muet", [{ technology: "Kafka", count: 1, attenuated: true, names: [] }]],
       ]),
     },
   ],
@@ -22,12 +22,12 @@ const matrice: MatrixResult = base.matrice({
 // On relit le classeur écrit, pas l'objet en mémoire : c'est le fichier reçu
 // dans Excel qui compte.
 function classeurProduit(): XLSX.WorkBook {
-  const wb = construireClasseurMatrice(matrice);
+  const wb = construireClasseurMatrice(matrix);
   const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   return XLSX.read(new Uint8Array(octets), { type: "array" });
 }
 
-describe("export Excel de la matrice", () => {
+describe("export Excel de la matrix", () => {
   it("écrit une feuille grille et une feuille à plat", () => {
     const wb = classeurProduit();
     expect(wb.SheetNames).toEqual(["Matrix", "Flows"]);
@@ -44,8 +44,8 @@ describe("export Excel de la matrice", () => {
 
   it("déplie un flux par ligne dans la feuille à plat, avec son compte", () => {
     const wb = classeurProduit();
-    const flux = XLSX.utils.sheet_to_json<Record<string, string | number>>(wb.Sheets.Flows, { defval: "" });
-    expect(flux).toEqual([
+    const flows = XLSX.utils.sheet_to_json<Record<string, string | number>>(wb.Sheets.Flows, { defval: "" });
+    expect(flows).toEqual([
       { From: "Tatooine", To: "Kamino", Technology: "HTTP", Count: 3, Attenuated: "" },
       { From: "Tatooine", To: "Muet", Technology: "Kafka", Count: 1, Attenuated: "Yes" },
     ]);
@@ -65,15 +65,15 @@ describe("export Excel de la matrice", () => {
 // En mode fonctionnel, la technologie est vidée (§4.2) : sans ce compteur de
 // repli, la grille exportée n'a plus que ses en-têtes -- un classeur qui a
 // l'air correct et qui ne dit à personne qu'il ne montre plus rien.
-describe("export Excel de la matrice — mode fonctionnel (technologie vide)", () => {
-  const matriceFonctionnelle: MatrixResult = base.matrice({
-    colonnes: ["Kamino", "Muet"],
-    lignes: [
+describe("export Excel de la matrix — mode fonctionnel (technologie vide)", () => {
+  const matriceFonctionnelle: MatrixResult = base.matrix({
+    columns: ["Kamino", "Muet"],
+    rows: [
       {
-        acteur: "Tatooine",
+        actor: "Tatooine",
         cellules: new Map([
-          ["Kamino", [{ technologie: "", count: 1, atténué: false, noms: [] }]],
-          ["Muet", [{ technologie: "", count: 3, atténué: false, noms: [] }]],
+          ["Kamino", [{ technology: "", count: 1, attenuated: false, names: [] }]],
+          ["Muet", [{ technology: "", count: 3, attenuated: false, names: [] }]],
         ]),
       },
     ],
@@ -98,22 +98,22 @@ describe("export Excel de la matrice — mode fonctionnel (technologie vide)", (
 // retrier -- sinon le classeur emporté n'est pas le tableau qu'on avait sous
 // les yeux.
 describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () => {
-  const cellule = { technologie: "HTTP", count: 1, atténué: false, noms: [] };
-  const nonAlphabetique = base.matrice({
-    colonnes: ["Zeffo", "Bracca"],
-    lignes: [
-      { acteur: "Zeffo", cellules: new Map([["Bracca", [cellule]]]) },
-      { acteur: "Bracca", cellules: new Map([["Zeffo", [cellule]]]) },
+  const cellule = { technology: "HTTP", count: 1, attenuated: false, names: [] };
+  const nonAlphabetique = base.matrix({
+    columns: ["Zeffo", "Bracca"],
+    rows: [
+      { actor: "Zeffo", cellules: new Map([["Bracca", [cellule]]]) },
+      { actor: "Bracca", cellules: new Map([["Zeffo", [cellule]]]) },
     ],
   });
 
   it("écrit les lignes dans l'ordre du tableau, pas dans l'ordre alphabétique", () => {
-    const feuille = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
-    expect([feuille.A2.v, feuille.A3.v]).toEqual(["Zeffo", "Bracca"]);
+    const sheet = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    expect([sheet.A2.v, sheet.A3.v]).toEqual(["Zeffo", "Bracca"]);
   });
 
   it("écrit les colonnes dans l'ordre du tableau", () => {
-    const feuille = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
-    expect([feuille.B1.v, feuille.C1.v]).toEqual(["Zeffo", "Bracca"]);
+    const sheet = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    expect([sheet.B1.v, sheet.C1.v]).toEqual(["Zeffo", "Bracca"]);
   });
 });

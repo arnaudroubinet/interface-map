@@ -25,7 +25,7 @@ const TRACÉS: Record<string, string[]> = {
   ],
 };
 
-function icône(nom: keyof typeof TRACÉS): SVGSVGElement {
+function icône(name: keyof typeof TRACÉS): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", "16");
@@ -36,15 +36,15 @@ function icône(nom: keyof typeof TRACÉS): SVGSVGElement {
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
   svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("class", "icone-section");
-  if (nom === "info") {
+  svg.setAttribute("class", "section-icon");
+  if (name === "info") {
     const cercle = document.createElementNS(SVG_NS, "circle");
     cercle.setAttribute("cx", "12");
     cercle.setAttribute("cy", "12");
     cercle.setAttribute("r", "10");
     svg.appendChild(cercle);
   }
-  for (const d of TRACÉS[nom]) {
+  for (const d of TRACÉS[name]) {
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", d);
     svg.appendChild(path);
@@ -54,18 +54,18 @@ function icône(nom: keyof typeof TRACÉS): SVGSVGElement {
 
 // Ce qu'une section signale quand elle n'est pas vide : une faute qui invalide
 // les schémas, une saisie à trancher, ou une simple information.
-type Gravité = "erreur" | "action" | "avertissement" | "info";
+type Severity = "erreur" | "action" | "warning" | "info";
 
-const CLASSE: Record<Gravité, string> = {
-  erreur: "section-alerte",
+const CLASSE: Record<Severity, string> = {
+  erreur: "section-alert",
   action: "section-action",
-  avertissement: "section-avertissement",
+  warning: "section-warning",
   info: "section-info",
 };
-const ICÔNE: Record<Gravité, keyof typeof TRACÉS> = {
+const ICÔNE: Record<Severity, keyof typeof TRACÉS> = {
   erreur: "stop",
   action: "action",
-  avertissement: "alerte",
+  warning: "alerte",
   info: "info",
 };
 
@@ -74,21 +74,21 @@ const ICÔNE: Record<Gravité, keyof typeof TRACÉS> = {
 // portent quelque chose s'ouvrent d'office.
 function construireSection(
   classe: string,
-  titre: string,
+  title: string,
   description: string,
   items: string[],
-  gravité: Gravité
+  severity: Severity
 ): HTMLElement {
   const vide = items.length === 0;
   const section = document.createElement("details");
-  section.className = `${classe} ${vide ? "section-ok" : CLASSE[gravité]}`;
+  section.className = `${classe} ${vide ? "section-ok" : CLASSE[severity]}`;
   if (!vide) section.open = true;
 
   const résumé = document.createElement("summary");
-  résumé.appendChild(icône(vide ? "check" : ICÔNE[gravité]));
-  const libellé = document.createElement("span");
-  libellé.textContent = `${titre} (${items.length})`;
-  résumé.appendChild(libellé);
+  résumé.appendChild(icône(vide ? "check" : ICÔNE[severity]));
+  const label = document.createElement("span");
+  label.textContent = `${title} (${items.length})`;
+  résumé.appendChild(label);
   section.appendChild(résumé);
 
   const desc = document.createElement("p");
@@ -97,17 +97,17 @@ function construireSection(
 
   if (vide) {
     const rien = document.createElement("p");
-    rien.className = "rien-a-signaler";
+    rien.className = "nothing-to-report";
     rien.textContent = "Nothing to report.";
     section.appendChild(rien);
   } else {
-    const liste = document.createElement("ul");
+    const list = document.createElement("ul");
     for (const item of items) {
       const li = document.createElement("li");
       li.textContent = item;
-      liste.appendChild(li);
+      list.appendChild(li);
     }
-    section.appendChild(liste);
+    section.appendChild(list);
   }
 
   return section;
@@ -118,15 +118,15 @@ function construireSection(
 // que soit sa nature -- elle ne porte plus qu'une coche.
 // Les actions passent avant les avertissements : elles s'adressent au lecteur,
 // là où un avertissement ne fait que constater une saisie incomplète.
-const RANG: Record<Gravité, number> = { erreur: 0, action: 1, avertissement: 2, info: 3 };
+const RANG: Record<Severity, number> = { erreur: 0, action: 1, warning: 2, info: 3 };
 const RANG_VIDE = 4;
 
 export interface SectionRapport {
   classe: string;
-  titre: string;
+  title: string;
   description: string;
   items: string[];
-  gravité: Gravité;
+  severity: Severity;
 }
 
 // Le rapport à plat, dans son ordre de lecture. L'écran et le fichier Markdown
@@ -135,36 +135,36 @@ export interface SectionRapport {
 // le même ordre.
 export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
   const sections: SectionRapport[] = [
-    ...report.familles.map((f) => ({
-      classe: "bloc-anomalies",
-      titre: f.titre,
+    ...report.families.map((f) => ({
+      classe: "block-anomalies",
+      title: f.title,
       description: f.description,
       items: f.anomalies.map((a) => a.message),
-      gravité: "erreur" as Gravité,
+      severity: "erreur" as Severity,
     })),
     // Un bloc informatif ne porte jamais de faute : au pire une décision en
     // attente (action) ou une saisie incomplète (avertissement).
-    ...report.blocsInformatifs.map((b) => ({
-      classe: "bloc-informatif",
-      titre: b.titre,
+    ...report.infoBlocks.map((b) => ({
+      classe: "block-info",
+      title: b.title,
       description: b.description,
       items: b.items,
-      gravité: b.niveau,
+      severity: b.level,
     })),
   ];
 
-  const rang = (s: SectionRapport) => (s.items.length === 0 ? RANG_VIDE : RANG[s.gravité]);
+  const rank = (s: SectionRapport) => (s.items.length === 0 ? RANG_VIDE : RANG[s.severity]);
   // Tri stable : à rang égal, les sections gardent l'ordre où les contrôles
   // les ont produites.
-  return [...sections].sort((a, b) => rang(a) - rang(b));
+  return [...sections].sort((a, b) => rank(a) - rank(b));
 }
 
 export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
   const container = document.createElement("div");
-  container.className = "rapport-integrite";
+  container.className = "integrity-report";
 
   for (const s of sectionsDuRapport(report)) {
-    container.appendChild(construireSection(s.classe, s.titre, s.description, s.items, s.gravité));
+    container.appendChild(construireSection(s.classe, s.title, s.description, s.items, s.severity));
   }
 
   return container;

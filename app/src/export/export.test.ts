@@ -21,7 +21,7 @@ describe("buildExportFilename", () => {
 
 describe("buildExportFilename — mode", () => {
   it("nomme le mode fonctionnel", () => {
-    expect(buildExportFilename("Group to group", null, "v2", "drawio", "fonctionnel")).toBe(
+    expect(buildExportFilename("Group to group", null, "v2", "drawio", "functional")).toBe(
       "carto-functional-group-to-group-v2.drawio"
     );
   });

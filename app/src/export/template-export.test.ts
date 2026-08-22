@@ -7,7 +7,7 @@ import {
   listesDuModele,
   validationsDuModele,
   INVITES,
-  colonneDe,
+  columnOf,
   COLONNE_APPOINT,
   CELLULE_ONGLET,
   LISTES,
@@ -26,8 +26,8 @@ import {
   COLONNES_TYPESFLUX,
 } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
-import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icones";
-import { DONNEES_EXEMPLE } from "./exemple-donnees";
+import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
+import { DONNEES_EXEMPLE } from "./sample-data";
 
 // On relit le fichier écrit, pas l'objet en mémoire : c'est celui-là que
 // l'utilisateur ouvrira, et c'est lui qui doit repasser dans notre parseur.
@@ -38,11 +38,11 @@ function modeleRelu(): ArrayBuffer {
 
 // Le contenu brut d'une partie du paquet, pour vérifier ce que SheetJS ne sait
 // ni écrire ni relire.
-function partie(chemin: string, paquet: ArrayBuffer = modeleRelu()): string {
+function partie(path: string, paquet: ArrayBuffer = modeleRelu()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
-  const entrée = XLSX.CFB.find(cfb, chemin);
-  if (!entrée || !entrée.content) throw new Error(`partie absente : ${chemin}`);
-  return new TextDecoder().decode(new Uint8Array(entrée.content as unknown as ArrayBufferLike));
+  const input = XLSX.CFB.find(cfb, path);
+  if (!input || !input.content) throw new Error(`partie absente : ${path}`);
+  return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
 // Les parties de feuille sont numérotées dans l'ordre du classeur : les
@@ -53,18 +53,18 @@ function partie(chemin: string, paquet: ArrayBuffer = modeleRelu()): string {
 // par le nom qu'elles portent.
 function tableXml(nomTable: string, paquet: ArrayBuffer = modeleRelu()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
-  for (const chemin of cfb.FullPaths) {
-    if (!/\/xl\/tables\/table\d+\.xml$/.test(chemin)) continue;
-    const xml = partie(chemin.replace(/^[^/]*/, ""), paquet);
+  for (const path of cfb.FullPaths) {
+    if (!/\/xl\/tables\/table\d+\.xml$/.test(path)) continue;
+    const xml = partie(path.replace(/^[^/]*/, ""), paquet);
     if (xml.includes(`name="${nomTable}"`)) return xml;
   }
   throw new Error(`table absente : ${nomTable}`);
 }
 
-function feuilleXml(nom: string, paquet: ArrayBuffer = modeleRelu()): string {
+function feuilleXml(name: string, paquet: ArrayBuffer = modeleRelu()): string {
   const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
-  const index = wb.SheetNames.indexOf(nom);
-  if (index < 0) throw new Error(`onglet absent : ${nom}`);
+  const index = wb.SheetNames.indexOf(name);
+  if (index < 0) throw new Error(`tab absent : ${name}`);
   return partie(`/xl/worksheets/sheet${index + 1}.xml`, paquet);
 }
 
@@ -119,8 +119,8 @@ describe("modèle de classeur", () => {
   it("ne déclenche aucune anomalie bloquante à l'ouverture", () => {
     const résultat = buildModel(parseWorkbook(modeleRelu()));
     if (!résultat.ok) throw new Error("modèle illisible");
-    const rapport = runIntegrityChecks(résultat.model);
-    const messages = rapport.familles.flatMap((f) => f.anomalies.map((a) => a.message));
+    const report = runIntegrityChecks(résultat.model);
+    const messages = report.families.flatMap((f) => f.anomalies.map((a) => a.message));
     expect(messages).toEqual([]);
   });
 
@@ -131,9 +131,9 @@ describe("modèle de classeur", () => {
   // réparer. La règle est donc vérifiée ici, à la source.
   it("ne pose pas d'autofiltre sur une feuille dont le nom contient une apostrophe", () => {
     const wb = construireClasseurModele();
-    for (const nom of wb.SheetNames) {
-      if (nom.includes("'")) {
-        expect(wb.Sheets[nom]["!autofilter"]).toBeUndefined();
+    for (const name of wb.SheetNames) {
+      if (name.includes("'")) {
+        expect(wb.Sheets[name]["!autofilter"]).toBeUndefined();
       }
     }
     // Plus aucune feuille ne porte d'apostrophe depuis que « Mode d'emploi »
@@ -144,13 +144,13 @@ describe("modèle de classeur", () => {
 
   it("liste les noms d'icône acceptés dans l'onglet Listes, chacun avec son aperçu", () => {
     const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
-    const listes = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Lists, { defval: "" });
-    const proposées = listes.map((l) => l.Icon).filter(Boolean);
+    const lists = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Lists, { defval: "" });
+    const proposées = lists.map((l) => l.Icon).filter(Boolean);
     expect(proposées).toEqual(ICONES_DISPONIBLES);
     // Chaque nom a son repère visuel en regard, sur la même ligne.
-    for (const ligne of listes.filter((l) => l.Icon)) {
-      expect(ligne["Preview"]).toBe(APERCU_ICONES[ligne.Icon]);
-      expect(ligne["Preview"]).not.toBe("");
+    for (const row of lists.filter((l) => l.Icon)) {
+      expect(row["Preview"]).toBe(APERCU_ICONES[row.Icon]);
+      expect(row["Preview"]).not.toBe("");
     }
   });
 
@@ -177,11 +177,11 @@ describe("modèle de classeur", () => {
   });
 
   it("nomme les colonnes du tableau comme la ligne d'en-tête", () => {
-    const acteurs = tableauxDuModele().find((t) => t.feuille === "Actors")!;
+    const actors = tableauxDuModele().find((t) => t.sheet === "Actors")!;
     const table = partie("/xl/tables/table1.xml");
-    for (const colonne of acteurs.colonnes) {
+    for (const column of actors.columns) {
       // Excel refuse un tableau dont une colonne déclarée ne correspond pas.
-      expect(table).toContain(colonne.replace(/'/g, "'"));
+      expect(table).toContain(column.replace(/'/g, "'"));
     }
   });
 
@@ -194,24 +194,24 @@ describe("modèle de classeur", () => {
     if (!résultat.ok) throw new Error("modèle illisible");
     expect(résultat.model.colonnesOptionnellesAbsentes).toEqual([]);
     const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
-    const entêtes = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 })[0];
-    expect(entêtes).not.toContain("Perimeter");
+    const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 })[0];
+    expect(headers).not.toContain("Perimeter");
     expect(XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Groups, { header: 1 })[0]).toContain("Perimeter");
   });
 
   it("contraint les colonnes de référence par une liste déroulante", () => {
-    const acteurs = feuilleXml("Actors");
+    const actors = feuilleXml("Actors");
     // Le compte se lit sur ce qui est déclaré, pas sur un littéral : une
     // colonne contrainte de plus ne doit pas casser ce test pour rien.
-    const attendues = validationsDuModele().filter((v) => v.feuille === "Actors").length;
+    const attendues = validationsDuModele().filter((v) => v.sheet === "Actors").length;
     expect(attendues).toBeGreaterThan(1);
-    expect(acteurs).toContain(`<dataValidations count="${attendues}">`);
-    expect(acteurs).toContain('type="list"');
-    expect(acteurs).toContain("<formula1>L_TypeActeur</formula1>");
+    expect(actors).toContain(`<dataValidations count="${attendues}">`);
+    expect(actors).toContain('type="list"');
+    expect(actors).toContain("<formula1>L_TypeActeur</formula1>");
     // Placée entre les données et les erreurs ignorées : l'ordre des éléments
     // d'une feuille est imposé par le schéma OOXML.
-    expect(acteurs.indexOf("</sheetData>")).toBeLessThan(acteurs.indexOf("<dataValidations"));
-    expect(acteurs.indexOf("<dataValidations")).toBeLessThan(acteurs.indexOf("<tableParts"));
+    expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<dataValidations"));
+    expect(actors.indexOf("<dataValidations")).toBeLessThan(actors.indexOf("<tableParts"));
   });
 
   it("pointe chaque liste vers la colonne du tableau qui la porte", () => {
@@ -235,9 +235,9 @@ describe("modèle de classeur", () => {
       ["L_TypeFlux", "TblFlowTypes[Flow type]"],
       ["L_Palier", "TblMilestones[Milestone]"],
     ];
-    expect(listesDuModele().map((l) => l.nom).sort()).toEqual(attendues.map(([nom]) => nom).sort());
-    for (const [nom, référence] of attendues) {
-      expect(workbook).toContain(`<definedName name="${nom}">${référence}</definedName>`);
+    expect(listesDuModele().map((l) => l.name).sort()).toEqual(attendues.map(([name]) => name).sort());
+    for (const [name, référence] of attendues) {
+      expect(workbook).toContain(`<definedName name="${name}">${référence}</definedName>`);
     }
     expect(workbook).not.toContain("OFFSET(");
     expect(workbook).not.toContain("COUNTA(");
@@ -249,12 +249,12 @@ describe("modèle de classeur", () => {
   // le menu déroulant, et comptées par COUNTA puisque SheetJS y écrit des
   // cellules chaîne vides plutôt que de ne rien écrire.
   it("dimensionne le tableau de chaque vocabulaire de Listes à son propre contenu, sans ligne vide", () => {
-    const entêtes = Object.keys(LISTES);
-    entêtes.forEach((clé, index) => {
-      const colonne = XLSX.utils.encode_col(index);
-      const table = tableXml(`TblLists_${clé}`);
-      const dernièreLigne = LISTES[clé].length + 1;
-      expect(table).toContain(`ref="${colonne}1:${colonne}${dernièreLigne}"`);
+    const headers = Object.keys(LISTES);
+    headers.forEach((key, index) => {
+      const column = XLSX.utils.encode_col(index);
+      const table = tableXml(`TblLists_${key}`);
+      const lastRow = LISTES[key].length + 1;
+      expect(table).toContain(`ref="${column}1:${column}${lastRow}"`);
     });
   });
 
@@ -264,20 +264,20 @@ describe("modèle de classeur", () => {
   // le nom défini invalide, et Excel le signale en proposant de réparer le
   // classeur.
   it("chaque liste vise une feuille et un intitulé réellement présents dans son tableau", () => {
-    const tableaux = tableauxDuModele();
-    for (const liste of listesDuModele()) {
+    const tables = tableauxDuModele();
+    for (const list of listesDuModele()) {
       // Listes porte un tableau PAR vocabulaire : chercher par feuille seule
       // retomberait sur le premier d'entre eux, pas forcément celui qui porte
       // l'intitulé visé.
-      const tableau = tableaux.find((t) => t.feuille === liste.feuille && t.colonnes.includes(liste.intitulé));
-      expect(tableau, `pas de tableau portant "${liste.intitulé}" sur ${liste.feuille}`).toBeDefined();
+      const table = tables.find((t) => t.sheet === list.sheet && t.columns.includes(list.intitulé));
+      expect(table, `pas de table portant "${list.intitulé}" sur ${list.sheet}`).toBeDefined();
     }
   });
 
   it("ne référence que des listes réellement définies", () => {
     // Les listes dépendantes des onglets FX_ calculent leur plage : ce sont des
     // formules, pas des noms. La règle ne vaut donc que pour les secondes.
-    const définies = new Set(listesDuModele().map((l) => l.nom));
+    const définies = new Set(listesDuModele().map((l) => l.name));
     const parNom = validationsDuModele().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
     expect(parNom.length).toBeGreaterThan(0);
     for (const validation of parNom) {
@@ -290,28 +290,28 @@ describe("modèle de classeur", () => {
   it("ne laisse que les noms définis des listes, aucun résidu d'autofiltre", () => {
     const workbook = partie("/xl/workbook.xml");
     expect(workbook).not.toContain("_FilterDatabase");
-    const noms = [...workbook.matchAll(/<definedName name="([^"]*)"/g)].map((m) => m[1]);
-    expect(noms.sort()).toEqual(listesDuModele().map((l) => l.nom).sort());
+    const names = [...workbook.matchAll(/<definedName name="([^"]*)"/g)].map((m) => m[1]);
+    expect(names.sort()).toEqual(listesDuModele().map((l) => l.name).sort());
   });
 
   // Ni le patron ni le dictionnaire ne se remplissent à la main.
   it("masque Listes et Version, visibles sur les feuilles de saisie", () => {
     const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
     const etats = wb.Workbook!.Sheets!;
-    const masquées = wb.SheetNames.filter((_, i) => etats[i].Hidden);
-    expect(masquées).toEqual(["Lists", "Version"]);
+    const hidden = wb.SheetNames.filter((_, i) => etats[i].Hidden);
+    expect(hidden).toEqual(["Lists", "Version"]);
   });
 
   it("livre les types de flux courants, prêts à l'emploi", () => {
     const résultat = buildModel(parseWorkbook(modeleRelu()));
     if (!résultat.ok) throw new Error("modèle illisible");
-    const types = résultat.model.typesFlux;
+    const types = résultat.model.flowTypes;
     expect(types.map((t) => t.type)).toContain("HTTP");
     expect(types.map((t) => t.type)).toContain("Kafka");
     // Le sens est déjà tranché pour chacun : il ne se saisit pas.
     expect(types.every((t) => t.sensRepresentation.length > 0)).toBe(true);
     // Les variantes dépôt/retrait et les composites ont disparu du référentiel.
-    expect(types.some((t) => /dépôt|retrait|ESB|ETL/i.test(t.type))).toBe(false);
+    expect(types.some((t) => /dépôt|removed|ESB|ETL/i.test(t.type))).toBe(false);
   });
 
   it("montre l'icône choisie par une colonne calculée, jamais saisie", () => {
@@ -344,22 +344,22 @@ describe("modèle de classeur", () => {
 // s'y fie telle quelle.
 describe("modèle de classeur — dimension déclarée", () => {
   it("couvre la zone d'appoint de Listes, pas seulement les tableaux de vocabulaire", () => {
-    const listes = feuilleXml("Lists");
-    const m = listes.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
+    const lists = feuilleXml("Lists");
+    const m = lists.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
     expect(m).not.toBeNull();
-    const [, dernièreColonne, dernièreLigne] = m!;
+    const [, dernièreColonne, lastRow] = m!;
     // La colonne FluxDeLOnglet, la plus à droite de la zone d'appoint.
-    const flux = XLSX.utils.encode_col(Object.keys(LISTES).length + 5);
-    expect(XLSX.utils.decode_col(dernièreColonne)).toBeGreaterThanOrEqual(XLSX.utils.decode_col(flux));
-    expect(Number(dernièreLigne)).toBe(1000);
+    const flows = XLSX.utils.encode_col(Object.keys(LISTES).length + 5);
+    expect(XLSX.utils.decode_col(dernièreColonne)).toBeGreaterThanOrEqual(XLSX.utils.decode_col(flows));
+    expect(Number(lastRow)).toBe(1000);
   });
 
   it("couvre la cellule d'appoint qui nomme l'onglet, sur chaque feuille FX_", () => {
     const paquet = écrireModele(DONNEES_EXEMPLE);
-    for (const onglet of DONNEES_EXEMPLE.fx) {
-      const feuille = feuilleXml(onglet.nom, paquet);
-      const m = feuille.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
-      expect(m, `pas de dimension sur ${onglet.nom}`).not.toBeNull();
+    for (const tab of DONNEES_EXEMPLE.fx) {
+      const sheet = feuilleXml(tab.name, paquet);
+      const m = sheet.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
+      expect(m, `pas de dimension sur ${tab.name}`).not.toBeNull();
       expect(XLSX.utils.decode_col(m![1])).toBeGreaterThanOrEqual(XLSX.utils.decode_col(COLONNE_APPOINT));
     }
   });
@@ -377,8 +377,8 @@ describe("modèle de classeur — dimension déclarée", () => {
 describe("modèle de classeur — numéro de schéma", () => {
   it("écrit le numéro courant dans l'onglet Version", () => {
     const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
-    const lignes = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Version, { defval: "" });
-    expect(String(lignes[0]["Model version"])).toBe(String(VERSION_MODELE));
+    const rows = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Version, { defval: "" });
+    expect(String(rows[0]["Model version"])).toBe(String(VERSION_MODELE));
   });
 
   // Le classeur qu'on vient de produire ne doit jamais réclamer sa propre mise
@@ -398,20 +398,20 @@ describe("modèle de classeur — version d'interface", () => {
   // contraindre.
   it("laisse la colonne Version en saisie libre, mais expliquée", () => {
     const surVersion = validationsDuModele().filter(
-      (v) => v.feuille === "Interfaces" && v.colonne === colonneDe(COLONNES_INTERFACES, "Version")
+      (v) => v.sheet === "Interfaces" && v.column === columnOf(COLONNES_INTERFACES, "Version")
     );
     expect(surVersion).toHaveLength(1);
     expect(surVersion[0].formule).toBeUndefined();
-    expect(surVersion[0].invite?.texte).toContain("Free text");
+    expect(surVersion[0].prompt?.text).toContain("Free text");
   });
 
   // Le même intitulé sur un onglet FX_ désigne une liste dépendante : la même
   // infobulle y serait fausse.
   it("n'y met pas l'invite des onglets FX_", () => {
     const surVersion = validationsDuModele().find(
-      (v) => v.feuille === "Interfaces" && v.colonne === colonneDe(COLONNES_INTERFACES, "Version")
+      (v) => v.sheet === "Interfaces" && v.column === columnOf(COLONNES_INTERFACES, "Version")
     );
-    expect(surVersion?.invite?.texte).not.toContain("Fill in Flow name first");
+    expect(surVersion?.prompt?.text).not.toContain("Fill in Flow name first");
   });
 
 });
@@ -421,12 +421,12 @@ describe("modèle de classeur — version d'interface", () => {
 // porte quoi. Ces deux tests sont là pour que ça ne puisse plus passer.
 describe("fichier d'exemple — alignement sur les colonnes", () => {
   it("donne à chaque ligne autant de cellules que la feuille a de colonnes", () => {
-    for (const ligne of DONNEES_EXEMPLE.interfaces) {
-      expect(ligne).toHaveLength(COLONNES_INTERFACES.length);
+    for (const row of DONNEES_EXEMPLE.interfaces) {
+      expect(row).toHaveLength(COLONNES_INTERFACES.length);
     }
-    for (const onglet of DONNEES_EXEMPLE.fx) {
-      for (const ligne of onglet.lignes) {
-        expect(ligne).toHaveLength(COLONNES_FX.length);
+    for (const tab of DONNEES_EXEMPLE.fx) {
+      for (const row of tab.rows) {
+        expect(row).toHaveLength(COLONNES_FX.length);
       }
     }
   });
@@ -434,10 +434,10 @@ describe("fichier d'exemple — alignement sur les colonnes", () => {
   it("se relit avec chaque valeur dans sa colonne", () => {
     const résultat = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!résultat.ok) throw new Error("exemple illisible");
-    const iface = résultat.model.interfaces.find((i) => i.nomDuFlux === "Member lookup")!;
-    expect(iface.acteurExposant).toBe("Takodana");
-    expect(iface.typeDeFlux).toBe("HTTP");
-    const conso = résultat.model.consommations.find((c) => c.acteurConsommateur === "Chandrila")!;
+    const iface = résultat.model.interfaces.find((i) => i.flowName === "Member lookup")!;
+    expect(iface.providerName).toBe("Takodana");
+    expect(iface.flowType).toBe("HTTP");
+    const conso = résultat.model.consumptions.find((c) => c.consumerName === "Chandrila")!;
     expect(conso.decision).toBe("Keep");
   });
 
@@ -447,8 +447,8 @@ describe("fichier d'exemple — alignement sur les colonnes", () => {
     const résultat = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!résultat.ok) throw new Error("exemple illisible");
     const report = runIntegrityChecks(résultat.model);
-    const bloc = report.blocsInformatifs.find((b) => b.id === "migrations")!;
-    expect(bloc.items.length).toBeGreaterThan(0);
+    const block = report.infoBlocks.find((b) => b.id === "migrations")!;
+    expect(block.items.length).toBeGreaterThan(0);
   });
 });
 
@@ -456,20 +456,20 @@ describe("listes dépendantes des onglets FX_", () => {
   // Les tables d'appoint doivent être VIVANTES : figées à la génération, elles
   // cesseraient d'être justes dès la première interface ajoutée dans Excel.
   it("alimente les deux tables d'appoint par formule depuis Interfaces", () => {
-    const listes = feuilleXml("Lists");
-    expect(listes).toContain('t="array"');
-    expect(listes).toContain("FILTER(");
-    expect(listes).toContain("UNIQUE(");
-    expect(listes).toContain("Interfaces!");
+    const lists = feuilleXml("Lists");
+    expect(lists).toContain('t="array"');
+    expect(lists).toContain("FILTER(");
+    expect(lists).toContain("UNIQUE(");
+    expect(lists).toContain("Interfaces!");
   });
 
   // Reconstruit le nom d'onglet FX_ par la même convention que le parseur
   // (build-model.ts) et que la migration legacy (migration-legacy.ts) :
   // « FX_ » + exposant + « _ » + type de flux.
   it("reconstruit le nom d'onglet FX_ par « FX_ » + exposant + « _ » + type", () => {
-    const listes = feuilleXml("Lists");
-    expect(listes).toContain("&quot;FX_&quot;&amp;");
-    expect(listes).toContain("&amp;&quot;_&quot;&amp;");
+    const lists = feuilleXml("Lists");
+    expect(lists).toContain("&quot;FX_&quot;&amp;");
+    expect(lists).toContain("&amp;&quot;_&quot;&amp;");
   });
 
   it("donne à chaque onglet FX_ une cellule qui nomme son propre onglet", () => {
@@ -482,39 +482,39 @@ describe("listes dépendantes des onglets FX_", () => {
     const gabarit = feuilleXml("FX_Takodana_HTTP", écrireModele(DONNEES_EXEMPLE));
     expect(gabarit).toMatch(/<col[^>]*hidden="(1|true)"/);
     // Le tableau de saisie s'arrête avant : la cellule ne doit pas y entrer.
-    expect(COLONNE_APPOINT > colonneDe(COLONNES_FX, COLONNES_FX[COLONNES_FX.length - 1])).toBe(true);
+    expect(COLONNE_APPOINT > columnOf(COLONNES_FX, COLONNES_FX[COLONNES_FX.length - 1])).toBe(true);
   });
 
   it("filtre les flux sur l'onglet et les versions sur le flux de la ligne", () => {
     const validations = validationsDuModele(DONNEES_EXEMPLE);
     const surFlux = validations.find(
-      (v) => v.feuille === "FX_Takodana_HTTP" && v.colonne === colonneDe(COLONNES_FX, "Flow name")
+      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(COLONNES_FX, "Flow name")
     )!;
     const surVersion = validations.find(
-      (v) => v.feuille === "FX_Takodana_HTTP" && v.colonne === colonneDe(COLONNES_FX, "Version")
+      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(COLONNES_FX, "Version")
     )!;
     // La liste des flux se cale sur le nom de l'onglet, porté par la cellule.
     expect(surFlux.formule).toContain(`$${COLONNE_APPOINT}$1`);
     expect(surFlux.formule).toContain("MATCH(");
     // Celle des versions y ajoute le flux de la LIGNE : référence relative en
     // ligne, pour qu'Excel décale la formule d'une ligne à l'autre.
-    expect(surVersion.formule).toContain(`$${colonneDe(COLONNES_FX, "Flow name")}2`);
+    expect(surVersion.formule).toContain(`$${columnOf(COLONNES_FX, "Flow name")}2`);
     expect(surVersion.formule).toContain("MATCH(");
   });
 
   it("pose ces deux validations sur chaque onglet FX_", () => {
     const validations = validationsDuModele(DONNEES_EXEMPLE);
-    for (const onglet of DONNEES_EXEMPLE.fx) {
-      const colonnes = validations.filter((v) => v.feuille === onglet.nom).map((v) => v.colonne);
-      expect(colonnes).toContain(colonneDe(COLONNES_FX, "Flow name"));
-      expect(colonnes).toContain(colonneDe(COLONNES_FX, "Version"));
+    for (const tab of DONNEES_EXEMPLE.fx) {
+      const columns = validations.filter((v) => v.sheet === tab.name).map((v) => v.column);
+      expect(columns).toContain(columnOf(COLONNES_FX, "Flow name"));
+      expect(columns).toContain(columnOf(COLONNES_FX, "Version"));
     }
   });
 
   // La liste globale des flux n'a plus d'emploi : la garder laisserait deux
   // façons de proposer un flux, dont une fausse.
   it("n'expose plus de liste globale des flux", () => {
-    expect(listesDuModele().map((l) => l.nom)).not.toContain("L_Flux");
+    expect(listesDuModele().map((l) => l.name)).not.toContain("L_Flux");
     expect(validationsDuModele(DONNEES_EXEMPLE).map((v) => v.formule)).not.toContain("L_Flux");
   });
 });
@@ -533,16 +533,16 @@ describe("formules d'appoint — noms stockés", () => {
   ];
 
   it("préfixe chaque fonction récente", () => {
-    const listes = feuilleXml("Lists");
+    const lists = feuilleXml("Lists");
     for (const [, préfixé] of attendus) {
-      expect(listes).toContain(préfixé);
+      expect(lists).toContain(préfixé);
     }
   });
 
   it("n'en laisse aucune sous son nom nu", () => {
-    const listes = feuilleXml("Lists");
+    const lists = feuilleXml("Lists");
     for (const [nu] of attendus) {
-      expect(listes).not.toMatch(new RegExp(`(?<![.A-Za-z_])${nu}\\(`));
+      expect(lists).not.toMatch(new RegExp(`(?<![.A-Za-z_])${nu}\\(`));
     }
   });
 });
@@ -561,19 +561,19 @@ describe("modèle de classeur — paliers", () => {
   // de frappe créerait un palier fantôme, invisible de l'onglet Paliers.
   it("contraint les deux bornes de validité par la liste des paliers", () => {
     const surPalier = validationsDuModele(DONNEES_EXEMPLE).filter((v) => v.formule === "L_Palier");
-    const feuilles = new Set(surPalier.map((v) => v.feuille));
-    expect(feuilles).toContain("Actors");
-    expect(feuilles).toContain("Interfaces");
-    for (const onglet of DONNEES_EXEMPLE.fx) expect(feuilles).toContain(onglet.nom);
-    for (const feuille of feuilles) {
-      const colonnes = surPalier.filter((v) => v.feuille === feuille).map((v) => v.colonne);
-      expect(colonnes).toHaveLength(2);
+    const sheets = new Set(surPalier.map((v) => v.sheet));
+    expect(sheets).toContain("Actors");
+    expect(sheets).toContain("Interfaces");
+    for (const tab of DONNEES_EXEMPLE.fx) expect(sheets).toContain(tab.name);
+    for (const sheet of sheets) {
+      const columns = surPalier.filter((v) => v.sheet === sheet).map((v) => v.column);
+      expect(columns).toHaveLength(2);
     }
   });
 
   it("alimente cette liste depuis l'onglet Paliers lui-même", () => {
-    const plage = listesDuModele().find((l) => l.nom === "L_Palier")!;
-    expect(plage.feuille).toBe("Milestones");
+    const plage = listesDuModele().find((l) => l.name === "L_Palier")!;
+    expect(plage.sheet).toBe("Milestones");
     expect(plage.intitulé).toBe("Milestone");
   });
 
@@ -590,7 +590,7 @@ describe("fichier d'exemple — axe des paliers", () => {
   it("renseigne un palier d'arrivée sur chaque ligne, sans anomalie", () => {
     const résultat = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
     if (!résultat.ok) throw new Error("exemple illisible");
-    const messages = runIntegrityChecks(résultat.model).familles.flatMap((f) => f.anomalies.map((a) => a.message));
+    const messages = runIntegrityChecks(résultat.model).families.flatMap((f) => f.anomalies.map((a) => a.message));
     expect(messages).toEqual([]);
   });
 });
@@ -613,14 +613,14 @@ describe("formules — aucun onglet fantôme", () => {
         cités.add(m[1] ?? m[2]);
       }
     };
-    for (const nom of wb.SheetNames) relever(feuilleXml(nom, paquet));
+    for (const name of wb.SheetNames) relever(feuilleXml(name, paquet));
     relever(partie("/xl/workbook.xml", paquet));
     // Les colonnes calculées ne vivent pas dans la feuille mais dans la partie
     // « table » : c'est là qu'était la formule d'aperçu, et l'oublier laissait
     // le contrôle aveugle sur celle-là même qui a déclenché l'avertissement.
     const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
-    for (const entrée of cfb.FullPaths) {
-      if (/\/xl\/tables\/table\d+\.xml$/.test(entrée)) relever(partie(entrée.replace(/^[^/]*/, ""), paquet));
+    for (const input of cfb.FullPaths) {
+      if (/\/xl\/tables\/table\d+\.xml$/.test(input)) relever(partie(input.replace(/^[^/]*/, ""), paquet));
     }
 
     expect([...cités].filter((n) => !connus.has(n))).toEqual([]);
@@ -637,7 +637,7 @@ describe("modèle de classeur — tous les onglets de saisie sont des tableaux",
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     // Ni la prose, ni les deux onglets masqués qui ne se saisissent pas.
     const saisie = wb.SheetNames.filter((n) => !["Instructions", "Lists", "Version"].includes(n));
-    const avecTableau = new Set(tableauxDuModele(DONNEES_EXEMPLE).map((t) => t.feuille));
+    const avecTableau = new Set(tableauxDuModele(DONNEES_EXEMPLE).map((t) => t.sheet));
 
     expect(saisie.filter((n) => !avecTableau.has(n))).toEqual([]);
   });
@@ -660,15 +660,15 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
   const nomTropLong = `FX_${"A".repeat(30)}_HTTP`; // 38 caractères
 
   const donnees: DonneesClasseur = {
-    typesFlux: [],
+    flowTypes: [],
     typesActeur: [],
-    paliers: [],
-    groupes: [],
-    acteurs: [],
+    milestones: [],
+    groups: [],
+    actors: [],
     interfaces: [],
     fx: [
-      { nom: nomTropLong, lignes: [] },
-      { nom: "FX_Takodana_HTTP", lignes: [] },
+      { name: nomTropLong, rows: [] },
+      { name: "FX_Takodana_HTTP", rows: [] },
     ],
   };
 
@@ -686,15 +686,15 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
   });
 
   it("lui pose son tableau et ses validations, comme aux autres", () => {
-    expect(tableauxDuModele(donnees).map((t) => t.feuille)).toContain(assaini);
-    expect(validationsDuModele(donnees).map((v) => v.feuille)).toContain(assaini);
+    expect(tableauxDuModele(donnees).map((t) => t.sheet)).toContain(assaini);
+    expect(validationsDuModele(donnees).map((v) => v.sheet)).toContain(assaini);
   });
 });
 
 describe("modèle de classeur — nature et relais", () => {
   it("propose la nature en liste fermée sur ActorTypes", () => {
-    const listes = listesDuModele();
-    expect(listes.find((l) => l.nom === "L_Nature")).toBeDefined();
+    const lists = listesDuModele();
+    expect(lists.find((l) => l.name === "L_Nature")).toBeDefined();
   });
 
   // La lecture fonctionnelle tient sur deux colonnes. « Relays », en v3, vivait
@@ -721,7 +721,7 @@ describe("modèle de classeur — nature et relais", () => {
 // l'équipe en a retiré, et perd des valeurs quand elle en a ajouté.
 describe("modèle de classeur — tableaux des référentiels dimensionnés sur les données", () => {
   const donnees: DonneesClasseur = {
-    typesFlux: [
+    flowTypes: [
       ["HTTP", "consumer → provider", "REST"],
       ["Kafka", "provider → consumer", "événements"],
       ["SFTP", "provider → consumer", "fichiers"],
@@ -737,27 +737,27 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
       ["Queue", "server", ""],
       ["Gateway", "server", ""],
     ],
-    paliers: [],
-    groupes: [],
-    acteurs: [],
+    milestones: [],
+    groups: [],
+    actors: [],
     interfaces: [],
     fx: [],
   };
 
-  const tableau = (feuille: string) => tableauxDuModele(donnees).find((t) => t.feuille === feuille)!;
+  const table = (sheet: string) => tableauxDuModele(donnees).find((t) => t.sheet === sheet)!;
 
   it("borne le tableau FlowTypes aux types réellement écrits", () => {
-    expect(tableau("FlowTypes").lignes).toBe(donnees.typesFlux.length);
+    expect(table("FlowTypes").rows).toBe(donnees.flowTypes.length);
   });
 
   it("étend le tableau ActorTypes à tous les types réellement écrits", () => {
-    expect(tableau("ActorTypes").lignes).toBe(donnees.typesActeur.length);
+    expect(table("ActorTypes").rows).toBe(donnees.typesActeur.length);
   });
 
   it("ne laisse aucun type d'acteur hors du tableau qui alimente L_TypeActeur", () => {
     const wb = XLSX.read(new Uint8Array(écrireModele(donnees)), { type: "array" });
-    const lignes = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1, defval: "" });
-    expect(lignes.length - 1).toBe(tableau("ActorTypes").lignes);
+    const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1, defval: "" });
+    expect(rows.length - 1).toBe(table("ActorTypes").rows);
   });
 });
 
@@ -767,7 +767,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
 describe("modèle de classeur — grands classeurs", () => {
   const NB = 1200;
   const grand: DonneesClasseur = {
-    typesFlux: [], typesActeur: [], paliers: [], groupes: [], acteurs: [], fx: [],
+    flowTypes: [], typesActeur: [], milestones: [], groups: [], actors: [], fx: [],
     interfaces: Array.from({ length: NB }, (_, i) => [
       `Flux ${i}`, "1.0", "Tatooine", "HTTP", "", "", "", "No", "", "", "",
     ]),
@@ -796,7 +796,7 @@ describe("modèle de classeur — invites de saisie", () => {
   const validations = () => validationsDuModele(DONNEES_EXEMPLE);
 
   it("explique l'ordre de saisie sur la colonne Version d'un onglet FX_", () => {
-    const version = validations().find((v) => v.feuille.startsWith("FX_") && v.invite?.texte.includes("Flow name"));
+    const version = validations().find((v) => v.sheet.startsWith("FX_") && v.prompt?.text.includes("Flow name"));
     expect(version).toBeDefined();
   });
 
@@ -813,7 +813,7 @@ describe("modèle de classeur — invites de saisie", () => {
   // c'était la moitié du classeur qui ne disait rien, et justement celle où
   // l'on hésite.
   it("explique chaque colonne de saisie", () => {
-    const sansInvite = validations().filter((v) => !v.invite);
+    const sansInvite = validations().filter((v) => !v.prompt);
     expect(sansInvite).toEqual([]);
   });
 
@@ -821,8 +821,8 @@ describe("modèle de classeur — invites de saisie", () => {
   // d'attributs vides.
   it("n'écrit jamais une invite vide", () => {
     for (const v of validations()) {
-      expect(v.invite?.titre.trim()).toBeTruthy();
-      expect(v.invite?.texte.trim()).toBeTruthy();
+      expect(v.prompt?.title.trim()).toBeTruthy();
+      expect(v.prompt?.text.trim()).toBeTruthy();
     }
   });
 });
@@ -911,10 +911,10 @@ describe("modèle de classeur — les aides à la saisie", () => {
       FlowTypes: COLONNES_TYPESFLUX,
       Interfaces: COLONNES_INTERFACES,
     };
-    for (const feuille of feuillesDeSaisie) {
-      const posées = new Set(validations.filter((v) => v.feuille === feuille).map((v) => v.colonne));
-      for (const [i] of colonnesDe[feuille].entries()) {
-        expect(posées, `${feuille} : colonne ${i + 1} sans infobulle`).toContain(XLSX.utils.encode_col(i));
+    for (const sheet of feuillesDeSaisie) {
+      const posées = new Set(validations.filter((v) => v.sheet === sheet).map((v) => v.column));
+      for (const [i] of colonnesDe[sheet].entries()) {
+        expect(posées, `${sheet} : column ${i + 1} sans infobulle`).toContain(XLSX.utils.encode_col(i));
       }
     }
   });
@@ -926,9 +926,9 @@ describe("modèle de classeur — les aides à la saisie", () => {
       ...COLONNES_ACTEURS, ...COLONNES_GROUPES, ...COLONNES_PALIERS,
       ...COLONNES_TYPESACTEUR, ...COLONNES_TYPESFLUX, ...COLONNES_INTERFACES, ...COLONNES_FX,
     ];
-    for (const clé of Object.keys(INVITES)) {
-      const intitulé = clé.includes(".") ? clé.split(".")[1] : clé;
-      expect(toutes, `invite orpheline : ${clé}`).toContain(intitulé);
+    for (const key of Object.keys(INVITES)) {
+      const intitulé = key.includes(".") ? key.split(".")[1] : key;
+      expect(toutes, `prompt orpheline : ${key}`).toContain(intitulé);
     }
   });
 });

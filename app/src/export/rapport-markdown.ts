@@ -20,38 +20,38 @@ function compte(n: number, singulier: string, pluriel: string): string | null {
 //
 // L'échappement par contre-oblique rend le caractère tel quel : le nom reste
 // lisible et cherchable une fois le Markdown rendu.
-function texteInline(valeur: string): string {
+function texteInline(value: string): string {
   // Le souligné n'y est pas : à l'intérieur d'un mot il ne met rien en italique
   // (CommonMark), et l'échapper défigurerait tous les noms d'onglet FX_A_HTTP
   // que ce rapport cite en permanence.
-  return valeur.replace(/\s+/g, " ").trim().replace(/([\\`*[\]<>])/g, "\\$1");
+  return value.replace(/\s+/g, " ").trim().replace(/([\\`*[\]<>])/g, "\\$1");
 }
 
 // Le bilan compte les puces RÉELLEMENT imprimées, section par section. Calculé
-// à côté, sur les compteurs du rapport, il annonçait « 2 pending decisions »
-// au-dessus de dix-neuf puces -- les blocs informatifs n'y entraient pas -- et
+// à côté, sur les counters du report, il annonçait « 2 pending decisions »
+// au-dessus de dix-neuf puces -- les blocks informatifs n'y entraient pas -- et
 // se réduisait à un point solitaire quand aucun compteur n'était renseigné.
 const LIBELLE_GRAVITE: Record<string, [string, string]> = {
   erreur: ["anomaly", "anomalies"],
   action: ["pending decision", "pending decisions"],
-  avertissement: ["warning", "warnings"],
+  warning: ["warning", "warnings"],
   info: ["point of information", "points of information"],
 };
 
 export function rapportEnMarkdown(
   report: IntegrityReport,
   nomClasseur: string,
-  palier: string | null
+  milestone: string | null
 ): string {
-  const lignes: string[] = [`# Integrity report — ${nomClasseur}`, ""];
+  const rows: string[] = [`# Integrity report — ${nomClasseur}`, ""];
 
-  // Les contrôles se lisent AU palier affiché : sans lui, la liste ne dit pas
-  // de quel moment du classeur elle parle. Mais tous ne s'y lisent pas -- ceux
-  // qui jugent le FICHIER portent sur le classeur entier -- et un lecteur qui
-  // l'ignore attribue au palier une faute qui n'en dépend pas.
-  if (palier) {
-    lignes.push(
-      `Milestone: ${palier}`,
+  // Les contrôles se lisent AU milestone affiché : sans lui, la list ne dit pas
+  // de quel moment du workbook elle parle. Mais tous ne s'y lisent pas -- ceux
+  // qui jugent le FICHIER portent sur le workbook entier -- et un lecteur qui
+  // l'ignore attribue au milestone une faute qui n'en dépend pas.
+  if (milestone) {
+    rows.push(
+      `Milestone: ${milestone}`,
       "",
       "Structure, references, vocabularies and consistency are checked on the whole workbook; completeness and the information blocks are read at this milestone.",
       ""
@@ -62,22 +62,22 @@ export function rapportEnMarkdown(
   const sections = sectionsDuRapport(report).filter((s) => s.items.length > 0);
 
   if (sections.length === 0) {
-    lignes.push("Nothing to report.", "");
-    return lignes.join("\n");
+    rows.push("Nothing to report.", "");
+    return rows.join("\n");
   }
 
   const parGravité = new Map<string, number>();
-  for (const s of sections) parGravité.set(s.gravité, (parGravité.get(s.gravité) ?? 0) + s.items.length);
+  for (const s of sections) parGravité.set(s.severity, (parGravité.get(s.severity) ?? 0) + s.items.length);
   const bilan = Object.entries(LIBELLE_GRAVITE)
-    .map(([gravité, [singulier, pluriel]]) => compte(parGravité.get(gravité) ?? 0, singulier, pluriel))
+    .map(([severity, [singulier, pluriel]]) => compte(parGravité.get(severity) ?? 0, singulier, pluriel))
     .filter(Boolean);
-  lignes.push(`${bilan.join(", ")}.`, "");
+  rows.push(`${bilan.join(", ")}.`, "");
 
   for (const s of sections) {
-    lignes.push(`## ${texteInline(s.titre)} (${s.items.length})`, "", texteInline(s.description), "");
-    for (const item of s.items) lignes.push(`- ${texteInline(item)}`);
-    lignes.push("");
+    rows.push(`## ${texteInline(s.title)} (${s.items.length})`, "", texteInline(s.description), "");
+    for (const item of s.items) rows.push(`- ${texteInline(item)}`);
+    rows.push("");
   }
 
-  return lignes.join("\n");
+  return rows.join("\n");
 }

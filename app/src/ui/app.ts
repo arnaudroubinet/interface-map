@@ -1,9 +1,9 @@
 import { el, clear } from "../shared/dom";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, VERSION_MODELE } from "../parsing/build-model";
-import { rangDuPalier } from "../aggregation/paliers";
-import { lecture as lectureDuMode } from "../aggregation/fonctionnel";
-import { calculerEcarts, buildEcartsView } from "../aggregation/ecarts";
+import { rankOfMilestone } from "../aggregation/milestones";
+import { reading as lectureDuMode } from "../aggregation/reading";
+import { calculerEcarts, buildEcartsView } from "../aggregation/changes";
 import { buildEcartsReport, buildEcartsTitreSchema } from "../render/ecarts-report";
 import { runIntegrityChecks } from "../integrity/checks";
 import {
@@ -15,18 +15,18 @@ import {
   buildMatrixView,
   type MatrixResult,
 } from "../aggregation/views";
-import { acteursMetier } from "../aggregation/nature";
+import { businessActors } from "../aggregation/nature";
 import { computeLayout, restreindreLayout, type LayoutResult } from "../layout/graph-layout";
-import { toutesLesPlanches } from "../aggregation/planches";
+import { toutesLesPlanches } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
-import { libelléCartouche, type ContexteSchema } from "../render/cartouche";
+import { libelléCartouche, type ContexteSchema } from "../render/title-block";
 import { brancherZoom } from "../render/zoom";
-import { conseilDEchelle } from "./echelle";
-import { chainesDisponibles, buildChainView } from "../aggregation/chaine";
-import { construireFrise } from "../aggregation/frise";
-import { buildFriseSvg } from "../render/frise";
-import type { Lecture } from "../aggregation/fonctionnel";
-import { lectureUnion } from "../aggregation/fonctionnel";
+import { conseilDEchelle } from "./scale";
+import { chainesDisponibles, buildChainView } from "../aggregation/chain";
+import { construireFrise } from "../aggregation/roadmap";
+import { buildFriseSvg } from "../render/roadmap";
+import type { Lecture } from "../aggregation/reading";
+import { lectureUnion } from "../aggregation/reading";
 import type { ViewResult } from "../aggregation/views";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
@@ -35,22 +35,22 @@ import { couleursDuModele } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadTemplateXlsx } from "../export/template-export";
-import { DONNEES_EXEMPLE } from "../export/exemple-donnees";
+import { DONNEES_EXEMPLE } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
 import { rapportEnMarkdown } from "../export/rapport-markdown";
-import { téléchargerTexte } from "../export/telechargement";
+import { téléchargerTexte } from "../export/download";
 import { construireDrawio } from "../export/drawio-export";
 import { modeleEnStructurizr } from "../export/c4-dsl";
 import { modeleEnLikeC4 } from "../export/likec4-dsl";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildEcranMiseANiveau } from "../render/mise-a-niveau";
-import { buildAide } from "../render/aide";
-import { mettreANiveau } from "../export/migration-modele";
+import { buildAide } from "../render/help";
+import { mettreANiveau } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
 import { renderRail, renderPiedDeRail } from "./rail";
-import { ouvrirMigration } from "./migration-dialogue";
+import { ouvrirMigration } from "./upgrade-dialog";
 import {
   initialState,
   withFichierCharge,
@@ -83,12 +83,12 @@ import {
 
 // Les trois commandes de cadrage, posées sous le schéma : « Fit » ramène au
 // cadre complet, les deux autres zooment autour du centre. Elles vivent ici et
-// non dans le bandeau parce qu'elles pilotent CE schéma-là, qui vient d'être
+// non dans le banner parce qu'elles pilotent CE schéma-là, qui vient d'être
 // construit.
 function construireCommandesZoom(commandes: { ajuster: () => void; zoomer: (f: number) => void }): HTMLElement {
-  const barre = el("div", { class: "commandes-zoom" });
-  const bouton = (libellé: string, titre: string, action: () => void) => {
-    const b = el("button", { type: "button", title: titre }, [libellé]);
+  const barre = el("div", { class: "zoom-controls" });
+  const bouton = (label: string, title: string, action: () => void) => {
+    const b = el("button", { type: "button", title: title }, [label]);
     b.addEventListener("click", action);
     barre.appendChild(b);
   };
@@ -103,14 +103,14 @@ function construireCommandesZoom(commandes: { ajuster: () => void; zoomer: (f: n
 // c'est l'âge de la DONNÉE qui compte, pas celui de l'impression.
 function contexteDuSchema(state: AppState, fichier: FichierCharge, view: { nodes: GraphNode[]; edges: GraphEdge[] }): ContexteSchema {
   return {
-    titre: LIBELLE_VUE[state.vue],
-    lecture: state.mode === "fonctionnel" ? "functional" : "architecture",
-    palier: state.palierAffiche,
-    source: fichier.nom,
+    title: LIBELLE_VUE[state.view],
+    reading: state.mode === "functional" ? "functional" : "architecture",
+    milestone: state.shownMilestone,
+    source: fichier.name,
     date: fichier.dateModification ? fichier.dateModification.toISOString().slice(0, 10) : "save date unknown",
-    composants: view.nodes.filter((n) => n.kind !== "frontiere").length,
-    flux: view.edges.length,
-    technologies: new Set(view.edges.map((e) => e.technologie).filter(Boolean)).size,
+    composants: view.nodes.filter((n) => n.kind !== "boundary").length,
+    flows: view.edges.length,
+    technologies: new Set(view.edges.map((e) => e.technology).filter(Boolean)).size,
   };
 }
 
@@ -118,11 +118,11 @@ export function mountApp(root: HTMLElement): void {
   let state: AppState = initialState();
 
   root.innerHTML = "";
-  const bandeau = el("header", { class: "bandeau" });
+  const banner = el("header", { class: "banner" });
   const rail = el("aside", { class: "rail" });
-  const zoneRendu = el("main", { class: "zone-rendu" });
-  const layout = el("div", { class: "mise-en-page" }, [rail, zoneRendu]);
-  root.appendChild(bandeau);
+  const zoneRendu = el("main", { class: "render-area" });
+  const layout = el("div", { class: "layout" }, [rail, zoneRendu]);
+  root.appendChild(banner);
   root.appendChild(layout);
 
   wireDropZone(root, handleFile);
@@ -132,8 +132,8 @@ export function mountApp(root: HTMLElement): void {
   // seulement au chargement.
   function recalculerRapport(s: AppState): AppState {
     if (!s.fichier) return s;
-    const rang = s.palierAffiche === null ? null : rangDuPalier(s.fichier.model, s.palierAffiche) ?? null;
-    return { ...s, fichier: { ...s.fichier, report: runIntegrityChecks(s.fichier.model, rang) } };
+    const rank = s.shownMilestone === null ? null : rankOfMilestone(s.fichier.model, s.shownMilestone) ?? null;
+    return { ...s, fichier: { ...s.fichier, report: runIntegrityChecks(s.fichier.model, rank) } };
   }
 
   function setState(next: AppState): void {
@@ -187,7 +187,7 @@ export function mountApp(root: HTMLElement): void {
       // contrôles qui affiche (0) partout.
       let chargé = recalculerRapport(
         withFichierCharge(state, {
-          nom: file.name,
+          name: file.name,
           model: built.model,
           report,
           dateModification: parsed.fichierModifie,
@@ -211,7 +211,7 @@ export function mountApp(root: HTMLElement): void {
   // palier. Vidée au chargement d'un autre classeur : les positions d'un parc
   // n'ont aucun sens sur un autre.
   const placements = new Map<string, Promise<LayoutResult>>();
-  // La matrice affichée, gardée pour l'export : la recalculer au clic risquerait
+  // La matrix affichée, gardée pour l'export : la recalculer au clic risquerait
   // de livrer autre chose que ce qui est à l'écran.
   let matriceCourante: MatrixResult | null = null;
 
@@ -241,7 +241,7 @@ export function mountApp(root: HTMLElement): void {
   }
 
   // Les sept exports vivent dans leur propre module : ils ne dépendent que de
-  // l'état, de quoi le remplacer, du schéma à l'écran et de la matrice
+  // l'état, de quoi le remplacer, du schéma à l'écran et de la matrix
   // affichée. On les fabrique une fois, avec des lectures paresseuses -- un
   // gestionnaire câblé au premier rendu doit lire l'état du clic, pas celui de
   // sa construction.
@@ -263,16 +263,16 @@ export function mountApp(root: HTMLElement): void {
       clear(zoneRendu);
       // La page d'aide se lit AVANT d'avoir un classeur : c'est justement là
       // qu'on se demande ce que l'outil attend.
-      if (state.vue === "aide") {
-        const retour = el("button", { class: "bouton-export" }, ["Back"]);
-        retour.addEventListener("click", () => setState(withVue(state, "groupe-a-groupe")));
-        zoneRendu.appendChild(el("div", { class: "aide-seule" }, [retour, buildAide()]));
+      if (state.view === "help") {
+        const retour = el("button", { class: "export-button" }, ["Back"]);
+        retour.addEventListener("click", () => setState(withVue(state, "group-to-group")));
+        zoneRendu.appendChild(el("div", { class: "help-standalone" }, [retour, buildAide()]));
       } else {
         zoneRendu.appendChild(
-          buildDropTarget(telechargerExempleHandler, () => setState(withVue(state, "aide")))
+          buildDropTarget(telechargerExempleHandler, () => setState(withVue(state, "help")))
         );
       }
-      renderBanner(bandeau, state, false, exportHandlers);
+      renderBanner(banner, state, false, exportHandlers);
       return;
     }
 
@@ -287,153 +287,153 @@ export function mountApp(root: HTMLElement): void {
       // l'effacer transformerait une vue en cul-de-sac sans navigation.
       console.error(err);
       clear(zoneRendu);
-      zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["Unexpected error while rendering this view."]));
+      zoneRendu.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
     }
 
-    renderBanner(bandeau, state, currentSvg() !== null, exportHandlers);
+    renderBanner(banner, state, currentSvg() !== null, exportHandlers);
   }
 
   function renderContenu(fichier: FichierCharge): void {
     const model = fichier.model;
     // Le rang du palier affiché, résolu une fois : c'est lui qui traverse les
     // vues, les filtres et les exports.
-    const rang = state.palierAffiche === null ? null : rangDuPalier(model, state.palierAffiche) ?? null;
+    const rank = state.shownMilestone === null ? null : rankOfMilestone(model, state.shownMilestone) ?? null;
     // Résolu une fois, ici, et transmis à tout ce qui dessine (vues, filtres du
     // rail) : c'est la Lecture (rang, mode) qui décide des flux ET des
     // acteurs, jamais une vue.
-    const lecture = lectureDuMode(model, rang, state.mode);
+    const reading = lectureDuMode(model, rank, state.mode);
     const options = { ...state.options };
     matriceCourante = null;
     clear(zoneRendu);
     let technologiesCourantes: string[] = [];
 
-    if (state.vue === "mise-a-niveau") {
+    if (state.view === "upgrade") {
       zoneRendu.appendChild(
         buildEcranMiseANiveau(model.versionModele, VERSION_MODELE, () => {
-          const nom = fichier.nom.replace(/\.(xlsx|xlsm)$/i, "");
-          downloadTemplateXlsx(`${nom}-v${VERSION_MODELE}.xlsx`, mettreANiveau(model));
+          const name = fichier.name.replace(/\.(xlsx|xlsm)$/i, "");
+          downloadTemplateXlsx(`${name}-v${VERSION_MODELE}.xlsx`, mettreANiveau(model));
         })
       );
-    } else if (state.vue === "ecarts") {
+    } else if (state.view === "changes") {
       // Les deux paliers comparés ; sans axe déclaré, il n'y a rien à comparer.
-      const rangCompare = state.palierCompare === null ? null : rangDuPalier(model, state.palierCompare) ?? null;
-      if (rang === null || rangCompare === null) {
+      const rangCompare = state.comparedMilestone === null ? null : rankOfMilestone(model, state.comparedMilestone) ?? null;
+      if (rank === null || rangCompare === null) {
         // Un seul palier n'est pas « aucun palier » : comparer réclame deux
         // bornes, mais le classeur n'est pas silencieux sur son axe du temps
         // pour autant -- lui prêter cette absence serait une fausse cause.
-        const texte =
-          model.paliers.length === 0
+        const text =
+          model.milestones.length === 0
             ? "This workbook declares no milestones, so there is no change to measure."
             : "This workbook declares only one milestone; comparing needs two.";
-        zoneRendu.appendChild(el("p", { class: "aucun-flux" }, [texte]));
+        zoneRendu.appendChild(el("p", { class: "no-flow" }, [text]));
       } else {
         zoneRendu.appendChild(
           buildEcartsReport(
-            calculerEcarts(model, rangCompare, rang, state.mode),
-            state.palierCompare!,
-            state.palierAffiche!
+            calculerEcarts(model, rangCompare, rank, state.mode),
+            state.comparedMilestone!,
+            state.shownMilestone!
           )
         );
         // Le schéma vient après le relevé : on lit d'abord ce qui a changé,
         // puis on va voir où. Il arrive en différé, le placement étant
         // asynchrone, et une génération le protège d'un affichage périmé.
         const génération = ++générationRendu;
-        const vueEcarts = buildEcartsView(model, rangCompare, rang, state.mode);
+        const vueEcarts = buildEcartsView(model, rangCompare, rank, state.mode);
         if (vueEcarts.edges.length > 0) {
-          const couleurs = couleursDuModele(model);
-          zoneRendu.appendChild(buildEcartsTitreSchema(state.palierCompare!, state.palierAffiche!));
+          const colours = couleursDuModele(model);
+          zoneRendu.appendChild(buildEcartsTitreSchema(state.comparedMilestone!, state.shownMilestone!));
           computeLayout(vueEcarts.nodes, vueEcarts.edges).then((positioned) => {
             if (génération !== générationRendu) return;
             zoneRendu.appendChild(
-              buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueEcarts))
+              buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", contexteDuSchema(state, fichier, vueEcarts))
             );
             // Le schéma d'écart s'exporte comme les autres. Les boutons en
-            // dépendent, et il n'existait pas encore au rendu du bandeau.
-            renderBanner(bandeau, state, true, exportHandlers);
+            // dépendent, et il n'existait pas encore au rendu du banner.
+            renderBanner(banner, state, true, exportHandlers);
           });
         }
       }
-    } else if (state.vue === "aide") {
+    } else if (state.view === "help") {
       zoneRendu.appendChild(buildAide());
-    } else if (state.vue === "controles") {
+    } else if (state.view === "checks") {
       zoneRendu.appendChild(buildIntegrityReport(fichier.report));
-    } else if (state.vue === "frise") {
+    } else if (state.view === "roadmap") {
       // Pas d'ELK : une frise est une grille, un axe et une ligne par sujet.
       // Le moteur de placement n'y aurait rien à placer.
-      const frise = construireFrise(model, state.sujetFrise);
-      if (frise.segments.length === 0) {
-        zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
+      const timeline = construireFrise(model, state.sujetFrise);
+      if (timeline.segments.length === 0) {
+        zoneRendu.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
       } else {
-        const svg = buildFriseSvg(frise, state.palierAffiche, {
+        const svg = buildFriseSvg(timeline, state.shownMilestone, {
           ...contexteDuSchema(state, fichier, { nodes: [], edges: [] }),
-          détail: `${frise.segments.length} ${state.sujetFrise === "acteurs" ? "actors" : "interfaces"}, ${frise.paliers.length} milestones`,
+          detail: `${timeline.segments.length} ${state.sujetFrise === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
         });
         zoneRendu.appendChild(svg);
         zoneRendu.appendChild(construireCommandesZoom(brancherZoom(svg)));
-        renderBanner(bandeau, state, true, exportHandlers);
+        renderBanner(banner, state, true, exportHandlers);
       }
-    } else if (state.vue === "matrice") {
-      const matrix = buildMatrixView(model, lecture, {
+    } else if (state.view === "matrix") {
+      const matrix = buildMatrixView(model, reading, {
         mode: state.mode,
         granularite: state.filtresMatrice.granularite,
-        ordre: state.filtresMatrice.ordre,
+        order: state.filtresMatrice.order,
         masquerExternes: state.filtresMatrice.masquerExternes,
-        acteursMasques: state.filtresMatrice.acteursMasques,
+        hiddenActors: state.filtresMatrice.hiddenActors,
       });
       matriceCourante = matrix;
-      technologiesCourantes = [...new Set(matrix.lignes.flatMap((l) => [...l.cellules.values()].flat().map((c) => c.technologie)))];
+      technologiesCourantes = [...new Set(matrix.rows.flatMap((l) => [...l.cellules.values()].flat().map((c) => c.technology)))];
       // Le tableau d'abord, la couleur ensuite. La palette reste indexée sur
       // les types déclarés au classeur, et non sur les seuls survivants du
       // filtrage : sinon une technologie changerait de couleur d'un filtre à
-      // l'autre, et entre la matrice et les schémas.
-      const couleurs = couleursDuModele(model);
+      // l'autre, et entre la matrix et les schémas.
+      const colours = couleursDuModele(model);
       zoneRendu.appendChild(
-        buildMatrixTable(matrix, (t) => couleurs.get(t) ?? "#000", libelléCartouche(contexteDuSchema(state, fichier, { nodes: [], edges: [] })).titre)
+        buildMatrixTable(matrix, (t) => colours.get(t) ?? "#000", libelléCartouche(contexteDuSchema(state, fichier, { nodes: [], edges: [] })).title)
       );
     } else {
       // La MÊME construction pour le palier affiché et pour l'union de tous
       // les paliers : c'est ce qui garantit que les deux vues se correspondent
       // nœud pour nœud, donc que le placement de l'union se restreint sans
       // rien inventer.
-      const construireVue = (lecture: Lecture): ViewResult => {
+      const construireVue = (reading: Lecture): ViewResult => {
       let view: ViewResult;
-      if (state.vue === "groupe-a-groupe") {
-        view = buildGroupToGroupView(model, lecture, options);
-      } else if (state.vue === "plateforme-detaillee") {
-        view = buildPlatformDetailView(model, lecture, options);
-      } else if (state.vue === "plateforme-seule") {
-        view = buildPlatformOnlyView(model, lecture, options);
-      } else if (state.vue === "chaine") {
-        const chaînes = chainesDisponibles(model, rang);
-        const retenue = chaînes.find((c) => c.id === state.selectionChaine);
-        if (!retenue && chaînes.length > 0) {
-          chaineParDefaut = chaînes[0].id;
+      if (state.view === "group-to-group") {
+        view = buildGroupToGroupView(model, reading, options);
+      } else if (state.view === "platform-detail") {
+        view = buildPlatformDetailView(model, reading, options);
+      } else if (state.view === "platform-only") {
+        view = buildPlatformOnlyView(model, reading, options);
+      } else if (state.view === "chain") {
+        const chains = chainesDisponibles(model, rank);
+        const retenue = chains.find((c) => c.id === state.selectionChaine);
+        if (!retenue && chains.length > 0) {
+          chaineParDefaut = chains[0].id;
         }
         view = retenue ? buildChainView(model, retenue) : { nodes: [], edges: [] };
-      } else if (state.vue === "par-acteur") {
+      } else if (state.view === "by-actor") {
         // Même liste que le sélecteur du rail (§5.2) : un défaut piochant hors
         // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
-        const acteursDisponibles = lecture.acteurs;
-        if (!state.selectionActeur && acteursDisponibles.length > 0) {
-          acteurParDefaut = [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))[0].nom;
+        const availableActors = reading.actors;
+        if (!state.selectionActeur && availableActors.length > 0) {
+          defaultActor = [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))[0].name;
         }
         view = state.selectionActeur
-          ? buildByActorView(model, lecture.flux, state.selectionActeur, {
-              technosMasquees: state.filtresActeur.technosMasquees,
-              acteursMasques: state.filtresActeur.acteursMasques,
-              voisinage: state.filtresActeur.voisinage,
+          ? buildByActorView(model, reading.flows, state.selectionActeur, {
+              hiddenTechnologies: state.filtresActeur.hiddenTechnologies,
+              hiddenActors: state.filtresActeur.hiddenActors,
+              neighbourhood: state.filtresActeur.neighbourhood,
             })
           : { nodes: [], edges: [] };
       } else {
-        if (!state.selectionTechnologie && model.typesFlux.length > 0) {
+        if (!state.selectionTechnologie && model.flowTypes.length > 0) {
           besoinDeSelectionTechnologie = true;
         }
         view = state.selectionTechnologie
-          ? buildByTechnologyView(model, lecture.flux, state.selectionTechnologie, {
-              compteurs: options.compteurs,
+          ? buildByTechnologyView(model, reading.flows, state.selectionTechnologie, {
+              counters: options.counters,
               libelléArête: options.libelléArête,
               masquerExternes: state.filtresTechnologie.masquerExternes,
-              acteursMasques: state.filtresTechnologie.acteursMasques,
+              hiddenActors: state.filtresTechnologie.hiddenActors,
             })
           : { nodes: [], edges: [] };
       }
@@ -441,19 +441,19 @@ export function mountApp(root: HTMLElement): void {
       };
 
       let besoinDeSelectionTechnologie = false;
-      let acteurParDefaut: string | null = null;
+      let defaultActor: string | null = null;
       let chaineParDefaut: string | null = null;
-      const view = construireVue(lecture);
+      const view = construireVue(reading);
       if (chaineParDefaut) {
         setState(withSelectionChaine(state, chaineParDefaut));
         return;
       }
-      if (acteurParDefaut) {
-        setState(withSelectionActeur(state, acteurParDefaut));
+      if (defaultActor) {
+        setState(withSelectionActeur(state, defaultActor));
         return;
       }
       if (besoinDeSelectionTechnologie) {
-        setState(withSelectionTechnologie(state, [...model.typesFlux].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
+        setState(withSelectionTechnologie(state, [...model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
         return;
       }
 
@@ -461,16 +461,16 @@ export function mountApp(root: HTMLElement): void {
       // n'est pas rien à montrer, c'est PRÉCISÉMENT ce qu'il faut montrer. Le
       // message ne vaut que pour une sélection réellement vide.
       if (view.nodes.length === 0) {
-        zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["No flow to display for this selection."]));
+        zoneRendu.appendChild(el("p", { class: "no-flow" }, ["No flow to display for this selection."]));
       } else {
         // Une planche qui a dépassé ce que le nœud-lien sert bien doit le
         // DIRE, et proposer où aller. Jamais bloquer, jamais tronquer.
-        const conseil = conseilDEchelle(view.nodes.filter((n) => n.kind !== "frontiere").length, view.edges.length);
+        const conseil = conseilDEchelle(view.nodes.filter((n) => n.kind !== "boundary").length, view.edges.length);
         if (conseil) {
-          const bandeauEchelle = el("div", { class: "conseil-echelle" }, [conseil.message]);
-          for (const cible of conseil.vues) {
-            const bouton = el("button", { type: "button" }, [LIBELLE_VUE[cible]]);
-            bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), cible)));
+          const bandeauEchelle = el("div", { class: "scale-hint" }, [conseil.message]);
+          for (const target of conseil.views) {
+            const bouton = el("button", { type: "button" }, [LIBELLE_VUE[target]]);
+            bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), target)));
             bandeauEchelle.appendChild(bouton);
           }
           zoneRendu.appendChild(bandeauEchelle);
@@ -479,7 +479,7 @@ export function mountApp(root: HTMLElement): void {
         // d'un rendu périmé : si l'utilisateur change de vue pendant le calcul,
         // le schéma qui arrive en retard ne doit pas s'afficher par-dessus.
         const génération = ++générationRendu;
-        const couleurs = couleursDuModele(model);
+        const colours = couleursDuModele(model);
         const vueDuCalcul = view;
         // On place l'UNION de tous les paliers, une seule fois, et chaque
         // palier n'en montre que son sous-ensemble : une boîte présente aux
@@ -487,7 +487,7 @@ export function mountApp(root: HTMLElement): void {
         // contient donc PAS le palier -- c'est précisément d'un palier à
         // l'autre qu'on veut la continuité.
         const cléPlacement = JSON.stringify([
-          state.vue, state.mode, state.selectionActeur, state.selectionTechnologie, state.selectionChaine,
+          state.view, state.mode, state.selectionActeur, state.selectionTechnologie, state.selectionChaine,
           state.filtresActeur, state.filtresTechnologie, options,
         ]);
         const vueUnion = construireVue(lectureUnion(model, state.mode));
@@ -497,49 +497,49 @@ export function mountApp(root: HTMLElement): void {
           .then((union) => {
             if (génération !== générationRendu) return;
             const positioned = restreindreLayout(union, vueDuCalcul);
-            const svg = buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul), {
+            const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul), {
               graisseParCriticite: state.options.graisseParCriticite,
             });
             zoneRendu.appendChild(svg);
             zoneRendu.appendChild(construireCommandesZoom(brancherZoom(svg)));
             // Les boutons d'export dépendent de la présence du SVG, qui
-            // n'existait pas encore au moment du rendu du bandeau.
-            renderBanner(bandeau, state, true, exportHandlers);
+            // n'existait pas encore au moment du rendu du banner.
+            renderBanner(banner, state, true, exportHandlers);
           })
           .catch((err) => {
             if (génération !== générationRendu) return;
             console.error(err);
             clear(zoneRendu);
-            zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["Unexpected error while rendering this view."]));
+            zoneRendu.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
           });
-        technologiesCourantes = [...new Set(view.edges.map((e) => e.technologie))];
+        technologiesCourantes = [...new Set(view.edges.map((e) => e.technology))];
       }
     }
 
-    renderRail(rail, state, lecture, technologiesCourantes.sort((a, b) => a.localeCompare(b, "fr")), {
+    renderRail(rail, state, reading, technologiesCourantes.sort((a, b) => a.localeCompare(b, "fr")), {
       onMode: (mode) => setState(withMode(state, mode)),
-      onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
-      onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),
+      onVue: (view) => setState(withVue(withMessageBandeau(state, null), view)),
+      onSelectionActeur: (name) => setState(withSelectionActeur(withMessageBandeau(state, null), name)),
       onGraisseParCriticite: (value) => setState(withOptions(withMessageBandeau(state, null), { graisseParCriticite: value })),
       onSujetFrise: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
       onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
-      onSelectionChaine: (chaîne) => setState(withSelectionChaine(withMessageBandeau(state, null), chaîne)),
+      onSelectionChaine: (chain) => setState(withSelectionChaine(withMessageBandeau(state, null), chain)),
       onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),
-      onPalierAffiche: (palier) => setState(recalculerRapport(withPalierAffiche(withMessageBandeau(state, null), palier))),
-      onPalierCompare: (palier) => setState(withPalierCompare(withMessageBandeau(state, null), palier)),
-      onOptionCompteurs: (value) => setState(withOptions(withMessageBandeau(state, null), { compteurs: value })),
+      onPalierAffiche: (milestone) => setState(recalculerRapport(withPalierAffiche(withMessageBandeau(state, null), milestone))),
+      onPalierCompare: (milestone) => setState(withPalierCompare(withMessageBandeau(state, null), milestone)),
+      onOptionCompteurs: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
       onLibelléArête: (value) => setState(withOptions(withMessageBandeau(state, null), { libelléArête: value })),
       onTelechargerModele: telechargerModeleHandler,
       onTelechargerExemple: telechargerExempleHandler,
       onMigrationLegacy: migrationLegacyHandler,
-      onTechnoMasquee: (techno, masquée) => setState(withTechnoMasquee(withMessageBandeau(state, null), techno, masquée)),
-      onActeurMasque: (acteur, masqué) => setState(withActeurMasque(withMessageBandeau(state, null), acteur, masqué)),
+      onTechnoMasquee: (techno, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), techno, hidden)),
+      onActeurMasque: (actor, hidden) => setState(withActeurMasque(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
-      onActeurMasqueTechnologie: (acteur, masqué) =>
-        setState(withActeurMasqueTechnologie(withMessageBandeau(state, null), acteur, masqué)),
+      onActeurMasqueTechnologie: (actor, hidden) =>
+        setState(withActeurMasqueTechnologie(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternesMatrice: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
-      onActeurMasqueMatrice: (acteur, masqué) =>
-        setState(withActeurMasqueMatrice(withMessageBandeau(state, null), acteur, masqué)),
+      onActeurMasqueMatrice: (actor, hidden) =>
+        setState(withActeurMasqueMatrice(withMessageBandeau(state, null), actor, hidden)),
       onEchellePng: (value) => setState(withOptions(withMessageBandeau(state, null), { echellePng: value })),
       onOrdreMatrice: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
       onGranulariteMatrice: (granularite) => setState(withGranulariteMatrice(withMessageBandeau(state, null), granularite)),

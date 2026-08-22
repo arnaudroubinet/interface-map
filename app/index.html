@@ -23,7 +23,7 @@
     --action: #6b4ec4;
     --action-ink: #ffffff;
     --paper: #ffffff;
-    /* Teinte de survol : l'accent posé très légèrement, pour marquer une ligne
+    /* Teinte de hover : l'accent posé très légèrement, pour marquer une ligne
        sans écraser les couleurs de technologie qu'elle contient. */
     --accent-faible: #e4eefb;
   }
@@ -53,52 +53,52 @@
   }
   #app { display: flex; flex-direction: column; height: 100vh; }
 
-  .bandeau {
+  .banner {
     display: flex; align-items: center; gap: 16px;
     padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--surface);
   }
-  .bandeau-titre { font-weight: 700; font-size: 16px; }
-  .bandeau-etat { flex: 1; color: var(--ink-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-  .bandeau-erreur { color: var(--critical); font-weight: 600; }
-  .bouton-export {
+  .banner-title { font-weight: 700; font-size: 16px; }
+  .banner-state { flex: 1; color: var(--ink-muted); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .banner-error { color: var(--critical); font-weight: 600; }
+  .export-button {
     border: 1px solid var(--line); background: var(--surface); color: var(--ink);
     border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 13px;
   }
-  .bouton-export:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
-  .bouton-export:disabled { opacity: 0.4; cursor: not-allowed; }
-  .bouton-export:focus-visible, .rail-vue-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .export-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  .export-button:disabled { opacity: 0.4; cursor: not-allowed; }
+  .export-button:focus-visible, .rail-view-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-  .mise-en-page { flex: 1; display: flex; min-height: 0; }
+  .layout { flex: 1; display: flex; min-height: 0; }
   .rail {
     width: 220px; flex-shrink: 0; border-right: 1px solid var(--line);
     padding: 12px; overflow-y: auto; background: var(--surface);
     display: flex; flex-direction: column; gap: 16px;
   }
-  .rail-vues { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-  .rail-vue-item {
+  .rail-views { flex-shrink: 0; display: flex; flex-direction: column; gap: 4px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+  .rail-view-item {
     text-align: left; border: none; background: none; color: var(--ink);
     padding: 8px 10px; border-radius: 4px; cursor: pointer; font-size: 13px;
     display: flex; justify-content: space-between; align-items: center;
   }
-  .rail-vue-item:hover { background: var(--ground); }
-  .rail-vue-item[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+  .rail-view-item:hover { background: var(--ground); }
+  .rail-view-item[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
   /* Une pastille ronde, pas une étiquette : min-width = height donne un cercle
      à un chiffre, et la forme s'allonge d'elle-même au-delà. */
-  .compteur-anomalies, .compteur-actions, .compteur-avertissements {
+  .count-anomalies, .count-actions, .count-warnings {
     border-radius: 999px; font-size: 11px; line-height: 1;
     min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
     display: inline-flex; align-items: center; justify-content: center;
     font-variant-numeric: tabular-nums; margin-left: 4px;
   }
-  .compteur-anomalies { background: var(--critical); color: #ffffff; }
-  .compteur-avertissements { background: var(--warn); color: var(--warn-ink); }
-  .compteur-actions { background: var(--action); color: var(--action-ink); }
-  .section-avertissement .icone-section { color: var(--warn); }
-  .section-avertissement { border-color: var(--warn); }
+  .count-anomalies { background: var(--critical); color: #ffffff; }
+  .count-warnings { background: var(--warn); color: var(--warn-ink); }
+  .count-actions { background: var(--action); color: var(--action-ink); }
+  .section-warning .section-icon { color: var(--warn); }
+  .section-warning { border-color: var(--warn); }
   /* L'action se distingue de l'alerte : c'est du travail, pas un défaut. */
-  .section-action .icone-section { color: var(--action); }
+  .section-action .section-icon { color: var(--action); }
   .section-action { border-color: var(--action); }
-  .rail-selecteur {
+  .rail-select {
     width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;
     background: var(--surface); color: var(--ink);
   }
@@ -109,83 +109,83 @@
   /* Le modèle se distingue des exports : il ne dépend pas d'un fichier chargé. */
   /* Le seul bouton qui produit un classeur complété : il se distingue des
      exports, qui ne font que sortir ce qui est à l'écran. */
-  .bouton-generer { border-color: var(--accent); color: var(--accent); }
-  .cible-depot .bouton-export { margin-top: 20px; }
+  .generate-button { border-color: var(--accent); color: var(--accent); }
+  .drop-target .export-button { margin-top: 20px; }
   /* Poussés en pied de rail : ce sont des points de départ, pas des vues. */
-  .rail-departs {
+  .rail-starts {
     margin: auto 0 0 0; padding-top: 16px; flex-shrink: 0;
     display: flex; flex-direction: column; gap: 6px;
     border-top: 1px solid var(--line);
   }
-  .bouton-rail {
+  .rail-button {
     text-align: left; padding: 7px 10px; font-size: 12px; cursor: pointer;
     border: 1px solid var(--line); border-radius: 4px;
     background: var(--surface); color: var(--ink-muted);
   }
-  .bouton-rail:hover { color: var(--ink); border-color: var(--accent); }
+  .rail-button:hover { color: var(--ink); border-color: var(--accent); }
   /* Fenêtre de migration : elle recouvre l'outil parce qu'on n'y fait qu'une
      chose, et qu'on en ressort tout de suite. */
-  .voile-migration {
+  .migration-overlay {
     position: fixed; inset: 0; z-index: 10;
     background: rgba(0, 0, 0, 0.55);
     display: flex; align-items: center; justify-content: center; padding: 24px;
   }
-  .boite-migration {
+  .migration-box {
     position: relative; background: var(--surface); color: var(--ink);
     border: 1px solid var(--line); border-radius: 8px;
     padding: 24px; width: min(680px, 100%); max-height: 90vh; overflow-y: auto;
   }
-  .titre-migration { margin: 0 0 16px 0; font-size: 16px; }
-  .bouton-fermer {
+  .migration-title { margin: 0 0 16px 0; font-size: 16px; }
+  .close-button {
     position: absolute; top: 10px; right: 12px;
     border: none; background: none; color: var(--ink-muted);
     font-size: 22px; line-height: 1; cursor: pointer; padding: 4px 8px;
   }
-  .bouton-fermer:hover { color: var(--ink); }
-  .cible-migration { min-height: 220px; }
-  .liste-migration {
+  .close-button:hover { color: var(--ink); }
+  .migration-target { min-height: 220px; }
+  .migration-list {
     text-align: left; max-width: 560px; margin: 12px auto 0; font-size: 13px;
     color: var(--ink-muted); display: flex; flex-direction: column; gap: 6px;
   }
-  .champ-fichier { margin-top: 14px; font-size: 13px; color: var(--ink-muted); }
-  .message-erreur { color: var(--critical); }
+  .file-field { margin-top: 14px; font-size: 13px; color: var(--ink-muted); }
+  .error-message { color: var(--critical); }
   .rail-copyright {
     margin: 0; padding-top: 4px; flex-shrink: 0;
     font-size: 11px; color: var(--ink-muted);
   }
   /* Le palier n'est pas une option d'affichage : il vaut pour l'outil entier.
      Il se pose donc au-dessus des filtres, séparé d'eux, juste sous les vues. */
-  .rail-paliers {
+  .rail-milestones {
     flex-shrink: 0; display: flex; flex-direction: column; gap: 8px;
     padding-bottom: 12px; border-bottom: 1px solid var(--line);
   }
-  .rail-palier { display: flex; flex-direction: column; gap: 4px; }
-  .rail-palier-titre { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+  .rail-milestone { display: flex; flex-direction: column; gap: 4px; }
+  .rail-milestone-title { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
 
-  .rail-bascule {
+  .rail-toggle {
     flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-size: 13px;
     padding-bottom: 12px; border-bottom: 1px solid var(--line);
   }
-  .rail-filtre {
+  .rail-filter {
     border-bottom: 1px solid var(--line); padding-bottom: 12px; font-size: 13px;
     /* Le rail est une colonne flex : sans ceci, deux longues listes se
        compriment l'une l'autre jusqu'à ne plus montrer que deux lignes. */
     flex-shrink: 0;
   }
-  .rail-filtre > summary {
+  .rail-filter > summary {
     cursor: pointer; font-weight: 600; padding: 4px 0; list-style-position: inside;
   }
-  .rail-filtre > label {
+  .rail-filter > label {
     display: flex; align-items: center; gap: 6px; padding: 3px 0 3px 8px;
     /* Une longue liste d'acteurs ne doit pas repousser le schéma hors de vue. */
     overflow-wrap: anywhere;
   }
-  .rail-filtre[open] { max-height: 240px; overflow-y: auto; }
-  .rail-legende { list-style: none; padding: 0; margin: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
-  .rail-legende li { display: flex; align-items: center; gap: 6px; }
-  .legende-puce { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .rail-filter[open] { max-height: 240px; overflow-y: auto; }
+  .rail-legend { list-style: none; padding: 0; margin: 0; font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+  .rail-legend li { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
 
-  .zone-rendu {
+  .render-area {
     flex: 1; overflow: auto; padding: 16px;
     background-color: var(--ground);
     background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
@@ -197,42 +197,42 @@
      ramène la légende à 5 px, les noms de boîtes à 8 px et les étiquettes à
      5 px. Tout était visible, et plus rien n'était lisible.
      « Fit » reste à un clic, pour qui veut la vue d'ensemble. */
-  .zone-rendu > svg { display: block; }
+  .render-area > svg { display: block; }
   /* Les marges du tableau : présentes, mais en retrait. Ce sont des repères,
      pas de la donnée. */
-  table.matrice caption {
+  table.matrix caption {
     caption-side: top; text-align: left; padding: 0 0 8px;
     font-weight: 600; color: var(--ink);
   }
-  table.matrice .matrice-total { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
-  table.matrice tfoot .matrice-total { border-top: 2px solid var(--line); }
-  .conseil-echelle {
+  table.matrix .matrix-total { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  table.matrix tfoot .matrix-total { border-top: 2px solid var(--line); }
+  .scale-hint {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     margin-bottom: 10px; padding: 8px 12px; font-size: 13px;
     border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
   }
-  .conseil-echelle button {
+  .scale-hint button {
     font: inherit; padding: 2px 10px; cursor: pointer;
     border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--text);
   }
-  .commandes-zoom { display: flex; gap: 6px; margin-top: 8px; }
-  .commandes-zoom button {
+  .zoom-controls { display: flex; gap: 6px; margin-top: 8px; }
+  .zoom-controls button {
     font: inherit; padding: 2px 10px; cursor: pointer;
     border: 1px solid var(--line); border-radius: 6px;
     background: var(--surface); color: var(--text);
   }
-  .cible-depot {
+  .drop-target {
     border: 2px dashed var(--line); border-radius: 8px; height: 100%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     text-align: center; color: var(--ink-muted); gap: 8px;
   }
-  #app.survol .cible-depot { border-color: var(--accent); background: var(--surface); }
-  .cible-depot-titre { font-size: 16px; font-weight: 600; color: var(--ink); }
+  #app.hover .drop-target { border-color: var(--accent); background: var(--surface); }
+  .drop-target-title { font-size: 16px; font-weight: 600; color: var(--ink); }
 
-  .aucun-flux { color: var(--ink-muted); font-style: italic; }
+  .no-flow { color: var(--ink-muted); font-style: italic; }
 
-  table.matrice { border-collapse: separate; border-spacing: 0; font-size: 13px; background: var(--surface); }
-  table.matrice th, table.matrice td {
+  table.matrix { border-collapse: separate; border-spacing: 0; font-size: 13px; background: var(--surface); }
+  table.matrix th, table.matrix td {
     border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
     padding: 6px 8px; vertical-align: top;
   }
@@ -240,35 +240,35 @@
      horizontaux font une table trois fois trop large pour être suivie.
      Empilement : coin au-dessus des deux en-têtes, eux-mêmes au-dessus des
      cases, sinon le tableau défile PAR-DESSUS ses propres en-têtes. */
-  table.matrice thead th {
+  table.matrix thead th {
     background: var(--surface); position: sticky; top: 0; z-index: 3;
     text-align: center; vertical-align: bottom; padding: 8px 4px;
     border-bottom: 2px solid var(--line);
   }
-  .matrice-entete {
+  .matrix-header {
     display: inline-block; writing-mode: vertical-rl; transform: rotate(180deg);
     white-space: nowrap; font-weight: 600;
   }
   /* Un en-tête de ligne doit rester lisible quand on fait défiler vers la
      droite : c'est la moitié de la coordonnée d'une case. */
-  table.matrice tbody th.matrice-acteur {
+  table.matrix tbody th.matrix-actor {
     position: sticky; left: 0; z-index: 2; background: var(--surface);
     text-align: center; vertical-align: middle; white-space: nowrap; font-weight: 600;
     border-right: 2px solid var(--line);
   }
-  table.matrice th.matrice-coin {
+  table.matrix th.matrix-corner {
     position: sticky; left: 0; top: 0; z-index: 4;
     background: var(--surface);
     vertical-align: middle; text-align: center; white-space: nowrap;
     color: var(--ink-muted); font-weight: 500;
     border-right: 2px solid var(--line);
   }
-  table.matrice tbody tr:nth-child(even) td { background: var(--ground); }
+  table.matrix tbody tr:nth-child(even) td { background: var(--ground); }
   /* Repérage de la case sous le curseur : la ligne entière s'éclaire, sinon
      l'œil perd sa coordonnée au milieu d'une grille aussi creuse. */
-  table.matrice tbody tr:hover td,
-  table.matrice tbody tr:hover th.matrice-acteur { background: var(--accent-faible); }
-  .matrice-techno {
+  table.matrix tbody tr:hover td,
+  table.matrix tbody tr:hover th.matrix-actor { background: var(--accent-faible); }
+  .matrix-tech {
     display: block; font-weight: 600; font-variant-numeric: tabular-nums;
     font-family: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   }
@@ -276,85 +276,85 @@
      l'encre du thème, sans quoi une couleur de référentiel réglée pour le
      papier deviendrait illisible sur fond sombre. Le liseré garde la pastille
      visible même quand sa teinte frôle celle du fond. */
-  .matrice-pastille {
+  .matrix-dot {
     display: inline-block; width: 8px; height: 8px; border-radius: 50%;
     margin-right: 6px; vertical-align: baseline;
     border: 1px solid var(--line);
   }
 
-  .rapport-integrite { display: flex; flex-direction: column; gap: 20px; max-width: 800px; }
-  .aide-definitions { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0 0; }
-  .aide-definitions dt { font-weight: 600; }
-  .aide-definitions dd { margin: 0; color: var(--ink-muted); }
-  .aide-seule { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
-  .cible-depot-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
-  @media (max-width: 640px) { .aide-definitions { grid-template-columns: 1fr; } .aide-definitions dd { margin-bottom: 8px; } }
-  .bloc-anomalies, .bloc-informatif { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
-  .bloc-anomalies p, .bloc-informatif p { margin: 0 0 8px 0; color: var(--ink-muted); font-size: 13px; }
-  .rien-a-signaler { font-style: italic; color: var(--ink-muted); }
-  .bloc-anomalies summary, .bloc-informatif summary {
+  .integrity-report { display: flex; flex-direction: column; gap: 20px; max-width: 800px; }
+  .help-definitions { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 8px 0 0 0; }
+  .help-definitions dt { font-weight: 600; }
+  .help-definitions dd { margin: 0; color: var(--ink-muted); }
+  .help-standalone { display: flex; flex-direction: column; gap: 16px; align-items: flex-start; }
+  .drop-target-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  @media (max-width: 640px) { .help-definitions { grid-template-columns: 1fr; } .help-definitions dd { margin-bottom: 8px; } }
+  .block-anomalies, .block-info { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; }
+  .block-anomalies p, .block-info p { margin: 0 0 8px 0; color: var(--ink-muted); font-size: 13px; }
+  .nothing-to-report { font-style: italic; color: var(--ink-muted); }
+  .block-anomalies summary, .block-info summary {
     display: flex; align-items: center; gap: 8px; cursor: pointer;
     font-weight: 600; font-variant-numeric: tabular-nums; margin-bottom: 4px;
   }
-  .bloc-anomalies summary:focus-visible, .bloc-informatif summary:focus-visible {
+  .block-anomalies summary:focus-visible, .block-info summary:focus-visible {
     outline: 2px solid var(--accent); outline-offset: 2px;
   }
   /* Repliée, une section saine se réduit à sa seule ligne de résumé. */
   details:not([open]) > p, details:not([open]) > ul { display: none; }
-  .icone-section { flex: none; }
-  .section-ok .icone-section { color: var(--ok); }
-  .section-alerte .icone-section { color: var(--critical); }
-  .section-info .icone-section { color: var(--ink-muted); }
-  .section-alerte { border-color: var(--critical); }
+  .section-icon { flex: none; }
+  .section-ok .section-icon { color: var(--ok); }
+  .section-alert .section-icon { color: var(--critical); }
+  .section-info .section-icon { color: var(--ink-muted); }
+  .section-alert { border-color: var(--critical); }
 
   /* Les écarts se lisent comme un relevé : une phrase qui pose la question,
      puis trois blocs, arrivées puis départs. Le signe porte l'information
      autant que la couleur -- un rouge et un vert seuls ne se distinguent pas
      pour tout le monde. */
-  .ecarts { display: flex; flex-direction: column; gap: 16px; max-width: 900px; }
-  .ecarts-entete { margin: 0; color: var(--ink-muted); font-size: 14px; }
-  .ecarts-bloc {
+  .changes { display: flex; flex-direction: column; gap: 16px; max-width: 900px; }
+  .changes-header { margin: 0; color: var(--ink-muted); font-size: 14px; }
+  .changes-block {
     border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px;
     background: var(--surface);
   }
-  .ecarts-bloc > summary {
+  .changes-block > summary {
     cursor: pointer; font-weight: 600; font-variant-numeric: tabular-nums;
     list-style-position: inside;
   }
-  .ecarts-bloc ul {
+  .changes-block ul {
     list-style: none; margin: 8px 0 0 0; padding: 0;
     display: flex; flex-direction: column; gap: 4px; font-size: 14px;
   }
-  .ecarts-bloc li { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
-  .ecart-ajout li { color: var(--ok); }
-  .ecart-retrait li { color: var(--critical); }
-  .ecarts-bloc .aucun-flux { margin: 8px 0 0 0; }
+  .changes-block li { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .change-added li { color: var(--ok); }
+  .change-removed li { color: var(--critical); }
+  .changes-block .no-flow { margin: 8px 0 0 0; }
 
-  .ecarts-titre-schema { margin: 0; font-size: 15px; font-weight: 600; }
+  .changes-diagram-title { margin: 0; font-size: 15px; font-weight: 600; }
 
   @media (prefers-reduced-motion: no-preference) {
-    .bouton-export, .rail-vue-item { transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
+    .export-button, .rail-view-item { transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
   }
 
   /* --- Impression -------------------------------------------------------
-     Aucune règle n'existait : la page sortait avec son rail, son bandeau et
+     Aucune règle n'existait : la page sortait avec son rail, son banner et
      un schéma coupé. */
   @page { size: A4 landscape; margin: 10mm; }
   @media print {
-    .bandeau, .rail, .commandes-zoom, .conseil-echelle { display: none; }
-    .zone-rendu { overflow: visible; padding: 0; background: none; }
-    .zone-rendu > svg { max-width: 100%; height: auto; page-break-inside: avoid; }
+    .banner, .rail, .zoom-controls, .scale-hint { display: none; }
+    .render-area { overflow: visible; padding: 0; background: none; }
+    .render-area > svg { max-width: 100%; height: auto; page-break-inside: avoid; }
     /* `economy`, la valeur par défaut, autorise le navigateur à « leave out
        all background images and to adjust text colors » -- donc à supprimer
        les aplats de couleur des boîtes. Les deux écritures : la propriété
        n'est Baseline que depuis mai 2025.
        Ce n'est qu'une DEMANDE, que l'utilisateur peut ignorer : raison de plus
        pour que la notation ne repose jamais sur la seule couleur. */
-    .zone-rendu { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    /* Une matrice de 143 cases tient rarement sur une page : sans cette règle,
+    .render-area { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Une matrix de 143 cases tient rarement sur une page : sans cette règle,
        les suivantes sortent sans en-têtes et deviennent illisibles. */
-    table.matrice thead { display: table-header-group; }
-    table.matrice tr { page-break-inside: avoid; }
+    table.matrix thead { display: table-header-group; }
+    table.matrix tr { page-break-inside: avoid; }
     body { background: #ffffff; }
   }
 </style>

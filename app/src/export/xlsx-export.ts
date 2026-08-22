@@ -1,41 +1,41 @@
 import * as XLSX from "xlsx";
-import { téléchargerClasseur } from "./telechargement";
+import { téléchargerClasseur } from "./download";
 import type { MatrixResult } from "../aggregation/views";
-import { libelleCellule } from "../aggregation/core";
+import { cellLabel } from "../aggregation/core";
 
-// La matrice telle qu'elle est lue à l'écran -- c'est le même objet, déjà
+// La matrix telle qu'elle est lue à l'écran -- c'est le même objet, déjà
 // élagué : une ligne par émetteur, une colonne par destinataire, et dans la
 // case les technologies du lien.
 function grilleMatrice(matrix: MatrixResult): string[][] {
-  const entete = ["From \\ To", ...matrix.colonnes];
-  const lignes = matrix.lignes.map((ligne) => [
-    ligne.acteur,
-    ...matrix.colonnes.map((cible) =>
-      (ligne.cellules.get(cible) ?? [])
-        .map((c) => libelleCellule(c.technologie, c.count, c.noms))
+  const header = ["From \\ To", ...matrix.columns];
+  const rows = matrix.rows.map((row) => [
+    row.actor,
+    ...matrix.columns.map((target) =>
+      (row.cellules.get(target) ?? [])
+        .map((c) => cellLabel(c.technology, c.count, c.names))
         .join(", ")
     ),
   ]);
-  return [entete, ...lignes];
+  return [header, ...rows];
 }
 
 // Le même contenu à plat. Excel ne sait rien faire d'une grille creuse : c'est
 // cette feuille-là qu'on trie et qu'on met en tableau croisé.
 function listeDesFlux(matrix: MatrixResult): (string | number)[][] {
-  const lignes: (string | number)[][] = [["From", "To", "Technology", "Count", "Attenuated"]];
-  for (const ligne of matrix.lignes) {
-    for (const [cible, cellules] of ligne.cellules) {
+  const rows: (string | number)[][] = [["From", "To", "Technology", "Count", "Attenuated"]];
+  for (const row of matrix.rows) {
+    for (const [target, cellules] of row.cellules) {
       for (const cell of cellules) {
-        lignes.push([ligne.acteur, cible, cell.technologie, cell.count, cell.atténué ? "Yes" : ""]);
+        rows.push([row.actor, target, cell.technology, cell.count, cell.attenuated ? "Yes" : ""]);
       }
     }
   }
-  return lignes;
+  return rows;
 }
 
 function largeurs(grille: string[][]): { wch: number }[] {
-  return grille[0].map((_, colonne) =>
-    ({ wch: Math.min(28, Math.max(10, ...grille.map((l) => (l[colonne] ?? "").length + 2))) })
+  return grille[0].map((_, column) =>
+    ({ wch: Math.min(28, Math.max(10, ...grille.map((l) => (l[column] ?? "").length + 2))) })
   );
 }
 

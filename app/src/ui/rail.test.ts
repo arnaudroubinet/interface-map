@@ -4,27 +4,27 @@ import { renderRail, type RailCallbacks } from "./rail";
 import { initialState, withFichierCharge, withMode, withVue, withSelectionActeur, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
 import { VERSION_MODELE } from "../parsing/build-model";
-import { acteursDuMode, lecture } from "../aggregation/fonctionnel";
-import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
+import { actorsForReading, reading } from "../aggregation/reading";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
 // Le flux, résolu comme au point d'entrée réel (app.ts) : un test qui
 // passerait un tableau vide masquerait une dépendance réelle du rail au
 // contenu des flux (§ filtre Technologies).
-function flux(state: AppState): ReturnType<typeof lecture> {
-  return state.fichier ? lecture(state.fichier.model, null, state.mode) : { flux: [], acteurs: [] };
+function flows(state: AppState): ReturnType<typeof reading> {
+  return state.fichier ? reading(state.fichier.model, null, state.mode) : { flows: [], actors: [] };
 }
 
-function acteur(nom: string, typeActeur: string): Acteur {
-  return base.acteur({ nom, typeActeur });
+function actor(name: string, typeActeur: string): Actor {
+  return base.actor({ name, typeActeur });
 }
 
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
-  return base.iface({ acteurExposant: "Tatooine", feuilleAttendue: "FX_Tatooine_HTTP", ...o });
+  return base.iface({ providerName: "Tatooine", expectedSheet: "FX_Tatooine_HTTP", ...o });
 }
 
 function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ acteurConsommateur: "Bus", statut: "Actif", decision: "Keep", feuille: "FX_Tatooine_HTTP", ...o });
+  return base.conso({ consumerName: "Bus", statut: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
 }
 
 // Tatooine expose F vers Bus (Middleware, Technical), qui la relaie sous F2 vers
@@ -32,23 +32,23 @@ function conso(o: Partial<Consommation> = {}): Consommation {
 // Naboo, sans technologie -- c'est ce terrain que le filtre « Technologies »
 // doit refléter.
 const modelAvecFlux: ParsedModel = {
-  acteurs: [acteur("Tatooine", "Application"), acteur("Bus", "Middleware"), acteur("Naboo", "Application")],
-  groupes: [{ nom: "G", perimetre: "Platform", feuille: "Groups", ligne: 0 }],
+  actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Naboo", "Application")],
+  groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
   groupesAbsents: false,
   typesActeur: [
-    { type: "Application", icone: "", nature: "Business", feuille: "ActorTypes", ligne: 0 },
-    { type: "Middleware", icone: "", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
+    { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ],
-  typesFlux: [base.typeFlux({ type: "HTTP" })],
-  paliers: [],
-  interfaces: [iface({}), iface({ nomDuFlux: "F2", acteurExposant: "Bus", feuilleAttendue: "FX_Bus_HTTP" })],
-  consommations: [
+  flowTypes: [base.typeFlux({ type: "HTTP" })],
+  milestones: [],
+  interfaces: [iface({}), iface({ flowName: "F2", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" })],
+  consumptions: [
     // C'est la CONSOMMATION qui dit sous quelle interface elle ressort (v4) :
     // le terrain portait encore la colonne « Relays » de la v3, que plus rien
     // ne lit -- la chaîne fonctionnelle n'existait donc pas, et le test du
     // filtre passait faute de flux plutôt que faute de technologie.
-    conso({ republiePar: "F2" }),
-    conso({ nomDuFlux: "F2", acteurConsommateur: "Naboo", feuille: "FX_Bus_HTTP" }),
+    conso({ republishedAs: "F2" }),
+    conso({ flowName: "F2", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
   ],
   fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
   colonnesOptionnellesAbsentes: [],
@@ -57,24 +57,24 @@ const modelAvecFlux: ParsedModel = {
 };
 
 const model: ParsedModel = {
-  acteurs: [acteur("Tatooine", "Application"), acteur("Bus", "Middleware")],
-  groupes: [{ nom: "G", perimetre: "Platform", feuille: "Groups", ligne: 0 }],
+  actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
+  groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
   groupesAbsents: false,
   typesActeur: [
-    { type: "Application", icone: "", nature: "Business", feuille: "ActorTypes", ligne: 0 },
-    { type: "Middleware", icone: "", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
+    { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ],
-  typesFlux: [],
-  paliers: [],
+  flowTypes: [],
+  milestones: [],
   interfaces: [],
-  consommations: [],
+  consumptions: [],
   fxSheetNames: [],
   colonnesOptionnellesAbsentes: [],
   versionModele: VERSION_MODELE,
   fichierModifie: null,
 };
 
-const report: IntegrityReport = { familles: [], blocsInformatifs: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
+const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
 
 function noop(): void {}
 
@@ -106,25 +106,25 @@ const callbacks: RailCallbacks = {
 };
 
 function optionsActeur(root: HTMLElement): string[] {
-  return [...root.querySelectorAll(".rail-selecteur option")].map((o) => o.textContent ?? "");
+  return [...root.querySelectorAll(".rail-select option")].map((o) => o.textContent ?? "");
 }
 
 describe("renderRail — sélecteur « par acteur »", () => {
   it("liste tous les acteurs en architecture", () => {
-    const state = withVue(withFichierCharge(initialState(), { nom: "c.xlsx", model, report, dateModification: null }), "par-acteur");
+    const state = withVue(withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
     const root = document.createElement("div");
-    renderRail(root, state, flux(state), [], callbacks);
+    renderRail(root, state, flows(state), [], callbacks);
     expect(optionsActeur(root)).toContain("Bus");
   });
 
   // §5.2 : le sélecteur ne liste que les acteurs métier en fonctionnel.
   it("ne liste que les acteurs métier en fonctionnel", () => {
     const state = withVue(
-      withMode(withFichierCharge(initialState(), { nom: "c.xlsx", model, report, dateModification: null }), "fonctionnel"),
-      "par-acteur"
+      withMode(withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "functional"),
+      "by-actor"
     );
     const root = document.createElement("div");
-    renderRail(root, state, flux(state), [], callbacks);
+    renderRail(root, state, flows(state), [], callbacks);
     const options = optionsActeur(root);
     expect(options).toContain("Tatooine");
     expect(options).not.toContain("Bus");
@@ -138,19 +138,19 @@ describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () =
   it("n'affiche pas le compteur d'anomalies quand le classeur est bloqué en mise à niveau", () => {
     const modelAncien: ParsedModel = { ...model, versionModele: VERSION_MODELE - 1 };
     const reportAvecAnomalies: IntegrityReport = {
-      familles: [],
-      blocsInformatifs: [],
+      families: [],
+      infoBlocks: [],
       totalAnomalies: 5,
       totalActions: 0,
       totalAvertissements: 0,
     };
     const state = withVue(
-      withFichierCharge(initialState(), { nom: "c.xlsx", model: modelAncien, report: reportAvecAnomalies, dateModification: null }),
-      "mise-a-niveau"
+      withFichierCharge(initialState(), { name: "c.xlsx", model: modelAncien, report: reportAvecAnomalies, dateModification: null }),
+      "upgrade"
     );
     const root = document.createElement("div");
-    renderRail(root, state, flux(state), [], callbacks);
-    expect(root.querySelector(".compteur-anomalies")).toBeNull();
+    renderRail(root, state, flows(state), [], callbacks);
+    expect(root.querySelector(".count-anomalies")).toBeNull();
   });
 });
 
@@ -160,27 +160,27 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
   // qui vide tout le schéma en un clic sans rien expliquer.
   it("n'affiche pas le bloc Technologies en mode fonctionnel", () => {
     const state = withSelectionActeur(
-      withVue(withMode(withFichierCharge(initialState(), { nom: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "fonctionnel"), "par-acteur"),
+      withVue(withMode(withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "functional"), "by-actor"),
       "Tatooine"
     );
     // Le terrain porte bien un lien fonctionnel : sans cette ligne, le test
     // passerait aussi sur un parc vide, où il n'y a rien à filtrer.
-    expect(flux(state).flux).toHaveLength(1);
+    expect(flows(state).flows).toHaveLength(1);
     const root = document.createElement("div");
-    renderRail(root, state, flux(state), [], callbacks);
-    const titres = [...root.querySelectorAll(".rail-filtre summary")].map((s) => s.textContent ?? "");
-    expect(titres.some((t) => t.startsWith("Technologies"))).toBe(false);
+    renderRail(root, state, flows(state), [], callbacks);
+    const titles = [...root.querySelectorAll(".rail-filter summary")].map((s) => s.textContent ?? "");
+    expect(titles.some((t) => t.startsWith("Technologies"))).toBe(false);
   });
 
   it("affiche le bloc Technologies en architecture", () => {
     const state = withSelectionActeur(
-      withVue(withFichierCharge(initialState(), { nom: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "par-acteur"),
+      withVue(withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "by-actor"),
       "Tatooine"
     );
     const root = document.createElement("div");
-    renderRail(root, state, flux(state), [], callbacks);
-    const titres = [...root.querySelectorAll(".rail-filtre summary")].map((s) => s.textContent ?? "");
-    expect(titres.some((t) => t.startsWith("Technologies"))).toBe(true);
+    renderRail(root, state, flows(state), [], callbacks);
+    const titles = [...root.querySelectorAll(".rail-filter summary")].map((s) => s.textContent ?? "");
+    expect(titles.some((t) => t.startsWith("Technologies"))).toBe(true);
   });
 });
 
@@ -193,35 +193,35 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
 // ---------------------------------------------------------------------------
 
 describe("le sélecteur « By actor » suit le palier affiché", () => {
-  const parc = base.modele({
-    acteurs: [
-      base.acteur({ nom: "Aaa", palierIntroduction: "v1", palierRetrait: "v2" }),
-      base.acteur({ nom: "Bbb", palierIntroduction: "v1" }),
+  const parc = base.template({
+    actors: [
+      base.actor({ name: "Aaa", introducedAt: "v1", retiredAt: "v2" }),
+      base.actor({ name: "Bbb", introducedAt: "v1" }),
     ],
-    groupes: [base.groupe({ nom: "G" })],
+    groups: [base.group({ name: "G" })],
     typesActeur: [base.typeActeur()],
-    typesFlux: [base.typeFlux()],
-    paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
-    interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "Bbb", feuilleAttendue: "FX_Bbb_HTTP" })],
-    consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "Aaa", feuille: "FX_Bbb_HTTP" })],
+    flowTypes: [base.typeFlux()],
+    milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
+    interfaces: [base.iface({ flowName: "F", providerName: "Bbb", expectedSheet: "FX_Bbb_HTTP" })],
+    consumptions: [base.conso({ flowName: "F", consumerName: "Aaa", sheet: "FX_Bbb_HTTP" })],
   });
 
   it("n'offre pas un acteur absent de la lecture courante", () => {
     const state: AppState = withVue(
       withFichierCharge(initialState(), {
-        nom: "c.xlsx",
+        name: "c.xlsx",
         model: parc,
         report: runIntegrityChecks(parc),
         dateModification: null,
       }),
-      "par-acteur"
+      "by-actor"
     );
-    expect(state.palierAffiche).toBe("v2");
-    expect(acteursDuMode(parc, 2, "architecture").map((a) => a.nom)).toEqual(["Bbb"]);
+    expect(state.shownMilestone).toBe("v2");
+    expect(actorsForReading(parc, 2, "architecture").map((a) => a.name)).toEqual(["Bbb"]);
 
     const root = document.createElement("div");
-    renderRail(root, state, lecture(parc, 2, "architecture"), [], callbacks);
-    const offerts = [...root.querySelectorAll("select.rail-selecteur option")].map((o) => o.getAttribute("value"));
+    renderRail(root, state, reading(parc, 2, "architecture"), [], callbacks);
+    const offerts = [...root.querySelectorAll("select.rail-select option")].map((o) => o.getAttribute("value"));
     expect(offerts).not.toContain("Aaa");
   });
 });
@@ -230,21 +230,21 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
 // choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
 // qui est nommé.
 describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
-  const chargé = () => withFichierCharge(initialState(), { nom: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
+  const chargé = () => withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
   const rendu = (s: AppState) => {
     const root = document.createElement("div");
-    renderRail(root, s, flux(s), [], callbacks);
+    renderRail(root, s, flows(s), [], callbacks);
     return root;
   };
 
   it("propose les trois lectures de l'étiquette", () => {
-    const options = [...rendu(chargé()).querySelectorAll(".rail-option-libelle option")].map((o) => o.getAttribute("value"));
+    const options = [...rendu(chargé()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
     expect(options).toEqual(["technology", "exchanges", "both"]);
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
-    const select = rendu(s).querySelector(".rail-option-libelle select") as HTMLSelectElement;
+    const s = { ...chargé(), options: { counters: true, libelléArête: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
+    const select = rendu(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });
 });

@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { modeleEnLikeC4 } from "./likec4-dsl";
-import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 // Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
 // donc les champs qu'ils lisent doivent être remplis.
-function acteur(o: Partial<Acteur> = {}): Acteur {
-  return base.acteur({ groupe: "Socle", description: "d", ...o });
+function actor(o: Partial<Actor> = {}): Actor {
+  return base.actor({ group: "Socle", description: "d", ...o });
 }
 
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
@@ -15,24 +15,24 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
 }
 
 function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticite: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
   return {
-    acteurs: [acteur({ nom: "A" }), acteur({ nom: "B", groupe: "Partenaire" })],
-    groupes: [
-      { nom: "Socle", perimetre: "Platform", feuille: "Groups", ligne: 0 },
-      { nom: "Partenaire", perimetre: "External", feuille: "Groups", ligne: 0 },
+    actors: [actor({ name: "A" }), actor({ name: "B", group: "Partenaire" })],
+    groups: [
+      { name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 },
+      { name: "Partenaire", perimeter: "External", sheet: "Groups", row: 0 },
     ],
     groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
-    paliers: [],
-    typesFlux: [
+    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    milestones: [],
+    flowTypes: [
       base.typeFlux({ type: "HTTP" }),
     ],
     interfaces: [iface({})],
-    consommations: [conso({})],
+    consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
     colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE,
@@ -78,8 +78,8 @@ describe("modeleEnLikeC4", () => {
 
   it("follows the flow type the other way round when it says so", () => {
     const m = model({
-      typesFlux: [
-        base.typeFlux({ type: "HTTP", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
+      flowTypes: [
+        base.typeFlux({ type: "HTTP", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
       ],
     });
     expect(modeleEnLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
@@ -99,7 +99,7 @@ describe("modeleEnLikeC4", () => {
   it("carries both comment columns on the relationship", () => {
     const m = model({
       interfaces: [iface({ commentaires: "Scope under review" })],
-      consommations: [conso({ commentaires: "Migrating next quarter" })],
+      consumptions: [conso({ commentaires: "Migrating next quarter" })],
     });
     const dsl = modeleEnLikeC4(m, null);
     expect(dsl).toContain('interfaceComments "Scope under review"');
@@ -116,7 +116,7 @@ describe("modeleEnLikeC4", () => {
   // fichier entier sur une relation d'un élément vers lui-même -- « Invalid
   // parent-child relationship ». Les vues agrégées la masquent déjà (§4.3).
   it("leaves out an actor consuming the interface it exposes itself", () => {
-    const m = model({ acteurs: [acteur({ nom: "A" })], consommations: [conso({ acteurConsommateur: "A" })] });
+    const m = model({ actors: [actor({ name: "A" })], consumptions: [conso({ consumerName: "A" })] });
     const dsl = modeleEnLikeC4(m, null);
     expect(dsl).not.toContain("socle.a -> socle.a");
   });
@@ -124,23 +124,23 @@ describe("modeleEnLikeC4", () => {
   // Un acteur sans groupe existe quand même : le rapport le réclame déjà, ce
   // n'est pas à l'export de le faire disparaître.
   it("keeps an actor that belongs to no group, at the root", () => {
-    const m = model({ acteurs: [acteur({ nom: "Seul", groupe: "" })], interfaces: [], consommations: [] });
+    const m = model({ actors: [actor({ name: "Seul", group: "" })], interfaces: [], consumptions: [] });
     expect(modeleEnLikeC4(m, null)).toContain('seul = system "Seul"');
   });
 
   it("exports the platform as it stands at the milestone on show", () => {
-    const paliers = [
-      { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-      { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
+    const milestones = [
+      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
     const m = model({
-      paliers,
-      acteurs: [
-        acteur({ nom: "A", palierIntroduction: "v1" }),
-        acteur({ nom: "B", groupe: "Partenaire", palierIntroduction: "v1", palierRetrait: "v2" }),
+      milestones,
+      actors: [
+        actor({ name: "A", introducedAt: "v1" }),
+        actor({ name: "B", group: "Partenaire", introducedAt: "v1", retiredAt: "v2" }),
       ],
-      interfaces: [iface({ palierIntroduction: "v1" })],
-      consommations: [conso({ palierIntroduction: "v1" })],
+      interfaces: [iface({ introducedAt: "v1" })],
+      consumptions: [conso({ introducedAt: "v1" })],
     });
     expect(modeleEnLikeC4(m, 1)).toContain('b = system "B"');
     expect(modeleEnLikeC4(m, 2)).not.toContain('b = system "B"');
@@ -181,25 +181,25 @@ describe("modeleEnLikeC4", () => {
 // convention de pointe réduite à une étiquette -- alors que LikeC4 est la
 // SEULE cible qui sache la dessiner.
 describe("modeleEnLikeC4 — la notation traverse l'export", () => {
-  const parc = (sens: "consommateur-exposant" | "exposant-consommateur") =>
-    model({ typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentation: sens })] });
+  const parc = (direction: "consumer-to-provider" | "provider-to-consumer") =>
+    model({ flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentation: direction })] });
 
   it("pose une pointe ouverte sur une technologie tirée", () => {
-    expect(modeleEnLikeC4(parc("consommateur-exposant"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
+    expect(modeleEnLikeC4(parc("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
   });
 
   it("pose une pointe pleine sur une technologie poussée", () => {
-    expect(modeleEnLikeC4(parc("exposant-consommateur"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
+    expect(modeleEnLikeC4(parc("provider-to-consumer"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
   });
 
   // Le style de trait par défaut de LikeC4 est `dashed` : sans `line solid`,
   // TOUS nos traits sortent en pointillé et « Transform » ne se distingue plus.
   it("écrit line solid explicitement", () => {
-    expect(modeleEnLikeC4(parc("exposant-consommateur"), null)).toContain("line solid");
+    expect(modeleEnLikeC4(parc("provider-to-consumer"), null)).toContain("line solid");
   });
 
   it("donne à la relation la couleur que la technologie a dans l'outil", () => {
-    const m = model({ typesFlux: [base.typeFlux({ type: "HTTP", couleur: "#1f5fae" })] });
+    const m = model({ flowTypes: [base.typeFlux({ type: "HTTP", colour: "#1f5fae" })] });
     expect(modeleEnLikeC4(m, null)).toMatch(/relationship http \{[\s\S]*?color #1f5fae/);
   });
 
@@ -216,7 +216,7 @@ describe("modeleEnLikeC4 — la notation traverse l'export", () => {
 
 describe("modeleEnLikeC4 — la lecture fonctionnelle", () => {
   it("annonce la lecture en tête du fichier", () => {
-    expect(modeleEnLikeC4(model(), null, "fonctionnel")).toContain("functional reading");
+    expect(modeleEnLikeC4(model(), null, "functional")).toContain("functional reading");
   });
 
   it("ne l'annonce pas en lecture d'architecture", () => {

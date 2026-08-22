@@ -2,14 +2,14 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { runIntegrityChecks } from "./checks";
 import { buildFlowInstances } from "../aggregation/core";
-import { buildFunctionalFlows } from "../aggregation/fonctionnel";
-import { VERSION_MODELE, feuilleFxAttendue } from "../parsing/build-model";
-import type { ParsedModel, Acteur, InterfaceCatalogue, Consommation } from "../parsing/model";
+import { buildFunctionalFlows } from "../aggregation/reading";
+import { VERSION_MODELE, expectedFxSheet } from "../parsing/build-model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
 
 // Un parc qui ne déclenche rien : chaque test n'introduit alors qu'une seule
 // faute, celle qu'il examine.
-function acteur(o: Partial<Acteur> = {}): Acteur {
-  return base.acteur({ description: "d", ...o });
+function actor(o: Partial<Actor> = {}): Actor {
+  return base.actor({ description: "d", ...o });
 }
 
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
@@ -17,19 +17,19 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
 }
 
 function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticite: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
 }
 
 function model(overrides: Partial<ParsedModel>): ParsedModel {
   return {
-    acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
-    groupes: [{ nom: "G", perimetre: "Platform", feuille: "Groups", ligne: 0 }],
+    actors: [actor({ name: "A" }), actor({ name: "B" })],
+    groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
     groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0 }],
-    paliers: [],
-  typesFlux: [base.typeFlux({ type: "HTTP" })],
+    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    milestones: [],
+  flowTypes: [base.typeFlux({ type: "HTTP" })],
     interfaces: [iface({})],
-    consommations: [conso({})],
+    consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
     colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE,
@@ -41,64 +41,64 @@ function model(overrides: Partial<ParsedModel>): ParsedModel {
 describe("7.1 structure", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "structure")!.anomalies).toHaveLength(0);
   });
 
   it("flags a missing optional column", () => {
-    const report = runIntegrityChecks(model({ colonnesOptionnellesAbsentes: [{ feuille: "Actors", colonne: "Group" }] }));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies).toHaveLength(1);
+    const report = runIntegrityChecks(model({ colonnesOptionnellesAbsentes: [{ sheet: "Actors", column: "Group" }] }));
+    expect(report.families.find((f) => f.id === "structure")!.anomalies).toHaveLength(1);
   });
 
   it("flags a duplicate actor name", () => {
-    const report = runIntegrityChecks(model({ acteurs: [acteur({ nom: "A" }), acteur({ nom: "A" })] }));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes('"A"'))).toBe(true);
+    const report = runIntegrityChecks(model({ actors: [actor({ name: "A" }), actor({ name: "A" })] }));
+    expect(report.families.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes('"A"'))).toBe(true);
   });
 
   it("flags a duplicate interface name", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ nomDuFlux: "F" }), iface({ nomDuFlux: "F" })] }));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies.length).toBeGreaterThan(0);
+    const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F" }), iface({ flowName: "F" })] }));
+    expect(report.families.find((f) => f.id === "structure")!.anomalies.length).toBeGreaterThan(0);
   });
 
   it("flags a missing FX_ tab expected by an interface", () => {
     const report = runIntegrityChecks(model({ fxSheetNames: [] }));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes("missing from the workbook"))).toBe(true);
+    expect(report.families.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes("missing from the workbook"))).toBe(true);
   });
 
   it("flags an FX_ tab with no matching interface", () => {
     const report = runIntegrityChecks(model({ fxSheetNames: ["FX_A_HTTP", "FX_Orphelin_HTTP"] }));
-    expect(report.familles.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes("FX_Orphelin_HTTP"))).toBe(true);
+    expect(report.families.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes("FX_Orphelin_HTTP"))).toBe(true);
   });
 });
 
 describe("7.2 références", () => {
   it("reports nothing when all references resolve", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "references")!.anomalies).toHaveLength(0);
   });
 
   it("flags an unknown exposant", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ acteurExposant: "Inconnu" })] }));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Inconnu"))).toBe(true);
+    const report = runIntegrityChecks(model({ interfaces: [iface({ providerName: "Inconnu" })] }));
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Inconnu"))).toBe(true);
   });
 
   it("flags an unknown type de flux", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ typeDeFlux: "SFTP" })] }));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("SFTP"))).toBe(true);
+    const report = runIntegrityChecks(model({ interfaces: [iface({ flowType: "SFTP" })] }));
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("SFTP"))).toBe(true);
   });
 
   it("flags an unknown acteur consommateur", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ acteurConsommateur: "Inconnu" })] }));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Inconnu"))).toBe(true);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ consumerName: "Inconnu" })] }));
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Inconnu"))).toBe(true);
   });
 
   it("flags a consumption whose flow name is not in the catalog", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ nomDuFlux: "Fantome" })] }));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Fantome"))).toBe(true);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ flowName: "Fantome" })] }));
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Fantome"))).toBe(true);
   });
 
   it("flags a consumption filed under the wrong tab", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ feuille: "FX_Mauvais_Onglet" })] }));
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("FX_A_HTTP"))).toBe(true);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ sheet: "FX_Mauvais_Onglet" })] }));
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("FX_A_HTTP"))).toBe(true);
   });
 
   it("does not flag a consumption as misfiled when a same-named interface exists on another tab (§3.3 rattachement)", () => {
@@ -110,61 +110,61 @@ describe("7.2 références", () => {
     // onglet"; only a (feuille, nom du flux) lookup (§3.3) gets this right.
     const report = runIntegrityChecks(
       model({
-        interfaces: [iface({ feuilleAttendue: "FX_A_HTTP" }), iface({ acteurExposant: "C", feuilleAttendue: "FX_C_HTTP" })],
-        acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
-        consommations: [conso({ feuille: "FX_A_HTTP" })],
+        interfaces: [iface({ expectedSheet: "FX_A_HTTP" }), iface({ providerName: "C", expectedSheet: "FX_C_HTTP" })],
+        actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
+        consumptions: [conso({ sheet: "FX_A_HTTP" })],
       })
     );
-    expect(report.familles.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("rangée"))).toBe(false);
+    expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("rangée"))).toBe(false);
   });
 });
 
 describe("7.3 cohérence", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.familles.find((f) => f.id === "coherence")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "coherence")!.anomalies).toHaveLength(0);
   });
 
   it("flags a consumer identical to the exposant", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ acteurConsommateur: "A" })] }));
-    expect(report.familles.find((f) => f.id === "coherence")!.anomalies.length).toBeGreaterThan(0);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ consumerName: "A" })] }));
+    expect(report.families.find((f) => f.id === "coherence")!.anomalies.length).toBeGreaterThan(0);
   });
 
   it("flags an interface with no consumption", () => {
-    const report = runIntegrityChecks(model({ consommations: [] }));
-    expect(report.familles.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("no declared consumption"))).toBe(true);
+    const report = runIntegrityChecks(model({ consumptions: [] }));
+    expect(report.families.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("no declared consumption"))).toBe(true);
   });
 
   // Un composant sans flux n'invalide rien : il n'apparaît simplement nulle
   // part. C'est un avertissement, pas une erreur.
   it("warns about an actor with no flow at all", () => {
-    const report = runIntegrityChecks(model({ acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "Isole" })] }));
-    expect(report.familles.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("Isole"))).toBe(false);
-    const bloc = report.blocsInformatifs.find((b) => b.id === "acteurs-sans-flux")!;
-    expect(bloc.niveau).toBe("avertissement");
-    expect(bloc.items).toEqual(["Isole (Actors, row 0)"]);
+    const report = runIntegrityChecks(model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "Isole" })] }));
+    expect(report.families.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("Isole"))).toBe(false);
+    const block = report.infoBlocks.find((b) => b.id === "acteurs-sans-flux")!;
+    expect(block.level).toBe("warning");
+    expect(block.items).toEqual(["Isole (Actors, row 0)"]);
   });
 });
 
 describe("7.4 complétude", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.familles.find((f) => f.id === "completude")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "completude")!.anomalies).toHaveLength(0);
   });
 
   it("flags an empty interface description", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ description: "" })] }));
-    expect(report.familles.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("description"))).toBe(true);
+    expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("description"))).toBe(true);
   });
 
   it("flags an interface with no contract at all", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ lienContrat: "", referenceContrat: "" })] }));
-    expect(report.familles.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
+    expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
   });
 
   it("flags a consumption with empty usage or décision", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ usage: "", decision: "" })] }));
-    expect(report.familles.find((f) => f.id === "completude")!.anomalies.length).toBe(2);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ usage: "", decision: "" })] }));
+    expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(2);
   });
 
   // Un retrait déclaré dit déjà ce qu'on fait de cette consommation : elle
@@ -172,41 +172,41 @@ describe("7.4 complétude", () => {
   // deux fois la même chose.
   it("does not ask for a decision on a consumption that has a retirement milestone", () => {
     const report = runIntegrityChecks(
-      model({ paliers: [], consommations: [conso({ decision: "", palierRetrait: "v2" })] })
+      model({ milestones: [], consumptions: [conso({ decision: "", retiredAt: "v2" })] })
     );
-    const messages = report.familles.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes("decision empty"))).toBe(false);
   });
 
   it("flags an actor with an empty groupe", () => {
-    const report = runIntegrityChecks(model({ acteurs: [acteur({ nom: "A", groupe: "" }), acteur({ nom: "B" })] }));
-    expect(report.familles.find((f) => f.id === "completude")!.anomalies.length).toBe(1);
+    const report = runIntegrityChecks(model({ actors: [actor({ name: "A", group: "" }), actor({ name: "B" })] }));
+    expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(1);
   });
 
   // Le périmètre se saisit désormais sur le groupe, plus sur l'acteur.
   it("flags a groupe with an empty périmètre", () => {
-    const report = runIntegrityChecks(model({ groupes: [{ nom: "G", perimetre: "", feuille: "Groups", ligne: 0 }] }));
-    const messages = report.familles.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
+    const report = runIntegrityChecks(model({ groups: [{ name: "G", perimeter: "", sheet: "Groups", row: 0 }] }));
+    const messages = report.families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
     expect(messages).toContain('Group "G" (Groups, row 0): perimeter not filled in.');
   });
 });
 
 describe("7.6 onglet Groupes", () => {
   it("flags a missing Groupes sheet", () => {
-    const report = runIntegrityChecks(model({ groupes: [], groupesAbsents: true }));
-    const messages = report.familles.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
+    const report = runIntegrityChecks(model({ groups: [], groupesAbsents: true }));
+    const messages = report.families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes('Sheet "Groups" missing'))).toBe(true);
   });
 
   it("flags an actor whose groupe is not declared", () => {
-    const report = runIntegrityChecks(model({ groupes: [{ nom: "Autre", perimetre: "External", feuille: "Groups", ligne: 0 }] }));
-    const messages = report.familles.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
+    const report = runIntegrityChecks(model({ groups: [{ name: "Autre", perimeter: "External", sheet: "Groups", row: 0 }] }));
+    const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes('group "G" missing from the "Groups" sheet'))).toBe(true);
   });
 
   it("flags a declared groupe nobody belongs to", () => {
-    const report = runIntegrityChecks(model({ groupes: [{ nom: "G", perimetre: "External", feuille: "Groups", ligne: 0 }, { nom: "Orphelin", perimetre: "External", feuille: "Groups", ligne: 0 }] }));
-    const messages = report.familles.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
+    const report = runIntegrityChecks(model({ groups: [{ name: "G", perimeter: "External", sheet: "Groups", row: 0 }, { name: "Orphelin", perimeter: "External", sheet: "Groups", row: 0 }] }));
+    const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages).toContain('Group "Orphelin" (Groups, row 0) is declared but no actor belongs to it.');
   });
 });
@@ -214,12 +214,12 @@ describe("7.6 onglet Groupes", () => {
 describe("7.5 candidats au décommissionnement", () => {
   it("is empty when nothing qualifies", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.blocsInformatifs.find((b) => b.id === "decommissionnement")!.items).toHaveLength(0);
+    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toHaveLength(0);
   });
 
   it("lists an interface whose only consumption is on its way out", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ palierRetrait: "v2" })] }));
-    expect(report.blocsInformatifs.find((b) => b.id === "decommissionnement")!.items).toEqual(["F (Interfaces, row 0)"]);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ retiredAt: "v2" })] }));
+    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 
 
@@ -228,23 +228,23 @@ describe("7.5 candidats au décommissionnement", () => {
   // qu'une interface est candidate au décommissionnement.
   it("does not list an interface whose consumptions are all active", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.blocsInformatifs.find((b) => b.id === "decommissionnement")!.items).toEqual([]);
+    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toEqual([]);
   });
 });
 
 describe("7.6 interfaces à confirmer", () => {
   it("lists interfaces flagged Oui", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ nomDuFlux: "F", aConfirmer: true })] }));
-    expect(report.blocsInformatifs.find((b) => b.id === "a-confirmer")!.items).toEqual(["F (Interfaces, row 0)"]);
+    const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F", aConfirmer: true })] }));
+    expect(report.infoBlocks.find((b) => b.id === "a-confirmer")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 });
 
 describe("7.7 groupes utilisés", () => {
   it("counts actors per non-empty groupe", () => {
     const report = runIntegrityChecks(
-      model({ acteurs: [acteur({ nom: "A", groupe: "Socle" }), acteur({ nom: "B", groupe: "Socle" })] })
+      model({ actors: [actor({ name: "A", group: "Socle" }), actor({ name: "B", group: "Socle" })] })
     );
-    expect(report.blocsInformatifs.find((b) => b.id === "groupes")!.items).toEqual(["Socle (2)"]);
+    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual(["Socle (2)"]);
   });
 });
 
@@ -253,7 +253,7 @@ describe("totalAnomalies", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ description: "" })] }));
     expect(report.totalAnomalies).toBeGreaterThan(0);
     expect(report.totalAnomalies).toBe(
-      report.familles.reduce((sum, f) => sum + f.anomalies.length, 0)
+      report.families.reduce((sum, f) => sum + f.anomalies.length, 0)
     );
   });
 });
@@ -264,14 +264,14 @@ describe("totalAnomalies", () => {
 describe("7.6 vocabulaires", () => {
   it("reports nothing when every value is in its list", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.familles.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
   });
 
   it("flags a mistyped decision or criticité", () => {
     const report = runIntegrityChecks(
-      model({ consommations: [conso({ decision: "A garder", criticite: "Haute" })] })
+      model({ consumptions: [conso({ decision: "A garder", criticality: "Haute" })] })
     );
-    const messages = report.familles.find((f) => f.id === "vocabulaires")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "vocabulaires")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes("Haute"))).toBe(true);
     expect(messages.some((m) => m.includes("A garder"))).toBe(true);
     expect(messages.some((m) => m.includes("Haute"))).toBe(true);
@@ -282,62 +282,62 @@ describe("7.6 vocabulaires", () => {
   it("flags an unknown sens de représentation, which would silently flip the arrow", () => {
     const report = runIntegrityChecks(
       model({
-        typesFlux: [
+        flowTypes: [
           base.typeFlux({ type: "HTTP", sensRepresentationBrut: "du client au serveur" }),
         ],
       })
     );
     expect(
-      report.familles.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("du client au serveur"))
+      report.families.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("du client au serveur"))
     ).toBe(true);
   });
 
   it("flags an unknown nature", () => {
     const report = runIntegrityChecks(
-      model({ typesActeur: [{ type: "Application", icone: "app-window", nature: "Fonctionnelle", feuille: "ActorTypes", ligne: 0 }] })
+      model({ typesActeur: [{ type: "Application", icone: "app-window", nature: "Fonctionnelle", sheet: "ActorTypes", row: 0 }] })
     );
     expect(
-      report.familles.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("Fonctionnelle"))
+      report.families.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("Fonctionnelle"))
     ).toBe(true);
   });
 
   it("stays silent on an empty value, which the complétude family already covers", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ statut: "", decision: "", criticite: "" })] }));
-    expect(report.familles.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ statut: "", decision: "", criticality: "" })] }));
+    expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
   });
 });
 
 describe("7.7 signaux non bloquants", () => {
   it("warns about a missing criticité rather than failing the file", () => {
-    const report = runIntegrityChecks(model({ consommations: [conso({ criticite: "" })] }));
-    const bloc = report.blocsInformatifs.find((b) => b.id === "criticite-manquante")!;
-    expect(bloc.niveau).toBe("avertissement");
-    expect(bloc.items).toHaveLength(1);
+    const report = runIntegrityChecks(model({ consumptions: [conso({ criticality: "" })] }));
+    const block = report.infoBlocks.find((b) => b.id === "criticite-manquante")!;
+    expect(block.level).toBe("warning");
+    expect(block.items).toHaveLength(1);
   });
 
   // Deux composants peuvent échanger plusieurs fois par la même technologie :
   // c'est légitime, on le montre sans le reprocher.
   it("reports a repeated exchange between the same pair as information", () => {
     const report = runIntegrityChecks(
-      model({ consommations: [conso({}), conso({ nomDuFlux: "F", acteurConsommateur: "B" })] })
+      model({ consumptions: [conso({}), conso({ flowName: "F", consumerName: "B" })] })
     );
-    const bloc = report.blocsInformatifs.find((b) => b.id === "echanges-repetes")!;
-    expect(bloc.niveau).toBe("info");
-    expect(bloc.items.some((i) => i.includes("A → B over HTTP"))).toBe(true);
+    const block = report.infoBlocks.find((b) => b.id === "echanges-repetes")!;
+    expect(block.level).toBe("info");
+    expect(block.items.some((i) => i.includes("A → B over HTTP"))).toBe(true);
   });
 
   it("reports an unused flow type as information", () => {
     const report = runIntegrityChecks(
       model({
-        typesFlux: [
+        flowTypes: [
           base.typeFlux({ type: "HTTP" }),
-          base.typeFlux({ type: "Kafka", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
+          base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
         ],
       })
     );
-    const bloc = report.blocsInformatifs.find((b) => b.id === "typesflux-inutilises")!;
-    expect(bloc.niveau).toBe("info");
-    expect(bloc.items).toEqual(["Kafka (FlowTypes, row 0)"]);
+    const block = report.infoBlocks.find((b) => b.id === "typesflux-inutilises")!;
+    expect(block.level).toBe("info");
+    expect(block.items).toEqual(["Kafka (FlowTypes, row 0)"]);
   });
 });
 
@@ -345,26 +345,26 @@ describe("7.7 signaux non bloquants", () => {
 // situation que toute cette famille de contrôles décrit.
 function modelDeuxVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return model({
-    paliers,
+    milestones,
     interfaces: [
-      iface({ version: "1.0", palierIntroduction: "v1", palierRetrait: "v3" }),
-      iface({ version: "2.0", palierIntroduction: "v1" }),
+      iface({ version: "1.0", introducedAt: "v1", retiredAt: "v3" }),
+      iface({ version: "2.0", introducedAt: "v1" }),
     ],
-    consommations: [conso({ version: "1.0", palierIntroduction: "v1" })],
+    consumptions: [conso({ version: "1.0", introducedAt: "v1" })],
     ...overrides,
   });
 }
 
 describe("versions d'interface — références", () => {
   it("reports a consumption whose version is absent from the catalogue", () => {
-    const report = runIntegrityChecks(modelDeuxVersions({ consommations: [conso({ version: "9.9" })] }));
-    const messages = report.familles.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
+    const report = runIntegrityChecks(modelDeuxVersions({ consumptions: [conso({ version: "9.9" })] }));
+    const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages.join(" ")).toContain('version "9.9"');
   });
 
   it("does not confuse two versions of the same flux", () => {
     const report = runIntegrityChecks(modelDeuxVersions());
-    const messages = report.familles.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(messages).toEqual([]);
   });
 });
@@ -373,9 +373,9 @@ describe("versions d'interface — références", () => {
 describe("versions d'interface — cohérence", () => {
   it("reports a consumer sitting on two versions of the same contract", () => {
     const report = runIntegrityChecks(
-      modelDeuxVersions({ consommations: [conso({ version: "1.0" }), conso({ version: "2.0" })] })
+      modelDeuxVersions({ consumptions: [conso({ version: "1.0" }), conso({ version: "2.0" })] })
     );
-    const messages = report.familles.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message);
     expect(messages.join(" ")).toContain("B");
     expect(messages.join(" ")).toContain("two versions");
   });
@@ -383,11 +383,11 @@ describe("versions d'interface — cohérence", () => {
   it("says nothing when two different consumers each sit on one version", () => {
     const report = runIntegrityChecks(
       modelDeuxVersions({
-        acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
-        consommations: [conso({ version: "1.0" }), conso({ version: "2.0", acteurConsommateur: "C" })],
+        actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
+        consumptions: [conso({ version: "1.0" }), conso({ version: "2.0", consumerName: "C" })],
       })
     );
-    const messages = report.familles.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message);
     expect(messages.join(" ")).not.toContain("two versions");
   });
 
@@ -397,9 +397,9 @@ describe("versions d'interface — cohérence", () => {
 describe("versions d'interface — bloc action des migrations", () => {
   it("names the interface, both versions and the consumers left behind", () => {
     const report = runIntegrityChecks(modelDeuxVersions());
-    const bloc = report.blocsInformatifs.find((b) => b.id === "migrations")!;
-    expect(bloc.niveau).toBe("action");
-    expect(bloc.items).toEqual(["F 1.0 (Interfaces, row 0) → 2.0: B"]);
+    const block = report.infoBlocks.find((b) => b.id === "migrations")!;
+    expect(block.level).toBe("action");
+    expect(block.items).toEqual(["F 1.0 (Interfaces, row 0) → 2.0: B"]);
   });
 
   it("counts towards the action total, not the anomaly one", () => {
@@ -411,51 +411,51 @@ describe("versions d'interface — bloc action des migrations", () => {
   // cellule, alors que la version d'arrivée reste à créer.
   it("says so when no active version exists to migrate towards", () => {
     const report = runIntegrityChecks(
-      model({ paliers, interfaces: [iface({ version: "1.0", palierRetrait: "v3", palierIntroduction: "v1" })], consommations: [conso({ version: "1.0", palierIntroduction: "v1" })] })
+      model({ milestones, interfaces: [iface({ version: "1.0", retiredAt: "v3", introducedAt: "v1" })], consumptions: [conso({ version: "1.0", introducedAt: "v1" })] })
     );
-    const bloc = report.blocsInformatifs.find((b) => b.id === "migrations")!;
-    expect(bloc.items).toEqual(["F 1.0 (Interfaces, row 0) → no active version: B"]);
+    const block = report.infoBlocks.find((b) => b.id === "migrations")!;
+    expect(block.items).toEqual(["F 1.0 (Interfaces, row 0) → no active version: B"]);
   });
 
   it("names every active version rather than choosing one", () => {
     const report = runIntegrityChecks(
       model({
-        paliers,
+        milestones,
         interfaces: [
-          iface({ version: "1.0", palierIntroduction: "v1", palierRetrait: "v3" }),
-          iface({ version: "2.0", palierIntroduction: "v1" }),
-          iface({ version: "3.0", palierIntroduction: "v1" }),
+          iface({ version: "1.0", introducedAt: "v1", retiredAt: "v3" }),
+          iface({ version: "2.0", introducedAt: "v1" }),
+          iface({ version: "3.0", introducedAt: "v1" }),
         ],
-        consommations: [conso({ version: "1.0", palierIntroduction: "v1" })],
+        consumptions: [conso({ version: "1.0", introducedAt: "v1" })],
       })
     );
-    const bloc = report.blocsInformatifs.find((b) => b.id === "migrations")!;
-    expect(bloc.items).toEqual(["F 1.0 (Interfaces, row 0) → 2.0, 3.0: B"]);
+    const block = report.infoBlocks.find((b) => b.id === "migrations")!;
+    expect(block.items).toEqual(["F 1.0 (Interfaces, row 0) → 2.0, 3.0: B"]);
   });
 
   it("drops an interface nobody consumes any more from the block", () => {
-    const report = runIntegrityChecks(modelDeuxVersions({ consommations: [conso({ version: "2.0" })] }));
-    expect(report.blocsInformatifs.find((b) => b.id === "migrations")!.items).toEqual([]);
+    const report = runIntegrityChecks(modelDeuxVersions({ consumptions: [conso({ version: "2.0" })] }));
+    expect(report.infoBlocks.find((b) => b.id === "migrations")!.items).toEqual([]);
   });
 });
 
-const paliers = [
-  { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-  { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-  { nom: "v3", rang: 3, libelle: "", statut: "Planned", date: "", description: "", feuille: "Milestones", ligne: 0 },
+const milestones = [
+  { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v3", rank: 3, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
 ];
 
 function messagesCoherence(m: ParsedModel): string {
-  return runIntegrityChecks(m).familles.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message).join(" | ");
+  return runIntegrityChecks(m).families.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message).join(" | ");
 }
 
 describe("paliers — contrôles temporels", () => {
   it("says nothing on a workbook whose intervals nest properly", () => {
     const m = model({
-      paliers,
-      acteurs: [acteur({ nom: "A", palierIntroduction: "v1" }), acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [iface({ palierIntroduction: "v2" })],
-      consommations: [conso({ palierIntroduction: "v2" })],
+      milestones,
+      actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [iface({ introducedAt: "v2" })],
+      consumptions: [conso({ introducedAt: "v2" })],
     });
     expect(messagesCoherence(m)).not.toContain("milestone");
   });
@@ -464,60 +464,60 @@ describe("paliers — contrôles temporels", () => {
   // de son exposant, c'est aussi un acteur retiré qui porte encore des flux.
   it("reports an interface living outside its exposant's own interval", () => {
     const m = model({
-      paliers,
-      acteurs: [acteur({ nom: "A", palierRetrait: "v2" }), acteur({ nom: "B" })],
-      interfaces: [iface({ palierRetrait: "v3" })],
+      milestones,
+      actors: [actor({ name: "A", retiredAt: "v2" }), actor({ name: "B" })],
+      interfaces: [iface({ retiredAt: "v3" })],
     });
     expect(messagesCoherence(m)).toContain("A");
   });
 
   it("reports a consumption living outside its interface's interval", () => {
     const m = model({
-      paliers,
-      interfaces: [iface({ palierRetrait: "v2" })],
-      consommations: [conso({ palierRetrait: "v3" })],
+      milestones,
+      interfaces: [iface({ retiredAt: "v2" })],
+      consumptions: [conso({ retiredAt: "v3" })],
     });
     expect(messagesCoherence(m)).toContain("F");
   });
 
   it("reports a consumption living outside its consumer's interval", () => {
     const m = model({
-      paliers,
-      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B", palierIntroduction: "v3" })],
-      consommations: [conso({ palierIntroduction: "v1" })],
+      milestones,
+      actors: [actor({ name: "A" }), actor({ name: "B", introducedAt: "v3" })],
+      consumptions: [conso({ introducedAt: "v1" })],
     });
     expect(messagesCoherence(m)).toContain("B");
   });
 
   it("reports a retirement that precedes the introduction", () => {
-    const m = model({ paliers, interfaces: [iface({ palierIntroduction: "v3", palierRetrait: "v1" })] });
+    const m = model({ milestones, interfaces: [iface({ introducedAt: "v3", retiredAt: "v1" })] });
     expect(messagesCoherence(m)).toContain("at or before");
   });
 
   it("reports a palier cited by a row but absent from the Paliers sheet", () => {
-    const m = model({ paliers, interfaces: [iface({ palierIntroduction: "v9" })] });
-    const refs = runIntegrityChecks(m).familles.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
+    const m = model({ milestones, interfaces: [iface({ introducedAt: "v9" })] });
+    const refs = runIntegrityChecks(m).families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(refs.join(" ")).toContain("v9");
   });
 
   it("reports duplicate ranks in the Paliers sheet", () => {
-    const m = model({ paliers: [...paliers, { nom: "v4", rang: 2, libelle: "", statut: "Planned", date: "", description: "", feuille: "Milestones", ligne: 0 }] });
-    const struct = runIntegrityChecks(m).familles.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
+    const m = model({ milestones: [...milestones, { name: "v4", rank: 2, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 }] });
+    const struct = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(struct.join(" ")).toContain("rank");
   });
 
   // Sans palier livré, le palier courant est indéterminé : les vues se
   // rabattent sur le premier déclaré, autant le dire.
   it("reports a Paliers sheet without a single delivered palier", () => {
-    const m = model({ paliers: paliers.map((p) => ({ ...p, statut: "Planned" })) });
-    const struct = runIntegrityChecks(m).familles.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
+    const m = model({ milestones: milestones.map((p) => ({ ...p, statut: "Planned" })) });
+    const struct = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(struct.join(" ")).toContain("Delivered");
   });
 
   // Un classeur sans aucun palier déclaré ne doit pas se mettre à en parler.
   it("stays silent on a workbook that declares no palier at all", () => {
-    const rapport = runIntegrityChecks(model({}));
-    const tout = rapport.familles.flatMap((f) => f.anomalies.map((a) => a.message)).join(" ");
+    const report = runIntegrityChecks(model({}));
+    const tout = report.families.flatMap((f) => f.anomalies.map((a) => a.message)).join(" ");
     expect(tout).not.toContain("milestone");
     expect(tout).not.toContain("Milestone");
   });
@@ -525,84 +525,84 @@ describe("paliers — contrôles temporels", () => {
 
 describe("paliers — complétude", () => {
   function messagesCompletude(m: ParsedModel): string {
-    return runIntegrityChecks(m).familles.find((f) => f.id === "completude")!.anomalies.map((a) => a.message).join(" | ");
+    return runIntegrityChecks(m).families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message).join(" | ");
   }
 
   // On ne devine pas à la place de celui qui tient le fichier : au pire il
   // mettra un palier arbitraire, mais le choix lui revient.
   it("reports an interface with no arrival palier", () => {
-    const m = model({ paliers, interfaces: [iface({})], consommations: [] });
+    const m = model({ milestones, interfaces: [iface({})], consumptions: [] });
     expect(messagesCompletude(m)).toContain("introduction milestone");
   });
 
   it("reports a consumption with no arrival palier — that is when its consumer arrived", () => {
     const m = model({
-      paliers,
-      interfaces: [iface({ palierIntroduction: "v1" })],
-      consommations: [conso({})],
+      milestones,
+      interfaces: [iface({ introducedAt: "v1" })],
+      consumptions: [conso({})],
     });
     expect(messagesCompletude(m)).toContain("Consumption");
   });
 
   it("reports an acteur with no arrival palier", () => {
-    const m = model({ paliers, acteurs: [acteur({ nom: "A" }), acteur({ nom: "B", palierIntroduction: "v1" })] });
+    const m = model({ milestones, actors: [actor({ name: "A" }), actor({ name: "B", introducedAt: "v1" })] });
     expect(messagesCompletude(m)).toContain("Actor");
   });
 
   // Un retrait vide n'est pas un manque : c'est un fait, la ligne est encore là.
   it("says nothing about an empty retirement palier", () => {
     const m = model({
-      paliers,
-      acteurs: [acteur({ nom: "A", palierIntroduction: "v1" }), acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [iface({ palierIntroduction: "v1" })],
-      consommations: [conso({ palierIntroduction: "v1" })],
+      milestones,
+      actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [iface({ introducedAt: "v1" })],
+      consumptions: [conso({ introducedAt: "v1" })],
     });
     expect(messagesCompletude(m)).not.toContain("milestone");
   });
 
   // Tant que l'équipe n'a pas adopté l'axe, l'outil n'en parle pas.
   it("stays silent when no palier is declared at all", () => {
-    const m = model({ interfaces: [iface({})], consommations: [conso({})] });
+    const m = model({ interfaces: [iface({})], consumptions: [conso({})] });
     expect(messagesCompletude(m)).not.toContain("milestone");
   });
 });
 
 describe("paliers — le rapport suit le palier affiché", () => {
   const troisPaliers = [
-    { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-    { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
+    { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
   ];
 
   // Un acteur retiré en v2 n'a évidemment plus de flux en v2 : le signaler
   // remplirait le rapport de fausses anomalies dès la première ligne retirée.
   it("does not blame a retired acteur for having no flow any more", () => {
     const m = model({
-      paliers: troisPaliers,
-      acteurs: [
-        acteur({ nom: "A", palierIntroduction: "v1" }),
-        acteur({ nom: "B", palierIntroduction: "v1" }),
-        acteur({ nom: "C", palierIntroduction: "v1", palierRetrait: "v2" }),
+      milestones: troisPaliers,
+      actors: [
+        actor({ name: "A", introducedAt: "v1" }),
+        actor({ name: "B", introducedAt: "v1" }),
+        actor({ name: "C", introducedAt: "v1", retiredAt: "v2" }),
       ],
-      interfaces: [iface({ palierIntroduction: "v1" })],
-      consommations: [conso({ palierIntroduction: "v1" })],
+      interfaces: [iface({ introducedAt: "v1" })],
+      consumptions: [conso({ introducedAt: "v1" })],
     });
-    const bloc = (rang: number) =>
-      runIntegrityChecks(m, rang).blocsInformatifs.find((b) => b.id === "acteurs-sans-flux")!.items;
-    expect(bloc(1)).toContain("C (Actors, row 0)");
-    expect(bloc(2)).not.toContain("C (Actors, row 0)");
+    const block = (rank: number) =>
+      runIntegrityChecks(m, rank).infoBlocks.find((b) => b.id === "acteurs-sans-flux")!.items;
+    expect(block(1)).toContain("C (Actors, row 0)");
+    expect(block(2)).not.toContain("C (Actors, row 0)");
   });
 
   // La structure, elle, juge le classeur et pas un instant de son histoire.
   it("keeps structural checks independent of the displayed palier", () => {
     const m = model({
-      paliers: troisPaliers,
-      colonnesOptionnellesAbsentes: [{ feuille: "Actors", colonne: "Group" }],
-      acteurs: [acteur({ nom: "A", palierIntroduction: "v1" }), acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [iface({ palierIntroduction: "v1" })],
-      consommations: [conso({ palierIntroduction: "v1" })],
+      milestones: troisPaliers,
+      colonnesOptionnellesAbsentes: [{ sheet: "Actors", column: "Group" }],
+      actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [iface({ introducedAt: "v1" })],
+      consumptions: [conso({ introducedAt: "v1" })],
     });
-    const structure = (rang: number) =>
-      runIntegrityChecks(m, rang).familles.find((f) => f.id === "structure")!.anomalies.length;
+    const structure = (rank: number) =>
+      runIntegrityChecks(m, rank).families.find((f) => f.id === "structure")!.anomalies.length;
     expect(structure(1)).toBe(structure(2));
     expect(structure(1)).toBeGreaterThan(0);
   });
@@ -612,12 +612,12 @@ describe("paliers — le rapport suit le palier affiché", () => {
 // soi-même la case dans le classeur, et l'ordre de lecture ne suit rien.
 describe("emplacement des anomalies", () => {
   const messages = (m: ParsedModel, id: string) =>
-    runIntegrityChecks(m).familles.find((f) => f.id === id)!.anomalies.map((a) => a.message);
+    runIntegrityChecks(m).families.find((f) => f.id === id)!.anomalies.map((a) => a.message);
 
   it("cites the sheet and the row of the line at fault", () => {
     const m = model({
-      interfaces: [iface({ description: "", ligne: 42 })],
-      consommations: [conso({ usage: "", feuille: "FX_A_HTTP", ligne: 7 })],
+      interfaces: [iface({ description: "", row: 42 })],
+      consumptions: [conso({ usage: "", sheet: "FX_A_HTTP", row: 7 })],
     });
     const complétude = messages(m, "completude");
 
@@ -626,23 +626,23 @@ describe("emplacement des anomalies", () => {
   });
 
   it("carries the address as data too, so the report can order and link on it", () => {
-    const m = model({ interfaces: [iface({ description: "", ligne: 42 })] });
-    const anomalie = runIntegrityChecks(m)
-      .familles.find((f) => f.id === "completude")!
+    const m = model({ interfaces: [iface({ description: "", row: 42 })] });
+    const anomaly = runIntegrityChecks(m)
+      .families.find((f) => f.id === "completude")!
       .anomalies.find((a) => a.message.includes("description empty"))!;
 
-    expect(anomalie.emplacement).toEqual({ feuille: "Interfaces", ligne: 42 });
+    expect(anomaly.emplacement).toEqual({ sheet: "Interfaces", row: 42 });
   });
 
   it("orders a family by sheet then by ascending row", () => {
     const m = model({
-      acteurs: [acteur({ nom: "A", groupe: "" , ligne: 9 }), acteur({ nom: "B", groupe: "", ligne: 3 })],
-      interfaces: [iface({ description: "", lienContrat: "l", ligne: 5 })],
-      consommations: [],
+      actors: [actor({ name: "A", group: "" , row: 9 }), actor({ name: "B", group: "", row: 3 })],
+      interfaces: [iface({ description: "", lienContrat: "l", row: 5 })],
+      consumptions: [],
     });
     const adresses = runIntegrityChecks(m)
-      .familles.find((f) => f.id === "completude")!
-      .anomalies.map((a) => `${a.emplacement!.feuille}:${a.emplacement!.ligne}`);
+      .families.find((f) => f.id === "completude")!
+      .anomalies.map((a) => `${a.emplacement!.sheet}:${a.emplacement!.row}`);
 
     expect(adresses).toEqual(["Actors:3", "Actors:9", "Interfaces:5"]);
   });
@@ -650,12 +650,12 @@ describe("emplacement des anomalies", () => {
   it("puts what has no address first, since it points at the file rather than a line", () => {
     const m = model({
       groupesAbsents: true,
-      groupes: [],
-      interfaces: [iface({ feuilleAttendue: "FX_A_MQTT", ligne: 4 })],
-      consommations: [],
+      groups: [],
+      interfaces: [iface({ expectedSheet: "FX_A_MQTT", row: 4 })],
+      consumptions: [],
       fxSheetNames: [],
     });
-    const structure = runIntegrityChecks(m).familles.find((f) => f.id === "structure")!.anomalies;
+    const structure = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies;
 
     expect(structure[0].emplacement).toBeUndefined();
     expect(structure.some((a) => a.emplacement)).toBe(true);
@@ -663,61 +663,61 @@ describe("emplacement des anomalies", () => {
 });
 
 describe("emplacement des blocs informatifs", () => {
-  const bloc = (m: ParsedModel, id: string) =>
-    runIntegrityChecks(m).blocsInformatifs.find((b) => b.id === id)!.items;
+  const block = (m: ParsedModel, id: string) =>
+    runIntegrityChecks(m).infoBlocks.find((b) => b.id === id)!.items;
 
   it("cites the address on every item that designates a line", () => {
     const m = model({
-      acteurs: [acteur({ nom: "A", ligne: 2 }), acteur({ nom: "B", ligne: 3 }), acteur({ nom: "Seul", ligne: 8 })],
-      interfaces: [iface({ aConfirmer: true, ligne: 5 })],
-      consommations: [conso({ criticite: "", ligne: 6 })],
-      typesFlux: [
-        base.typeFlux({ type: "HTTP", ligne: 2 }),
-        base.typeFlux({ type: "SFTP", ligne: 3 }),
+      actors: [actor({ name: "A", row: 2 }), actor({ name: "B", row: 3 }), actor({ name: "Seul", row: 8 })],
+      interfaces: [iface({ aConfirmer: true, row: 5 })],
+      consumptions: [conso({ criticality: "", row: 6 })],
+      flowTypes: [
+        base.typeFlux({ type: "HTTP", row: 2 }),
+        base.typeFlux({ type: "SFTP", row: 3 }),
       ],
     });
 
-    expect(bloc(m, "acteurs-sans-flux")).toEqual(["Seul (Actors, row 8)"]);
-    expect(bloc(m, "a-confirmer")).toEqual(["F (Interfaces, row 5)"]);
-    expect(bloc(m, "criticite-manquante")).toEqual(["F (FX_A_HTTP, row 6) — B"]);
-    expect(bloc(m, "typesflux-inutilises")).toEqual(["SFTP (FlowTypes, row 3)"]);
+    expect(block(m, "acteurs-sans-flux")).toEqual(["Seul (Actors, row 8)"]);
+    expect(block(m, "a-confirmer")).toEqual(["F (Interfaces, row 5)"]);
+    expect(block(m, "criticite-manquante")).toEqual(["F (FX_A_HTTP, row 6) — B"]);
+    expect(block(m, "typesflux-inutilises")).toEqual(["SFTP (FlowTypes, row 3)"]);
   });
 
   it("orders a block by ascending row, like the rest of the report", () => {
     const m = model({
-      acteurs: [acteur({ nom: "A", ligne: 2 }), acteur({ nom: "Z", ligne: 4 }), acteur({ nom: "M", ligne: 9 })],
+      actors: [actor({ name: "A", row: 2 }), actor({ name: "Z", row: 4 }), actor({ name: "M", row: 9 })],
       interfaces: [],
-      consommations: [],
+      consumptions: [],
     });
 
-    expect(bloc(m, "acteurs-sans-flux")).toEqual(["A (Actors, row 2)", "Z (Actors, row 4)", "M (Actors, row 9)"]);
+    expect(block(m, "acteurs-sans-flux")).toEqual(["A (Actors, row 2)", "Z (Actors, row 4)", "M (Actors, row 9)"]);
   });
 });
 
 describe("cycles de dépendance", () => {
-  const cycles = (m: ParsedModel, rang: number | null = null) =>
-    runIntegrityChecks(m, rang).blocsInformatifs.find((b) => b.id === "cycles")!.items;
+  const cycles = (m: ParsedModel, rank: number | null = null) =>
+    runIntegrityChecks(m, rank).infoBlocks.find((b) => b.id === "cycles")!.items;
 
   // Un consommateur dépend de l'exposant de l'interface qu'il consomme.
   // A expose F1 que B consomme ; B expose F2 que A consomme : chacun a besoin
   // de l'autre pour fonctionner.
-  function boucle(noms: string[]) {
-    const interfaces = noms.map((nom, i) =>
-      iface({ nomDuFlux: `F${i}`, acteurExposant: nom, feuilleAttendue: `FX_${nom}_HTTP` })
+  function boucle(names: string[]) {
+    const interfaces = names.map((name, i) =>
+      iface({ flowName: `F${i}`, providerName: name, expectedSheet: `FX_${name}_HTTP` })
     );
-    const consommations = noms.map((nom, i) =>
+    const consumptions = names.map((name, i) =>
       conso({
-        nomDuFlux: `F${i}`,
+        flowName: `F${i}`,
         // Chacun est consommé par le suivant, le dernier par le premier.
-        acteurConsommateur: noms[(i + 1) % noms.length],
-        feuille: `FX_${nom}_HTTP`,
+        consumerName: names[(i + 1) % names.length],
+        sheet: `FX_${name}_HTTP`,
       })
     );
     return {
-      acteurs: noms.map((nom) => acteur({ nom })),
+      actors: names.map((name) => actor({ name })),
       interfaces,
-      consommations,
-      fxSheetNames: noms.map((nom) => `FX_${nom}_HTTP`),
+      consumptions,
+      fxSheetNames: names.map((name) => `FX_${name}_HTTP`),
     };
   }
 
@@ -738,9 +738,9 @@ describe("cycles de dépendance", () => {
   // composants : c'est une boucle interne, que les vues agrégées masquent déjà.
   it("ignores a component that consumes its own interface", () => {
     const m = model({
-      acteurs: [acteur({ nom: "A" })],
-      interfaces: [iface({ acteurExposant: "A" })],
-      consommations: [conso({ acteurConsommateur: "A" })],
+      actors: [actor({ name: "A" })],
+      interfaces: [iface({ providerName: "A" })],
+      consumptions: [conso({ consumerName: "A" })],
     });
     expect(cycles(m)).toEqual([]);
   });
@@ -749,9 +749,9 @@ describe("cycles de dépendance", () => {
     const un = boucle(["A", "B"]);
     const deux = boucle(["Y", "Z"]);
     const m = model({
-      acteurs: [...un.acteurs, ...deux.acteurs],
+      actors: [...un.actors, ...deux.actors],
       interfaces: [...un.interfaces, ...deux.interfaces],
-      consommations: [...un.consommations, ...deux.consommations],
+      consumptions: [...un.consumptions, ...deux.consumptions],
       fxSheetNames: [...un.fxSheetNames, ...deux.fxSheetNames],
     });
     expect(cycles(m)).toEqual(["A, B (2 components)", "Y, Z (2 components)"]);
@@ -763,14 +763,14 @@ describe("cycles de dépendance", () => {
     const boucleV1 = boucle(["A", "B"]);
     const m = model({
       ...boucleV1,
-      paliers,
-      acteurs: boucleV1.acteurs.map((a) => ({ ...a, palierIntroduction: "v1" })),
-      interfaces: boucleV1.interfaces.map((i) => ({ ...i, palierIntroduction: "v1" })),
-      consommations: boucleV1.consommations.map((c, i) => ({
+      milestones,
+      actors: boucleV1.actors.map((a) => ({ ...a, introducedAt: "v1" })),
+      interfaces: boucleV1.interfaces.map((i) => ({ ...i, introducedAt: "v1" })),
+      consumptions: boucleV1.consumptions.map((c, i) => ({
         ...c,
-        palierIntroduction: "v1",
+        introducedAt: "v1",
         // Un seul des deux liens part au palier 2 : la boucle s'ouvre.
-        palierRetrait: i === 0 ? "v2" : "",
+        retiredAt: i === 0 ? "v2" : "",
       })),
     });
     expect(cycles(m, 1)).toEqual(["A, B (2 components)"]);
@@ -780,25 +780,25 @@ describe("cycles de dépendance", () => {
 
 describe("nature et relais", () => {
   const TYPES = [
-    { type: "Application", icone: "app-window", nature: "Business", feuille: "ActorTypes", ligne: 2 },
-    { type: "Middleware", icone: "server", nature: "Technical", feuille: "ActorTypes", ligne: 3 },
+    { type: "Application", icone: "app-window", nature: "Business", sheet: "ActorTypes", row: 2 },
+    { type: "Middleware", icone: "server", nature: "Technical", sheet: "ActorTypes", row: 3 },
   ];
-  const messages = (m: ParsedModel, famille: string) =>
-    runIntegrityChecks(m).familles.find((f) => f.id === famille)!.anomalies.map((a) => a.message).join(" | ");
+  const messages = (m: ParsedModel, family: string) =>
+    runIntegrityChecks(m).families.find((f) => f.id === family)!.anomalies.map((a) => a.message).join(" | ");
 
   // La republication est portée par la ligne de consommation du bus : c'est
   // elle qui dit sous laquelle de SES interfaces l'entrée ressort.
-  function parcRelais(republiePar = "trx.norm"): ParsedModel {
+  function parcRelais(republishedAs = "trx.norm"): ParsedModel {
     return model({
       typesActeur: TYPES,
-      acteurs: [acteur({ nom: "Tatooine" }), acteur({ nom: "Bus", typeActeur: "Middleware" }), acteur({ nom: "B" })],
+      actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", typeActeur: "Middleware" }), actor({ name: "B" })],
       interfaces: [
-        iface({ nomDuFlux: "Transactions", acteurExposant: "Tatooine" }),
-        iface({ nomDuFlux: "trx.norm", acteurExposant: "Bus", feuilleAttendue: "FX_Bus_HTTP" }),
+        iface({ flowName: "Transactions", providerName: "Tatooine" }),
+        iface({ flowName: "trx.norm", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" }),
       ],
-      consommations: [
-        conso({ nomDuFlux: "Transactions", acteurConsommateur: "Bus", republiePar }),
-        conso({ nomDuFlux: "trx.norm", acteurConsommateur: "B", feuille: "FX_Bus_HTTP" }),
+      consumptions: [
+        conso({ flowName: "Transactions", consumerName: "Bus", republishedAs }),
+        conso({ flowName: "trx.norm", consumerName: "B", sheet: "FX_Bus_HTTP" }),
       ],
       fxSheetNames: ["FX_A_HTTP", "FX_Bus_HTTP"],
     });
@@ -815,7 +815,7 @@ describe("nature et relais", () => {
 
   it("signale une republication déclarée par un acteur métier", () => {
     const m = parcRelais();
-    m.consommations[1].republiePar = "Autre chose";
+    m.consumptions[1].republishedAs = "Autre chose";
     expect(messages(m, "coherence")).toContain("only plumbing relays");
   });
 
@@ -827,8 +827,8 @@ describe("nature et relais", () => {
   // personne, sans quoi le lien fonctionnel manquerait en silence.
   it("signale un flux qui entre chez un technique et n'en ressort pour personne", () => {
     const m = parcRelais();
-    m.interfaces.push(iface({ nomDuFlux: "Référentiel", acteurExposant: "Tatooine", feuilleAttendue: "FX_Tatooine_REF" }));
-    m.consommations.push(conso({ nomDuFlux: "Référentiel", acteurConsommateur: "Bus", feuille: "FX_Tatooine_REF" }));
+    m.interfaces.push(iface({ flowName: "Référentiel", providerName: "Tatooine", expectedSheet: "FX_Tatooine_REF" }));
+    m.consumptions.push(conso({ flowName: "Référentiel", consumerName: "Bus", sheet: "FX_Tatooine_REF" }));
     m.fxSheetNames.push("FX_Tatooine_REF");
     expect(messages(m, "coherence")).toContain("Référentiel");
   });
@@ -860,31 +860,31 @@ describe("nature et relais", () => {
 // consommation dont l'acteur avait disparu. Le rapport contredisait le schéma
 // affiché à côté de lui.
 describe("rapport au palier — la chaîne entière, comme les schémas", () => {
-  const auPalier = (rang: number) =>
+  const auPalier = (rank: number) =>
     runIntegrityChecks(
       model({
-        paliers: [
-          { nom: "v1", rang: 1, libelle: "", statut: "", date: "", description: "", feuille: "Milestones", ligne: 0 },
-          { nom: "v2", rang: 2, libelle: "", statut: "", date: "", description: "", feuille: "Milestones", ligne: 0 },
+        milestones: [
+          { name: "v1", rank: 1, label: "", statut: "", date: "", description: "", sheet: "Milestones", row: 0 },
+          { name: "v2", rank: 2, label: "", statut: "", date: "", description: "", sheet: "Milestones", row: 0 },
         ],
-        acteurs: [acteur({ nom: "A", palierRetrait: "v1" }), acteur({ nom: "B" })],
-        interfaces: [iface({ acteurExposant: "A" })],
-        consommations: [conso({ acteurConsommateur: "B" })],
+        actors: [actor({ name: "A", retiredAt: "v1" }), actor({ name: "B" })],
+        interfaces: [iface({ providerName: "A" })],
+        consumptions: [conso({ consumerName: "B" })],
       }),
-      rang
+      rank
     );
 
   it("ne cite plus un acteur retiré dans les blocs informatifs", () => {
-    expect(JSON.stringify(auPalier(1).blocsInformatifs)).not.toContain('"A"');
+    expect(JSON.stringify(auPalier(1).infoBlocks)).not.toContain('"A"');
   });
 
   it("laisse tomber la consommation dont l'exposant a disparu", () => {
-    const sansFlux = auPalier(1).blocsInformatifs.find((b) => b.titre.includes("no flow"));
+    const sansFlux = auPalier(1).infoBlocks.find((b) => b.title.includes("no flow"));
     expect(sansFlux?.items.join(" ")).toContain("B");
   });
 
   it("garde tout tant que l'acteur vit", () => {
-    const sansFlux = auPalier(0).blocsInformatifs.find((b) => b.titre.includes("no flow"));
+    const sansFlux = auPalier(0).infoBlocks.find((b) => b.title.includes("no flow"));
     expect(sansFlux?.items.join(" ")).not.toContain("B");
   });
 });
@@ -895,38 +895,38 @@ describe("rapport au palier — la chaîne entière, comme les schémas", () => 
 // noms ne diffèrent que par la casse se confondent, puisque c'est sur le nom
 // normalisé que toute ligne datée résout son rang.
 describe("frise des paliers", () => {
-  const palier = (nom: string, rang: number) => ({
-    nom, rang, libelle: "", statut: "Delivered", date: "", description: "",
-    feuille: "Milestones", ligne: 0,
+  const milestone = (name: string, rank: number) => ({
+    name, rank, label: "", statut: "Delivered", date: "", description: "",
+    sheet: "Milestones", row: 0,
   });
   // Toute ligne datée doit porter sa borne d'introduction dès qu'une frise
   // existe : sans elle, ce sont ces anomalies-là qu'on lirait, pas celles de
   // la frise.
-  const anomalies = (paliers: ReturnType<typeof palier>[]) => {
-    const dès = { palierIntroduction: paliers[0].nom };
+  const anomalies = (milestones: ReturnType<typeof milestone>[]) => {
+    const dès = { introducedAt: milestones[0].name };
     return runIntegrityChecks(
       model({
-        paliers,
-        acteurs: [acteur({ nom: "A", ...dès }), acteur({ nom: "B", ...dès })],
+        milestones,
+        actors: [actor({ name: "A", ...dès }), actor({ name: "B", ...dès })],
         interfaces: [iface({ ...dès })],
-        consommations: [conso({ ...dès })],
+        consumptions: [conso({ ...dès })],
       })
     )
-      .familles.flatMap((f) => f.anomalies)
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .join(" ");
   };
 
   it("réclame un rang exploitable", () => {
-    expect(anomalies([palier("v1", 1), palier("v2", 0)])).toContain("v2");
+    expect(anomalies([milestone("v1", 1), milestone("v2", 0)])).toContain("v2");
   });
 
   it("signale deux paliers que la casse seule distingue", () => {
-    expect(anomalies([palier("v1", 1), palier("V1", 2)])).toContain("V1");
+    expect(anomalies([milestone("v1", 1), milestone("V1", 2)])).toContain("V1");
   });
 
   it("laisse une frise saine tranquille", () => {
-    expect(anomalies([palier("v1", 1), palier("v2", 2)])).toBe("");
+    expect(anomalies([milestone("v1", 1), milestone("v2", 2)])).toBe("");
   });
 });
 
@@ -937,16 +937,16 @@ describe("blocs informatifs — une interface se nomme avec sa version", () => {
   const deuxVersions = () =>
     model({
       interfaces: [
-        iface({ nomDuFlux: "F", version: "1.0", aConfirmer: true }),
-        iface({ nomDuFlux: "F", version: "2.0", aConfirmer: true, ligne: 1 }),
+        iface({ flowName: "F", version: "1.0", aConfirmer: true }),
+        iface({ flowName: "F", version: "2.0", aConfirmer: true, row: 1 }),
       ],
-      consommations: [],
+      consumptions: [],
     });
 
   it("distingue les deux versions dans « Interfaces to confirm »", () => {
-    const bloc = runIntegrityChecks(deuxVersions()).blocsInformatifs.find((b) => b.titre === "Interfaces to confirm")!;
-    expect(bloc.items).toHaveLength(2);
-    expect(new Set(bloc.items.map((i) => i.replace(/\(.*\)/, "")))).toHaveProperty("size", 2);
+    const block = runIntegrityChecks(deuxVersions()).infoBlocks.find((b) => b.title === "Interfaces to confirm")!;
+    expect(block.items).toHaveLength(2);
+    expect(new Set(block.items.map((i) => i.replace(/\(.*\)/, "")))).toHaveProperty("size", 2);
   });
 });
 
@@ -956,16 +956,16 @@ describe("blocs informatifs — une interface se nomme avec sa version", () => {
 // un classeur réel, 4 faux doublons sur 9. L'exposant fait partie de l'identité.
 describe("doublon d'interface — l'exposant fait partie de l'identité", () => {
   const avec = (interfaces: ReturnType<typeof iface>[]) =>
-    runIntegrityChecks(model({ interfaces, consommations: [] }))
-      .familles.flatMap((f) => f.anomalies)
+    runIntegrityChecks(model({ interfaces, consumptions: [] }))
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((m) => m.includes("more than once"));
 
   it("ne signale pas deux exposants différents pour un même nom", () => {
     expect(
       avec([
-        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
-        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+        iface({ flowName: "Kashyyyk", providerName: "A", expectedSheet: "FX_A_HTTP" }),
+        iface({ flowName: "Kashyyyk", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ])
     ).toHaveLength(0);
   });
@@ -973,8 +973,8 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
   it("signale toujours le même nom chez le même exposant", () => {
     expect(
       avec([
-        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "A" }),
-        iface({ nomDuFlux: "Kashyyyk", acteurExposant: "A", ligne: 1 }),
+        iface({ flowName: "Kashyyyk", providerName: "A" }),
+        iface({ flowName: "Kashyyyk", providerName: "A", row: 1 }),
       ])
     ).toHaveLength(1);
   });
@@ -982,8 +982,8 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
   it("laisse deux versions d'un même contrat tranquilles", () => {
     expect(
       avec([
-        iface({ nomDuFlux: "Kashyyyk", version: "1.0", acteurExposant: "A" }),
-        iface({ nomDuFlux: "Kashyyyk", version: "2.0", acteurExposant: "A", ligne: 1 }),
+        iface({ flowName: "Kashyyyk", version: "1.0", providerName: "A" }),
+        iface({ flowName: "Kashyyyk", version: "2.0", providerName: "A", row: 1 }),
       ])
     ).toHaveLength(0);
   });
@@ -995,8 +995,8 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
 // l'utilisateur raccourcit un nom.
 describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
   const messages = (interfaces: ReturnType<typeof iface>[]) =>
-    runIntegrityChecks(model({ interfaces, consommations: [] }))
-      .familles.flatMap((f) => f.anomalies)
+    runIntegrityChecks(model({ interfaces, consumptions: [] }))
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((m) => m.includes("same sheet"));
 
@@ -1004,8 +1004,8 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
 
   it("signale deux exposants dont les noms coupés se confondent", () => {
     const dits = messages([
-      iface({ nomDuFlux: "F", acteurExposant: long("Nord"), feuilleAttendue: feuilleFxAttendue(long("Nord"), "HTTP") }),
-      iface({ nomDuFlux: "G", acteurExposant: long("Sud"), feuilleAttendue: feuilleFxAttendue(long("Sud"), "HTTP"), ligne: 1 }),
+      iface({ flowName: "F", providerName: long("Nord"), expectedSheet: expectedFxSheet(long("Nord"), "HTTP") }),
+      iface({ flowName: "G", providerName: long("Sud"), expectedSheet: expectedFxSheet(long("Sud"), "HTTP"), row: 1 }),
     ]);
     expect(dits).toHaveLength(1);
     expect(dits[0]).toContain("Plateforme de règlement-livraison");
@@ -1014,8 +1014,8 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
   it("ne dit rien quand les onglets diffèrent", () => {
     expect(
       messages([
-        iface({ nomDuFlux: "F", acteurExposant: "Tatooine", feuilleAttendue: feuilleFxAttendue("Tatooine", "HTTP") }),
-        iface({ nomDuFlux: "G", acteurExposant: "Chandrila", feuilleAttendue: feuilleFxAttendue("Chandrila", "HTTP"), ligne: 1 }),
+        iface({ flowName: "F", providerName: "Tatooine", expectedSheet: expectedFxSheet("Tatooine", "HTTP") }),
+        iface({ flowName: "G", providerName: "Chandrila", expectedSheet: expectedFxSheet("Chandrila", "HTTP"), row: 1 }),
       ])
     ).toHaveLength(0);
   });
@@ -1023,8 +1023,8 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
   it("ne dit rien pour deux interfaces du même couple, qui partagent l'onglet à juste titre", () => {
     expect(
       messages([
-        iface({ nomDuFlux: "F", acteurExposant: "Tatooine" }),
-        iface({ nomDuFlux: "G", acteurExposant: "Tatooine", ligne: 1 }),
+        iface({ flowName: "F", providerName: "Tatooine" }),
+        iface({ flowName: "G", providerName: "Tatooine", row: 1 }),
       ])
     ).toHaveLength(0);
   });
@@ -1040,35 +1040,35 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
 // jamais remonter jusqu'au rapport.
 describe("chaîne cassée en son milieu", () => {
   const TYPES = [
-    { type: "Application", icone: "app-window", nature: "Business", feuille: "ActorTypes", ligne: 0 },
-    { type: "Middleware", icone: "server", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
+    { type: "Application", icone: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icone: "server", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ];
 
   it("signale l'interface fautive, pas celle par laquelle on est entré", () => {
     const m = model({
       typesActeur: TYPES,
-      acteurs: [
-        acteur({ nom: "A" }),
-        acteur({ nom: "X", typeActeur: "Middleware" }),
-        acteur({ nom: "Y", typeActeur: "Middleware" }),
-        acteur({ nom: "C" }),
+      actors: [
+        actor({ name: "A" }),
+        actor({ name: "X", typeActeur: "Middleware" }),
+        actor({ name: "Y", typeActeur: "Middleware" }),
+        actor({ name: "C" }),
       ],
       interfaces: [
-        iface({ nomDuFlux: "f0", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
-        iface({ nomDuFlux: "f1", acteurExposant: "X", feuilleAttendue: "FX_X_HTTP", ligne: 1 }),
-        iface({ nomDuFlux: "f2", acteurExposant: "Y", feuilleAttendue: "FX_Y_HTTP", ligne: 2 }),
+        iface({ flowName: "f0", providerName: "A", expectedSheet: "FX_A_HTTP" }),
+        iface({ flowName: "f1", providerName: "X", expectedSheet: "FX_X_HTTP", row: 1 }),
+        iface({ flowName: "f2", providerName: "Y", expectedSheet: "FX_Y_HTTP", row: 2 }),
       ],
-      consommations: [
+      consumptions: [
         // f0 arrive bien chez X, mais X ne dit pas sous quoi il le republie :
         // c'est f1 qui n'est alimentée par rien.
-        conso({ nomDuFlux: "f0", acteurConsommateur: "X", feuille: "FX_A_HTTP" }),
-        conso({ nomDuFlux: "f1", acteurConsommateur: "Y", feuille: "FX_X_HTTP", republiePar: "f2", ligne: 1 }),
-        conso({ nomDuFlux: "f2", acteurConsommateur: "C", feuille: "FX_Y_HTTP", ligne: 2 }),
+        conso({ flowName: "f0", consumerName: "X", sheet: "FX_A_HTTP" }),
+        conso({ flowName: "f1", consumerName: "Y", sheet: "FX_X_HTTP", republishedAs: "f2", row: 1 }),
+        conso({ flowName: "f2", consumerName: "C", sheet: "FX_Y_HTTP", row: 2 }),
       ],
       fxSheetNames: ["FX_A_HTTP", "FX_X_HTTP", "FX_Y_HTTP"],
     });
     const dits = runIntegrityChecks(m)
-      .familles.flatMap((f) => f.anomalies)
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((msg) => msg.includes("nothing feeds it"));
     expect(dits).toHaveLength(1);
@@ -1082,18 +1082,18 @@ describe("chaîne cassée en son milieu", () => {
 // partagent la même, ne se voient pas dans le classeur : la première retombe
 // silencieusement sur la palette, la seconde rend deux traits indiscernables.
 describe("couleur déclarée d'une technologie", () => {
-  const parc = (couleurs: [string, string][]) =>
+  const parc = (colours: [string, string][]) =>
     model({
-      typesFlux: couleurs.map(([type, couleur], i) => base.typeFlux({ type, couleur, ligne: i })),
-      interfaces: couleurs.map(([type], i) =>
-        iface({ nomDuFlux: `F${i}`, typeDeFlux: type, feuilleAttendue: `FX_A_${type}`, ligne: i })
+      flowTypes: colours.map(([type, colour], i) => base.typeFlux({ type, colour, row: i })),
+      interfaces: colours.map(([type], i) =>
+        iface({ flowName: `F${i}`, flowType: type, expectedSheet: `FX_A_${type}`, row: i })
       ),
-      consommations: [],
-      fxSheetNames: couleurs.map(([type]) => `FX_A_${type}`),
+      consumptions: [],
+      fxSheetNames: colours.map(([type]) => `FX_A_${type}`),
     });
 
   const messages = (m: ParsedModel) =>
-    runIntegrityChecks(m).familles.flatMap((f) => f.anomalies).map((a) => a.message).filter((x) => x.includes("colour"));
+    runIntegrityChecks(m).families.flatMap((f) => f.anomalies).map((a) => a.message).filter((x) => x.includes("colour"));
 
   it("accepte un hexadécimal, avec ou sans dièse", () => {
     expect(messages(parc([["HTTP", "#2a78d6"], ["Kafka", "eb6834"]]))).toHaveLength(0);
@@ -1122,11 +1122,11 @@ describe("couleur déclarée d'une technologie", () => {
 describe("technologie absente du référentiel", () => {
   it("dit que l'interface n'est plus dessinée", () => {
     const m = model({
-      interfaces: [iface({ typeDeFlux: "Inconnue" })],
-      consommations: [],
+      interfaces: [iface({ flowType: "Inconnue" })],
+      consumptions: [],
     });
     const dit = runIntegrityChecks(m)
-      .familles.flatMap((f) => f.anomalies)
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .find((msg) => msg.includes("Inconnue"))!;
     expect(dit).toContain("not drawn");
@@ -1138,9 +1138,9 @@ describe("technologie absente du référentiel", () => {
 // valeur fautive ne déclenchait donc rien : le groupe n'était ni plateforme ni
 // externe, silencieusement.
 describe("vocabulaire du périmètre", () => {
-  const messages = (perimetre: string) =>
-    runIntegrityChecks(model({ groupes: [{ nom: "G", perimetre, feuille: "Groups", ligne: 0 }] }))
-      .familles.flatMap((f) => f.anomalies)
+  const messages = (perimeter: string) =>
+    runIntegrityChecks(model({ groups: [{ name: "G", perimeter, sheet: "Groups", row: 0 }] }))
+      .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((m) => m.toLowerCase().includes("perimeter"));
 
@@ -1164,27 +1164,27 @@ describe("vocabulaire du périmètre", () => {
 describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () => {
   const fantome = () =>
     model({
-      paliers: [
-        { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-        { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 1 },
+      milestones: [
+        { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+        { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 1 },
       ],
       // « Fantome » expose, mais ne figure pas dans l'onglet Actors.
-      acteurs: [acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [iface({ acteurExposant: "Fantome", palierIntroduction: "v1" })],
-      consommations: [conso({ acteurConsommateur: "B", palierIntroduction: "v1" })],
+      actors: [actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [iface({ providerName: "Fantome", introducedAt: "v1" })],
+      consumptions: [conso({ consumerName: "B", introducedAt: "v1" })],
     });
 
-  const blocs = (rang: number | null) =>
-    runIntegrityChecks(fantome(), rang).blocsInformatifs.flatMap((b) => b.items.map((i) => `${b.titre} | ${i}`));
+  const blocks = (rank: number | null) =>
+    runIntegrityChecks(fantome(), rank).infoBlocks.flatMap((b) => b.items.map((i) => `${b.title} | ${i}`));
 
   it("ne déclare pas sans flux un acteur que le schéma relie", () => {
     expect(buildFlowInstances(fantome(), 1)).toHaveLength(1);
-    expect(blocs(1).filter((i) => i.includes("no flow"))).toHaveLength(0);
+    expect(blocks(1).filter((i) => i.includes("no flow"))).toHaveLength(0);
   });
 
   it("dit la même chose au palier et hors palier", () => {
-    expect(blocs(1).filter((i) => /no flow|Unused flow/.test(i))).toEqual(
-      blocs(null).filter((i) => /no flow|Unused flow/.test(i))
+    expect(blocks(1).filter((i) => /no flow|Unused flow/.test(i))).toEqual(
+      blocks(null).filter((i) => /no flow|Unused flow/.test(i))
     );
   });
 
@@ -1192,10 +1192,10 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
   // de la règle, corrigée plus tôt, et elle ne doit pas se rouvrir.
   it("retire toujours les flux d'un acteur connu et retiré", () => {
     const m = model({
-      paliers: [{ nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 }],
-      acteurs: [acteur({ nom: "A", palierIntroduction: "v1", palierRetrait: "v1" }), acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [iface({ acteurExposant: "A", palierIntroduction: "v1" })],
-      consommations: [conso({ acteurConsommateur: "B", palierIntroduction: "v1" })],
+      milestones: [{ name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 }],
+      actors: [actor({ name: "A", introducedAt: "v1", retiredAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [iface({ providerName: "A", introducedAt: "v1" })],
+      consumptions: [conso({ consumerName: "B", introducedAt: "v1" })],
     });
     expect(buildFlowInstances(m, 1)).toHaveLength(0);
   });
@@ -1207,18 +1207,18 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
 // en silence sous un schéma vide. Symétriquement, deux lignes datées d'une même
 // migration étaient comptées ensemble, et le fichier se voyait reprocher de
 // suivre sa propre consigne.
-const messagesRecette = (m: Parameters<typeof runIntegrityChecks>[0], rang: number | null) =>
-  runIntegrityChecks(m, rang).familles.flatMap((f) => f.anomalies.map((a) => a.message));
+const messagesRecette = (m: Parameters<typeof runIntegrityChecks>[0], rank: number | null) =>
+  runIntegrityChecks(m, rank).families.flatMap((f) => f.anomalies.map((a) => a.message));
 // ---------------------------------------------------------------------------
 // 3. Le rapport d'intégrité face à l'axe des paliers.
 // ---------------------------------------------------------------------------
 
-const PALIERS_RECETTE = [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 }), base.palier({ nom: "v3", rang: 3 })];
+const PALIERS_RECETTE = [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 }), base.milestone({ name: "v3", rank: 3 })];
 const SOCLE_RECETTE = {
-  groupes: [base.groupe({ nom: "G" })],
+  groups: [base.group({ name: "G" })],
   typesActeur: [base.typeActeur()],
-  typesFlux: [base.typeFlux()],
-  paliers: PALIERS_RECETTE,
+  flowTypes: [base.typeFlux()],
+  milestones: PALIERS_RECETTE,
   fxSheetNames: ["FX_A_HTTP"],
 };
 
@@ -1227,66 +1227,66 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     // Ce que le mode d'emploi du classeur prescrit : « Obsolete row: do not
     // delete it: give it a retirement milestone. » Les deux intervalles sont
     // DISJOINTS -- à aucun palier B ne consomme deux versions.
-    const m = base.modele({
+    const m = base.template({
       ...SOCLE_RECETTE,
-      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
+      actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
       interfaces: [
-        base.iface({ nomDuFlux: "F", version: "1.0", acteurExposant: "A", palierIntroduction: "v1", palierRetrait: "v2" }),
-        base.iface({ nomDuFlux: "F", version: "2.0", acteurExposant: "A", palierIntroduction: "v2" }),
+        base.iface({ flowName: "F", version: "1.0", providerName: "A", introducedAt: "v1", retiredAt: "v2" }),
+        base.iface({ flowName: "F", version: "2.0", providerName: "A", introducedAt: "v2" }),
       ],
-      consommations: [
-        base.conso({ nomDuFlux: "F", version: "1.0", acteurConsommateur: "B", palierIntroduction: "v1", palierRetrait: "v2", ligne: 2 }),
-        base.conso({ nomDuFlux: "F", version: "2.0", acteurConsommateur: "B", palierIntroduction: "v2", ligne: 3 }),
+      consumptions: [
+        base.conso({ flowName: "F", version: "1.0", consumerName: "B", introducedAt: "v1", retiredAt: "v2", row: 2 }),
+        base.conso({ flowName: "F", version: "2.0", consumerName: "B", introducedAt: "v2", row: 3 }),
       ],
     });
     expect(buildFlowInstances(m, 1).map((f) => f.version)).toEqual(["1.0"]);
     expect(buildFlowInstances(m, 2).map((f) => f.version)).toEqual(["2.0"]);
-    for (const rang of [null, 1, 2, 3]) {
-      expect(messagesRecette(m, rang).filter((x) => x.includes("two versions"))).toEqual([]);
+    for (const rank of [null, 1, 2, 3]) {
+      expect(messagesRecette(m, rank).filter((x) => x.includes("two versions"))).toEqual([]);
     }
   });
 
   it("signale une consommation dont l'intervalle ne rencontre jamais celui de son interface", () => {
-    const m = base.modele({
+    const m = base.template({
       ...SOCLE_RECETTE,
-      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", palierIntroduction: "v1", palierRetrait: "v2" })],
-      consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "B", palierIntroduction: "v2" })],
+      actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [base.iface({ flowName: "F", providerName: "A", introducedAt: "v1", retiredAt: "v2" })],
+      consumptions: [base.conso({ flowName: "F", consumerName: "B", introducedAt: "v2" })],
     });
     expect([1, 2, 3].map((r) => buildFlowInstances(m, r).length)).toEqual([0, 0, 0]);
     expect(messagesRecette(m, 2).some((x) => x.includes("lives outside the lifetime"))).toBe(true);
   });
 
   it("dit qu'une interface n'a plus de consommation au palier affiché", () => {
-    const m = base.modele({
+    const m = base.template({
       ...SOCLE_RECETTE,
-      acteurs: [base.acteur({ nom: "A", palierIntroduction: "v1" }), base.acteur({ nom: "B", palierIntroduction: "v1" })],
-      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", palierIntroduction: "v1" })],
-      consommations: [base.conso({ nomDuFlux: "F", acteurConsommateur: "B", palierIntroduction: "v1", palierRetrait: "v2" })],
+      actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
+      interfaces: [base.iface({ flowName: "F", providerName: "A", introducedAt: "v1" })],
+      consumptions: [base.conso({ flowName: "F", consumerName: "B", introducedAt: "v1", retiredAt: "v2" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
     expect(messagesRecette(m, 2).some((x) => x.includes("no declared consumption"))).toBe(true);
   });
 
   it("dit qu'une chaîne de relais est coupée par le temps", () => {
-    const m = base.modele({
-      paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
-      groupes: [base.groupe({ nom: "G" })],
-      acteurs: [
-        base.acteur({ nom: "Src", palierIntroduction: "v1" }),
-        base.acteur({ nom: "Bus", typeActeur: "Infra", palierIntroduction: "v1" }),
-        base.acteur({ nom: "Dst", palierIntroduction: "v1" }),
+    const m = base.template({
+      milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
+      groups: [base.group({ name: "G" })],
+      actors: [
+        base.actor({ name: "Src", introducedAt: "v1" }),
+        base.actor({ name: "Bus", typeActeur: "Infra", introducedAt: "v1" }),
+        base.actor({ name: "Dst", introducedAt: "v1" }),
       ],
       typesActeur: [base.typeActeur({ nature: "Business" }), base.typeActeur({ type: "Infra", nature: "Technical" })],
-      typesFlux: [base.typeFlux()],
+      flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_Src_HTTP", "FX_Bus_HTTP"],
       interfaces: [
-        base.iface({ nomDuFlux: "In", acteurExposant: "Src", feuilleAttendue: "FX_Src_HTTP", palierIntroduction: "v1" }),
-        base.iface({ nomDuFlux: "Out", acteurExposant: "Bus", feuilleAttendue: "FX_Bus_HTTP", palierIntroduction: "v1" }),
+        base.iface({ flowName: "In", providerName: "Src", expectedSheet: "FX_Src_HTTP", introducedAt: "v1" }),
+        base.iface({ flowName: "Out", providerName: "Bus", expectedSheet: "FX_Bus_HTTP", introducedAt: "v1" }),
       ],
-      consommations: [
-        base.conso({ nomDuFlux: "In", acteurConsommateur: "Bus", feuille: "FX_Src_HTTP", republiePar: "Out", palierIntroduction: "v1", palierRetrait: "v2" }),
-        base.conso({ nomDuFlux: "Out", acteurConsommateur: "Dst", feuille: "FX_Bus_HTTP", palierIntroduction: "v1" }),
+      consumptions: [
+        base.conso({ flowName: "In", consumerName: "Bus", sheet: "FX_Src_HTTP", republishedAs: "Out", introducedAt: "v1", retiredAt: "v2" }),
+        base.conso({ flowName: "Out", consumerName: "Dst", sheet: "FX_Bus_HTTP", introducedAt: "v1" }),
       ],
     });
     expect(buildFunctionalFlows(m, 1)).toHaveLength(1);
@@ -1295,14 +1295,14 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
   });
 
   it("ne prétend pas qu'un nom de flux est absent du catalogue quand le schéma le dessine", () => {
-    const m = base.modele({
-      groupes: [base.groupe({ nom: "G" })],
-      acteurs: [base.acteur({ nom: "A" }), base.acteur({ nom: "B" })],
+    const m = base.template({
+      groups: [base.group({ name: "G" })],
+      actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
       typesActeur: [base.typeActeur()],
-      typesFlux: [base.typeFlux()],
+      flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_A_HTTP"],
-      interfaces: [base.iface({ nomDuFlux: "Authent", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" })],
-      consommations: [base.conso({ nomDuFlux: "authent", acteurConsommateur: "B", feuille: "FX_A_HTTP" })],
+      interfaces: [base.iface({ flowName: "Authent", providerName: "A", expectedSheet: "FX_A_HTTP" })],
+      consumptions: [base.conso({ flowName: "authent", consumerName: "B", sheet: "FX_A_HTTP" })],
     });
     expect(buildFlowInstances(m, null)).toHaveLength(1);
     expect(messagesRecette(m, null).some((x) => x.includes("missing from the Interfaces catalogue"))).toBe(false);
@@ -1314,24 +1314,24 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
 // corriger : sinon la teinte à l'écran n'est pas celle qu'il a écrite, et
 // personne ne comprend pourquoi.
 describe("contrôles — couleurs trop claires pour être dessinées", () => {
-  const bloc = (couleur: string) =>
-    runIntegrityChecks(model({ typesFlux: [base.typeFlux({ type: "HTTP", couleur })] })).blocsInformatifs.find(
+  const block = (colour: string) =>
+    runIntegrityChecks(model({ flowTypes: [base.typeFlux({ type: "HTTP", colour })] })).infoBlocks.find(
       (b) => b.id === "contraste"
     );
 
   it("signale une couleur déclarée trop claire pour un trait", () => {
-    expect(bloc("#ffee00")?.items.join(" ")).toContain("HTTP");
-    expect(bloc("#ffee00")?.niveau).toBe("avertissement");
+    expect(block("#ffee00")?.items.join(" ")).toContain("HTTP");
+    expect(block("#ffee00")?.level).toBe("warning");
   });
 
   it("ne signale rien quand la couleur déclarée passe le seuil", () => {
-    expect(bloc("#1f5fae")?.items).toEqual([]);
+    expect(block("#1f5fae")?.items).toEqual([]);
   });
 
   // Une valeur qui n'est pas une couleur relève des contrôles de vocabulaire,
   // pas d'ici : la signaler deux fois dirait deux fois la même case.
   it("ne signale pas une valeur qui n'est pas une couleur", () => {
-    expect(bloc("bleu ciel")?.items).toEqual([]);
+    expect(block("bleu ciel")?.items).toEqual([]);
   });
 });
 
@@ -1339,55 +1339,55 @@ describe("contrôles — couleurs trop claires pour être dessinées", () => {
 // tombe, qui est touché ? » est pourtant la question du jour où il faut
 // arbitrer une migration, et rien n'y répondait.
 describe("contrôles — rayon d'impact", () => {
-  const bloc = (m: ParsedModel) => runIntegrityChecks(m).blocsInformatifs.find((b) => b.id === "rayon-impact");
+  const block = (m: ParsedModel) => runIntegrityChecks(m).infoBlocks.find((b) => b.id === "rayon-impact");
 
   // A fournit B, B fournit C : A entraîne les deux.
-  const chaine = () =>
+  const chain = () =>
     model({
-      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
+      actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
       fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
       interfaces: [
-        iface({ nomDuFlux: "F1", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
-        iface({ nomDuFlux: "F2", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+        iface({ flowName: "F1", providerName: "A", expectedSheet: "FX_A_HTTP" }),
+        iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ],
-      consommations: [
-        conso({ nomDuFlux: "F1", acteurConsommateur: "B", feuille: "FX_A_HTTP" }),
-        conso({ nomDuFlux: "F2", acteurConsommateur: "C", feuille: "FX_B_HTTP" }),
+      consumptions: [
+        conso({ flowName: "F1", consumerName: "B", sheet: "FX_A_HTTP" }),
+        conso({ flowName: "F2", consumerName: "C", sheet: "FX_B_HTTP" }),
       ],
     });
 
   it("compte l'aval transitif, pas seulement les voisins", () => {
-    expect(bloc(chaine())?.items[0]).toBe("A: 2 components downstream.");
+    expect(block(chain())?.items[0]).toBe("A: 2 components downstream.");
   });
 
   it("classe le plus entraînant en tête", () => {
-    expect(bloc(chaine())?.items.map((i) => i.split(":")[0])).toEqual(["A", "B"]);
+    expect(block(chain())?.items.map((i) => i.split(":")[0])).toEqual(["A", "B"]);
   });
 
   // Nommer avec un zéro allongerait la liste sans rien y ajouter.
   it("ne nomme pas ceux qui n'entraînent personne", () => {
-    expect(bloc(chaine())?.items.some((i) => i.startsWith("C:"))).toBe(false);
+    expect(block(chain())?.items.some((i) => i.startsWith("C:"))).toBe(false);
   });
 
   it("accorde le singulier", () => {
-    expect(bloc(chaine())?.items[1]).toBe("B: 1 component downstream.");
+    expect(block(chain())?.items[1]).toBe("B: 1 component downstream.");
   });
 
   // Un cycle ramène l'acteur dans son propre aval : « combien j'en entraîne »
   // ne doit pas me compter moi-même.
   it("ne se compte pas soi-même quand un cycle y ramène", () => {
     const boucle = model({
-      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" })],
+      actors: [actor({ name: "A" }), actor({ name: "B" })],
       fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
       interfaces: [
-        iface({ nomDuFlux: "F1", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
-        iface({ nomDuFlux: "F2", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+        iface({ flowName: "F1", providerName: "A", expectedSheet: "FX_A_HTTP" }),
+        iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ],
-      consommations: [
-        conso({ nomDuFlux: "F1", acteurConsommateur: "B", feuille: "FX_A_HTTP" }),
-        conso({ nomDuFlux: "F2", acteurConsommateur: "A", feuille: "FX_B_HTTP" }),
+      consumptions: [
+        conso({ flowName: "F1", consumerName: "B", sheet: "FX_A_HTTP" }),
+        conso({ flowName: "F2", consumerName: "A", sheet: "FX_B_HTTP" }),
       ],
     });
-    expect(bloc(boucle)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
+    expect(block(boucle)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
   });
 });

@@ -10,19 +10,19 @@ import type { IntegrityReport } from "../integrity/checks";
 // discrètement quand elles vivaient éparpillées dans quatre-vingts lignes de
 // boutons. Devenues une table, elles se vérifient sans monter le DOM.
 
-const rapport: IntegrityReport = {
-  familles: [],
-  blocsInformatifs: [],
+const report: IntegrityReport = {
+  families: [],
+  infoBlocks: [],
   totalAnomalies: 0,
   totalActions: 0,
   totalAvertissements: 0,
 };
 
 const chargé = (): AppState =>
-  withFichierCharge(initialState(), { nom: "c.xlsx", model: base.modele(), report: rapport, dateModification: null });
+  withFichierCharge(initialState(), { name: "c.xlsx", model: base.template(), report: report, dateModification: null });
 
-const actif = (libellé: string, state: AppState, dessin = true) =>
-  EXPORTS.find((e) => e.libellé === libellé)!.actif(state, dessin);
+const actif = (label: string, state: AppState, dessin = true) =>
+  EXPORTS.find((e) => e.label === label)!.actif(state, dessin);
 
 describe("EXPORTS — quand un format est offert", () => {
   it("n'offre rien tant qu'aucun classeur n'est chargé", () => {
@@ -32,24 +32,24 @@ describe("EXPORTS — quand un format est offert", () => {
   });
 
   it("offre les images sur un schéma, et seulement là", () => {
-    const s = withVue(chargé(), "plateforme-detaillee");
+    const s = withVue(chargé(), "platform-detail");
     expect(actif("SVG", s)).toBe(true);
     expect(actif("PNG", s)).toBe(true);
-    expect(actif("SVG", withVue(s, "matrice"))).toBe(false);
-    expect(actif("SVG", withVue(s, "controles"))).toBe(false);
+    expect(actif("SVG", withVue(s, "matrix"))).toBe(false);
+    expect(actif("SVG", withVue(s, "checks"))).toBe(false);
   });
 
   // Un schéma pas encore rendu n'est pas exportable : le bouton attendrait un
   // dessin qui n'existe pas.
   it("n'offre pas une image tant que le dessin n'est pas prêt", () => {
-    expect(actif("SVG", withVue(chargé(), "plateforme-detaillee"), false)).toBe(false);
+    expect(actif("SVG", withVue(chargé(), "platform-detail"), false)).toBe(false);
   });
 
-  it("réserve Excel à la matrice et Markdown au rapport", () => {
-    expect(actif("Excel", withVue(chargé(), "matrice"))).toBe(true);
-    expect(actif("Excel", withVue(chargé(), "controles"))).toBe(false);
-    expect(actif("Markdown", withVue(chargé(), "controles"))).toBe(true);
-    expect(actif("Markdown", withVue(chargé(), "matrice"))).toBe(false);
+  it("réserve Excel à la matrix et Markdown au rapport", () => {
+    expect(actif("Excel", withVue(chargé(), "matrix"))).toBe(true);
+    expect(actif("Excel", withVue(chargé(), "checks"))).toBe(false);
+    expect(actif("Markdown", withVue(chargé(), "checks"))).toBe(true);
+    expect(actif("Markdown", withVue(chargé(), "matrix"))).toBe(false);
   });
 
   // Les trois qui emportent tout le classeur ne dépendent pas de la vue --
@@ -58,16 +58,16 @@ describe("EXPORTS — quand un format est offert", () => {
   // à un autre est le cas d'usage central d'un systemLandscape. Le fichier dit
   // désormais quelle lecture il porte, ce qui était la vraie exigence.
   it("offre les trois formats de modèle dans les deux lectures", () => {
-    const fonctionnel = withMode(withVue(chargé(), "matrice"), "fonctionnel");
+    const fonctionnel = withMode(withVue(chargé(), "matrix"), "functional");
     expect(actif("draw.io", fonctionnel)).toBe(true);
     expect(actif("Structurizr", fonctionnel)).toBe(true);
     expect(actif("LikeC4", fonctionnel)).toBe(true);
   });
 
   it("n'offre aucun des trois sur l'écran de mise à niveau", () => {
-    const bloqué = withVue(chargé(), "mise-a-niveau");
-    for (const libellé of ["draw.io", "Structurizr", "LikeC4"]) {
-      expect(actif(libellé, bloqué)).toBe(false);
+    const bloqué = withVue(chargé(), "upgrade");
+    for (const label of ["draw.io", "Structurizr", "LikeC4"]) {
+      expect(actif(label, bloqué)).toBe(false);
     }
   });
 });

@@ -1,10 +1,10 @@
 import type { MatrixResult, MatrixRow, MatrixCell } from "../aggregation/views";
 import type {
-  Acteur,
+  Actor,
   Consommation,
   Groupe,
   InterfaceCatalogue,
-  Palier,
+  Milestone,
   ParsedModel,
   TypeActeur,
   TypeFlux,
@@ -27,94 +27,94 @@ import { VERSION_MODELE } from "../parsing/build-model";
 // N'est jamais embarquée dans le livrable : le point d'entrée est src/main.ts,
 // et rien de ce qui en dépend n'importe ce fichier.
 
-export function acteur(o: Partial<Acteur> = {}): Acteur {
+export function actor(o: Partial<Actor> = {}): Actor {
   return {
-    nom: "A",
-    groupe: "G",
+    name: "A",
+    group: "G",
     typeActeur: "Application",
     responsable: "",
     description: "",
     commentaires: "",
-    palierIntroduction: "",
-    palierRetrait: "",
-    feuille: "Actors",
-    ligne: 0,
+    introducedAt: "",
+    retiredAt: "",
+    sheet: "Actors",
+    row: 0,
     ...o,
   };
 }
 
-export function groupe(o: Partial<Groupe> = {}): Groupe {
-  return { nom: "G", perimetre: "Platform", feuille: "Groups", ligne: 0, ...o };
+export function group(o: Partial<Groupe> = {}): Groupe {
+  return { name: "G", perimeter: "Platform", sheet: "Groups", row: 0, ...o };
 }
 
 export function typeActeur(o: Partial<TypeActeur> = {}): TypeActeur {
-  return { type: "Application", icone: "app-window", nature: "", feuille: "ActorTypes", ligne: 0, ...o };
+  return { type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0, ...o };
 }
 
 export function typeFlux(o: Partial<TypeFlux> = {}): TypeFlux {
   return {
     type: "HTTP",
-    sensRepresentation: "consommateur-exposant",
+    sensRepresentation: "consumer-to-provider",
     sensRepresentationBrut: "consumer → provider",
     description: "",
-    couleur: "",
-    feuille: "FlowTypes",
-    ligne: 0,
+    colour: "",
+    sheet: "FlowTypes",
+    row: 0,
     ...o,
   };
 }
 
-export function palier(o: Partial<Palier> = {}): Palier {
+export function milestone(o: Partial<Milestone> = {}): Milestone {
   return {
-    nom: "v1",
-    rang: 1,
-    libelle: "",
+    name: "v1",
+    rank: 1,
+    label: "",
     statut: "Delivered",
     date: "",
     description: "",
-    feuille: "Milestones",
-    ligne: 0,
+    sheet: "Milestones",
+    row: 0,
     ...o,
   };
 }
 
 export function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return {
-    nomDuFlux: "F",
+    flowName: "F",
     version: "",
     etat: "",
-    acteurExposant: "A",
-    typeDeFlux: "HTTP",
+    providerName: "A",
+    flowType: "HTTP",
     description: "",
     lienContrat: "",
     referenceContrat: "",
     commentaires: "",
     aConfirmer: false,
     relais: "",
-    feuilleAttendue: "FX_A_HTTP",
-    palierIntroduction: "",
-    palierRetrait: "",
-    feuille: "Interfaces",
-    ligne: 0,
+    expectedSheet: "FX_A_HTTP",
+    introducedAt: "",
+    retiredAt: "",
+    sheet: "Interfaces",
+    row: 0,
     ...o,
   };
 }
 
 export function conso(o: Partial<Consommation> = {}): Consommation {
   return {
-    nomDuFlux: "F",
+    flowName: "F",
     version: "",
-    acteurConsommateur: "B",
+    consumerName: "B",
     usage: "",
-    criticite: "",
+    criticality: "",
     statut: "",
     decision: "",
     commentaires: "",
-    republiePar: "",
-    feuille: "FX_A_HTTP",
-    palierIntroduction: "",
-    palierRetrait: "",
-    ligne: 0,
+    republishedAs: "",
+    sheet: "FX_A_HTTP",
+    introducedAt: "",
+    retiredAt: "",
+    row: 0,
     ...o,
   };
 }
@@ -122,16 +122,16 @@ export function conso(o: Partial<Consommation> = {}): Consommation {
 // Le modèle vide, sur lequel tout se construit par surcharge. Vide et non
 // « minimal viable » : un test qui a besoin d'un acteur le dit, et le lecteur
 // voit alors dans le test tout ce qui compte pour lui.
-export function modele(o: Partial<ParsedModel> = {}): ParsedModel {
+export function template(o: Partial<ParsedModel> = {}): ParsedModel {
   return {
-    acteurs: [],
-    groupes: [],
+    actors: [],
+    groups: [],
     groupesAbsents: false,
     typesActeur: [],
-    typesFlux: [],
-    paliers: [],
+    flowTypes: [],
+    milestones: [],
     interfaces: [],
-    consommations: [],
+    consumptions: [],
     fxSheetNames: [],
     colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE,
@@ -140,13 +140,13 @@ export function modele(o: Partial<ParsedModel> = {}): ParsedModel {
   };
 }
 
-// Une matrice de test, ses marges calculées comme le fait buildMatrixView : un
+// Une matrix de test, ses marges calculées comme le fait buildMatrixView : un
 // test qui poserait des totaux à la main pourrait affirmer n'importe quoi.
-export function matrice(o: { colonnes: string[]; lignes: MatrixRow[] }): MatrixResult {
+export function matrix(o: { columns: string[]; rows: MatrixRow[] }): MatrixResult {
   const total = (cellules: MatrixCell[]) => cellules.reduce((n, c) => n + c.count, 0);
   return {
     ...o,
-    totauxLigne: new Map(o.lignes.map((l) => [l.acteur, total([...l.cellules.values()].flat())])),
-    totauxColonne: new Map(o.colonnes.map((c) => [c, total(o.lignes.flatMap((l) => l.cellules.get(c) ?? []))])),
+    totauxLigne: new Map(o.rows.map((l) => [l.actor, total([...l.cellules.values()].flat())])),
+    totauxColonne: new Map(o.columns.map((c) => [c, total(o.rows.flatMap((l) => l.cellules.get(c) ?? []))])),
   };
 }

@@ -3,10 +3,10 @@ import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } f
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import type { OrdreMatrice } from "../aggregation/seriation";
-import { chainesDisponibles } from "../aggregation/chaine";
+import { chainesDisponibles } from "../aggregation/chain";
 import type { Voisinage } from "../aggregation/impact";
-import type { SujetDeFrise } from "../aggregation/frise";
-import { rangDuPalier } from "../aggregation/paliers";
+import type { SujetDeFrise } from "../aggregation/roadmap";
+import { rankOfMilestone } from "../aggregation/milestones";
 
 // L'ordre de lecture va du plus court au plus complet.
 const LIBELLES_ARETE: [LibelléArête, string][] = [
@@ -14,7 +14,7 @@ const LIBELLES_ARETE: [LibelléArête, string][] = [
   ["exchanges", "what flows"],
   ["both", "both"],
 ];
-import type { Lecture } from "../aggregation/fonctionnel";
+import type { Lecture } from "../aggregation/reading";
 import type { AppState, Vue } from "./state";
 import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
 
@@ -22,65 +22,65 @@ import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
 // la seule table. « mise-a-niveau » n'y figure pas -- on n'y navigue pas, on y
 // est envoyé.
 const ORDRE_DES_VUES: Vue[] = [
-  "groupe-a-groupe",
-  "plateforme-detaillee",
-  "plateforme-seule",
-  "par-acteur",
-  "par-technologie",
-  "chaine",
-  "frise",
-  "matrice",
-  "ecarts",
-  "controles",
-  "aide",
+  "group-to-group",
+  "platform-detail",
+  "platform-only",
+  "by-actor",
+  "by-technology",
+  "chain",
+  "roadmap",
+  "matrix",
+  "changes",
+  "checks",
+  "help",
 ];
 
 export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ id, label: LIBELLE_VUE[id] }));
 
-// Les trois échelles de lecture de la matrice, avec le titre du bloc de cases
+// Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
 const GRANULARITES_MATRICE: { id: GranulariteMatrice; label: string; titreFiltre: string }[] = [
-  { id: "acteur", label: "Actor to actor", titreFiltre: "Actors" },
-  { id: "groupe", label: "Group to group", titreFiltre: "Groups" },
-  { id: "plateforme", label: "Platform to group", titreFiltre: "Actors and groups" },
+  { id: "actor", label: "Actor to actor", titreFiltre: "Actors" },
+  { id: "group", label: "Group to group", titreFiltre: "Groups" },
+  { id: "platform", label: "Platform to group", titreFiltre: "Actors and groups" },
 ];
 
 // Les quatre ordres proposés, du plus neutre au plus interprétatif.
 const ORDRES_MATRICE: { id: OrdreMatrice; label: string }[] = [
-  { id: "alphabetique", label: "Order: alphabetical" },
-  { id: "groupe", label: "Order: by group" },
-  { id: "degre", label: "Order: by degree" },
-  { id: "blocs", label: "Order: blocks" },
+  { id: "alphabetical", label: "Order: alphabetical" },
+  { id: "group", label: "Order: by group" },
+  { id: "degree", label: "Order: by degree" },
+  { id: "blocks", label: "Order: blocks" },
 ];
 
 // Jusqu'où la planche par acteur porte le regard.
 const VOISINAGES: { id: Voisinage; label: string }[] = [
   { id: "direct", label: "Neighbours: direct" },
-  { id: "amont", label: "Neighbours: what it depends on" },
-  { id: "aval", label: "Neighbours: what depends on it" },
+  { id: "upstream", label: "Neighbours: what it depends on" },
+  { id: "downstream", label: "Neighbours: what depends on it" },
 ];
 
 export interface RailCallbacks {
   onMode: (mode: Mode) => void;
-  onVue: (vue: Vue) => void;
-  onSelectionActeur: (nom: string) => void;
+  onVue: (view: Vue) => void;
+  onSelectionActeur: (name: string) => void;
   onSelectionTechnologie: (type: string) => void;
-  onSelectionChaine: (chaîne: string) => void;
+  onSelectionChaine: (chain: string) => void;
   onVoisinage: (value: Voisinage) => void;
   onSujetFrise: (value: SujetDeFrise) => void;
   onGraisseParCriticite: (value: boolean) => void;
-  onPalierAffiche: (palier: string) => void;
-  onPalierCompare: (palier: string) => void;
+  onPalierAffiche: (milestone: string) => void;
+  onPalierCompare: (milestone: string) => void;
   onOptionCompteurs: (value: boolean) => void;
   onLibelléArête: (value: LibelléArête) => void;
   onOrdreMatrice: (value: OrdreMatrice) => void;
   onEchellePng: (value: 1 | 2 | 4) => void;
-  onTechnoMasquee: (techno: string, masquée: boolean) => void;
-  onActeurMasque: (acteur: string, masqué: boolean) => void;
+  onTechnoMasquee: (techno: string, hidden: boolean) => void;
+  onActeurMasque: (actor: string, hidden: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
-  onActeurMasqueTechnologie: (acteur: string, masqué: boolean) => void;
+  onActeurMasqueTechnologie: (actor: string, hidden: boolean) => void;
   onMasquerExternesMatrice: (value: boolean) => void;
-  onActeurMasqueMatrice: (acteur: string, masqué: boolean) => void;
+  onActeurMasqueMatrice: (actor: string, hidden: boolean) => void;
   onGranulariteMatrice: (granularite: GranulariteMatrice) => void;
   onTelechargerModele: () => void;
   onTelechargerExemple: () => void;
@@ -91,23 +91,23 @@ export interface RailCallbacks {
 // statut sont affichés en regard, pour qu'on sache si l'on regarde du livré ou
 // du planifié.
 function sélecteurPalier(
-  titre: string,
-  paliers: readonly { nom: string; libelle: string; statut: string }[],
+  title: string,
+  milestones: readonly { name: string; label: string; statut: string }[],
   choisi: string | null,
-  onChange: (palier: string) => void
+  onChange: (milestone: string) => void
 ): HTMLElement {
-  const bloc = el("label", { class: "rail-palier" });
-  bloc.appendChild(el("span", { class: "rail-palier-titre" }, [titre]));
-  const select = el("select", { class: "rail-selecteur" });
-  for (const p of paliers) {
-    const suffixe = p.libelle.trim() ? ` — ${p.libelle.trim()}` : "";
-    const option = el("option", { value: p.nom }, [`${p.nom}${suffixe} (${p.statut || "?"})`]);
-    if (p.nom === choisi) option.selected = true;
+  const block = el("label", { class: "rail-milestone" });
+  block.appendChild(el("span", { class: "rail-milestone-title" }, [title]));
+  const select = el("select", { class: "rail-select" });
+  for (const p of milestones) {
+    const suffixe = p.label.trim() ? ` — ${p.label.trim()}` : "";
+    const option = el("option", { value: p.name }, [`${p.name}${suffixe} (${p.statut || "?"})`]);
+    if (p.name === choisi) option.selected = true;
     select.appendChild(option);
   }
   select.addEventListener("change", () => onChange(select.value));
-  bloc.appendChild(select);
-  return bloc;
+  block.appendChild(select);
+  return block;
 }
 
 // Le mode se choisit avant la vue, parce qu'il décide lesquelles ont un sens.
@@ -115,28 +115,28 @@ function sélecteurPalier(
 // fonctionnel y fusionne déjà les médias, et c'est ce qui le rend découvrable
 // -- caché, personne ne saurait qu'il faut remplir la colonne.
 function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => void): void {
-  const bloc = el("label", { class: "rail-palier" });
-  bloc.appendChild(el("span", { class: "rail-palier-titre" }, ["Reading"]));
-  const select = el("select", { class: "rail-selecteur" });
+  const block = el("label", { class: "rail-milestone" });
+  block.appendChild(el("span", { class: "rail-milestone-title" }, ["Reading"]));
+  const select = el("select", { class: "rail-select" });
   // Les deux lectures sont justes et n'empruntaient pas le vocabulaire que
   // leurs lecteurs possèdent déjà : ce sont les viewpoints ArchiMate
   // « Application Cooperation » et « Application Usage ».
-  for (const [valeur, libellé] of [
+  for (const [value, label] of [
     ["architecture", "Architecture — application interfaces (how it travels)"],
-    ["fonctionnel", "Functional — application services (who feeds whom)"],
+    ["functional", "Functional — application services (who feeds whom)"],
   ] as const) {
-    const option = el("option", { value: valeur }, [libellé]);
-    option.selected = state.mode === valeur;
+    const option = el("option", { value: value }, [label]);
+    option.selected = state.mode === value;
     select.appendChild(option);
   }
   select.addEventListener("change", () => onMode(select.value as Mode));
-  bloc.appendChild(select);
-  root.appendChild(bloc);
+  block.appendChild(select);
+  root.appendChild(block);
 }
 
 // Interrupteur « masquer les externes », identique d'une vue à l'autre.
 function basculeExternes(coché: boolean, onChange: (value: boolean) => void): HTMLElement {
-  const label = el("label", { class: "rail-bascule" });
+  const label = el("label", { class: "rail-toggle" });
   const input = el("input", { type: "checkbox" });
   input.checked = coché;
   input.addEventListener("change", () => onChange(input.checked));
@@ -148,25 +148,25 @@ function basculeExternes(coché: boolean, onChange: (value: boolean) => void): H
 // Un groupe de cases à cocher repliable. Coché = visible, décoché = masqué :
 // on décrit ce qu'on voit, pas ce qu'on retire.
 function blocFiltre(
-  titre: string,
-  valeurs: string[],
-  masquées: readonly string[],
-  onChange: (valeur: string, masquée: boolean) => void
+  title: string,
+  values: string[],
+  hidden: readonly string[],
+  onChange: (value: string, hidden: boolean) => void
 ): HTMLElement | null {
-  if (valeurs.length === 0) return null;
-  const bloc = el("details", { class: "rail-filtre", open: "" });
-  const visibles = valeurs.length - valeurs.filter((v) => masquées.includes(v)).length;
-  bloc.appendChild(el("summary", {}, [`${titre} (${visibles}/${valeurs.length})`]));
-  for (const valeur of valeurs) {
-    const ligne = el("label", {});
+  if (values.length === 0) return null;
+  const block = el("details", { class: "rail-filter", open: "" });
+  const visibles = values.length - values.filter((v) => hidden.includes(v)).length;
+  block.appendChild(el("summary", {}, [`${title} (${visibles}/${values.length})`]));
+  for (const value of values) {
+    const row = el("label", {});
     const case_ = el("input", { type: "checkbox" });
-    case_.checked = !masquées.includes(valeur);
-    case_.addEventListener("change", () => onChange(valeur, !case_.checked));
-    ligne.appendChild(case_);
-    ligne.appendChild(document.createTextNode(` ${valeur}`));
-    bloc.appendChild(ligne);
+    case_.checked = !hidden.includes(value);
+    case_.addEventListener("change", () => onChange(value, !case_.checked));
+    row.appendChild(case_);
+    row.appendChild(document.createTextNode(` ${value}`));
+    block.appendChild(row);
   }
-  return bloc;
+  return block;
 }
 
 // Pied de rail : de quoi partir. Il s'affiche même sans classeur chargé --
@@ -175,16 +175,16 @@ export function renderPiedDeRail(
   root: HTMLElement,
   callbacks: Pick<RailCallbacks, "onTelechargerModele" | "onTelechargerExemple" | "onMigrationLegacy">
 ): void {
-  const départs = el("div", { class: "rail-departs" });
-  const exemple = el("button", { class: "bouton-rail" }, ["Sample workbook"]);
+  const départs = el("div", { class: "rail-starts" });
+  const exemple = el("button", { class: "rail-button" }, ["Sample workbook"]);
   exemple.title = "A complete fictional repository, to see the tool at work";
   exemple.addEventListener("click", callbacks.onTelechargerExemple);
   départs.appendChild(exemple);
-  const modele = el("button", { class: "bouton-rail" }, ["Blank template"]);
-  modele.title = "An empty workbook, ready to fill in";
-  modele.addEventListener("click", callbacks.onTelechargerModele);
-  départs.appendChild(modele);
-  const migration = el("button", { class: "bouton-rail" }, ["Repair or upgrade a workbook"]);
+  const template = el("button", { class: "rail-button" }, ["Blank template"]);
+  template.title = "An empty workbook, ready to fill in";
+  template.addEventListener("click", callbacks.onTelechargerModele);
+  départs.appendChild(template);
+  const migration = el("button", { class: "rail-button" }, ["Repair or upgrade a workbook"]);
   migration.title = "Bring any workbook up to the current format and create the sheets it is missing";
   migration.addEventListener("click", callbacks.onMigrationLegacy);
   départs.appendChild(migration);
@@ -199,11 +199,11 @@ export function renderRail(
   // des acteurs que le palier affiché avait retirés, et en sélectionnait un
   // tout seul faute de mieux -- l'utilisateur obtenait alors une boîte fantôme
   // sans un mot d'explication.
-  lecture: Lecture,
+  reading: Lecture,
   technologiesCourantes: string[],
   callbacks: RailCallbacks
 ): void {
-  const flux = lecture.flux;
+  const flows = reading.flows;
   clear(root);
   if (!state.fichier) {
     renderPiedDeRail(root, callbacks);
@@ -212,16 +212,16 @@ export function renderRail(
 
   // Sur l'écran de mise à niveau, les vues restent visibles mais inertes : les
   // rendre cliquables pour les voir refuser serait pire que de les griser.
-  const bloqué = state.vue === "mise-a-niveau";
+  const bloqué = state.view === "upgrade";
 
   renderMode(root, state, callbacks.onMode);
 
-  const nav = el("nav", { class: "rail-vues" });
-  const vues = state.mode === "fonctionnel" ? VUES.filter((v) => !VUES_SANS_OBJET_EN_FONCTIONNEL.includes(v.id)) : VUES;
-  for (const v of vues) {
-    const bouton = el("button", { class: "rail-vue-item" }, [v.label]);
+  const nav = el("nav", { class: "rail-views" });
+  const views = state.mode === "functional" ? VUES.filter((v) => !VUES_SANS_OBJET_EN_FONCTIONNEL.includes(v.id)) : VUES;
+  for (const v of views) {
+    const bouton = el("button", { class: "rail-view-item" }, [v.label]);
     if (bloqué) bouton.disabled = true;
-    if (v.id === state.vue) bouton.setAttribute("aria-current", "true");
+    if (v.id === state.view) bouton.setAttribute("aria-current", "true");
     // Trois compteurs, trois natures : les anomalies invalident les schémas
     // (rouge), les actions attendent une décision (bleu), les avertissements
     // signalent une saisie incomplète (jaune). Seul le rouge détourne
@@ -229,21 +229,21 @@ export function renderRail(
     // Sur l'écran de mise à niveau, le rapport porte sur un classeur mal lu
     // (§ vueAuChargement) : ses comptes ne veulent rien dire, les montrer
     // laisserait croire à un diagnostic qu'on n'a pas.
-    if (v.id === "controles" && !bloqué) {
+    if (v.id === "checks" && !bloqué) {
       const { totalAnomalies, totalActions, totalAvertissements } = state.fichier.report;
       if (totalAnomalies > 0) {
         bouton.appendChild(
-          el("span", { class: "compteur-anomalies", title: "Blocking anomalies" }, [String(totalAnomalies)])
+          el("span", { class: "count-anomalies", title: "Blocking anomalies" }, [String(totalAnomalies)])
         );
       }
       if (totalActions > 0) {
         bouton.appendChild(
-          el("span", { class: "compteur-actions", title: "Pending decisions" }, [String(totalActions)])
+          el("span", { class: "count-actions", title: "Pending decisions" }, [String(totalActions)])
         );
       }
       if (totalAvertissements > 0) {
         bouton.appendChild(
-          el("span", { class: "compteur-avertissements", title: "Points to confirm" }, [String(totalAvertissements)])
+          el("span", { class: "count-warnings", title: "Points to confirm" }, [String(totalAvertissements)])
         );
       }
     }
@@ -255,25 +255,25 @@ export function renderRail(
   // Le sélecteur de palier passe avant tout le reste : il vaut pour l'outil
   // entier, pas pour la vue courante. Absent quand le classeur ne déclare
   // aucun palier -- proposer un axe vide n'apprendrait rien.
-  const paliers = state.fichier.model.paliers;
-  if (paliers.length > 0 && !bloqué) {
-    const bloc = el("div", { class: "rail-paliers" });
-    bloc.appendChild(sélecteurPalier("Milestone", paliers, state.palierAffiche, callbacks.onPalierAffiche));
-    if (state.vue === "ecarts") {
-      bloc.appendChild(sélecteurPalier("Compared to", paliers, state.palierCompare, callbacks.onPalierCompare));
+  const milestones = state.fichier.model.milestones;
+  if (milestones.length > 0 && !bloqué) {
+    const block = el("div", { class: "rail-milestones" });
+    block.appendChild(sélecteurPalier("Milestone", milestones, state.shownMilestone, callbacks.onPalierAffiche));
+    if (state.view === "changes") {
+      block.appendChild(sélecteurPalier("Compared to", milestones, state.comparedMilestone, callbacks.onPalierCompare));
     }
-    root.appendChild(bloc);
+    root.appendChild(block);
   }
 
-  if (state.vue === "par-acteur") {
-    const select = el("select", { class: "rail-selecteur" });
+  if (state.view === "by-actor") {
+    const select = el("select", { class: "rail-select" });
     // Le sélecteur ne propose que ce que la lecture courante retient : les
     // acteurs techniques disparaissent en fonctionnel (§5.2), les retirés
     // disparaissent au palier où ils le sont.
-    const acteursDisponibles = lecture.acteurs;
-    for (const acteur of [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))) {
-      const option = el("option", { value: acteur.nom }, [acteur.nom]);
-      if (acteur.nom === state.selectionActeur) option.selected = true;
+    const availableActors = reading.actors;
+    for (const actor of [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
+      const option = el("option", { value: actor.name }, [actor.name]);
+      if (actor.name === state.selectionActeur) option.selected = true;
       select.appendChild(option);
     }
     select.addEventListener("change", () => callbacks.onSelectionActeur(select.value));
@@ -282,19 +282,19 @@ export function renderRail(
     // Jusqu'où porter le regard. « Ce qui dépend de lui » répond à la question
     // qu'on pose le jour où il faut arbitrer une migration : si cet acteur
     // tombe, qui est touché ?
-    const voisinage = el("select", { class: "rail-selecteur rail-voisinage" });
+    const neighbourhood = el("select", { class: "rail-select rail-neighbourhood" });
     for (const v of VOISINAGES) {
       const option = el("option", { value: v.id }, [v.label]);
-      if (v.id === state.filtresActeur.voisinage) option.selected = true;
-      voisinage.appendChild(option);
+      if (v.id === state.filtresActeur.neighbourhood) option.selected = true;
+      neighbourhood.appendChild(option);
     }
-    voisinage.addEventListener("change", () => callbacks.onVoisinage(voisinage.value as Voisinage));
-    root.appendChild(voisinage);
+    neighbourhood.addEventListener("change", () => callbacks.onVoisinage(neighbourhood.value as Voisinage));
+    root.appendChild(neighbourhood);
   }
 
-  if (state.vue === "par-technologie") {
-    const select = el("select", { class: "rail-selecteur" });
-    for (const type of [...state.fichier.model.typesFlux].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
+  if (state.view === "by-technology") {
+    const select = el("select", { class: "rail-select" });
+    for (const type of [...state.fichier.model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
       const option = el("option", { value: type.type }, [type.type]);
       if (type.type === state.selectionTechnologie) option.selected = true;
       select.appendChild(option);
@@ -305,56 +305,56 @@ export function renderRail(
 
   // Filtres de la vue par acteur : l'acteur regardé n'est pas décochable, sans
   // quoi la vue perdrait son sujet.
-  if (state.vue === "par-acteur" && state.selectionActeur) {
-    const dispo = optionsFiltreActeur(flux, state.selectionActeur);
-    const technos = blocFiltre("Technologies", dispo.technologies, state.filtresActeur.technosMasquees, callbacks.onTechnoMasquee);
+  if (state.view === "by-actor" && state.selectionActeur) {
+    const dispo = optionsFiltreActeur(flows, state.selectionActeur);
+    const technos = blocFiltre("Technologies", dispo.technologies, state.filtresActeur.hiddenTechnologies, callbacks.onTechnoMasquee);
     if (technos) root.appendChild(technos);
-    const acteurs = blocFiltre("Related actors", dispo.acteurs, state.filtresActeur.acteursMasques, callbacks.onActeurMasque);
-    if (acteurs) root.appendChild(acteurs);
+    const actors = blocFiltre("Related actors", dispo.actors, state.filtresActeur.hiddenActors, callbacks.onActeurMasque);
+    if (actors) root.appendChild(actors);
   }
 
-  if (state.vue === "par-technologie" && state.selectionTechnologie) {
+  if (state.view === "by-technology" && state.selectionTechnologie) {
     root.appendChild(basculeExternes(state.filtresTechnologie.masquerExternes, callbacks.onMasquerExternes));
 
-    const dispo = optionsFiltreTechnologie(state.fichier.model, flux, state.selectionTechnologie, {
+    const dispo = optionsFiltreTechnologie(state.fichier.model, flows, state.selectionTechnologie, {
       masquerExternes: state.filtresTechnologie.masquerExternes,
     });
-    const acteurs = blocFiltre("Actors", dispo, state.filtresTechnologie.acteursMasques, callbacks.onActeurMasqueTechnologie);
-    if (acteurs) root.appendChild(acteurs);
+    const actors = blocFiltre("Actors", dispo, state.filtresTechnologie.hiddenActors, callbacks.onActeurMasqueTechnologie);
+    if (actors) root.appendChild(actors);
   }
 
-  if (state.vue === "chaine") {
+  if (state.view === "chain") {
     // Le sélecteur de chaîne. Une chaîne n'a de sens qu'en lecture
     // fonctionnelle : c'est là que la plomberie est traversée, et la vue montre
     // justement ce que cette traversée efface.
-    const chaînes = chainesDisponibles(state.fichier.model, rangDuPalier(state.fichier.model, state.palierAffiche ?? "") ?? null);
-    const select = el("select", { class: "rail-selecteur rail-chaine" });
-    for (const c of chaînes) {
-      const option = el("option", { value: c.id }, [c.libellé]);
+    const chains = chainesDisponibles(state.fichier.model, rankOfMilestone(state.fichier.model, state.shownMilestone ?? "") ?? null);
+    const select = el("select", { class: "rail-select rail-chain" });
+    for (const c of chains) {
+      const option = el("option", { value: c.id }, [c.label]);
       if (c.id === state.selectionChaine) option.selected = true;
       select.appendChild(option);
     }
     select.addEventListener("change", () => callbacks.onSelectionChaine(select.value));
     root.appendChild(select);
-    if (chaînes.length === 0) {
-      root.appendChild(el("p", { class: "rail-vide" }, ["No chain in this workbook: no flow crosses a technical actor."]));
+    if (chains.length === 0) {
+      root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a technical actor."]));
     }
   }
 
-  if (state.vue === "frise") {
-    const select = el("select", { class: "rail-selecteur rail-frise" });
-    for (const [valeur, libellé] of [["interfaces", "Interfaces"], ["acteurs", "Actors"]] as const) {
-      const option = el("option", { value: valeur }, [libellé]);
-      if (valeur === state.sujetFrise) option.selected = true;
+  if (state.view === "roadmap") {
+    const select = el("select", { class: "rail-select rail-roadmap" });
+    for (const [value, label] of [["interfaces", "Interfaces"], ["actors", "Actors"]] as const) {
+      const option = el("option", { value: value }, [label]);
+      if (value === state.sujetFrise) option.selected = true;
       select.appendChild(option);
     }
     select.addEventListener("change", () => callbacks.onSujetFrise(select.value as SujetDeFrise));
     root.appendChild(select);
   }
 
-  if (state.vue === "matrice") {
+  if (state.view === "matrix") {
     const granularite = state.filtresMatrice.granularite;
-    const select = el("select", { class: "rail-selecteur" });
+    const select = el("select", { class: "rail-select" });
     for (const g of GRANULARITES_MATRICE) {
       const option = el("option", { value: g.id }, [g.label]);
       if (g.id === granularite) option.selected = true;
@@ -363,34 +363,34 @@ export function renderRail(
     select.addEventListener("change", () => callbacks.onGranulariteMatrice(select.value as GranulariteMatrice));
     root.appendChild(select);
 
-    // L'ordre : c'est le levier de lecture le plus fort de la matrice, et il
+    // L'ordre : c'est le levier de lecture le plus fort de la matrix, et il
     // était inutilisé. L'alphabétique reste le défaut -- une seriation ne doit
     // jamais s'imposer en silence.
-    const ordre = el("select", { class: "rail-selecteur rail-ordre-matrice" });
+    const order = el("select", { class: "rail-select rail-matrix-order" });
     for (const o of ORDRES_MATRICE) {
       const option = el("option", { value: o.id }, [o.label]);
-      if (o.id === state.filtresMatrice.ordre) option.selected = true;
-      ordre.appendChild(option);
+      if (o.id === state.filtresMatrice.order) option.selected = true;
+      order.appendChild(option);
     }
-    ordre.addEventListener("change", () => callbacks.onOrdreMatrice(ordre.value as OrdreMatrice));
-    root.appendChild(ordre);
+    order.addEventListener("change", () => callbacks.onOrdreMatrice(order.value as OrdreMatrice));
+    root.appendChild(order);
 
     root.appendChild(basculeExternes(state.filtresMatrice.masquerExternes, callbacks.onMasquerExternesMatrice));
-    const dispo = optionsFiltreMatrice(state.fichier.model, flux, {
+    const dispo = optionsFiltreMatrice(state.fichier.model, flows, {
       granularite,
       masquerExternes: state.filtresMatrice.masquerExternes,
     });
-    const titre = GRANULARITES_MATRICE.find((g) => g.id === granularite)!.titreFiltre;
-    const acteurs = blocFiltre(titre, dispo, state.filtresMatrice.acteursMasques, callbacks.onActeurMasqueMatrice);
-    if (acteurs) root.appendChild(acteurs);
+    const title = GRANULARITES_MATRICE.find((g) => g.id === granularite)!.titreFiltre;
+    const actors = blocFiltre(title, dispo, state.filtresMatrice.hiddenActors, callbacks.onActeurMasqueMatrice);
+    if (actors) root.appendChild(actors);
   }
 
-  if (state.vue !== "controles" && !bloqué) {
+  if (state.view !== "checks" && !bloqué) {
     const options = el("fieldset", { class: "rail-options" });
 
     const compteursLabel = el("label", {});
     const compteursInput = el("input", { type: "checkbox" });
-    compteursInput.checked = state.options.compteurs;
+    compteursInput.checked = state.options.counters;
     compteursInput.addEventListener("change", () => callbacks.onOptionCompteurs(compteursInput.checked));
     compteursLabel.appendChild(compteursInput);
     compteursLabel.appendChild(document.createTextNode(" counters"));
@@ -399,11 +399,11 @@ export function renderRail(
     // Nommer le seul protocole fait une carte des TUYAUX ; nommer l'échange en
     // fait une carte de ce qui CIRCULE. Les deux se valent selon la question
     // qu'on pose au schéma, d'où le choix plutôt qu'un défaut imposé.
-    const libelléLabel = el("label", { class: "rail-option-libelle" }, ["Label "]);
-    const libelléSelect = el("select", { class: "rail-selecteur" });
-    for (const [valeur, texte] of LIBELLES_ARETE) {
-      const option = el("option", { value: valeur }, [texte]);
-      if (valeur === state.options.libelléArête) option.selected = true;
+    const libelléLabel = el("label", { class: "rail-option-label" }, ["Label "]);
+    const libelléSelect = el("select", { class: "rail-select" });
+    for (const [value, text] of LIBELLES_ARETE) {
+      const option = el("option", { value: value }, [text]);
+      if (value === state.options.libelléArête) option.selected = true;
       libelléSelect.appendChild(option);
     }
     libelléSelect.addEventListener("change", () => callbacks.onLibelléArête(libelléSelect.value as LibelléArête));
@@ -413,7 +413,7 @@ export function renderRail(
     // L'échelle du PNG, à côté de ce qu'elle sert : un schéma d'architecture
     // est du trait fin, c'est le cas où une haute résolution paie encore.
     const echelleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
-    const echelleSelect = el("select", { class: "rail-selecteur" });
+    const echelleSelect = el("select", { class: "rail-select" });
     for (const facteur of [1, 2, 4] as const) {
       const option = el("option", { value: String(facteur) }, [`${facteur}×`]);
       if (facteur === state.options.echellePng) option.selected = true;
@@ -426,7 +426,7 @@ export function renderRail(
     // La criticité est saisie, contrôlée et exportée depuis toujours, et
     // n'était jamais dessinée. C'est la donnée la plus décisionnelle du
     // classeur.
-    const critLabel = el("label", { class: "rail-option-criticite" });
+    const critLabel = el("label", { class: "rail-option-criticality" });
     const critInput = el("input", { type: "checkbox" });
     critInput.checked = state.options.graisseParCriticite;
     critInput.addEventListener("change", () => callbacks.onGraisseParCriticite(critInput.checked));

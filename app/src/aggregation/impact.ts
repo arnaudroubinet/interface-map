@@ -9,16 +9,16 @@ import type { FlowInstance } from "./core";
 // afficher d'abord. Van Ham & Perer (IEEE TVCG 15(6), 2009) montrent que c'est
 // la stratégie qui tient sur les grands graphes, là où l'« overview first » de
 // Shneiderman ne tient pas.
-export type Voisinage = "direct" | "amont" | "aval";
+export type Voisinage = "direct" | "upstream" | "downstream";
 
 // Le sens des arcs : du CONSOMMATEUR vers le FOURNISSEUR, c'est-à-dire le sens
 // de la dépendance -- pas celui de la donnée. Un consommateur dépend de son
 // fournisseur ; si le fournisseur tombe, c'est le consommateur qui souffre.
-function arcs(flux: readonly FlowInstance[]): Map<string, Set<string>> {
+function arcs(flows: readonly FlowInstance[]): Map<string, Set<string>> {
   const m = new Map<string, Set<string>>();
-  for (const f of flux) {
-    const de = f.consommateur.trim();
-    const vers = f.exposant.trim();
+  for (const f of flows) {
+    const de = f.consumer.trim();
+    const vers = f.provider.trim();
     if (!de || !vers || de === vers) continue;
     if (!m.has(de)) m.set(de, new Set());
     m.get(de)!.add(vers);
@@ -43,12 +43,12 @@ function inverser(m: Map<string, Set<string>>): Map<string, Set<string>> {
 // Un parcours en LARGEUR, pas en profondeur : c'est la distance qui nous
 // intéresse, et un parcours en profondeur la fausserait sur un graphe qui
 // boucle -- le classeur d'exemple en contient un, à quatre composants.
-export function rayon(flux: readonly FlowInstance[], depart: string, sens: Voisinage): Map<string, number> {
+export function radius(flows: readonly FlowInstance[], depart: string, direction: Voisinage): Map<string, number> {
   const depuis = depart.trim();
-  const dependances = arcs(flux);
+  const dependances = arcs(flows);
   const distances = new Map<string, number>([[depuis, 0]]);
 
-  if (sens === "direct") {
+  if (direction === "direct") {
     // Les deux côtés à un saut : ce que la vue par acteur montrait déjà.
     for (const v of dependances.get(depuis) ?? []) distances.set(v, 1);
     for (const v of inverser(dependances).get(depuis) ?? []) distances.set(v, 1);
@@ -57,16 +57,16 @@ export function rayon(flux: readonly FlowInstance[], depart: string, sens: Voisi
 
   // « amont » : ce dont le départ dépend, transitivement. « aval » : ce qui
   // dépend de lui -- ceux que sa chute touche.
-  const suivants = sens === "amont" ? dependances : inverser(dependances);
+  const suivants = direction === "upstream" ? dependances : inverser(dependances);
   let front = [depuis];
-  let saut = 0;
+  let hop = 0;
   while (front.length > 0) {
-    saut += 1;
+    hop += 1;
     const prochain: string[] = [];
     for (const courant of front) {
       for (const v of suivants.get(courant) ?? []) {
         if (distances.has(v)) continue;
-        distances.set(v, saut);
+        distances.set(v, hop);
         prochain.push(v);
       }
     }

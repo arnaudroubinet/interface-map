@@ -1,11 +1,11 @@
 import type {
   RawSheet,
   ParsedWorkbook,
-  Acteur,
+  Actor,
   Groupe,
   TypeActeur,
   TypeFlux,
-  Palier,
+  Milestone,
   ValiditePalier,
   InterfaceCatalogue,
   Consommation,
@@ -76,13 +76,13 @@ export const COLONNE_VERSION_MODELE = "Model version";
 // niveau saura quoi faire, et se tromper vers le haut ferait lire un classeur
 // avec des colonnes qu'il n'a pas.
 function lireVersionModele(sheets: RawSheet[]): number {
-  const feuille = sheets.find((s) => matchesSheetName(s.name, FEUILLE_VERSION));
-  if (!feuille) return 0;
-  const entete = findHeader(feuille.headers, COLONNE_VERSION_MODELE);
-  if (!entete) return 0;
-  const brut = (feuille.rows[0]?.valeurs[entete] ?? "").toString().trim();
-  const valeur = Number.parseInt(brut, 10);
-  return Number.isFinite(valeur) && valeur >= 0 ? valeur : 0;
+  const sheet = sheets.find((s) => matchesSheetName(s.name, FEUILLE_VERSION));
+  if (!sheet) return 0;
+  const header = findHeader(sheet.headers, COLONNE_VERSION_MODELE);
+  if (!header) return 0;
+  const brut = (sheet.rows[0]?.values[header] ?? "").toString().trim();
+  const value = Number.parseInt(brut, 10);
+  return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
 function findSheet(sheets: RawSheet[], name: string): RawSheet | undefined {
@@ -103,17 +103,17 @@ function get(row: Record<string, string>, headerMap: Map<string, string>, canoni
   return actual ? (row[actual] ?? "").toString().trim() : "";
 }
 
-function rowHasContent(row: Record<string, string>, headerMap: Map<string, string>, colonnes: string[]): boolean {
-  return colonnes.some((c) => get(row, headerMap, c) !== "");
+function rowHasContent(row: Record<string, string>, headerMap: Map<string, string>, columns: string[]): boolean {
+  return columns.some((c) => get(row, headerMap, c) !== "");
 }
 
 // Les deux normalisations acceptent encore l'écriture de la v2 : un classeur
 // v2 doit se lire correctement pour se convertir, et ces deux valeurs sont
 // interprétées dès la lecture, pas au moment de la conversion.
-function normSens(raw: string): "exposant-consommateur" | "consommateur-exposant" {
+function normSens(raw: string): "provider-to-consumer" | "consumer-to-provider" {
   const v = normalizeText(raw);
   const versConsommateur = v.startsWith(normalizeText("provider")) || v.startsWith(normalizeText("exposant"));
-  return versConsommateur ? "exposant-consommateur" : "consommateur-exposant";
+  return versConsommateur ? "provider-to-consumer" : "consumer-to-provider";
 }
 
 function normOui(raw: string): boolean {
@@ -123,8 +123,8 @@ function normOui(raw: string): boolean {
 
 function validite(row: Record<string, string>, headerMap: Map<string, string>): ValiditePalier {
   return {
-    palierIntroduction: get(row, headerMap, "Introduced at"),
-    palierRetrait: get(row, headerMap, "Retired at"),
+    introducedAt: get(row, headerMap, "Introduced at"),
+    retiredAt: get(row, headerMap, "Retired at"),
   };
 }
 
@@ -133,8 +133,8 @@ function validite(row: Record<string, string>, headerMap: Map<string, string>): 
 // migration-legacy.ts la consomme aussi -- sans elle, le parseur et la
 // migration pourraient un jour juger différemment le même nom, et produire un
 // classeur dont l'onglet manquant n'aurait jamais pu être créé.
-export function nomOngletValide(nom: string): boolean {
-  return nom.length <= 31 && !CARACTERES_INTERDITS.test(nom);
+export function nomOngletValide(name: string): boolean {
+  return name.length <= 31 && !CARACTERES_INTERDITS.test(name);
 }
 
 // La convention qui lie une consommation à son interface (§3.3) : reconstruite
@@ -152,16 +152,16 @@ export const SEPARATEUR_FEUILLE_FX = "_";
 //
 // Deux couples (exposant, type) peuvent désormais tomber sur le même nom une
 // fois coupés : un contrôle d'intégrité le signale plutôt que de les fondre.
-export function assainirNomOnglet(nom: string): string {
+export function assainirNomOnglet(name: string): string {
   const sansInterdits = CARACTERES_INTERDITS_ONGLET.reduce(
     (courant, interdit) => courant.split(interdit).join(REMPLACEMENT_ONGLET),
-    nom
+    name
   );
   return sansInterdits.slice(0, LONGUEUR_MAX_ONGLET);
 }
 
-export function feuilleFxAttendue(acteurExposant: string, typeDeFlux: string): string {
-  return assainirNomOnglet(`${PREFIXE_FEUILLE_FX}${acteurExposant}${SEPARATEUR_FEUILLE_FX}${typeDeFlux}`);
+export function expectedFxSheet(providerName: string, flowType: string): string {
+  return assainirNomOnglet(`${PREFIXE_FEUILLE_FX}${providerName}${SEPARATEUR_FEUILLE_FX}${flowType}`);
 }
 
 export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
@@ -193,11 +193,11 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const headersTypesFlux = feuilleTypesFlux.headers;
   const headersInterfaces = feuilleInterfaces.headers;
 
-  const colonnesOptionnellesAbsentes: { feuille: string; colonne: string }[] = [];
-  function noterColonnesAbsentes(feuille: string, actualHeaders: string[], attendues: string[]) {
+  const colonnesOptionnellesAbsentes: { sheet: string; column: string }[] = [];
+  function noterColonnesAbsentes(sheet: string, actualHeaders: string[], attendues: string[]) {
     for (const attendue of attendues) {
       if (!findHeader(actualHeaders, attendue)) {
-        colonnesOptionnellesAbsentes.push({ feuille, colonne: attendue });
+        colonnesOptionnellesAbsentes.push({ sheet, column: attendue });
       }
     }
   }
@@ -207,41 +207,41 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   noterColonnesAbsentes("Interfaces", headersInterfaces, COLONNES_INTERFACES.filter((c) => c !== "Flow name"));
 
   const headerMapActeurs = buildHeaderMap(headersActeurs, COLONNES_ACTEURS);
-  const acteurs: Acteur[] = feuilleActeurs.rows
-    .filter(({ valeurs: r }) => rowHasContent(r, headerMapActeurs, COLONNES_ACTEURS))
-    .map(({ ligne, valeurs: r }) => ({
-      feuille: feuilleActeurs.name,
-      ligne,
-      nom: get(r, headerMapActeurs, "Name"),
-      groupe: get(r, headerMapActeurs, "Group"),
+  const actors: Actor[] = feuilleActeurs.rows
+    .filter(({ values: r }) => rowHasContent(r, headerMapActeurs, COLONNES_ACTEURS))
+    .map(({ row, values: r }) => ({
+      sheet: feuilleActeurs.name,
+      row,
+      name: get(r, headerMapActeurs, "Name"),
+      group: get(r, headerMapActeurs, "Group"),
       typeActeur: get(r, headerMapActeurs, "Actor type"),
       responsable: get(r, headerMapActeurs, "Owner"),
       description: get(r, headerMapActeurs, "Description"),
       commentaires: get(r, headerMapActeurs, "Comments"),
       ...validite(r, headerMapActeurs),
     }))
-    .filter((a) => a.nom !== "");
+    .filter((a) => a.name !== "");
 
   // Onglet « Groupes » : la SEULE source du périmètre. Son absence n'est pas
   // rattrapée -- deviner le périmètre à partir des acteurs redonnerait deux
   // vérités concurrentes sur la même question. Un contrôle d'intégrité réclame
   // l'onglet, et sans lui aucun acteur n'est situé.
   const feuilleGroupes = findSheet(workbook.sheets, "Groups");
-  let groupes: Groupe[] = [];
+  let groups: Groupe[] = [];
   let groupesAbsents = true;
   if (feuilleGroupes && findHeader(feuilleGroupes.headers, "Group")) {
     groupesAbsents = false;
     noterColonnesAbsentes("Groups", feuilleGroupes.headers, COLONNES_GROUPES.filter((c) => c !== "Group"));
     const headerMapGroupes = buildHeaderMap(feuilleGroupes.headers, COLONNES_GROUPES);
-    groupes = feuilleGroupes.rows
-      .filter(({ valeurs: r }) => rowHasContent(r, headerMapGroupes, COLONNES_GROUPES))
-      .map(({ ligne, valeurs: r }) => ({
-        feuille: feuilleGroupes.name,
-        ligne,
-        nom: get(r, headerMapGroupes, "Group"),
-        perimetre: get(r, headerMapGroupes, "Perimeter"),
+    groups = feuilleGroupes.rows
+      .filter(({ values: r }) => rowHasContent(r, headerMapGroupes, COLONNES_GROUPES))
+      .map(({ row, values: r }) => ({
+        sheet: feuilleGroupes.name,
+        row,
+        name: get(r, headerMapGroupes, "Group"),
+        perimeter: get(r, headerMapGroupes, "Perimeter"),
       }))
-      .filter((g) => g.nom !== "");
+      .filter((g) => g.name !== "");
   }
 
   // Onglet « TypesActeur » : quelle icône porte quel type. La liste des types
@@ -254,10 +254,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     noterColonnesAbsentes("ActorTypes", feuilleTypesActeur.headers, COLONNES_TYPESACTEUR.filter((c) => c !== "Actor type"));
     const headerMapTypesActeur = buildHeaderMap(feuilleTypesActeur.headers, COLONNES_TYPESACTEUR);
     typesActeur = feuilleTypesActeur.rows
-      .filter(({ valeurs: r }) => rowHasContent(r, headerMapTypesActeur, COLONNES_TYPESACTEUR))
-      .map(({ ligne, valeurs: r }) => ({
-        feuille: feuilleTypesActeur.name,
-        ligne,
+      .filter(({ values: r }) => rowHasContent(r, headerMapTypesActeur, COLONNES_TYPESACTEUR))
+      .map(({ row, values: r }) => ({
+        sheet: feuilleTypesActeur.name,
+        row,
         type: get(r, headerMapTypesActeur, "Actor type"),
         icone: get(r, headerMapTypesActeur, "Icon"),
         nature: get(r, headerMapTypesActeur, "Nature"),
@@ -267,78 +267,78 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
 
   const headerMapTypesFlux = buildHeaderMap(headersTypesFlux, COLONNES_TYPESFLUX);
   const entêteCouleur = COLONNES_COULEUR_FLUX.map((c) => findHeader(headersTypesFlux, c)).find(Boolean);
-  const typesFlux: TypeFlux[] = feuilleTypesFlux.rows
-    .filter(({ valeurs: r }) => rowHasContent(r, headerMapTypesFlux, COLONNES_TYPESFLUX))
-    .map(({ ligne, valeurs: r }) => ({
-      feuille: feuilleTypesFlux.name,
-      ligne,
+  const flowTypes: TypeFlux[] = feuilleTypesFlux.rows
+    .filter(({ values: r }) => rowHasContent(r, headerMapTypesFlux, COLONNES_TYPESFLUX))
+    .map(({ row, values: r }) => ({
+      sheet: feuilleTypesFlux.name,
+      row,
       type: get(r, headerMapTypesFlux, "Flow type"),
       sensRepresentation: normSens(get(r, headerMapTypesFlux, "Direction")),
       sensRepresentationBrut: get(r, headerMapTypesFlux, "Direction"),
-      couleur: entêteCouleur ? (r[entêteCouleur] ?? "").toString().trim() : "",
+      colour: entêteCouleur ? (r[entêteCouleur] ?? "").toString().trim() : "",
       description: get(r, headerMapTypesFlux, "Description"),
     }))
     .filter((t) => t.type !== "");
 
   const feuillePaliers = findSheet(workbook.sheets, "Milestones");
-  const paliers: Palier[] = [];
+  const milestones: Milestone[] = [];
   if (feuillePaliers) {
     noterColonnesAbsentes("Milestones", feuillePaliers.headers, COLONNES_PALIERS.filter((c) => c !== "Milestone"));
     const headerMapPaliers = buildHeaderMap(feuillePaliers.headers, COLONNES_PALIERS);
-    for (const { ligne, valeurs: r } of feuillePaliers.rows) {
+    for (const { row, values: r } of feuillePaliers.rows) {
       if (!rowHasContent(r, headerMapPaliers, COLONNES_PALIERS)) continue;
-      const nom = get(r, headerMapPaliers, "Milestone");
-      if (nom === "") continue;
+      const name = get(r, headerMapPaliers, "Milestone");
+      if (name === "") continue;
       // Un rang illisible vaut 0 : la ligne reste lue et un contrôle réclame
       // le rang, plutôt que de la faire disparaître en silence.
-      const rang = Number.parseInt(get(r, headerMapPaliers, "Rank"), 10);
-      paliers.push({
-        feuille: feuillePaliers.name,
-        ligne,
-        nom,
-        rang: Number.isFinite(rang) ? rang : 0,
-        libelle: get(r, headerMapPaliers, "Label"),
+      const rank = Number.parseInt(get(r, headerMapPaliers, "Rank"), 10);
+      milestones.push({
+        sheet: feuillePaliers.name,
+        row,
+        name,
+        rank: Number.isFinite(rank) ? rank : 0,
+        label: get(r, headerMapPaliers, "Label"),
         statut: get(r, headerMapPaliers, "Status"),
         date: get(r, headerMapPaliers, "Date"),
         description: get(r, headerMapPaliers, "Description"),
       });
     }
-    paliers.sort((a, b) => a.rang - b.rang);
+    milestones.sort((a, b) => a.rank - b.rank);
   }
 
   const headerMapInterfaces = buildHeaderMap(headersInterfaces, [...COLONNES_INTERFACES, COLONNE_HERITEE_ETAT]);
   const interfaces: InterfaceCatalogue[] = feuilleInterfaces.rows
-    .filter(({ valeurs: r }) => rowHasContent(r, headerMapInterfaces, COLONNES_INTERFACES))
-    .map(({ ligne, valeurs: r }) => {
-      const nomDuFlux = get(r, headerMapInterfaces, "Flow name");
-      const acteurExposant = get(r, headerMapInterfaces, "Provider");
-      const typeDeFlux = get(r, headerMapInterfaces, "Flow type");
-      const feuilleAttendue = feuilleFxAttendue(acteurExposant, typeDeFlux);
+    .filter(({ values: r }) => rowHasContent(r, headerMapInterfaces, COLONNES_INTERFACES))
+    .map(({ row, values: r }) => {
+      const flowName = get(r, headerMapInterfaces, "Flow name");
+      const providerName = get(r, headerMapInterfaces, "Provider");
+      const flowType = get(r, headerMapInterfaces, "Flow type");
+      const expectedSheet = expectedFxSheet(providerName, flowType);
       return {
-        feuille: feuilleInterfaces.name,
-        ligne,
-        nomDuFlux,
+        sheet: feuilleInterfaces.name,
+        row,
+        flowName,
         version: get(r, headerMapInterfaces, "Version"),
         etat: get(r, headerMapInterfaces, COLONNE_HERITEE_ETAT),
-        acteurExposant,
-        typeDeFlux,
+        providerName,
+        flowType,
         description: get(r, headerMapInterfaces, "Description"),
         lienContrat: get(r, headerMapInterfaces, "Contract link"),
         referenceContrat: get(r, headerMapInterfaces, "Contract reference"),
         commentaires: get(r, headerMapInterfaces, "Comments"),
         aConfirmer: normOui(get(r, headerMapInterfaces, "To confirm")),
-        feuilleAttendue,
+        expectedSheet,
         // Colonne de la v3, remplacée par « Republished as » sur la consommation.
         // On la lit encore -- et seulement ici -- pour que la mise à niveau puisse
         // déplacer l'information ; plus rien d'autre ne la consulte.
         relais: (() => {
-          const entête = findHeader(feuilleInterfaces.headers, COLONNE_HERITEE_RELAIS);
-          return entête ? (r[entête] ?? "").toString().trim() : "";
+          const header = findHeader(feuilleInterfaces.headers, COLONNE_HERITEE_RELAIS);
+          return header ? (r[header] ?? "").toString().trim() : "";
         })(),
         ...validite(r, headerMapInterfaces),
       };
     })
-    .filter((i) => i.nomDuFlux !== "");
+    .filter((i) => i.flowName !== "");
 
   const fxSheets = workbook.sheets.filter(
     // FX_Modèle était le gabarit que recopiait la macro. Elle n'existe plus, et
@@ -348,27 +348,27 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   );
   const fxSheetNames = fxSheets.map((s) => s.name);
 
-  const consommations: Consommation[] = [];
-  for (const feuille of fxSheets) {
-    const headersFx = feuille.headers;
-    noterColonnesAbsentes(feuille.name, headersFx, COLONNES_FX);
+  const consumptions: Consommation[] = [];
+  for (const sheet of fxSheets) {
+    const headersFx = sheet.headers;
+    noterColonnesAbsentes(sheet.name, headersFx, COLONNES_FX);
     const headerMapFx = buildHeaderMap(headersFx, [...COLONNES_FX, COLONNE_HERITEE_STATUT]);
-    for (const { ligne, valeurs: r } of feuille.rows) {
+    for (const { row, values: r } of sheet.rows) {
       if (!rowHasContent(r, headerMapFx, COLONNES_FX)) continue;
-      const nomDuFlux = get(r, headerMapFx, "Flow name");
-      if (nomDuFlux === "") continue;
-      consommations.push({
-        ligne,
-        nomDuFlux,
+      const flowName = get(r, headerMapFx, "Flow name");
+      if (flowName === "") continue;
+      consumptions.push({
+        row,
+        flowName,
         version: get(r, headerMapFx, "Version"),
-        acteurConsommateur: get(r, headerMapFx, "Consumer"),
+        consumerName: get(r, headerMapFx, "Consumer"),
         usage: get(r, headerMapFx, "Usage"),
-        criticite: get(r, headerMapFx, "Criticality for this consumer"),
+        criticality: get(r, headerMapFx, "Criticality for this consumer"),
         statut: get(r, headerMapFx, COLONNE_HERITEE_STATUT),
         decision: get(r, headerMapFx, "Decision"),
-        republiePar: get(r, headerMapFx, COLONNE_REPUBLICATION),
+        republishedAs: get(r, headerMapFx, COLONNE_REPUBLICATION),
         commentaires: get(r, headerMapFx, "Comments"),
-        feuille: feuille.name,
+        sheet: sheet.name,
         ...validite(r, headerMapFx),
       });
     }
@@ -377,14 +377,14 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   return {
     ok: true,
     model: {
-      acteurs,
-      groupes,
+      actors,
+      groups,
       groupesAbsents,
       typesActeur,
-      typesFlux,
-      paliers,
+      flowTypes,
+      milestones,
       interfaces,
-      consommations,
+      consumptions,
       fxSheetNames,
       colonnesOptionnellesAbsentes,
       versionModele: lireVersionModele(workbook.sheets),

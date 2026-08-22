@@ -42,9 +42,9 @@ export const NOMS_ORIGINE: Record<string, string | string[]> = {
 // pour la même chose. Les feuilles et colonnes nées avec le versionnement ne
 // figurent pas ici : aucun classeur ne les a jamais portées en français.
 function écritures(attendu: string): string[] {
-  const origine = NOMS_ORIGINE[attendu];
-  if (!origine) return [attendu];
-  return [attendu, ...(Array.isArray(origine) ? origine : [origine])];
+  const origin = NOMS_ORIGINE[attendu];
+  if (!origin) return [attendu];
+  return [attendu, ...(Array.isArray(origin) ? origin : [origin])];
 }
 
 export function findHeader(actualHeaders: string[], expected: string): string | undefined {
@@ -53,8 +53,8 @@ export function findHeader(actualHeaders: string[], expected: string): string | 
 }
 
 export function matchesSheetName(actualName: string, expected: string): boolean {
-  const nom = normalizeText(actualName);
-  return écritures(expected).some((e) => normalizeText(e) === nom);
+  const name = normalizeText(actualName);
+  return écritures(expected).some((e) => normalizeText(e) === name);
 }
 
 export function hasPrefix(actualName: string, prefix: string): boolean {

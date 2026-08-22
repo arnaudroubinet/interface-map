@@ -1,5 +1,5 @@
 import { normalizeText } from "../shared/text";
-import { assombrirJusquA, ratioDeContraste } from "./contraste";
+import { assombrirJusquA, ratioDeContraste } from "./contrast";
 
 // Palette catégorielle, ordre fixe. Les huit teintes passent 4,5:1 sur blanc :
 // elles servent d'ENCRE autant que de trait, et l'ancienne palette échouait des
@@ -43,8 +43,8 @@ function couleurDeclaree(brut: string): string | undefined {
 }
 
 export function couleursDuModele(model: {
-  interfaces: readonly { typeDeFlux: string }[];
-  typesFlux: readonly { type: string; couleur: string }[];
+  interfaces: readonly { flowType: string }[];
+  flowTypes: readonly { type: string; colour: string }[];
 }): Map<string, string> {
   // Une technologie DOIT être déclarée au référentiel. Employée sans y figurer,
   // elle n'est de toute façon pas dessinée -- son sens de représentation est
@@ -52,25 +52,25 @@ export function couleursDuModele(model: {
   // une teinte, et décalait donc celles des technologies réellement dessinées.
   // Sur un classeur réel, trois technologies dessinées se partageaient les 1re,
   // 3e et 4e teintes parce que deux inconnues s'étaient glissées entre elles.
-  const déclarées = new Map(model.typesFlux.map((t) => [normalizeText(t.type), t]));
-  const employées = new Set(model.interfaces.map((i) => i.typeDeFlux.trim()).filter(Boolean));
+  const déclarées = new Map(model.flowTypes.map((t) => [normalizeText(t.type), t]));
+  const employées = new Set(model.interfaces.map((i) => i.flowType.trim()).filter(Boolean));
   const dessinées = [...employées]
     .filter((t) => déclarées.has(normalizeText(t)))
     .sort((a, b) => a.localeCompare(b, "fr"));
 
   const déclarée = new Map<string, string>();
-  for (const t of model.typesFlux) {
-    const couleur = couleurDeclaree(t.couleur);
-    if (couleur) déclarée.set(t.type.trim(), couleur);
+  for (const t of model.flowTypes) {
+    const colour = couleurDeclaree(t.colour);
+    if (colour) déclarée.set(t.type.trim(), colour);
   }
 
-  const couleurs = new Map<string, string>();
+  const colours = new Map<string, string>();
   const prises = new Set<string>();
   for (const techno of dessinées) {
-    const couleur = déclarée.get(techno);
-    if (!couleur) continue;
-    couleurs.set(techno, couleur);
-    prises.add(couleur);
+    const colour = déclarée.get(techno);
+    if (!colour) continue;
+    colours.set(techno, colour);
+    prises.add(colour);
   }
 
   // Les teintes libres d'abord, dans l'ordre de la palette ; une fois épuisées
@@ -81,9 +81,9 @@ export function couleursDuModele(model: {
   const réserve = libres.length > 0 ? libres : PALETTE;
   let i = 0;
   for (const techno of dessinées) {
-    if (couleurs.has(techno)) continue;
-    couleurs.set(techno, réserve[i % réserve.length]);
+    if (colours.has(techno)) continue;
+    colours.set(techno, réserve[i % réserve.length]);
     i += 1;
   }
-  return couleurs;
+  return colours;
 }

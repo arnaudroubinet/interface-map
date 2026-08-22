@@ -13,8 +13,8 @@ export interface RawSheet {
 // l'indice du tableau ne conviendrait pas, une ligne vide intercalée le
 // décalant de la réalité.
 export interface RawRow {
-  ligne: number;
-  valeurs: Record<string, string>;
+  row: number;
+  values: Record<string, string>;
 }
 
 export interface ParsedWorkbook {
@@ -26,8 +26,8 @@ export interface ParsedWorkbook {
 // donnée métier : elle ne décrit pas ce que la ligne contient, elle dit où la
 // retrouver pour la corriger. Le rapport d'intégrité la cite.
 export interface Emplacement {
-  feuille: string;
-  ligne: number;
+  sheet: string;
+  row: number;
 }
 
 // Les deux bornes de validité d'une ligne sur l'axe des paliers. Ce sont des
@@ -37,13 +37,13 @@ export interface Emplacement {
 // gardent le sens habituel du projet : « depuis toujours » et « toujours là »,
 // donc un classeur qui ne déclare aucun palier se lit exactement comme avant.
 export interface ValiditePalier {
-  palierIntroduction: string;
-  palierRetrait: string;
+  introducedAt: string;
+  retiredAt: string;
 }
 
-export interface Acteur extends ValiditePalier, Emplacement {
-  nom: string;
-  groupe: string;
+export interface Actor extends ValiditePalier, Emplacement {
+  name: string;
+  group: string;
   typeActeur: string;
   responsable: string;
   description: string;
@@ -55,19 +55,19 @@ export interface Acteur extends ValiditePalier, Emplacement {
 // application une par une laissait un groupe mixte -- moitié plateforme,
 // moitié externe -- dont ni la couleur ni le décompte ne pouvaient être justes.
 export interface Groupe extends Emplacement {
-  nom: string;
-  perimetre: string;
+  name: string;
+  perimeter: string;
 }
 
 // Un jalon de la plateforme. À ne jamais confondre avec la version d'un
 // contrat d'interface ni avec le numéro de schéma du classeur : trois notions
 // distinctes que le mot « version » recouvrirait toutes les trois.
-export interface Palier extends Emplacement {
-  nom: string;
+export interface Milestone extends Emplacement {
+  name: string;
   // Porte l'ordre. Une colonne et non l'ordre des lignes : un tri dans Excel
   // détruirait un ordre implicite sans rien dire.
-  rang: number;
-  libelle: string;
+  rank: number;
+  label: string;
   statut: string;
   date: string;
   description: string;
@@ -87,7 +87,7 @@ export interface TypeActeur extends Emplacement {
 
 export interface TypeFlux extends Emplacement {
   type: string;
-  sensRepresentation: "exposant-consommateur" | "consommateur-exposant";
+  sensRepresentation: "provider-to-consumer" | "consumer-to-provider";
   // La valeur telle que saisie. sensRepresentation la normalise en retombant
   // sur « consommateur → exposant » pour tout ce qu'elle ne reconnaît pas :
   // sans la valeur d'origine, une saisie fautive inverserait la flèche sans
@@ -98,11 +98,11 @@ export interface TypeFlux extends Emplacement {
   // sinon : la palette prend alors le relais. C'est ce qui ancre la teinte à la
   // technologie plutôt qu'à son rang, lequel changeait dès qu'on ajoutait une
   // technologie avant les autres dans l'alphabet.
-  couleur: string;
+  colour: string;
 }
 
 export interface InterfaceCatalogue extends ValiditePalier, Emplacement {
-  nomDuFlux: string;
+  flowName: string;
   // Une version vide est une version, pas une absence : elle participe à la
   // clé de rattachement au même titre qu'une autre valeur, et c'est ce qui
   // laisse les classeurs antérieurs se lire à l'identique.
@@ -110,14 +110,14 @@ export interface InterfaceCatalogue extends ValiditePalier, Emplacement {
   // Hérité de la v1 : l'axe des paliers l'a remplacé. Lu uniquement pour que
   // la mise à niveau sache quoi convertir, jamais réécrit.
   etat: string;
-  acteurExposant: string;
-  typeDeFlux: string;
+  providerName: string;
+  flowType: string;
   description: string;
   lienContrat: string;
   referenceContrat: string;
   commentaires: string;
   aConfirmer: boolean;
-  feuilleAttendue: string;
+  expectedSheet: string;
   // Le nom de flux de l'interface que celle-ci prolonge. Rempli sur les seules
   // interfaces exposées par un acteur technique : c'est lui qui permet de
   // suivre un échange à travers la plomberie, alors même que son nom change
@@ -126,13 +126,13 @@ export interface InterfaceCatalogue extends ValiditePalier, Emplacement {
 }
 
 export interface Consommation extends ValiditePalier, Emplacement {
-  nomDuFlux: string;
+  flowName: string;
   // La version consommée, telle qu'écrite au catalogue : c'est le troisième
   // terme de la clé de rattachement à l'interface.
   version: string;
-  acteurConsommateur: string;
+  consumerName: string;
   usage: string;
-  criticite: string;
+  criticality: string;
   // Hérité de la v1, comme InterfaceCatalogue.etat.
   statut: string;
   decision: string;
@@ -141,24 +141,24 @@ export interface Consommation extends ValiditePalier, Emplacement {
   // de CELLE DE SES interfaces qui republie ce flux. C'est ce qui rabat une
   // chaîne en lecture fonctionnelle, et c'est porté par la consommation parce
   // que c'est elle qui désigne le fournisseur et la version d'origine.
-  republiePar: string;
-  feuille: string;
+  republishedAs: string;
+  sheet: string;
 }
 
 export interface ParsedModel {
-  acteurs: Acteur[];
-  groupes: Groupe[];
+  actors: Actor[];
+  groups: Groupe[];
   typesActeur: TypeActeur[];
   // Vrai quand l'onglet « Groupes » manque. Aucun périmètre n'est alors connu :
   // on ne le devine pas, un contrôle d'intégrité réclame l'onglet.
   groupesAbsents: boolean;
-  typesFlux: TypeFlux[];
+  flowTypes: TypeFlux[];
   // Déclarés par l'onglet Paliers, triés par rang. Vide quand l'onglet manque.
-  paliers: Palier[];
+  milestones: Milestone[];
   interfaces: InterfaceCatalogue[];
-  consommations: Consommation[];
+  consumptions: Consommation[];
   fxSheetNames: string[];
-  colonnesOptionnellesAbsentes: { feuille: string; colonne: string }[];
+  colonnesOptionnellesAbsentes: { sheet: string; column: string }[];
   // Numéro de schéma du classeur : 0 pour tout classeur antérieur à son
   // introduction. Décide si l'outil sait lire ce fichier tel quel.
   versionModele: number;

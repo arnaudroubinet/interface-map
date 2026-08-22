@@ -16,61 +16,61 @@ import { VERSION_MODELE } from "../parsing/build-model";
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
-const model: ParsedModel = base.modele();
-const report: IntegrityReport = { familles: [], blocsInformatifs: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
+const model: ParsedModel = base.template();
+const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
 
 describe("initialState", () => {
   it("starts with no file loaded and no options set", () => {
     const state = initialState();
     expect(state.fichier).toBeNull();
-    expect(state.vue).toBe("groupe-a-groupe");
-    expect(state.options).toEqual({ compteurs: true, libelléArête: "technology", echellePng: 2, graisseParCriticite: false });
+    expect(state.view).toBe("group-to-group");
+    expect(state.options).toEqual({ counters: true, libelléArête: "technology", echellePng: 2, graisseParCriticite: false });
   });
 });
 
 describe("withFichierCharge", () => {
   it("replaces the whole state at once and opens on the default view when the file is clean", () => {
     const loaded = withFichierCharge(initialState(), {
-      nom: "classeur.xlsx", model, report, dateModification: null,
+      name: "classeur.xlsx", model, report, dateModification: null,
     });
-    expect(loaded.fichier?.nom).toBe("classeur.xlsx");
-    expect(loaded.vue).toBe("groupe-a-groupe");
+    expect(loaded.fichier?.name).toBe("classeur.xlsx");
+    expect(loaded.view).toBe("group-to-group");
   });
 
   it("opens on the integrity view when the file breaks the rules, rather than on a diagram", () => {
     const enDefaut: IntegrityReport = {
-      familles: [{ id: "coherence", titre: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
-      blocsInformatifs: [],
+      families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
+      infoBlocks: [],
       totalAnomalies: 1,
       totalActions: 0,
       totalAvertissements: 0,
     };
     const loaded = withFichierCharge(initialState(), {
-      nom: "classeur.xlsx", model, report: enDefaut, dateModification: null,
+      name: "classeur.xlsx", model, report: enDefaut, dateModification: null,
     });
-    expect(loaded.vue).toBe("controles");
+    expect(loaded.view).toBe("checks");
   });
 });
 
 describe("withVue / withOptions / withSelectionActeur", () => {
   it("updates only the targeted slice of state", () => {
-    const state = withSelectionActeur(withOptions(withVue(initialState(), "par-acteur"), { compteurs: false }), "Tatooine");
-    expect(state.vue).toBe("par-acteur");
-    expect(state.options.compteurs).toBe(false);
+    const state = withSelectionActeur(withOptions(withVue(initialState(), "by-actor"), { counters: false }), "Tatooine");
+    expect(state.view).toBe("by-actor");
+    expect(state.options.counters).toBe(false);
     expect(state.selectionActeur).toBe("Tatooine");
   });
 });
 
 describe("withGranulariteMatrice", () => {
   it("starts on acteur-to-acteur", () => {
-    expect(initialState().filtresMatrice.granularite).toBe("acteur");
+    expect(initialState().filtresMatrice.granularite).toBe("actor");
   });
 
   it("clears the masked rows, whose names no longer mean anything", () => {
-    const masqué = withActeurMasqueMatrice(initialState(), "Tatooine", true);
-    const replié = withGranulariteMatrice(masqué, "groupe");
-    expect(replié.filtresMatrice.granularite).toBe("groupe");
-    expect(replié.filtresMatrice.acteursMasques).toEqual([]);
+    const hidden = withActeurMasqueMatrice(initialState(), "Tatooine", true);
+    const replié = withGranulariteMatrice(hidden, "group");
+    expect(replié.filtresMatrice.granularite).toBe("group");
+    expect(replié.filtresMatrice.hiddenActors).toEqual([]);
   });
 });
 
@@ -79,9 +79,9 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
 
   it("ouvre sur l'écran de mise à niveau plutôt que sur une vue", () => {
     const loaded = withFichierCharge(initialState(), {
-      nom: "vieux.xlsx", model: ancien, report, dateModification: null,
+      name: "vieux.xlsx", model: ancien, report, dateModification: null,
     });
-    expect(loaded.vue).toBe("mise-a-niveau");
+    expect(loaded.view).toBe("upgrade");
   });
 
   // Les anomalies d'un classeur qu'on ne sait pas lire entièrement ne sont pas
@@ -89,47 +89,47 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
   // défauts qui n'en sont peut-être pas.
   it("passe avant l'écran des contrôles, même en présence d'anomalies", () => {
     const enDefaut: IntegrityReport = {
-      familles: [{ id: "coherence", titre: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
-      blocsInformatifs: [], totalAnomalies: 1, totalActions: 0, totalAvertissements: 0,
+      families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
+      infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalAvertissements: 0,
     };
     const loaded = withFichierCharge(initialState(), {
-      nom: "vieux.xlsx", model: ancien, report: enDefaut, dateModification: null,
+      name: "vieux.xlsx", model: ancien, report: enDefaut, dateModification: null,
     });
-    expect(loaded.vue).toBe("mise-a-niveau");
+    expect(loaded.view).toBe("upgrade");
   });
 
   it("laisse un classeur à jour ouvrir normalement", () => {
     const loaded = withFichierCharge(initialState(), {
-      nom: "a-jour.xlsx", model, report, dateModification: null,
+      name: "a-jour.xlsx", model, report, dateModification: null,
     });
-    expect(loaded.vue).toBe("groupe-a-groupe");
+    expect(loaded.view).toBe("group-to-group");
   });
 });
 
 describe("withFichierCharge — palier d'ouverture", () => {
   const avecPaliers = {
     ...model,
-    paliers: [
-      { nom: "v1", rang: 1, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-      { nom: "v2", rang: 2, libelle: "", statut: "Delivered", date: "", description: "", feuille: "Milestones", ligne: 0 },
-      { nom: "v3", rang: 3, libelle: "", statut: "Planned", date: "", description: "", feuille: "Milestones", ligne: 0 },
+    milestones: [
+      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v3", rank: 3, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
     ],
   };
 
   it("ouvre sur le dernier palier livré, en comparant au précédent", () => {
     const loaded = withFichierCharge(initialState(), {
-      nom: "c.xlsm", model: avecPaliers, report, dateModification: null,
+      name: "c.xlsm", model: avecPaliers, report, dateModification: null,
     });
-    expect(loaded.palierAffiche).toBe("v2");
-    expect(loaded.palierCompare).toBe("v1");
+    expect(loaded.shownMilestone).toBe("v2");
+    expect(loaded.comparedMilestone).toBe("v1");
   });
 
   it("laisse les deux à null quand le classeur ne déclare aucun palier", () => {
     const loaded = withFichierCharge(initialState(), {
-      nom: "c.xlsm", model, report, dateModification: null,
+      name: "c.xlsm", model, report, dateModification: null,
     });
-    expect(loaded.palierAffiche).toBeNull();
-    expect(loaded.palierCompare).toBeNull();
+    expect(loaded.shownMilestone).toBeNull();
+    expect(loaded.comparedMilestone).toBeNull();
   });
 });
 
@@ -139,44 +139,44 @@ describe("mode de lecture", () => {
   });
 
   it("retient le mode choisi", () => {
-    expect(withMode(initialState(), "fonctionnel").mode).toBe("fonctionnel");
+    expect(withMode(initialState(), "functional").mode).toBe("functional");
   });
 
   // « Par technologie » n'a pas d'objet sans technologie : y rester
   // afficherait une vue vide sans rien expliquer. Le repli n'est plus le
   // groupe à groupe, qui n'a pas davantage d'objet en fonctionnel.
   it("quitte la vue par technologie en passant en fonctionnel", () => {
-    const s = withVue(initialState(), "par-technologie");
-    expect(withMode(s, "fonctionnel").vue).toBe("plateforme-detaillee");
+    const s = withVue(initialState(), "by-technology");
+    expect(withMode(s, "functional").view).toBe("platform-detail");
   });
 
   it("laisse la vue en place quand elle garde un sens", () => {
-    const s = withVue(initialState(), "matrice");
-    expect(withMode(s, "fonctionnel").vue).toBe("matrice");
+    const s = withVue(initialState(), "matrix");
+    expect(withMode(s, "functional").view).toBe("matrix");
   });
 
-  const acteur = (nom: string, typeActeur: string) => base.acteur({ nom, typeActeur });
+  const actor = (name: string, typeActeur: string) => base.actor({ name, typeActeur });
   const modelMixte: ParsedModel = {
     ...model,
-    acteurs: [acteur("Tatooine", "Application"), acteur("Bus", "Middleware")],
+    actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
     typesActeur: [
-      { type: "Application", icone: "", nature: "Business", feuille: "ActorTypes", ligne: 0 },
-      { type: "Middleware", icone: "", nature: "Technical", feuille: "ActorTypes", ligne: 0 },
+      { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+      { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
     ],
   };
 
   // Passer en fonctionnel sans corriger la sélection montre une seule boîte
   // et aucun message : la boîte disparue du sélecteur reste pourtant visée.
   it("efface la sélection d'acteur en passant en fonctionnel si elle visait un acteur technique", () => {
-    const chargé = withFichierCharge(initialState(), { nom: "c.xlsx", model: modelMixte, report, dateModification: null });
+    const chargé = withFichierCharge(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
     const s = withSelectionActeur(chargé, "Bus");
-    expect(withMode(s, "fonctionnel").selectionActeur).toBeNull();
+    expect(withMode(s, "functional").selectionActeur).toBeNull();
   });
 
   it("garde la sélection quand elle visait déjà un acteur métier", () => {
-    const chargé = withFichierCharge(initialState(), { nom: "c.xlsx", model: modelMixte, report, dateModification: null });
+    const chargé = withFichierCharge(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
     const s = withSelectionActeur(chargé, "Tatooine");
-    expect(withMode(s, "fonctionnel").selectionActeur).toBe("Tatooine");
+    expect(withMode(s, "functional").selectionActeur).toBe("Tatooine");
   });
 });
 
@@ -185,15 +185,15 @@ describe("mode de lecture", () => {
 // sélectionné alors qu'il ne figure plus dans la lecture, et le schéma
 // n'affichait qu'une boîte fantôme, sans un mot pour l'expliquer.
 describe("withPalierAffiche — la sélection suit ce que le palier montre", () => {
-  const acteur = (nom: string, palierRetrait = "") => base.acteur({ nom, palierRetrait });
+  const actor = (name: string, retiredAt = "") => base.actor({ name, retiredAt });
   const avecFrise: ParsedModel = {
     ...model,
-    paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
-    acteurs: [acteur("Tatooine", "v2"), acteur("Chandrila")],
+    milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
+    actors: [actor("Tatooine", "v2"), actor("Chandrila")],
   };
   const chargé = () =>
     withSelectionActeur(
-      withFichierCharge(initialState(), { nom: "c.xlsx", model: avecFrise, report, dateModification: null }),
+      withFichierCharge(initialState(), { name: "c.xlsx", model: avecFrise, report, dateModification: null }),
       "Tatooine"
     );
 
@@ -215,19 +215,19 @@ describe("withPalierAffiche — la sélection suit ce que le palier montre", () 
 // une image amputée de tout ce qu'il ne sait pas encore lire, sans le dire.
 describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
   const à = (versionModele: number) => ({
-    nom: "c.xlsx", model: { ...model, versionModele }, report, dateModification: null,
+    name: "c.xlsx", model: { ...model, versionModele }, report, dateModification: null,
   });
 
   it("bloque sur un classeur en retard", () => {
-    expect(vueAuChargement(à(VERSION_MODELE - 1))).toBe("mise-a-niveau");
+    expect(vueAuChargement(à(VERSION_MODELE - 1))).toBe("upgrade");
   });
 
   it("bloque aussi sur un classeur en avance", () => {
-    expect(vueAuChargement(à(VERSION_MODELE + 1))).toBe("mise-a-niveau");
+    expect(vueAuChargement(à(VERSION_MODELE + 1))).toBe("upgrade");
   });
 
   it("laisse passer un classeur à la bonne version", () => {
-    expect(vueAuChargement(à(VERSION_MODELE))).not.toBe("mise-a-niveau");
+    expect(vueAuChargement(à(VERSION_MODELE))).not.toBe("upgrade");
   });
 });
 
@@ -235,21 +235,21 @@ describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
 // que la vue d'architecture. Le rail ne retirait pourtant que « par
 // technologie », et la vue restait offerte.
 describe("withMode — les vues qui n'ont pas de sens en fonctionnel", () => {
-  const chargé = () => withFichierCharge(initialState(), { nom: "c.xlsx", model, report, dateModification: null });
+  const chargé = () => withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null });
 
   // « Groupe à groupe » a été ROUVERT en fonctionnel : « quelle direction
   // alimente quelle direction » est précisément la question d'un comité de
   // direction, et c'est la seule vue qui y réponde.
   it("garde le groupe à groupe en passant en fonctionnel", () => {
-    const état = withMode(withVue(chargé(), "groupe-a-groupe"), "fonctionnel");
-    expect(état.vue).toBe("groupe-a-groupe");
+    const état = withMode(withVue(chargé(), "group-to-group"), "functional");
+    expect(état.view).toBe("group-to-group");
   });
 
   it("quitte aussi la vue par technologie", () => {
-    expect(withMode(withVue(chargé(), "par-technologie"), "fonctionnel").vue).not.toBe("par-technologie");
+    expect(withMode(withVue(chargé(), "by-technology"), "functional").view).not.toBe("by-technology");
   });
 
   it("ne touche à rien en architecture", () => {
-    expect(withMode(withVue(chargé(), "groupe-a-groupe"), "architecture").vue).toBe("groupe-a-groupe");
+    expect(withMode(withVue(chargé(), "group-to-group"), "architecture").view).toBe("group-to-group");
   });
 });

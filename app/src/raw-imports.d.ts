@@ -2,6 +2,6 @@
 // simple chaîne, au lieu d'être interprété comme du code. Vitest (Vite) le
 // gère nativement ; esbuild le gère via le plugin de esbuild.build.mjs.
 declare module "*?raw" {
-  const contenu: string;
-  export default contenu;
+  const content: string;
+  export default content;
 }

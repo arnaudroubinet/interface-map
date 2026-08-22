@@ -1,15 +1,15 @@
-import type { ParsedModel, Acteur } from "../parsing/model";
+import type { ParsedModel, Actor } from "../parsing/model";
 import {
-  groupeEstPlateforme,
-  groupeEstExterne,
-  libelleInterface,
+  groupIsPlatform,
+  groupIsExternal,
+  interfaceLabel,
   type FlowInstance,
   type Mode,
 } from "../aggregation/core";
-import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "../aggregation/vocabulaires";
-import { acteursVivants } from "../aggregation/paliers";
-import { fluxDuMode } from "../aggregation/fonctionnel";
-import { identifiants } from "./identifiants";
+import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "../aggregation/vocabularies";
+import { liveActors } from "../aggregation/milestones";
+import { flowsForReading } from "../aggregation/reading";
+import { identifiants } from "./identifiers";
 import { couleursDuModele } from "../render/colors";
 import { normalizeText } from "../shared/text";
 
@@ -23,7 +23,7 @@ import { normalizeText } from "../shared/text";
 
 // Structurizr ne sait pas échapper un guillemet dans une chaîne : un nom qui en
 // porte casserait le fichier entier, pas seulement sa ligne.
-const texte = (v: string) => v.trim().replace(/"/g, "'");
+const text = (v: string) => v.trim().replace(/"/g, "'");
 
 
 // Un flux se lit dans le sens que le type déclare, celui-là même que dessinent
@@ -38,7 +38,7 @@ const texte = (v: string) => v.trim().replace(/"/g, "'");
 // une pointe posée à l'autre bout. Elle passe donc en étiquette, où elle reste
 // lisible et filtrable.
 function sensDuFlux(f: FlowInstance): { de: string; vers: string } {
-  return { de: f.exposant, vers: f.consommateur };
+  return { de: f.provider, vers: f.consumer };
 }
 
 const ETIQUETTE_TIRE = "Pulled";
@@ -62,7 +62,7 @@ const FORME_PAR_TYPE: Record<string, string> = {
   screen: "Window",
   browser: "WebBrowser",
 };
-const estTire = (f: FlowInstance) => f.sens === "consommateur-exposant";
+const estTire = (f: FlowInstance) => f.direction === "consumer-to-provider";
 
 // Un acteur qui consomme l'interface qu'il expose lui-même donnerait une
 // relation d'un élément vers lui-même : elle ne dit rien dans un modèle C4, et
@@ -70,27 +70,27 @@ const estTire = (f: FlowInstance) => f.sens === "consommateur-exposant";
 // refuse le fichier entier -- « Invalid parent-child relationship » -- mais les
 // deux exports rendent le même modèle : ce qui disparaît de l'un disparaît de
 // l'autre, sans quoi le classeur raconterait deux parcs selon l'outil.
-function fluxExportables(model: ParsedModel, rang: number | null, mode: Mode): FlowInstance[] {
-  return fluxDuMode(model, rang, mode).filter((f) => f.exposant.trim() !== f.consommateur.trim());
+function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): FlowInstance[] {
+  return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
 }
 
 export function modeleEnStructurizr(
   model: ParsedModel,
-  rang: number | null,
+  rank: number | null,
   nomClasseur: string,
-  palier: string | null = null,
+  milestone: string | null = null,
   // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
   // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs,
   // et c'était le seul motif de fermer cet export en fonctionnel.
   mode: Mode = "architecture"
 ): string {
-  const acteurs = acteursVivants(model, rang);
-  const ids = identifiants(acteurs.map((a) => a.nom.trim()));
-  const nom = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
+  const actors = liveActors(model, rank);
+  const ids = identifiants(actors.map((a) => a.name.trim()));
+  const name = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
 
-  const fonctionnel = mode === "fonctionnel";
-  const lignes: string[] = [
-    `workspace "${texte(nom)}${fonctionnel ? " (functional reading)" : ""}" "${
+  const fonctionnel = mode === "functional";
+  const rows: string[] = [
+    `workspace "${text(name)}${fonctionnel ? " (functional reading)" : ""}" "${
       fonctionnel
         ? "Interface map, functional reading: chains folded, media removed."
         : "Interface map, exported from the workbook."
@@ -102,60 +102,60 @@ export function modeleEnStructurizr(
     "        !identifiers hierarchical",
   ];
 
-  const déclaration = (a: Acteur, indent: string) => {
+  const déclaration = (a: Actor, indent: string) => {
     // Un humain n'est pas un système : C4 a un mot pour ça, et le classeur le
     // dit déjà dans son type d'acteur.
     const mot = estUnePersonne(a) ? "person" : "softwareSystem";
-    const corps = [`${indent}${ids.get(a.nom.trim())} = ${mot} "${texte(a.nom)}" "${texte(a.description)}" {`];
-    const tags = [a.typeActeur, périmètre(model, a.groupe)].map(texte).filter(Boolean);
-    if (tags.length > 0) corps.push(`${indent}    tags "${tags.join('" "')}"`);
+    const body = [`${indent}${ids.get(a.name.trim())} = ${mot} "${text(a.name)}" "${text(a.description)}" {`];
+    const tags = [a.typeActeur, perimeter(model, a.group)].map(text).filter(Boolean);
+    if (tags.length > 0) body.push(`${indent}    tags "${tags.join('" "')}"`);
     // Ce que le schéma ne montre pas mais que le classeur sait : responsable,
     // commentaires, paliers. Rangé en propriétés plutôt que perdu -- l'export
     // devient une reprise complète, pas un résumé.
-    corps.push(
+    body.push(
       ...propriétés(indent + "    ", [
         ["Owner", a.responsable],
         ["Comments", a.commentaires],
-        ["Introduced at", a.palierIntroduction],
-        ["Retired at", a.palierRetrait],
+        ["Introduced at", a.introducedAt],
+        ["Retired at", a.retiredAt],
       ])
     );
-    corps.push(`${indent}}`);
-    return corps;
+    body.push(`${indent}}`);
+    return body;
   };
 
   // Les acteurs rangés par groupe, les orphelins à plat : un acteur sans
   // groupe existe quand même, et le contrôle d'intégrité le réclame déjà.
-  const groupes = [...new Set(acteurs.map((a) => a.groupe.trim()).filter(Boolean))].sort((a, b) =>
+  const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
-  for (const groupe of groupes) {
-    lignes.push(`        group "${texte(groupe)}" {`);
-    for (const a of acteurs.filter((x) => x.groupe.trim() === groupe)) lignes.push(...déclaration(a, "            "));
-    lignes.push("        }");
+  for (const group of groups) {
+    rows.push(`        group "${text(group)}" {`);
+    for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...déclaration(a, "            "));
+    rows.push("        }");
   }
-  for (const a of acteurs.filter((x) => !x.groupe.trim())) lignes.push(...déclaration(a, "        "));
+  for (const a of actors.filter((x) => !x.group.trim())) rows.push(...déclaration(a, "        "));
 
-  lignes.push("");
+  rows.push("");
   // Deux consommations d'un même contrat par le même acteur ne font qu'un lien.
   // La technologie sert deux fois : dite sur le lien pour qu'on la lise, posée
   // en étiquette pour que la vue par technologie sache le retrouver.
   const liens = new Set<string>();
-  const flux = fluxExportables(model, rang, mode);
-  for (const f of flux) {
+  const flows = exportableFlows(model, rank, mode);
+  for (const f of flows) {
     const { de, vers } = sensDuFlux(f);
     const source = ids.get(de.trim());
-    const cible = ids.get(vers.trim());
-    if (!source || !cible) continue;
-    const techno = texte(f.typeDeFlux);
-    const corps = [
-      `        ${source} -> ${cible} "${texte(libelleInterface(f.interfaceNom, f.version))}" "${techno}" {`,
+    const target = ids.get(vers.trim());
+    if (!source || !target) continue;
+    const techno = text(f.flowType);
+    const body = [
+      `        ${source} -> ${target} "${text(interfaceLabel(f.interfaceName, f.version))}" "${techno}" {`,
       `            tags "${[techno, ...(estTire(f) ? [ETIQUETTE_TIRE] : [])].join('" "')}"`,
     ];
     // Le contrat est une adresse : la donner à l'outil, c'est un clic depuis le
     // schéma plutôt qu'une recherche dans le classeur.
-    if (f.iface.lienContrat.trim()) corps.push(`            url ${f.iface.lienContrat.trim()}`);
-    corps.push(
+    if (f.iface.lienContrat.trim()) body.push(`            url ${f.iface.lienContrat.trim()}`);
+    body.push(
       ...propriétés("            ", [
         // Ce que l'échange transporte : la description de la relation, au sens
         // C4. Le seul emplacement de texte qu'un lien Structurizr offre est
@@ -163,7 +163,7 @@ export function modeleEnStructurizr(
         // schémas --, d'où la propriété plutôt que la perte.
         ["Description", f.iface.description],
         ["Usage", f.conso.usage],
-        ["Criticality", f.conso.criticite],
+        ["Criticality", f.conso.criticality],
         ["Decision", f.conso.decision],
         ["Contract reference", f.iface.referenceContrat],
         // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
@@ -174,46 +174,46 @@ export function modeleEnStructurizr(
         // seule perdrait de qui vient quoi.
         ["Interface comments", f.iface.commentaires],
         ["Consumption comments", f.conso.commentaires],
-        ["Introduced at", f.conso.palierIntroduction],
-        ["Retired at", f.conso.palierRetrait],
+        ["Introduced at", f.conso.introducedAt],
+        ["Retired at", f.conso.retiredAt],
       ])
     );
-    corps.push("        }");
-    liens.add(corps.join("\n"));
+    body.push("        }");
+    liens.add(body.join("\n"));
   }
-  lignes.push(...[...liens].sort((a, b) => a.localeCompare(b, "fr")));
+  rows.push(...[...liens].sort((a, b) => a.localeCompare(b, "fr")));
 
-  lignes.push("    }", "", "    views {", ...vues(model, acteurs, ids, flux, palier), "", "        styles {");
-  lignes.push('            element "External" {', "                background #6E6579", "                color #ffffff", "            }");
+  rows.push("    }", "", "    views {", ...views(model, actors, ids, flows, milestone), "", "        styles {");
+  rows.push('            element "External" {', "                background #6E6579", "                color #ffffff", "            }");
   // La plateforme n'avait AUCUN style : seul l'externe en portait un, si bien
   // que le fichier ouvert dans l'outil cible ne distinguait plus les deux
   // périmètres que notre schéma oppose depuis toujours.
-  lignes.push('            element "Platform" {', "                background #0E7DAD", "                color #ffffff", "            }");
+  rows.push('            element "Platform" {', "                background #0E7DAD", "                color #ffffff", "            }");
   // Une forme par type d'acteur déclaré. La table ne propose un défaut que
   // pour les mots les plus courants : c'est le classeur qui nomme ses types,
   // et un type inconnu reste une boîte plutôt que de recevoir une forme au
   // hasard.
   for (const t of model.typesActeur) {
-    const forme = FORME_PAR_TYPE[normalizeText(t.type)];
-    if (!forme) continue;
-    lignes.push(`            element "${texte(t.type)}" {`, `                shape ${forme}`, "            }");
+    const shape = FORME_PAR_TYPE[normalizeText(t.type)];
+    if (!shape) continue;
+    rows.push(`            element "${text(t.type)}" {`, `                shape ${shape}`, "            }");
   }
   // Chaque technologie garde la couleur qu'elle a dans l'outil : deux lectures
   // du même parc, sur deux outils, ne doivent pas changer de code couleur.
-  const couleurs = couleursDuModele(model);
-  for (const techno of [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
-    lignes.push(`            relationship "${texte(techno)}" {`, `                color ${couleurs.get(techno) ?? "#000000"}`, "            }");
+  const colours = couleursDuModele(model);
+  for (const techno of [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
+    rows.push(`            relationship "${text(techno)}" {`, `                color ${colours.get(techno) ?? "#000000"}`, "            }");
   }
   // Sans style, l'étiquette « Pulled » ne changeait RIEN dans l'outil cible :
   // notre convention de pointe y était invisible, alors que le tag est posé
   // depuis toujours. Structurizr ne sait pas inverser une pointe -- il sait
   // changer le trait, ce qui distingue au moins les deux cas.
-  if (flux.some(estTire)) {
-    lignes.push(`            relationship "${ETIQUETTE_TIRE}" {`, "                style dashed", "            }");
+  if (flows.some(estTire)) {
+    rows.push(`            relationship "${ETIQUETTE_TIRE}" {`, "                style dashed", "            }");
   }
-  lignes.push("        }", "    }", "}", "");
+  rows.push("        }", "    }", "}", "");
 
-  return lignes.join("\n");
+  return rows.join("\n");
 }
 
 // Une vue par schéma que l'outil sait dessiner. Deux d'entre eux n'ont pas
@@ -221,43 +221,43 @@ export function modeleEnStructurizr(
 // acteurs en une boîte, ce qu'aucun des deux DSL ne sait exprimer. La vue
 // d'ensemble porte la même matière, groupes compris -- Structurizr les dessine
 // en frontières.
-function vues(
+function views(
   model: ParsedModel,
-  acteurs: Acteur[],
+  actors: Actor[],
   ids: Map<string, string>,
-  flux: FlowInstance[],
-  palier: string | null
+  flows: FlowInstance[],
+  milestone: string | null
 ): string[] {
   // `title` est une INSTRUCTION du bloc. Le second argument positionnel de
   // `systemLandscape` est la DESCRIPTION, pas le titre : posé là, il aurait
   // laissé les vues nommées par leur clé technique -- « tech-rest-esb » --
   // dans la liste que l'outil cible présente.
-  const vue = (entête: string, titre: string, inclusion: string) => [
-    `        ${entête} {`,
-    `            title "${texte(titre)}"`,
+  const view = (header: string, title: string, inclusion: string) => [
+    `        ${header} {`,
+    `            title "${text(title)}"`,
     `            include ${inclusion}`,
     "            autolayout lr",
     "        }",
   ];
 
-  const auPalier = palier ? ` — milestone ${palier}` : "";
-  const lignes = [...vue('systemLandscape "landscape"', `System landscape${auPalier}`, "*")];
+  const auPalier = milestone ? ` — milestone ${milestone}` : "";
+  const rows = [...view('systemLandscape "landscape"', `System landscape${auPalier}`, "*")];
 
   // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
   // « platform » était une plateforme à l'écran et n'en était plus une dans le
   // fichier C4, où la vue dédiée disparaissait sans un mot.
-  if (model.groupes.some((g) => groupeEstPlateforme(model, g.nom))) {
-    lignes.push(...vue('systemLandscape "platform-only"', `Platform only${auPalier}`, '"element.tag==Platform"'));
+  if (model.groups.some((g) => groupIsPlatform(model, g.name))) {
+    rows.push(...view('systemLandscape "platform-only"', `Platform only${auPalier}`, '"element.tag==Platform"'));
   }
 
-  const technos = [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
-  const clés = identifiants(technos);
+  const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
+  const keys = identifiants(technos);
   for (const techno of technos) {
-    lignes.push(
-      ...vue(
-        `systemLandscape "tech-${clés.get(techno)!.replace(/_/g, "-")}"`,
+    rows.push(
+      ...view(
+        `systemLandscape "tech-${keys.get(techno)!.replace(/_/g, "-")}"`,
         `${techno} flows${auPalier}`,
-        `"relationship.tag==${texte(techno)}"`
+        `"relationship.tag==${text(techno)}"`
       )
     );
   }
@@ -268,31 +268,31 @@ function vues(
   // Une personne n'en a pas non plus : `systemContext` porte sur un système, et
   // Structurizr refuse le fichier entier si on lui en demande une sur un
   // humain. Le prix du mot juste (`person`) est cette vue en moins.
-  const touchés = new Set(flux.flatMap((f) => [f.exposant.trim(), f.consommateur.trim()]));
-  for (const a of acteurs.filter((x) => touchés.has(x.nom.trim()) && !estUnePersonne(x))) {
-    const id = ids.get(a.nom.trim())!;
-    lignes.push(
-      ...vue(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.nom.trim()} — inbound and outbound${auPalier}`, "*")
+  const touchés = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
+  for (const a of actors.filter((x) => touchés.has(x.name.trim()) && !estUnePersonne(x))) {
+    const id = ids.get(a.name.trim())!;
+    rows.push(
+      ...view(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.name.trim()} — inbound and outbound${auPalier}`, "*")
     );
   }
 
-  return lignes;
+  return rows;
 }
 
 // L'étiquette porte l'écriture du VOCABULAIRE, pas celle du classeur : la vue
 // « platform-only » filtre sur « element.tag==Platform », et un groupe saisi
 // « platform » posait l'étiquette « platform » -- la vue sortait vide sans un
 // mot. Le prédicat, lui, normalise déjà des deux côtés.
-function périmètre(model: ParsedModel, groupe: string): string {
-  if (groupeEstPlateforme(model, groupe)) return PERIMETRE_PLATEFORME;
-  if (groupeEstExterne(model, groupe)) return PERIMETRE_EXTERNE;
+function perimeter(model: ParsedModel, group: string): string {
+  if (groupIsPlatform(model, group)) return PERIMETRE_PLATEFORME;
+  if (groupIsExternal(model, group)) return PERIMETRE_EXTERNE;
   return "";
 }
 
 // Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui
 // que C4 sait rendre autrement, dans les deux langues qu'un classeur peut
 // porter. Tout le reste est un système.
-function estUnePersonne(a: Acteur): boolean {
+function estUnePersonne(a: Actor): boolean {
   return ["person", "humain"].includes(normalizeText(a.typeActeur));
 }
 
@@ -303,7 +303,7 @@ function propriétés(indent: string, paires: [string, string][]): string[] {
   if (remplies.length === 0) return [];
   return [
     `${indent}properties {`,
-    ...remplies.map(([clé, v]) => `${indent}    "${clé}" "${texte(v)}"`),
+    ...remplies.map(([key, v]) => `${indent}    "${key}" "${text(v)}"`),
     `${indent}}`,
   ];
 }

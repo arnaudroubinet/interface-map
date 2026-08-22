@@ -22,8 +22,8 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
     // plage réelle de la feuille -- qui ne commence pas toujours en A1.
     const départ = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
     const rows: RawRow[] = brutes
-      .map((valeurs, i) => ({ ligne: départ + 2 + i, valeurs }))
-      .filter((r) => Object.values(r.valeurs).some((v) => (v ?? "").toString().trim() !== ""));
+      .map((values, i) => ({ row: départ + 2 + i, values }))
+      .filter((r) => Object.values(r.values).some((v) => (v ?? "").toString().trim() !== ""));
     const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false })[0];
     // Array.from, pas .map : sheet_to_json renvoie un tableau creux quand une
     // cellule d'en-tête est vide (ex. colonne intercalaire sans nom) — .map
