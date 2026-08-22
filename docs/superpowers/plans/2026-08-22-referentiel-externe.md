@@ -1269,10 +1269,12 @@ git commit -m "feat(workbook): wire query tables and connections for loaded quer
 - Consomme : `TableToApply.query` (tâche 4), `OoxmlExtras.referentials`
   (tâche 3), `ReferentialUrls` / `NO_REFERENTIAL` (tâche 1).
 - Produit :
-  - `export const REF_ACTORS_SHEET = "RefActors"` et
-    `export const REF_TECHNOLOGIES_SHEET = "RefTechnologies"`
-  - `export const REF_ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description"]`
-  - `export const REF_TECHNOLOGY_COLUMNS = ["Flow type", "Direction", "Description", "Colour"]`
+  - Dans **`app/src/parsing/build-model.ts`**, à côté de `ACTOR_COLUMNS` :
+    `export const REF_ACTORS_SHEET = "RefActors"`,
+    `export const REF_TECHNOLOGIES_SHEET = "RefTechnologies"`,
+    `export const REF_ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description"]`,
+    `export const REF_TECHNOLOGY_COLUMNS = ["Flow type", "Direction", "Description", "Colour"]`.
+    `template-export.ts` les importe de là, comme il importe déjà `ACTOR_COLUMNS`.
   - `WorkbookData` gagne `referentials?: ReferentialUrls`.
 
 - [ ] **Étape 1 : écrire le test qui échoue**
@@ -1335,7 +1337,8 @@ import { NO_REFERENTIAL } from "./datamashup";
 import type { ReferentialUrls } from "./datamashup";
 ```
 
-Ajouter les constantes près de `LISTS_SHEET` :
+Ajouter les constantes dans **`app/src/parsing/build-model.ts`**, à côté de
+`ACTOR_COLUMNS` :
 
 ```ts
 // The two sheets the external referential fills. They exist whether or not a
@@ -1346,6 +1349,14 @@ export const REF_TECHNOLOGIES_SHEET = "RefTechnologies";
 export const REF_ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description"];
 export const REF_TECHNOLOGY_COLUMNS = ["Flow type", "Direction", "Description", "Colour"];
 ```
+
+et les importer dans `template-export.ts`, en les ajoutant à l'import qui prend
+déjà `ACTOR_COLUMNS` et consorts depuis `../parsing/build-model`.
+
+> **Elles ne peuvent pas vivre dans `template-export.ts`** : ce fichier importe
+> déjà `ACTOR_COLUMNS`, `FLOW_TYPE_COLUMNS` et `VERSION_SHEET` depuis
+> `build-model.ts`. Les y définir et les faire importer en retour créerait un
+> cycle.
 
 Dans `WorkbookData`, ajouter :
 
@@ -1410,9 +1421,9 @@ et retirer `"Name"` et `"Flow type"` des colonnes laissées libres :
     ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Flow type", "Direction"]),
 ```
 
-> Les anciennes listes `L_Groupe` et `L_TypeActeur`, qui pointaient sur les
-> onglets `Groups` et `ActorTypes`, restent définies : elles servent ailleurs.
-> Sur `Actors`, c'est le référentiel qui prend la main.
+> `L_Groupe` et `L_TypeActeur` perdent ici leur DERNIER usage — c'était
+> celui-là. **Les laisser définies quand même** : une plage nommée inutilisée ne
+> coûte rien, et les retirer sort du périmètre de ce plan.
 
 Enfin, dans `writeTemplate`, passer les URL :
 
@@ -1452,8 +1463,8 @@ git commit -m "feat(workbook): two hidden referential sheets fed by Power Query"
 - Modifier : `app/src/export/schema-upgrade.test.ts`
 
 **Interfaces :**
-- Consomme : `REF_ACTORS_SHEET`, `REF_TECHNOLOGIES_SHEET`, `REF_ACTOR_COLUMNS`,
-  `REF_TECHNOLOGY_COLUMNS` (tâche 5).
+- Consomme : les quatre constantes `REF_*`, définies par la tâche 5 dans ce
+  même fichier.
 - Produit :
   - `export interface ReferentialActor { name: string; group: string; actorType: string; owner: string; description: string }`
   - `export interface ReferentialTechnology { type: string; direction: string; description: string; colour: string }`
@@ -1583,22 +1594,6 @@ Dans `app/src/parsing/build-model.ts` :
 ```ts
 export const SCHEMA_VERSION = 5;
 ```
-
-Ajouter les imports depuis `../export/template-export` :
-
-```ts
-import {
-  REF_ACTORS_SHEET,
-  REF_TECHNOLOGIES_SHEET,
-  REF_ACTOR_COLUMNS,
-  REF_TECHNOLOGY_COLUMNS,
-} from "../export/template-export";
-```
-
-> Si cet import crée un cycle avec `template-export.ts`, déplacer les quatre
-> constantes dans `parsing/build-model.ts` à côté de `ACTOR_COLUMNS` et les
-> importer depuis `template-export.ts` : c'est le sens de dépendance qu'ont
-> déjà `ACTOR_COLUMNS` et consorts.
 
 Dans `buildModel`, après la lecture de `flowTypes` :
 
@@ -1845,8 +1840,7 @@ describe("out of referential", () => {
 ```
 
 > `modelWith`, `actor` et `flowType` sont les fabriques déjà utilisées par ce
-> fichier de test ; reprendre leurs noms exacts. Si `InfoBlock` n'a pas de champ
-> `id`, utiliser le champ qui l'identifie dans ce fichier (souvent `title`).
+> fichier de test ; reprendre leurs noms exacts.
 
 - [ ] **Étape 2 : lancer le test pour vérifier qu'il échoue**
 
@@ -1886,16 +1880,18 @@ function outOfReferential(model: ParsedModel): InfoBlock {
   return {
     id: "out-of-referential",
     title: "Declared here, unknown to the referential",
-    explanation:
+    description:
       "These names are used by this workbook but do not appear in the external referential. " +
       "That is legitimate while the referential catches up; it is also what a typo looks like.",
     items,
+    level: "info",
   };
 }
 ```
 
-> Reprendre exactement la forme des `InfoBlock` voisins (`decommissionCandidates`,
-> `unusedFlowTypes`) : mêmes champs, même ordre.
+> `InfoBlock` porte exactement `id`, `title`, `description`, `items` et `level`
+> (`integrity/checks.ts:101`). `level: "info"` et non `"warning"` : un
+> référentiel en retard n'est pas une faute du classeur.
 
 Puis, dans `runIntegrityChecks`, ajouter `outOfReferential(model)` à la liste des
 blocs, à côté de `unusedFlowTypes(model)`. Les blocs vides sont déjà écartés à
@@ -2065,7 +2061,7 @@ function referentialBlock(
       class: "rail-referential-url",
       value,
       placeholder: "https://…/referential.csv",
-    }) as HTMLInputElement;
+    });
     input.addEventListener("change", () => onChange({ ...current, [key]: input.value.trim() }));
     wrapper.appendChild(input);
     return wrapper;
