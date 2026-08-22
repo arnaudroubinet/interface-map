@@ -14,7 +14,15 @@ import {
   taillePastille,
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
-import { cheminArrondi, interrompreLeTrace, reculerPourLaPointe, segmentIntersecteRect, type Point, type Rect } from "./geometrie";
+import {
+  cheminArrondi,
+  interrompreLeTrace,
+  reculerPourLaPointe,
+  segmentIntersecteRect,
+  RAYON_ANGLE,
+  type Point,
+  type Rect,
+} from "./geometrie";
 import { PAPIER, ENCRE, ÉPAISSEUR_TRAIT, COULEUR_ECART, styleDuNoeud } from "./styles-noeud";
 import { entreesDeLegende, type EntreeLegende, type ÉchantillonLegende } from "./legende";
 import { construireCartouche, descriptionAccessible, libelléCartouche, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./cartouche";
@@ -184,8 +192,40 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
   return résultat;
 }
 
-function idMarqueurFlèche(couleur: string, creuse = false): string {
-  return (creuse ? "fleche-creuse-" : "fleche-") + couleur.replace(/[^a-zA-Z0-9]/g, "");
+// La pointe doit TENIR dans le segment qui la porte. ELK sort d'une boîte par
+// un stub perpendiculaire à la face -- parfois 5 px -- puis tourne : une pointe
+// de 12 px y dépassait le coude et se plantait sur le segment suivant, de
+// côté, comme si le trait arrivait par le flanc de la flèche. Sur le classeur
+// d'exemple, 14 arêtes sur 24 étaient dans ce cas.
+//
+// On la rétrécit par paliers plutôt que continûment : une taille par arête
+// ferait autant de définitions de marqueur que d'arêtes.
+const TAILLES_POINTE = [12, 8, 5, 3] as const;
+
+// L'écart avant contact suit la pointe : gardé à 4 px sous une pointe de 3, il
+// mangerait plus que la pointe elle-même.
+function écartDePointe(taille: number): number {
+  return Math.min(ÉCART_POINTE, taille / 3);
+}
+
+function tailleDePointe(longueurApproche: number): number {
+  return TAILLES_POINTE.find((t) => longueurApproche >= t + écartDePointe(t)) ?? TAILLES_POINTE[TAILLES_POINTE.length - 1];
+}
+
+// La longueur DROITE réellement disponible au bout du trait pour y poser la
+// pointe. Deux retranchements, et oublier le second était l'erreur : le
+// segment brut d'ELK perd de la longueur dans l'arrondi du coude qui le
+// précède -- jusqu'à RAYON_ANGLE, ou la moitié du segment s'il est court.
+function longueurDApproche(edge: RenderEdge): number {
+  const p = edge.points;
+  const [a, b] = edge.tire ? [p[0], p[1]] : [p[p.length - 1], p[p.length - 2]];
+  if (!a || !b) return 0;
+  const brute = Math.hypot(b.x - a.x, b.y - a.y);
+  return brute - Math.min(RAYON_ANGLE, brute / 2);
+}
+
+function idMarqueurFlèche(couleur: string, creuse = false, taille = TAILLE_POINTE): string {
+  return `${creuse ? "fleche-creuse" : "fleche"}-${taille}-${couleur.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
 // Le moteur place les libellés lui-même, en leur réservant de la place le long
@@ -286,7 +326,10 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     g.appendChild(infobulle);
   }
 
-  const pointsTracé = edge.fleche ? reculerPourLaPointe(edge.points, TAILLE_POINTE + ÉCART_POINTE, edge.tire === true) : edge.points;
+  const taillePointe = tailleDePointe(longueurDApproche(edge));
+  const pointsTracé = edge.fleche
+    ? reculerPourLaPointe(edge.points, taillePointe + écartDePointe(taillePointe), edge.tire === true)
+    : edge.points;
   const morceaux = interrompreLeTrace(pointsTracé, rectLibellé ? [rectLibellé] : []);
 
   morceaux.forEach((morceau, i) => {
@@ -300,8 +343,8 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
     // définition sert les deux.
     if (edge.fleche) {
-      if (edge.tire && i === 0) path.setAttribute("marker-start", `url(#${idMarqueurFlèche(couleur, true)})`);
-      if (!edge.tire && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${idMarqueurFlèche(couleur)})`);
+      if (edge.tire && i === 0) path.setAttribute("marker-start", `url(#${idMarqueurFlèche(couleur, true, taillePointe)})`);
+      if (!edge.tire && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${idMarqueurFlèche(couleur, false, taillePointe)})`);
     }
     if (edge.atténué) {
       path.setAttribute("stroke-dasharray", "6 4");
@@ -541,15 +584,15 @@ const TAILLE_POINTE = 12;
 // qu'UML emploie sur ses messages -- triangle plein pour un appel synchrone, V
 // ouvert pour un message asynchrone -- et les deux DSL cibles savent l'écrire
 // (normal / vee en LikeC4).
-function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = false): void {
+function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = false, taille = TAILLE_POINTE): void {
   const marker = el("marker");
-  marker.setAttribute("id", idMarqueurFlèche(couleur, creuse));
+  marker.setAttribute("id", idMarqueurFlèche(couleur, creuse, taille));
   marker.setAttribute("viewBox", "0 0 10 10");
   marker.setAttribute("refX", "0");
   marker.setAttribute("refY", "5");
   marker.setAttribute("markerUnits", "userSpaceOnUse");
-  marker.setAttribute("markerWidth", String(TAILLE_POINTE));
-  marker.setAttribute("markerHeight", String(TAILLE_POINTE));
+  marker.setAttribute("markerWidth", String(taille));
+  marker.setAttribute("markerHeight", String(taille));
   marker.setAttribute("orient", "auto-start-reverse");
   // Même boîte englobante dans les deux cas (0..10, pointe en (10,5)) : le
   // recul du trait avant contact ne dépend donc pas de la forme.
@@ -792,17 +835,23 @@ export function buildGraphSvg(
   }
 
   const defs = el("defs");
-  const pleines = new Set(renderEdges.filter((e) => e.fleche && !e.tire).map((e) => couleurArête(e, colorFor)));
-  const creuses = new Set(renderEdges.filter((e) => e.fleche && e.tire).map((e) => couleurArête(e, colorFor)));
+  // Une définition par (couleur, forme, taille) réellement employée.
+  const marqueurs = new Map<string, { couleur: string; creuse: boolean; taille: number }>();
+  const déclarer = (couleur: string, creuse: boolean, taille: number) =>
+    marqueurs.set(idMarqueurFlèche(couleur, creuse, taille), { couleur, creuse, taille });
+  for (const e of renderEdges) {
+    if (!e.fleche) continue;
+    déclarer(couleurArête(e, colorFor), e.tire === true, tailleDePointe(longueurDApproche(e)));
+  }
   // La légende dessine ses propres échantillons fléchés : leur marqueur doit
   // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
-  // qu'elle explique une notation en ne la montrant pas.
+  // qu'elle explique une notation en ne la montrant pas. Son échantillon est
+  // assez long pour la taille pleine.
   for (const e of entrées) {
     if (e.échantillon.forme !== "trait" || !e.échantillon.pointe) continue;
-    (e.échantillon.pointe === "debut" ? creuses : pleines).add(e.échantillon.couleur);
+    déclarer(e.échantillon.couleur, e.échantillon.pointe === "debut", TAILLE_POINTE);
   }
-  for (const couleur of pleines) ajouterMarqueurFlèche(defs, couleur);
-  for (const couleur of creuses) ajouterMarqueurFlèche(defs, couleur, true);
+  for (const m of marqueurs.values()) ajouterMarqueurFlèche(defs, m.couleur, m.creuse, m.taille);
   svg.appendChild(defs);
 
   const background = rect(bornes.x0, bornes.y0, largeur, hauteur, PAPIER, "none", 0);

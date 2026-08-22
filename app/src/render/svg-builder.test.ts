@@ -206,7 +206,7 @@ describe("buildGraphSvg", () => {
     // seul le dernier morceau porte la pointe.
     expect(paths).toHaveLength(2);
     expect(paths[0].hasAttribute("marker-end")).toBe(false);
-    expect(paths[1].getAttribute("marker-end")).toBe("url(#fleche-2a78d6)");
+    expect(paths[1].getAttribute("marker-end")).toBe("url(#fleche-12-2a78d6)");
   });
 
   it("keeps a deprecated (atténué) flow separate from active flows of the same technology into the same target", async () => {
@@ -1033,8 +1033,8 @@ describe("buildGraphSvg — deux formes de pointe", () => {
     expect(new Set(ids).size).toBe(ids.length);
     // Les deux formes coexistent pour la MÊME couleur : partagées, la seconde
     // définition écraserait la première.
-    expect(ids).toContain("fleche-1f5fae");
-    expect(ids).toContain("fleche-creuse-1f5fae");
+    expect(ids.some((i) => /^fleche-\d+-1f5fae$/.test(i!))).toBe(true);
+    expect(ids.some((i) => /^fleche-creuse-\d+-1f5fae$/.test(i!))).toBe(true);
   });
 
   // La pointe déborde du bout du trait : sans raccourcissement, l'échantillon
@@ -1050,6 +1050,55 @@ describe("buildGraphSvg — deux formes de pointe", () => {
       expect(Number(l.getAttribute("x1")) - 12).toBeGreaterThanOrEqual(
         Math.min(...[...svg.querySelectorAll(".fx-legende rect")].map((r) => Number(r.getAttribute("x"))))
       );
+    }
+  });
+});
+
+// --- QA : ELK sort d'une boîte par un stub perpendiculaire à la face, parfois
+// de 5 px, puis tourne. Une pointe de 12 px y dépassait le coude et se
+// retrouvait plantée sur le segment suivant, de côté -- le trait semblait
+// arriver par le flanc de la flèche. 14 arêtes sur 24 du classeur d'exemple.
+describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () => {
+  const avecApproche = (longueur: number): LayoutResult => ({
+    width: 400,
+    height: 200,
+    nodes: [
+      { id: "A", label: "A", kind: "acteur", x: 40, y: 100, width: 80, height: 40 },
+      { id: "B", label: "B", kind: "acteur", x: 300, y: 20, width: 80, height: 40 },
+    ],
+    edges: [
+      {
+        from: "A",
+        to: "B",
+        technologie: "HTTP",
+        count: 1,
+        label: "HTTP",
+        atténué: false,
+        // Un long trajet, puis un coude, puis le stub d'approche.
+        points: [{ x: 80, y: 100 }, { x: 260, y: 100 }, { x: 260, y: 40 }, { x: 260 + longueur, y: 40 }],
+      },
+    ],
+  });
+
+  const tailleDeLaPointe = (longueur: number): number => {
+    const svg = buildGraphSvg(avecApproche(longueur), () => "#1f5fae");
+    const url = svg.querySelector(".fx-aretes [marker-end]")!.getAttribute("marker-end")!;
+    return Number(svg.querySelector(`#${url.slice(5, -1)}`)!.getAttribute("markerWidth"));
+  };
+
+  it("garde la pleine taille quand l'approche est assez longue", () => {
+    expect(tailleDeLaPointe(40)).toBe(12);
+  });
+
+  // Le cas du classeur réel : un stub de 5 px.
+  it("rétrécit la pointe sur une approche courte", () => {
+    expect(tailleDeLaPointe(5)).toBeLessThan(12);
+  });
+
+  // Elle doit TENIR : sinon elle dépasse le coude, ce qui est le défaut même.
+  it("ne pose jamais une pointe plus longue que son approche", () => {
+    for (const longueur of [4, 5, 8, 10, 13, 16, 20, 40]) {
+      expect(tailleDeLaPointe(longueur), `approche de ${longueur} px`).toBeLessThanOrEqual(Math.max(5, longueur));
     }
   });
 });
