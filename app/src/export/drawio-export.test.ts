@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { entreesDeLegende } from "../render/legende";
+import type { PlanchePlacée } from "./drawio-export";
 import { construireDrawio } from "./drawio-export";
 import { computeLayout, type LayoutResult } from "../layout/graph-layout";
 import { buildGraphSvg } from "../render/svg-builder";
@@ -277,5 +279,53 @@ describe("export draw.io — un trait tiré", () => {
     const doc = await xml(false);
     expect(doc).toContain("endArrow=block");
     expect(doc).not.toContain("startArrow=block");
+  });
+});
+
+// --- §2.14 : 23 pages sans légende ni titre, dans le format justement destiné
+// à circuler.
+describe("construireDrawio — chaque page se décrit", () => {
+  const planche = (): PlanchePlacée => ({
+    titre: "Platform detail",
+    contexte: {
+      titre: "Platform detail", lecture: "architecture", palier: "v2",
+      source: "carto.xlsx", date: "2026-08-22", composants: 2, flux: 1, technologies: 1,
+    },
+    layout: {
+      width: 400, height: 200,
+      nodes: [
+        { id: "A", label: "A", kind: "acteur", x: 60, y: 60, width: 80, height: 40 },
+        { id: "B", label: "B", kind: "acteur", externe: true, x: 300, y: 60, width: 80, height: 40 },
+      ],
+      edges: [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, points: [{ x: 100, y: 60 }, { x: 260, y: 60 }] }],
+    },
+  });
+
+  it("pose le titre de la planche sur la page", () => {
+    expect(construireDrawio([planche()], () => "#111")).toContain("Platform detail — architecture reading, milestone v2");
+  });
+
+  it("reprend la MÊME légende que le SVG, entrée pour entrée", () => {
+    const p = planche();
+    const xml = construireDrawio([p], () => "#111");
+    for (const e of entreesDeLegende(p.layout.edges, p.layout.nodes, () => "#111")) {
+      expect(xml, `entrée « ${e.texte} » absente`).toContain(e.texte);
+    }
+  });
+
+  // La légende ne doit pas se poser SUR le dessin : c'est un bloc à côté,
+  // comme dans le SVG.
+  it("pose la légende sous la boîte englobante des nœuds", () => {
+    const xml = construireDrawio([planche()], () => "#111");
+    const y = Number(/id="p0_legende_0"[\s\S]*?y="(-?\d+)"/.exec(xml)![1]);
+    expect(y).toBeGreaterThan(80);
+  });
+
+  // Sans contexte, pas de cartouche inventé : le titre de la planche suffit.
+  it("se contente du titre de la planche quand aucun contexte n'est fourni", () => {
+    const sans = { ...planche(), contexte: undefined };
+    const xml = construireDrawio([sans], () => "#111");
+    expect(xml).toContain("Platform detail");
+    expect(xml).not.toContain("milestone");
   });
 });

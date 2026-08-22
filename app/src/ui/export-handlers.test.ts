@@ -23,9 +23,12 @@ vi.mock("../export/svg-export", () => ({
 vi.mock("../export/xlsx-export", () => ({
   downloadMatrixXlsx: (_m: unknown, nom: string) => void téléchargements.push({ nom, contenu: "xlsx" }),
 }));
-const pngRendu = { ok: true as boolean };
+const pngRendu = { ok: true as boolean, scale: 0 };
 vi.mock("../export/png-export", () => ({
-  exportPng: async () => (pngRendu.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." }),
+  exportPng: async (_svg: unknown, _fond: unknown, scale: number) => {
+    pngRendu.scale = scale;
+    return pngRendu.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." };
+  },
   downloadPngBlob: (_b: unknown, nom: string) => void téléchargements.push({ nom, contenu: "png" }),
 }));
 
@@ -60,6 +63,7 @@ const chargé = () =>
 beforeEach(() => {
   téléchargements.length = 0;
   pngRendu.ok = true;
+  pngRendu.scale = 0;
 });
 
 describe("handlersExport", () => {
@@ -140,5 +144,25 @@ describe("handlersExport", () => {
     await contexte(withVue(chargé(), "controles")).handlers.onExportDrawio();
     expect(téléchargements[0].nom).toMatch(/boards.*\.drawio$/);
     expect(téléchargements[0].contenu).toContain("<mxfile");
+  });
+});
+
+// --- §2.8 : le facteur d'échelle du PNG était codé en dur à 2. Un schéma
+// d'architecture est du trait fin avec de petits caractères : c'est le cas où
+// une haute résolution paie encore.
+const dernierScalePng = () => pngRendu.scale;
+
+describe("onExportPng — l'échelle est choisie", () => {
+  it("garde 2 comme échelle par défaut", async () => {
+    const { handlers } = contexte(chargé());
+    await handlers.onExportPng();
+    expect(dernierScalePng()).toBe(2);
+  });
+
+  it("exporte à l'échelle retenue", async () => {
+    const s = chargé();
+    const { handlers } = contexte({ ...s, options: { ...s.options, echellePng: 4 } });
+    await handlers.onExportPng();
+    expect(dernierScalePng()).toBe(4);
   });
 });

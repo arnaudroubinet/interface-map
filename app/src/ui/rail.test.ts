@@ -88,6 +88,7 @@ const callbacks: RailCallbacks = {
   onOptionCompteurs: noop,
   onLibelléArête: noop,
   onOrdreMatrice: noop,
+  onEchellePng: noop,
   onTechnoMasquee: noop,
   onActeurMasque: noop,
   onMasquerExternes: noop,
@@ -238,7 +239,7 @@ describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const } };
+    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const, echellePng: 2 as const } };
     const select = rendu(s).querySelector(".rail-option-libelle select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });

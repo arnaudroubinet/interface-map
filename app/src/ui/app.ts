@@ -500,6 +500,7 @@ export function mountApp(root: HTMLElement): void {
       onMasquerExternesMatrice: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
       onActeurMasqueMatrice: (acteur, masqué) =>
         setState(withActeurMasqueMatrice(withMessageBandeau(state, null), acteur, masqué)),
+      onEchellePng: (value) => setState(withOptions(withMessageBandeau(state, null), { echellePng: value })),
       onOrdreMatrice: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
       onGranulariteMatrice: (granularite) => setState(withGranulariteMatrice(withMessageBandeau(state, null), granularite)),
     });

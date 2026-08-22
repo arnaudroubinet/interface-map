@@ -58,6 +58,10 @@ export interface AppOptions {
   // deux. Le défaut reste le tuyau -- c'est le comportement historique, et il
   // tient dans la largeur d'une boîte.
   libelléArête: LibelléArête;
+  // Un schéma d'architecture est du trait fin avec de petits caractères :
+  // c'est le cas où 600 dpi paie encore. Le bon réflexe reste le SVG, qui est
+  // vectoriel et n'a pas de résolution.
+  echellePng: 1 | 2 | 4;
 }
 
 // Ce que l'utilisateur a décoché dans la vue par acteur. Remis à zéro dès qu'on
@@ -114,7 +118,7 @@ export function initialState(): AppState {
     mode: "architecture",
     palierAffiche: null,
     palierCompare: null,
-    options: { compteurs: true, libelléArête: "technology" },
+    options: { compteurs: true, libelléArête: "technology", echellePng: 2 },
     filtresActeur: { technosMasquees: [], acteursMasques: [] },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },

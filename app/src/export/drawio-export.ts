@@ -1,4 +1,6 @@
 import type { LayoutResult, LayoutNode, LayoutEdge } from "../layout/graph-layout";
+import { entreesDeLegende } from "../render/legende";
+import { libelléCartouche, type ContexteSchema } from "../render/cartouche";
 import { sousLibellé } from "../layout/graph-layout";
 
 // Toutes les planches, dans un fichier qu'on peut rouvrir et retoucher : une
@@ -53,6 +55,9 @@ function libelléArête(e: LayoutEdge): string {
 
 export interface PlanchePlacée {
   titre: string;
+  // Ce que la page dit d'elle-même : le même bloc que le cartouche du SVG.
+  // draw.io est le format DESTINÉ À CIRCULER, et ses pages partaient sans.
+  contexte?: ContexteSchema;
   // L'acteur que la planche détaille, quand elle en détaille un : c'est vers
   // elle que pointe la boîte de cet acteur, où qu'elle apparaisse.
   acteur?: string;
@@ -82,12 +87,76 @@ export function construireDrawio(
   ].join("\n");
 }
 
+// Le cartouche et la légende, en cellules draw.io. Les entrées viennent de la
+// même fonction que celles du SVG : deux légendes divergentes pour un même
+// schéma sont précisément ce qu'on veut rendre impossible.
+function blocsExplicatifs(
+  { titre, contexte, layout }: PlanchePlacée,
+  cellule: (id: string) => string,
+  couleurTechnologie: (technologie: string) => string
+): string[] {
+  const xs = layout.nodes.flatMap((n) => [n.x - n.width / 2, n.x + n.width / 2]);
+  const ys = layout.nodes.flatMap((n) => [n.y - n.height / 2, n.y + n.height / 2]);
+  if (xs.length === 0) return [];
+  const gauche = Math.min(...xs);
+  const bas = Math.max(...ys);
+  const cellules: string[] = [];
+
+  const texte = (id: string, valeur: string, x: number, y: number, l: number, h: number, style: string) =>
+    cellules.push(
+      `        <mxCell id="${cellule(id)}" value="${échapper(valeur)}" style="${style}" vertex="1" parent="${cellule("1")}">`,
+      `          <mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${l}" height="${h}" as="geometry" />`,
+      "        </mxCell>"
+    );
+
+  const yCartouche = Math.min(...ys) - 64;
+  const entête = contexte ? libelléCartouche(contexte) : { titre, sousTitre: "" };
+  texte("cartouche_t", entête.titre, gauche, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
+  if (entête.sousTitre) {
+    texte("cartouche_s", entête.sousTitre, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
+  }
+
+  const entrées = entreesDeLegende(layout.edges, layout.nodes, couleurTechnologie);
+  entrées.forEach((entrée, i) => {
+    const y = bas + 48 + i * 22;
+    const é = entrée.échantillon;
+    if (é.forme === "trait") {
+      const style = [
+        "html=1",
+        `strokeColor=${é.couleur}`,
+        "strokeWidth=2",
+        é.pointillé ? "dashed=1" : "dashed=0",
+        é.pointe === "debut" ? "startArrow=block;startFill=0;endArrow=none" : "endArrow=block;endFill=1;startArrow=none",
+      ].join(";");
+      cellules.push(
+        `        <mxCell id="${cellule(`legende_${i}`)}" style="${style}" edge="1" parent="${cellule("1")}">`,
+        `          <mxGeometry relative="1" as="geometry"><mxPoint x="${Math.round(gauche)}" y="${Math.round(y)}" as="sourcePoint" /><mxPoint x="${Math.round(gauche + 34)}" y="${Math.round(y)}" as="targetPoint" /></mxGeometry>`,
+        "        </mxCell>"
+      );
+    } else {
+      texte(
+        `legende_${i}`,
+        "",
+        gauche,
+        y - 6,
+        34,
+        12,
+        `rounded=0;html=1;fillColor=${é.fond};strokeColor=${é.bord}${é.pointillé ? ";dashed=1" : ""}`
+      );
+    }
+    texte(`legende_t_${i}`, entrée.texte, gauche + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
+  });
+
+  return cellules;
+}
+
 function diagramme(
-  { titre, layout }: PlanchePlacée,
+  planche: PlanchePlacée,
   index: number,
   couleurTechnologie: (technologie: string) => string,
   pageParActeur: Map<string, string>
 ): string[] {
+  const { titre, layout } = planche;
   const parId = new Map(layout.nodes.map((n) => [n.id, n]));
   const cellules: string[] = [];
   // Les identifiants sont uniques dans le FICHIER, pas dans la page : deux
@@ -166,6 +235,7 @@ function diagramme(
     `        <mxCell id="${cellule("0")}" />`,
     `        <mxCell id="${cellule("1")}" parent="${cellule("0")}" />`,
     ...cellules,
+    ...blocsExplicatifs(planche, cellule, couleurTechnologie),
     "      </root>",
     "    </mxGraphModel>",
     "  </diagram>",

@@ -57,6 +57,7 @@ export interface RailCallbacks {
   onOptionCompteurs: (value: boolean) => void;
   onLibelléArête: (value: LibelléArête) => void;
   onOrdreMatrice: (value: OrdreMatrice) => void;
+  onEchellePng: (value: 1 | 2 | 4) => void;
   onTechnoMasquee: (techno: string, masquée: boolean) => void;
   onActeurMasque: (acteur: string, masqué: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
@@ -344,6 +345,19 @@ export function renderRail(
     libelléSelect.addEventListener("change", () => callbacks.onLibelléArête(libelléSelect.value as LibelléArête));
     libelléLabel.appendChild(libelléSelect);
     options.appendChild(libelléLabel);
+
+    // L'échelle du PNG, à côté de ce qu'elle sert : un schéma d'architecture
+    // est du trait fin, c'est le cas où une haute résolution paie encore.
+    const echelleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
+    const echelleSelect = el("select", { class: "rail-selecteur" });
+    for (const facteur of [1, 2, 4] as const) {
+      const option = el("option", { value: String(facteur) }, [`${facteur}×`]);
+      if (facteur === state.options.echellePng) option.selected = true;
+      echelleSelect.appendChild(option);
+    }
+    echelleSelect.addEventListener("change", () => callbacks.onEchellePng(Number(echelleSelect.value) as 1 | 2 | 4));
+    echelleLabel.appendChild(echelleSelect);
+    options.appendChild(echelleLabel);
 
     root.appendChild(options);
   }

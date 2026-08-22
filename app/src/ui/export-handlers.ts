@@ -78,7 +78,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     async onExportPng() {
       const svg = ctx.svgCourant();
       if (!svg || !ctx.etat().fichier) return;
-      const result = await exportPng(svg, "#ffffff", 2);
+      const result = await exportPng(svg, "#ffffff", ctx.etat().options.echellePng);
       if (!result.ok) {
         // Le message vient de l'export : il en distingue deux, et le recopier
         // ici en avait effacé un.
@@ -117,10 +117,25 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const couleurs = couleursDuModele(model);
       const placées = [];
       for (const planche of toutesLesPlanches(model, rangAffiché(state), state.mode)) {
+        const layout = await computeLayout(planche.nodes, planche.edges);
         placées.push({
           titre: planche.titre,
           acteur: planche.acteur,
-          layout: await computeLayout(planche.nodes, planche.edges),
+          layout,
+          // Chaque page se décrit, comme chaque SVG : draw.io est le format
+          // destiné à CIRCULER, et ses pages partaient sans titre ni légende.
+          contexte: {
+            titre: planche.titre,
+            lecture: state.mode === "fonctionnel" ? "functional" : "architecture",
+            palier: state.palierAffiche,
+            source: state.fichier.nom,
+            date: state.fichier.dateModification
+              ? state.fichier.dateModification.toISOString().slice(0, 10)
+              : "save date unknown",
+            composants: planche.nodes.filter((n) => n.kind !== "frontiere").length,
+            flux: planche.edges.length,
+            technologies: new Set(planche.edges.map((e) => e.technologie).filter(Boolean)).size,
+          },
         });
       }
       téléchargerTexte(

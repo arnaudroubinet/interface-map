@@ -333,6 +333,28 @@
   @media (prefers-reduced-motion: no-preference) {
     .bouton-export, .rail-vue-item { transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
   }
+
+  /* --- Impression -------------------------------------------------------
+     Aucune règle n'existait : la page sortait avec son rail, son bandeau et
+     un schéma coupé. */
+  @page { size: A4 landscape; margin: 10mm; }
+  @media print {
+    .bandeau, .rail, .commandes-zoom, .conseil-echelle { display: none; }
+    .zone-rendu { overflow: visible; padding: 0; background: none; }
+    .zone-rendu > svg { max-width: 100%; height: auto; page-break-inside: avoid; }
+    /* `economy`, la valeur par défaut, autorise le navigateur à « leave out
+       all background images and to adjust text colors » -- donc à supprimer
+       les aplats de couleur des boîtes. Les deux écritures : la propriété
+       n'est Baseline que depuis mai 2025.
+       Ce n'est qu'une DEMANDE, que l'utilisateur peut ignorer : raison de plus
+       pour que la notation ne repose jamais sur la seule couleur. */
+    .zone-rendu { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    /* Une matrice de 143 cases tient rarement sur une page : sans cette règle,
+       les suivantes sortent sans en-têtes et deviennent illisibles. */
+    table.matrice thead { display: table-header-group; }
+    table.matrice tr { page-break-inside: avoid; }
+    body { background: #ffffff; }
+  }
 </style>
 </head>
 <body>
