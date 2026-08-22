@@ -54,6 +54,15 @@ Point de fait relevé à l'époque : le classeur `.xlsm` d'origine contenait **d
 deux requêtes, `TblActeur` et `TblTypesActeur`. Le mécanisme avait donc été monté
 une fois, dans le format à macro, avant d'être perdu avec lui.
 
+### Nom du fichier produit par le build
+
+`npm run build` écrit toujours `app/dist/carte-des-interfaces.html`. Tout le
+reste du dépôt — code, commentaires, tests, interface — est passé en anglais ;
+ce nom est le dernier mot français que l'utilisateur voit, et c'est celui du
+livrable qu'on s'échange. Le renommer (`interface-map.html`) change le nom du
+fichier que les gens ont déjà en pièce jointe et en favori : la décision revient
+à celui qui le diffuse, elle n'est pas technique.
+
 ---
 
 ## Non reproduit, à éclaircir
