@@ -52,15 +52,15 @@ describe("buildGraphSvg", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
     const boxes = [...svg.querySelectorAll(".fx-nodes rect")];
 
-    // Les teintes viennent de styleDuNoeud, seule source : les recopier ici
-    // ferait échouer ce test au premier ajustement de contraste, sans que rien
-    // n'ait cessé de fonctionner.
+    // The hues come from styleOfNode, the single source: copying them here would
+    // fail this test at the first contrast adjustment, with nothing having stopped
+    // working.
     const bleu = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "platform", external: false }).fill);
     const gris = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "actor", external: true }).fill);
     expect(bleu).not.toBeUndefined();
     expect(gris).not.toBeUndefined();
     expect(bleu!.getAttribute("fill")).not.toBe(gris!.getAttribute("fill"));
-    // L'externe se distingue aussi par la forme, pas seulement par la couleur.
+    // The external side is told apart by shape too, not only by colour.
     expect(gris!.getAttribute("stroke-dasharray")).toBe("8 5");
   });
 
@@ -72,7 +72,7 @@ describe("buildGraphSvg", () => {
 
     const texts = [...svg.querySelectorAll("g > text")].map((t) => t.textContent);
     expect(texts).toContain("Tatooine");
-    // Le type est écrit entre crochets sous le nom, convention C4.
+    // The type is written in brackets under the name, C4 convention.
     expect(texts).toContain("[Middleware]");
     expect(texts).toContain("Bus d'échange principal");
   });
@@ -86,7 +86,7 @@ describe("buildGraphSvg", () => {
     expect(svg.querySelectorAll("g > text")).toHaveLength(1);
   });
 
-  // L'icône n'est plus déduite du type : elle est DÉSIGNÉE par le classeur.
+  // The icon is no longer deduced from the type: it is NAMED by the workbook.
   it("draws the icon designated for the node, and marks an external actor in its type line and border", async () => {
     const nodes: GraphNode[] = [
       { id: "A", label: "Hoth", kind: "actor", subtitle: "Partenaire", external: true, icon: "handshake" },
@@ -141,8 +141,8 @@ describe("buildGraphSvg", () => {
           count: 2,
           label: "Flux A",
           attenuated: false,
-          // Les deux branches partagent le port d'entrée de B, donc la même
-          // approche finale : c'est cette condition qui autorise la fusion.
+          // Both branches share B's entry port, hence the same final approach: that is
+          // the condition that allows the merge.
           points: [
             { x: 0, y: 0 },
             { x: 100, y: 20 },
@@ -174,20 +174,20 @@ describe("buildGraphSvg", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
 
     const paths = [...svg.querySelectorAll(".fx-edges g > path")];
-    // Chaque branche est coupée en deux au droit de son libellé ; le tronc,
-    // qui n'en porte pas, reste d'une pièce.
+    // Each branch is cut in two at its label; the trunk, which carries none,
+    // stays in one piece.
     expect(paths).toHaveLength(5);
     const arrowed = paths.filter((p) => p.hasAttribute("marker-end"));
     expect(arrowed).toHaveLength(1);
-    // Le tronc porte le cumul des branches, mais son épaisseur reste celle de
-    // tous les autres traits : l'agrégation ne doit pas produire d'effet de gras.
+    // The trunk carries the branches' total, but its width stays that of every
+    // other line: the aggregation must produce no bold effect.
     const widths = new Set(paths.map((p) => p.getAttribute("stroke-width")));
     expect(widths).toEqual(new Set(["2"]));
 
     const labels = [...svg.querySelectorAll(".fx-labels text")].map((t) => t.textContent);
     expect(labels).toContain("Flux A");
     expect(labels).toContain("Flux C");
-    // Le tronc ne porte pas de libellé propre.
+    // The trunk carries no label of its own.
     expect(svg.querySelectorAll(".fx-labels g")).toHaveLength(2);
   });
 
@@ -202,14 +202,14 @@ describe("buildGraphSvg", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
 
     const paths = [...svg.querySelectorAll(".fx-edges g > path")];
-    // Un seul flux : son tracé est coupé en deux au droit de son libellé, et
-    // seul le dernier morceau porte la pointe.
+    // A single flow: its path is cut in two at its label, and only the last piece
+    // carries the head.
     expect(paths).toHaveLength(2);
     expect(paths[0].hasAttribute("marker-end")).toBe(false);
     expect(paths[1].getAttribute("marker-end")).toBe("url(#arrow-12-2a78d6)");
   });
 
-  it("keeps a deprecated (atténué) flow separate from active flows of the same technology into the same target", async () => {
+  it("keeps a deprecated (dimmed) flow separate from active flows of the same technology into the same target", async () => {
     const layout: LayoutResult = {
       nodes: [
         { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
@@ -276,16 +276,16 @@ describe("buildGraphSvg", () => {
     expect(tronc).toBeTruthy();
 
     const marker = svg.querySelector("marker")!;
-    // Par défaut un marker se mesure en multiples de stroke-width : la pointe
-    // de ce tronc aurait fait ~48px de large et aurait recouvert la boîte.
+    // By default a marker is measured in multiples of stroke-width: this trunk's
+    // head would have been ~48px wide and would have covered the box.
     expect(marker.getAttribute("markerUnits")).toBe("userSpaceOnUse");
     expect(Number(marker.getAttribute("markerWidth"))).toBeLessThanOrEqual(14);
   });
 
   it("contains the smoothed curve itself in the viewBox, not merely the points it was built from", async () => {
-    // Le contournement d'un obstacle crée un virage serré : la spline lissée
-    // déborde alors largement de sa polyligne de contrôle (jusqu'à ~100px
-    // observés sur le classeur d'exemple) et sortait du cadre blanc.
+    // Routing around an obstacle creates a tight turn: the smoothed spline then
+    // overshoots its control polyline by a wide margin (up to ~100px observed on
+    // the sample workbook) and left the white frame.
     const nodes: GraphNode[] = [
       { id: "A", label: "Source", kind: "group" },
       { id: "C", label: "Obstacle sur la route", kind: "group" },
@@ -301,8 +301,8 @@ describe("buildGraphSvg", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
     const [vbX, vbY, vbL, vbH] = svg.getAttribute("viewBox")!.split(" ").map(Number);
 
-    // Rejoue les cubiques du tracé pour connaître les points RÉELLEMENT
-    // dessinés (le d ne contient que les points de contrôle).
+    // Replays the path's cubics to learn the points ACTUALLY drawn (the d holds
+    // only the control points).
     function drawnPoints(d: string): { x: number; y: number }[] {
       const numbers = [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
       const rendus = [numbers[0]];
@@ -364,19 +364,19 @@ describe("buildGraphSvg", () => {
 
     const marker = svg.querySelector("marker")!;
     expect(marker.querySelector("path")!.getAttribute("fill")).toBe("#ff6600");
-    // Même boîte englobante (0..10, pointe en (10,5)) que le marker "c4-arrow"
-    // de c4hero (Canvas.tsx) dont on part, mais un dard adouci (côtés
-    // convexes, dos concave) plutôt que ses trois arêtes droites.
+    // The same bounding box (0..10, tip at (10,5)) as c4hero's "c4-arrow" marker
+    // (Canvas.tsx) that this starts from, but a softened dart (convex sides,
+    // concave back) rather than its three straight edges.
     expect(marker.getAttribute("viewBox")).toBe("0 0 10 10");
     expect(marker.querySelector("path")!.getAttribute("d")).toBe("M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
-    // La pointe est portée par le dernier morceau du tracé, celui qui aborde
-    // la cible -- les morceaux précédents s'arrêtent au libellé.
+    // The head is carried by the path's last piece, the one approaching the
+    // target -- the preceding pieces stop at the label.
     const pieces = [...svg.querySelectorAll(".fx-edges g > path[stroke]")];
     expect(pieces[pieces.length - 1].getAttribute("marker-end")).toBe(`url(#${marker.id})`);
   });
 });
 
-describe("buildGraphSvg — tracé orthogonal", () => {
+describe("buildGraphSvg — orthogonal routing", () => {
   const ellipsis = (points: { x: number; y: number }[]): LayoutResult => ({
     nodes: [
       { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
@@ -397,7 +397,7 @@ describe("buildGraphSvg — tracé orthogonal", () => {
 
     const d = buildGraphSvg(layout, () => "#2a78d6").querySelector(".fx-edges g > path")!.getAttribute("d")!;
 
-    // Un arc par coude, et aucun sommet laissé vif.
+    // One arc per corner, and no vertex left sharp.
     expect([...d.matchAll(/Q /g)]).toHaveLength(2);
     expect(d).not.toContain("L 200,0 L");
   });
@@ -427,8 +427,8 @@ describe("buildGraphSvg — tracé orthogonal", () => {
     const bout = Number(coords[coords.length - 1][1]);
     const headSize = Number(svg.querySelector("marker")!.getAttribute("markerWidth"));
 
-    // Le trait s'arrête avant le point fourni par le moteur : la pointe occupe
-    // la distance restante, plus un jeu avant la boîte.
+    // The line stops before the point the engine supplied: the head occupies the
+    // remaining distance, plus a little play before the box.
     expect(bout).toBeLessThan(360 - headSize);
   });
 
@@ -442,14 +442,14 @@ describe("buildGraphSvg — tracé orthogonal", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
     const [vbX, vbY, vbL, vbH] = svg.getAttribute("viewBox")!.split(" ").map(Number);
 
-    // Le coude à y = -150 sort largement des deux boîtes : le cadre doit le contenir.
+    // The corner at y = -150 leaves both boxes by a wide margin: the frame must contain it.
     expect(vbY).toBeLessThanOrEqual(-150);
     expect(vbX + vbL).toBeGreaterThanOrEqual(360);
     expect(vbY + vbH).toBeGreaterThanOrEqual(200);
   });
 });
 
-describe("buildGraphSvg — garde-fou de la fusion", () => {
+describe("buildGraphSvg — the merge guard", () => {
   it("leaves flows unfused when they do not share their final approach, rather than cutting a shortcut", () => {
     const layout: LayoutResult = {
       nodes: [
@@ -460,8 +460,8 @@ describe("buildGraphSvg — garde-fou de la fusion", () => {
       edges: [
         { from: "A", to: "B", technology: "HTTP", count: 1, label: "F1", attenuated: false,
           points: [{ x: 40, y: 0 }, { x: 200, y: 0 }, { x: 260, y: 100 }] },
-        // Approche finale différente : fusionner reviendrait à relier les deux
-        // par une diagonale qui ignore le routage.
+        // A different final approach: merging would amount to joining the two by a
+        // diagonal that ignores the routing.
         { from: "C", to: "B", technology: "HTTP", count: 1, label: "F2", attenuated: false,
           points: [{ x: 40, y: 200 }, { x: 200, y: 200 }, { x: 260, y: 140 }] },
       ],
@@ -471,13 +471,13 @@ describe("buildGraphSvg — garde-fou de la fusion", () => {
 
     const paths = [...buildGraphSvg(layout, () => "#2a78d6").querySelectorAll(".fx-edges g > path[stroke]")];
 
-    // Deux flux, deux tracés, deux pointes : aucun tronc fabriqué.
+    // Two flows, two paths, two heads: no trunk manufactured.
     expect(paths).toHaveLength(2);
     expect(paths.filter((p) => p.hasAttribute("marker-end"))).toHaveLength(2);
   });
 });
 
-describe("buildGraphSvg — libellés d'arêtes", () => {
+describe("buildGraphSvg — edge labels", () => {
   const layoutWithLabel = (label: string, technology: string): LayoutResult => ({
     nodes: [
       { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
@@ -490,13 +490,13 @@ describe("buildGraphSvg — libellés d'arêtes", () => {
   });
 
   it("adds the technology on a second line only when the label says something else", () => {
-    // « Par acteur » : le libellé est un nom d'interface, la technologie
-    // complète l'intention.
+    // "By actor": the label is an interface name, and the technology completes
+    // the intent.
     const withIntent = buildGraphSvg(layoutWithLabel("Colis à valider", "Kafka"), () => "#2a78d6");
     const rows = [...withIntent.querySelectorAll(".fx-labels g")][0];
     expect([...rows.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["Colis à valider", "[Kafka]"]);
 
-    // Vue agrégée : le libellé EST la technologie, la répéter n'apprend rien.
+    // An aggregated view: the label IS the technology, repeating it teaches nothing.
     const aggregated = buildGraphSvg(layoutWithLabel("Kafka ×3", "Kafka"), () => "#2a78d6");
     const alone = [...aggregated.querySelectorAll(".fx-labels g")][0];
     expect([...alone.querySelectorAll("text")].map((t) => t.textContent)).toEqual(["Kafka ×3"]);
@@ -506,14 +506,14 @@ describe("buildGraphSvg — libellés d'arêtes", () => {
     const svg = buildGraphSvg(layoutWithLabel("Colis à valider", "Kafka"), () => "#2a78d6");
     const couches = [...svg.querySelectorAll("svg > g")].map((g) => g.getAttribute("class"));
 
-    // Ordre de dessin : frontières, arêtes, boîtes, libellés.
+    // Drawing order: boundaries, edges, boxes, labels.
     expect(couches.indexOf("fx-labels")).toBeGreaterThan(couches.indexOf("fx-nodes"));
     expect(couches.indexOf("fx-nodes")).toBeGreaterThan(couches.indexOf("fx-edges"));
   });
 
 });
 
-describe("buildGraphSvg — légende", () => {
+describe("buildGraphSvg — legend", () => {
   it("draws the legend inside the SVG so it survives export, not in the surrounding page", async () => {
     const layout = await computeLayout(
       [
@@ -531,8 +531,8 @@ describe("buildGraphSvg — légende", () => {
     expect(legend).not.toBeNull();
 
     const inputs = [...legend.querySelectorAll("text")].map((t) => t.textContent);
-    // Une entrée par technologie présente, plus le code des périmètres. La
-    // notation (bout fournisseur, pointes) est testée à part, dans legende.ts.
+    // One entry per technology present, plus the perimeters' code. The notation
+    // (provider end, arrowheads) is tested separately, in legend.ts.
     expect(inputs.filter((t) => t !== "provider pushes" && t !== "consumer pulls")).toEqual([
       "HTTP",
       "Kafka",
@@ -540,7 +540,7 @@ describe("buildGraphSvg — légende", () => {
       "External",
     ]);
 
-    // Elle tient dans le cadre : sinon elle serait rognée à l'export.
+    // It fits within the frame: otherwise it would be clipped on export.
     const [vbX, vbY, vbL, vbH] = svg.getAttribute("viewBox")!.split(" ").map(Number);
     const frame = legend.querySelector("rect")!;
     const x = Number(frame.getAttribute("x"));
@@ -566,10 +566,10 @@ describe("buildGraphSvg — légende", () => {
     expect(inputs).toContain("HTTP");
   });
 
-  // Le mode fonctionnel vide `technologie` sur toutes ses arêtes : une entrée
-  // sans nom annoncerait un code couleur qu'on ne retrouve nulle part sur le
-  // dessin. La légende garde en revanche la NOTATION -- le cercle du bout
-  // fournisseur est dessiné là aussi, et il doit s'expliquer.
+  // Functional mode empties `technology` on every edge: an unnamed entry would
+  // announce a colour code found nowhere on the drawing. The legend does keep the
+  // NOTATION, though -- the provider-end circle is drawn there too, and it must
+  // explain itself.
   it("drops the legend entirely when every edge carries no technology name", async () => {
     const layout = await computeLayout(
       [
@@ -601,7 +601,7 @@ describe("buildGraphSvg — légende", () => {
   });
 });
 
-describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
+describe("buildGraphSvg — the label sits inside the line", () => {
   const layoutWithLabel = (labelCentreOf: { x: number; y: number }): LayoutResult => ({
     nodes: [
       { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
@@ -617,9 +617,9 @@ describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
     const svg = buildGraphSvg(layoutWithLabel({ x: 300, y: 0 }), () => "#2a78d6");
     const lines = [...svg.querySelectorAll(".fx-edges g > path[stroke]")];
 
-    // Deux morceaux : avant le texte, puis après.
+    // Two pieces: before the text, then after.
     expect(lines).toHaveLength(2);
-    // Seul le dernier porte la pointe, celui qui aborde la cible.
+    // Only the last carries the head, the one approaching the target.
     expect(lines.filter((p) => p.hasAttribute("marker-end"))).toHaveLength(1);
     expect(lines[1].hasAttribute("marker-end")).toBe(true);
 
@@ -627,7 +627,7 @@ describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
       const all = [...p.getAttribute("d")!.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)];
       return Number((dernier ? all[all.length - 1] : all[0])[1]);
     };
-    // Le blanc encadre le texte, centré en x = 300.
+    // The white surrounds the text, centred at x = 300.
     expect(coord(lines[0], true)).toBeLessThan(300);
     expect(coord(lines[1], false)).toBeGreaterThan(300);
   });
@@ -636,11 +636,11 @@ describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
     const svg = buildGraphSvg(layoutWithLabel({ x: 300, y: 0 }), () => "#2a78d6");
     const label = svg.querySelector(".fx-labels g")!;
 
-    // Plus de rectangle : c'est le blanc du trait qui dégage le texte.
+    // No more rectangle: it is the line's white gap that clears the text.
     expect(label.querySelector("rect")).toBeNull();
     const text = label.querySelector("text")!;
     expect(text.textContent).toBe("HTTP");
-    // Le liseré protège des AUTRES traits, et se peint sous les lettres.
+    // The halo protects from the OTHER lines, and is painted under the letters.
     expect(text.getAttribute("stroke")).toBe("#ffffff");
     expect(text.getAttribute("paint-order")).toBe("stroke");
   });
@@ -660,15 +660,15 @@ describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
   });
 });
 
-describe("légende — ce qu'elle annonce est ce que le dessin utilise", () => {
+describe("legend — what it announces is what the drawing uses", () => {
   const nodes = [
     { id: "A", label: "A", kind: "actor" as const },
     { id: "B", label: "B", kind: "actor" as const },
   ];
 
-  // Sur un schéma d'écart, aucun trait ne porte de couleur de technologie :
-  // les énumérer annoncerait un code couleur qu'on ne trouve nulle part.
-  it("names the écart colours and drops the technologies when every edge is marked", async () => {
+  // On a change diagram no line carries a technology colour: listing them would
+  // announce a colour code found nowhere.
+  it("names the change colours and drops the technologies when every edge is marked", async () => {
     const svg = buildGraphSvg(
       await computeLayout(nodes, [
         { from: "A", to: "B", technology: "HTTP", count: 1, label: "+1", attenuated: false, change: "added" },
@@ -694,13 +694,13 @@ describe("légende — ce qu'elle annonce est ce que le dessin utilise", () => {
   });
 });
 
-// --- QA : le fichier exporté doit se suffire à lui-même. Il héritait de la
-// page deux choses qu'il ne nomme jamais -- la police, et les variables CSS
-// des couleurs d'écart. Ouvert seul, un schéma Écarts sortait donc SANS AUCUN
-// TRAIT (stroke résolu à « none »), avec des flèches noires, une pastille de
-// légende vide, et tout le texte en serif alors que les largeurs d'étiquettes
-// sont calibrées pour la police de la page.
-describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
+// --- QA: the exported file must stand on its own. It inherited two things from
+// the page that it never names -- the font, and the CSS variables of the change
+// colours. Opened on its own, a Changes diagram therefore came out WITH NO
+// LINES AT ALL (stroke resolved to "none"), with black arrows, an empty legend
+// chip, and all the text in serif although the label widths are calibrated for
+// the page's font.
+describe("buildGraphSvg — the file stands on its own", () => {
   const change = async (direction: "added" | "removed") => {
     const nodes: GraphNode[] = [
       { id: "A", label: "A", kind: "group" },
@@ -712,7 +712,7 @@ describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
     return buildGraphSvg(await computeLayout(nodes, edges), () => "#2a78d6");
   };
 
-  it("nomme sa police sur la racine", () => {
+  it("names its font on the root", () => {
     const nodes: GraphNode[] = [{ id: "A", label: "A", kind: "group" }];
     return computeLayout(nodes, []).then((layout) => {
       const svg = buildGraphSvg(layout, () => "#2a78d6");
@@ -720,7 +720,7 @@ describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
     });
   });
 
-  it("peint les écarts avec une couleur littérale, jamais une variable CSS", async () => {
+  it("paints the changes with a literal colour, never a CSS variable", async () => {
     for (const direction of ["added", "removed"] as const) {
       const svg = await change(direction);
       expect(svg.outerHTML).not.toContain("var(--");
@@ -731,11 +731,11 @@ describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
 });
 
 
-// --- QA : le nom d'un acteur n'était ni mesuré ni tronqué, contrairement à sa
-// description. Un nom long débordait de sa boîte (jusqu'à 128 px), recouvrait
-// la boîte voisine et se faisait couper par le cadre du dessin -- 82 px perdus
-// hors viewBox, illisibles à l'export comme à l'écran.
-describe("buildGraphSvg — un nom long tient dans sa boîte", () => {
+// --- QA: an actor's name was neither measured nor truncated, unlike its
+// description. A long name overflowed its box (by up to 128 px), covered the
+// neighbouring box and got clipped by the drawing's frame -- 82 px lost outside
+// the viewBox, illegible on export as on screen.
+describe("buildGraphSvg — a long name fits in its box", () => {
   const LONG = "Plateforme de règlement-livraison interbancaire et de conservation titres";
 
   const rendered = async () => {
@@ -747,30 +747,30 @@ describe("buildGraphSvg — un nom long tient dans sa boîte", () => {
     return buildGraphSvg(await computeLayout(nodes, edges), () => "#2a78d6");
   };
 
-  it("tronque le nom au lieu de le laisser déborder", async () => {
+  it("truncates the name instead of letting it overflow", async () => {
     const svg = await rendered();
     const name = [...svg.querySelectorAll("text")].find((t) => t.getAttribute("font-size") === "16")!;
     expect(name.textContent!.length).toBeLessThan(LONG.length);
     expect(name.textContent).toMatch(/…$/);
   });
 
-  it("garde le nom entier accessible au hover", async () => {
+  it("keeps the whole name reachable on hover", async () => {
     const svg = await rendered();
     expect([...svg.querySelectorAll("title")].map((t) => t.textContent)).toContain(LONG);
   });
 
-  it("laisse un nom court intact et sans infobulle", async () => {
+  it("leaves a short name untouched and without a tooltip", async () => {
     const svg = await rendered();
     const courts = [...svg.querySelectorAll("text")].filter((t) => t.textContent === "Chandrila");
     expect(courts.length).toBe(1);
   });
 });
 
-// --- Le tracé suit la donnée, du fournisseur vers le consommateur. Quand
-// c'est le consommateur qui appelle, l'initiative se lit sur la POINTE, posée
-// au départ du trait : elle sort de la droite du fournisseur, longe le tuyau,
-// et sa pointe désigne celui qu'on interroge.
-describe("buildGraphSvg — la pointe d'un trait tiré", () => {
+// --- The line follows the data, from provider to consumer. When it is the
+// consumer that calls, the initiative reads on the HEAD, set at the line's
+// start: it leaves by the provider's right, runs along the pipe, and its tip
+// designates the one being queried.
+describe("buildGraphSvg — a pulled line's arrowhead", () => {
   const line = async (pulled: boolean) => {
     const nodes: GraphNode[] = [
       { id: "A", label: "A", kind: "actor" },
@@ -780,22 +780,22 @@ describe("buildGraphSvg — la pointe d'un trait tiré", () => {
     return buildGraphSvg(await computeLayout(nodes, edges), () => "#2a78d6");
   };
 
-  it("pose la pointe au départ quand le consommateur appelle", async () => {
+  it("sets the head at the start when the consumer calls", async () => {
     const svg = await line(true);
     expect(svg.querySelector("path[marker-start]")).not.toBeNull();
     expect(svg.querySelector("path[marker-end]")).toBeNull();
   });
 
-  it("la laisse à l'arrivée quand le fournisseur pousse", async () => {
+  it("leaves it at the arrival when the provider pushes", async () => {
     const svg = await line(false);
     expect(svg.querySelector("path[marker-end]")).not.toBeNull();
     expect(svg.querySelector("path[marker-start]")).toBeNull();
   });
 });
 
-// --- Un schéma doit se décrire lui-même (C4, règle n°1). Collé dans un
-// ticket, un PNG ne disait ni son classeur, ni son palier, ni sa lecture.
-describe("buildGraphSvg — le cartouche", () => {
+// --- A diagram must describe itself (C4, rule no. 1). Pasted into a ticket, a
+// PNG said neither its workbook, nor its milestone, nor its reading.
+describe("buildGraphSvg — the title block", () => {
   const context = {
     title: "Platform detail", reading: "architecture", milestone: "v2",
     source: "carto.xlsx", date: "2026-08-22", components: 2, flows: 1, technologies: 1,
@@ -806,7 +806,7 @@ describe("buildGraphSvg — le cartouche", () => {
       [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false }]
     );
 
-  it("pose titre et description en enfants DIRECTS de <svg>, référencés par aria-labelledby", async () => {
+  it("sets title and description as DIRECT children of <svg>, referenced by aria-labelledby", async () => {
     const svg = buildGraphSvg(await estate(), () => "#111", context);
     expect(svg.getAttribute("role")).toBe("img");
     const ids = (svg.getAttribute("aria-labelledby") ?? "").split(" ");
@@ -818,24 +818,24 @@ describe("buildGraphSvg — le cartouche", () => {
     expect(svg.querySelector(":scope > title")?.textContent).toBe("Platform detail — architecture reading, milestone v2");
   });
 
-  it("écrit le cartouche sur le dessin, au-dessus du contenu", async () => {
+  it("writes the title block on the drawing, above the content", async () => {
     const svg = buildGraphSvg(await estate(), () => "#111", context);
     const texts = [...svg.querySelectorAll(".fx-titleblock text")].map((t) => t.textContent);
     expect(texts[0]).toContain("milestone v2");
     expect(texts[1]).toContain("carto.xlsx");
   });
 
-  // Sans contexte, rien : un cartouche vide affirmerait moins que rien.
-  it("n'ajoute ni rôle ni cartouche quand aucun contexte n'est fourni", async () => {
+  // With no context, nothing: an empty title block would assert less than nothing.
+  it("adds neither role nor title block when no context is supplied", async () => {
     const svg = buildGraphSvg(await estate(), () => "#111");
     expect(svg.getAttribute("role")).toBeNull();
     expect(svg.querySelector(".fx-titleblock")).toBeNull();
     expect(svg.querySelector(":scope > title")).toBeNull();
   });
 
-  // La bande du cartouche doit être RÉSERVÉE : posée par-dessus, elle
-  // recouvrirait la première rangée de boîtes.
-  it("réserve sa bande dans le viewBox plutôt que de se poser par-dessus", async () => {
+  // The title block's band must be RESERVED: laid over the top, it would cover
+  // the first row of boxes.
+  it("reserves its band within the viewBox rather than laying itself over the top", async () => {
     const layout = await estate();
     const sans = buildGraphSvg(layout, () => "#111");
     const avec = buildGraphSvg(layout, () => "#111", context);
@@ -844,17 +844,17 @@ describe("buildGraphSvg — le cartouche", () => {
   });
 });
 
-// --- §2.5 : les huit teintes de la palette échouent à 4,5:1 comme encre, et
-// écrire en couleur rendait le schéma illisible en niveaux de gris. Le rappel
-// visuel passe par un disque, comme la matrix le fait déjà.
-describe("buildGraphSvg — l'encre n'est pas la couleur du trait", () => {
+// --- §2.5: all eight hues of the palette fail 4.5:1 as ink, and writing in
+// colour made the diagram illegible in greyscale. The visual reminder goes
+// through a disc, as the matrix already does.
+describe("buildGraphSvg — the ink is not the line's colour", () => {
   const estate = async (technology: string, label: string) =>
     computeLayout(
       [{ id: "A", label: "A", kind: "group" }, { id: "B", label: "B", kind: "group" }],
       [{ from: "A", to: "B", technology, count: 1, label, attenuated: false }]
     );
 
-  it("écrit le libellé en encre et pose un disque de la couleur de la technologie", async () => {
+  it("writes the label in ink and sets a disc of the technology's colour", async () => {
     const svg = buildGraphSvg(await estate("HTTP", "HTTP"), () => "#eda100");
     for (const t of svg.querySelectorAll(".fx-labels text")) {
       expect(contrastRatio(t.getAttribute("fill")!, "#ffffff")).toBeGreaterThanOrEqual(4.5);
@@ -862,113 +862,113 @@ describe("buildGraphSvg — l'encre n'est pas la couleur du trait", () => {
     expect(svg.querySelector(".fx-labels circle")?.getAttribute("fill")).toBe("#eda100");
   });
 
-  // La lecture fonctionnelle vide `technologie` : un disque n'aurait rien à
-  // rappeler, et il volerait la place du texte.
-  it("ne pose pas de disque quand aucune technologie n'est nommée", async () => {
+  // The functional reading empties `technology`: a disc would have nothing to
+  // remind of, and would steal the text's room.
+  it("sets no disc when no technology is named", async () => {
     const svg = buildGraphSvg(await estate("", "Policy events 1.0"), () => "#111111");
     expect(svg.querySelector(".fx-labels circle")).toBeNull();
   });
 
-  // Le disque prend de la place : elle doit être réservée AVANT le placement,
-  // sans quoi l'étiquette déborde de la boîte qu'ELK lui a gardée.
-  it("réserve la place du disque dans la taille de la pastille", () => {
+  // The disc takes up room: it must be reserved BEFORE layout, failing which the
+  // label overflows the box ELK kept for it.
+  it("reserves the disc's room within the chip's size", () => {
     expect(chipSize("HTTP ×3", "HTTP").width).toBeGreaterThan(chipSize("HTTP ×3", "").width);
   });
 });
 
-// --- QA : l'infobulle ne se posait qu'à partir de DEUX noms. Sur le classeur
-// d'exemple, 23 arêtes sur 24 n'en portaient donc aucune, et le nom de
-// l'échange n'était lisible nulle part.
-describe("buildGraphSvg — l'infobulle des arêtes", () => {
+// --- QA: the tooltip was only set from TWO names upwards. On the sample
+// workbook, 23 edges out of 24 therefore carried none, and the exchange's name
+// was legible nowhere.
+describe("buildGraphSvg — the edges' tooltip", () => {
   const estate = async (names: string[]) =>
     computeLayout(
       [{ id: "A", label: "A", kind: "group" }, { id: "B", label: "B", kind: "group" }],
       [{ from: "A", to: "B", technology: "HTTP", count: names.length, label: "HTTP", attenuated: false, names }]
     );
 
-  it("pose l'infobulle même quand l'arête ne porte qu'un seul échange", async () => {
+  it("sets the tooltip even when the edge carries a single exchange", async () => {
     const svg = buildGraphSvg(await estate(["Policy events 1.0"]), () => "#111");
     expect([...svg.querySelectorAll(".fx-edges title")].map((t) => t.textContent)).toContain("Policy events 1.0");
   });
 
-  it("liste tous les noms d'un trait fusionné, un par ligne", async () => {
+  it("lists every name of a merged line, one per line", async () => {
     const svg = buildGraphSvg(await estate(["A 1.0", "B 2.0"]), () => "#111");
     expect(svg.querySelector(".fx-edges title")?.textContent).toBe("A 1.0\nB 2.0");
   });
 
-  // Une arête sans nom -- une vue agrégée qui ne les transporte pas -- ne doit
-  // pas produire une infobulle vide, qui s'ouvrirait sur rien.
-  it("ne pose rien quand l'arête ne porte aucun nom", async () => {
+  // An edge with no name -- an aggregated view that does not carry them -- must
+  // not produce an empty tooltip, which would open on nothing.
+  it("sets nothing when the edge carries no name", async () => {
     const svg = buildGraphSvg(await estate([]), () => "#111");
     expect(svg.querySelector(".fx-edges title")).toBeNull();
   });
 });
 
-// --- §2.6 : une seule forme de nœud dans tout l'outil. Nature, agrégat et
-// retrait ne se lisaient qu'à la couleur -- donc pas du tout à l'impression
-// ni pour un daltonien (WCAG 1.4.1).
-describe("buildGraphSvg — la forme redit ce que la couleur dit", () => {
+// --- §2.6: a single node shape in the whole tool. Nature, aggregate and
+// removal read by colour alone -- hence not at all in print or for a
+// colour-blind reader (WCAG 1.4.1).
+describe("buildGraphSvg — the shape restates what the colour says", () => {
   const estate = async (a: Partial<GraphNode>, b: Partial<GraphNode> = {}, e: Partial<GraphEdge> = {}) =>
     computeLayout(
       [{ id: "A", label: "A", kind: "actor", ...a }, { id: "B", label: "B", kind: "actor", ...b }],
       [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, ...e }]
     );
 
-  it("coupe le coin d'un acteur technique", async () => {
+  it("cuts a technical actor's corner", async () => {
     const svg = buildGraphSvg(await estate({ technical: true }), () => "#111");
     expect(svg.querySelectorAll(".fx-nodes path.fx-cut-corner")).toHaveLength(1);
   });
 
-  it("laisse la boîte rectangulaire pour un acteur métier", async () => {
+  it("leaves the box rectangular for a business actor", async () => {
     const svg = buildGraphSvg(await estate({}), () => "#111");
     expect(svg.querySelector(".fx-nodes path.fx-cut-corner")).toBeNull();
   });
 
-  it("empile la boîte d'un nœud qui replie plusieurs acteurs", async () => {
+  it("stacks the box of a node folding several actors", async () => {
     const svg = buildGraphSvg(await estate({ aggregate: 4 }), () => "#111");
     expect(svg.querySelectorAll(".fx-nodes .fx-stack rect").length).toBeGreaterThan(1);
   });
 
-  // Un groupe d'un seul acteur ne cache rien : l'empiler affirmerait le
+  // A group of a single actor hides nothing: stacking it would assert the
   // contraire.
-  it("n'empile pas un groupe d'un seul acteur", async () => {
+  it("does not stack a group of a single actor", async () => {
     const svg = buildGraphSvg(await estate({ aggregate: 1 }), () => "#111");
     expect(svg.querySelector(".fx-nodes .fx-stack")).toBeNull();
   });
 
-  it("met en pointillé le trait d'un retrait", async () => {
+  it("dashes a removal's line", async () => {
     const svg = buildGraphSvg(await estate({}, {}, { change: "removed" }), () => "#111");
     expect(svg.querySelector(".fx-edges path")?.getAttribute("stroke-dasharray")).not.toBeNull();
   });
 
-  it("laisse le trait d'un ajout plein", async () => {
+  it("leaves an addition's line solid", async () => {
     const svg = buildGraphSvg(await estate({}, {}, { change: "added" }), () => "#111");
     expect(svg.querySelector(".fx-edges path")?.getAttribute("stroke-dasharray")).toBeNull();
   });
 });
 
-// --- §2.9 : le SVG portait ses dimensions en dur, donc débordait de sa zone --
-// 47 % visible sur le classeur d'exemple -- sans aucun moyen de le ramener.
-describe("buildGraphSvg — la taille du schéma", () => {
+// --- §2.9: the SVG carried hard-coded dimensions, so it overflowed its area --
+// 47% visible on the sample workbook -- with no way to bring it back.
+describe("buildGraphSvg — the diagram's size", () => {
   const estate = async () =>
     computeLayout(
       [{ id: "A", label: "A", kind: "group" }, { id: "B", label: "B", kind: "group" }],
       [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false }]
     );
 
-  // Le viewBox pilote le CADRAGE, width/height la taille d'affichage. Les
-  // deux, et cohérents : étirer le SVG à la largeur de la fenêtre ramenait
-  // l'échelle à 0,5x sur le classeur d'exemple, donc la légende à 5 px.
-  it("pose un viewBox ET les dimensions du dessin, accordés", async () => {
+  // The viewBox drives the FRAMING, width/height the display size. Both, and
+  // consistent: stretching the SVG to the window's width brought the scale down
+  // to 0.5× on the sample workbook, hence the legend to 5 px.
+  it("sets a viewBox AND the drawing's dimensions, in agreement", async () => {
     const svg = buildGraphSvg(await estate(), () => "#111");
     const [, , l, h] = svg.getAttribute("viewBox")!.split(/\s+/);
     expect(svg.getAttribute("width")).toBe(l);
     expect(svg.getAttribute("height")).toBe(h);
   });
 
-  // Le FICHIER doit dire sa taille : sans width ni height, un .svg s'ouvre à
-  // une dimension arbitraire dans Word ou PowerPoint.
-  it("repose les dimensions dans le fichier exporté, depuis le viewBox", async () => {
+  // The FILE must state its size: with no width and no height, an .svg opens at
+  // an arbitrary size in Word or PowerPoint.
+  it("sets the dimensions again in the exported file, from the viewBox", async () => {
     const svg = buildGraphSvg(await estate(), () => "#111");
     const [, , l, h] = svg.getAttribute("viewBox")!.split(/\s+/);
     const text = serializeSvg(svg, "#ffffff");
@@ -978,10 +978,10 @@ describe("buildGraphSvg — la taille du schéma", () => {
 });
 
 
-// --- Ce qui distingue un flux poussé d'un flux tiré, c'est la FORME de la
-// pointe, pas sa position : la position seule aurait demandé de savoir quel
-// bout du trait est le fournisseur, ce que le dessin ne dit pas.
-describe("buildGraphSvg — deux formes de pointe", () => {
+// --- What tells a pushed flow from a pulled one is the head's SHAPE, not its
+// position: position alone would have required knowing which end of the line
+// is the provider, which the drawing does not say.
+describe("buildGraphSvg — two arrowhead shapes", () => {
   const estate = async (pulled: boolean) =>
     computeLayout(
       [{ id: "F", label: "F", kind: "actor" }, { id: "C", label: "C", kind: "actor" }],
@@ -992,35 +992,35 @@ describe("buildGraphSvg — deux formes de pointe", () => {
     return svg.querySelector(`#${url.slice(5, -1)} path`)!;
   };
 
-  it("remplit la pointe d'un flux poussé", async () => {
+  it("fills a pushed flow's head", async () => {
     const svg = buildGraphSvg(await estate(false), () => "#1f5fae");
     const head = headOf(svg, "marker-end");
     expect(head.getAttribute("fill")).toBe("#1f5fae");
     expect(head.getAttribute("stroke")).toBeNull();
   });
 
-  // Une SILHOUETTE différente, pas seulement un remplissage : un dard évidé et
-  // un dard plein se confondent à petite taille et à l'impression.
-  it("dessine un V ouvert pour un flux tiré", async () => {
+  // A different SILHOUETTE, not merely a fill: a hollowed dart and a solid dart
+  // blur together at small size and in print.
+  it("draws an open V for a pulled flow", async () => {
     const svg = buildGraphSvg(await estate(true), () => "#1f5fae");
     const head = headOf(svg, "marker-start");
     expect(head.getAttribute("fill")).toBe("none");
     expect(head.getAttribute("stroke")).toBe("#1f5fae");
-    // Ouvert : le tracé ne se referme pas.
+    // Open: the path does not close.
     expect(head.getAttribute("d")).not.toContain("Z");
   });
 
-  it("garde les deux pointes dans la même boîte englobante, pour que le recul du trait ne change pas", async () => {
+  it("keeps both heads in the same bounding box, so the line's setback does not change", async () => {
     const solid = headOf(buildGraphSvg(await estate(false), () => "#1f5fae"), "marker-end");
     const hollow = headOf(buildGraphSvg(await estate(true), () => "#1f5fae"), "marker-start");
     const extremeX = (d: string) => Math.max(...(d.match(/[\d.]+(?=,)/g) ?? []).map(Number));
     expect(extremeX(hollow.getAttribute("d")!)).toBe(extremeX(solid.getAttribute("d")!));
   });
 
-  // Les deux marqueurs portent des identifiants distincts : partagés, la
-  // seconde définition écraserait la première et les deux flux sortiraient de
-  // la même forme.
-  it("déclare deux marqueurs distincts quand les deux sens coexistent", async () => {
+  // The two markers carry distinct identifiers: shared, the second definition
+  // would overwrite the first and both flows would come out of the same shape.
+  //
+  it("declares two distinct markers when both directions coexist", async () => {
     const layout = await computeLayout(
       [{ id: "F", label: "F", kind: "actor" }, { id: "C", label: "C", kind: "actor" }, { id: "D", label: "D", kind: "actor" }],
       [
@@ -1031,15 +1031,15 @@ describe("buildGraphSvg — deux formes de pointe", () => {
     const svg = buildGraphSvg(layout, () => "#1f5fae");
     const ids = [...svg.querySelectorAll("defs marker")].map((m) => m.getAttribute("id"));
     expect(new Set(ids).size).toBe(ids.length);
-    // Les deux formes coexistent pour la MÊME couleur : partagées, la seconde
-    // définition écraserait la première.
+    // The two shapes coexist for the SAME colour: shared, the second definition
+    // would overwrite the first.
     expect(ids.some((i) => /^arrow-\d+-1f5fae$/.test(i!))).toBe(true);
     expect(ids.some((i) => /^arrow-hollow-\d+-1f5fae$/.test(i!))).toBe(true);
   });
 
-  // La pointe déborde du bout du trait : sans raccourcissement, l'échantillon
-  // de légende empiétait sur le texte de sa propre entrée.
-  it("garde l'échantillon fléché à l'intérieur de sa colonne", async () => {
+  // The head overruns the line's end: without shortening, the legend's sample
+  // encroached on its own entry's text.
+  it("keeps the arrowed sample inside its column", async () => {
     const svg = buildGraphSvg(await estate(true), () => "#1f5fae");
     const texts = [...svg.querySelectorAll(".fx-legend text")];
     const left = Math.min(...texts.map((t) => Number(t.getAttribute("x"))));
@@ -1054,11 +1054,11 @@ describe("buildGraphSvg — deux formes de pointe", () => {
   });
 });
 
-// --- QA : ELK sort d'une boîte par un stub perpendiculaire à la face, parfois
-// de 5 px, puis tourne. Une pointe de 12 px y dépassait le coude et se
-// retrouvait plantée sur le segment suivant, de côté -- le trait semblait
-// arriver par le flanc de la flèche. 14 arêtes sur 24 du classeur d'exemple.
-describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () => {
+// --- QA: ELK leaves a box by a stub perpendicular to the face, sometimes 5 px
+// long, then turns. A 12 px head overran the corner there and ended up planted
+// sideways on the next segment -- the line seemed to arrive through the arrow's
+// flank. 14 of the sample workbook's 24 edges.
+describe("buildGraphSvg — the head fits in the segment carrying it", () => {
   const withApproach = (length: number): LayoutResult => ({
     width: 400,
     height: 200,
@@ -1074,7 +1074,7 @@ describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () =>
         count: 1,
         label: "HTTP",
         attenuated: false,
-        // Un long trajet, puis un coude, puis le stub d'approche.
+        // A long run, then a corner, then the approach stub.
         points: [{ x: 80, y: 100 }, { x: 260, y: 100 }, { x: 260, y: 40 }, { x: 260 + length, y: 40 }],
       },
     ],
@@ -1086,28 +1086,28 @@ describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () =>
     return Number(svg.querySelector(`#${url.slice(5, -1)}`)!.getAttribute("markerWidth"));
   };
 
-  it("garde la pleine taille quand l'approche est assez longue", () => {
+  it("keeps the full size when the approach is long enough", () => {
     expect(headSizeFor(40)).toBe(12);
   });
 
-  // Le cas du classeur réel : un stub de 5 px.
-  it("rétrécit la pointe sur une approche courte", () => {
+  // The real workbook's case: a 5 px stub.
+  it("shrinks the head on a short approach", () => {
     expect(headSizeFor(5)).toBeLessThan(12);
   });
 
-  // Elle doit TENIR : sinon elle dépasse le coude, ce qui est le défaut même.
-  it("ne pose jamais une pointe plus longue que son approche", () => {
+  // It must FIT: otherwise it overruns the corner, which is the defect itself.
+  it("never sets a head longer than its approach", () => {
     for (const length of [4, 5, 8, 10, 13, 16, 20, 40]) {
       expect(headSizeFor(length), `approche de ${length} px`).toBeLessThanOrEqual(Math.max(5, length));
     }
   });
 });
 
-// --- §A3 : la graisse du trait est la variable de Bertin faite pour l'ORDRE.
-// Elle est volontairement uniforme ailleurs -- faire varier l'épaisseur avec le
-// NOMBRE de flux écrasait les voisins -- mais ce raisonnement valait pour un
-// volume, pas pour un ordre.
-describe("buildGraphSvg — la graisse suit la criticité", () => {
+// --- §A3: line weight is the Bertin variable made for ORDER. It is
+// deliberately uniform elsewhere -- varying the width with the NUMBER of flows
+// crushed the neighbours -- but that reasoning held for a volume, not for an
+// order.
+describe("buildGraphSvg — the weight follows the criticality", () => {
   const estate = async (criticality?: string) =>
     computeLayout(
       [{ id: "A", label: "A", kind: "actor" }, { id: "B", label: "B", kind: "actor" }],
@@ -1115,26 +1115,26 @@ describe("buildGraphSvg — la graisse suit la criticité", () => {
     );
   const graisse = (svg: SVGSVGElement) => Number(svg.querySelector(".fx-edges path")!.getAttribute("stroke-width"));
 
-  it("épaissit le trait critique quand le réglage est actif", async () => {
+  it("thickens the critical line when the setting is on", async () => {
     expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true }))).toBeGreaterThan(2);
   });
 
-  it("amincit le trait standard", async () => {
+  it("thins the standard line", async () => {
     expect(graisse(buildGraphSvg(await estate("3 - Standard"), () => "#111", null, { weightByCriticality: true }))).toBeLessThan(2);
   });
 
-  // Désactivé, rien ne bouge : la graisse sert ailleurs à ne RIEN dire, et les
-  // deux usages ne se mélangent pas.
-  it("garde une graisse uniforme quand le réglage est inactif", async () => {
+  // Off, nothing moves: elsewhere the weight serves to say NOTHING, and the two
+  // uses do not mix.
+  it("keeps a uniform weight when the setting is off", async () => {
     expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111"))).toBe(2);
   });
 
-  // Une criticité non renseignée ne doit pas produire un trait invisible.
-  it("garde la graisse par défaut sur une criticité absente", async () => {
+  // A criticality that is not filled in must not produce an invisible line.
+  it("keeps the default weight on an absent criticality", async () => {
     expect(graisse(buildGraphSvg(await estate(undefined), () => "#111", null, { weightByCriticality: true }))).toBe(2);
   });
 
-  it("annonce les graisses employées dans la légende", async () => {
+  it("announces the weights used in the legend", async () => {
     const svg = buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true });
     const texts = [...svg.querySelectorAll(".fx-legend text")].map((t) => t.textContent);
     expect(texts).toContain("criticality: 1 - Critical");
