@@ -19,6 +19,8 @@ import { acteursMetier } from "../aggregation/nature";
 import { computeLayout } from "../layout/graph-layout";
 import { toutesLesPlanches } from "../aggregation/planches";
 import { buildGraphSvg } from "../render/svg-builder";
+import type { ContexteSchema } from "../render/cartouche";
+import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
 import { buildIntegrityReport } from "../render/integrity-report";
 import { couleursDuModele } from "../render/colors";
@@ -60,11 +62,28 @@ import {
   withPalierCompare,
   withMessageBandeau,
   vueAuChargement,
+  LIBELLE_VUE,
   type AppState,
   type FichierCharge,
   type Vue,
 } from "./state";
 
+
+// Ce que le schéma dira de lui-même. Tout vient de l'état : la vue, la
+// lecture, le palier affiché, le nom du fichier et sa date de sauvegarde --
+// c'est l'âge de la DONNÉE qui compte, pas celui de l'impression.
+function contexteDuSchema(state: AppState, fichier: FichierCharge, view: { nodes: GraphNode[]; edges: GraphEdge[] }): ContexteSchema {
+  return {
+    titre: LIBELLE_VUE[state.vue],
+    lecture: state.mode === "fonctionnel" ? "functional" : "architecture",
+    palier: state.palierAffiche,
+    source: fichier.nom,
+    date: fichier.dateModification ? fichier.dateModification.toISOString().slice(0, 10) : "save date unknown",
+    composants: view.nodes.filter((n) => n.kind !== "frontiere").length,
+    flux: view.edges.length,
+    technologies: new Set(view.edges.map((e) => e.technologie).filter(Boolean)).size,
+  };
+}
 
 export function mountApp(root: HTMLElement): void {
   let state: AppState = initialState();
@@ -289,7 +308,9 @@ export function mountApp(root: HTMLElement): void {
           zoneRendu.appendChild(buildEcartsTitreSchema(state.palierCompare!, state.palierAffiche!));
           computeLayout(vueEcarts.nodes, vueEcarts.edges).then((positioned) => {
             if (génération !== générationRendu) return;
-            zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000"));
+            zoneRendu.appendChild(
+              buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueEcarts))
+            );
             // Le schéma d'écart s'exporte comme les autres. Les boutons en
             // dépendent, et il n'existait pas encore au rendu du bandeau.
             renderBanner(bandeau, state, true, exportHandlers);
@@ -366,7 +387,7 @@ export function mountApp(root: HTMLElement): void {
         computeLayout(vueDuCalcul.nodes, vueDuCalcul.edges)
           .then((positioned) => {
             if (génération !== générationRendu) return;
-            zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000"));
+            zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul)));
             // Les boutons d'export dépendent de la présence du SVG, qui
             // n'existait pas encore au moment du rendu du bandeau.
             renderBanner(bandeau, state, true, exportHandlers);

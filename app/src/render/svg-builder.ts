@@ -17,6 +17,7 @@ import { normalizeText } from "../shared/text";
 import { cheminArrondi, interrompreLeTrace, reculerPourLaPointe, segmentIntersecteRect, type Point, type Rect } from "./geometrie";
 import { PAPIER, ENCRE, ÉPAISSEUR_TRAIT, COULEUR_ECART, styleDuNoeud } from "./styles-noeud";
 import { entreesDeLegende, type EntreeLegende, type ÉchantillonLegende } from "./legende";
+import { construireCartouche, descriptionAccessible, libelléCartouche, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./cartouche";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 // La même pile que la page (index.html) : les constantes de largeur des
@@ -500,6 +501,9 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
 // largement déborder de ce cadre-là.
 const MARGE_CADRE = 24;
 
+const ID_TITRE = "fx-titre";
+const ID_DESC = "fx-desc";
+
 function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], libellés: Map<RenderEdge, Point>): { x0: number; y0: number; x1: number; y1: number } {
   let x0 = Infinity;
   let y0 = Infinity;
@@ -597,7 +601,13 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
   return g;
 }
 
-export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => string): SVGSVGElement {
+export function buildGraphSvg(
+  layout: LayoutResult,
+  colorFor: (tech: string) => string,
+  // Ce que le schéma dit de lui-même. `null` pour les appels qui n'ont rien à
+  // en dire -- un test de rendu, un fragment -- plutôt qu'un cartouche vide.
+  contexte: ContexteSchema | null = null
+): SVGSVGElement {
   // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
   // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
   // les flux de même technologie vers une même cible.
@@ -622,6 +632,10 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
     bornes.x0 = Math.min(bornes.x0, bornes.x1 - légendeL);
   }
 
+  // Le cartouche occupe une bande réservée au-dessus du dessin, comme la
+  // légende occupe la sienne au-dessous.
+  if (contexte) bornes.y0 -= MARGE_CADRE + HAUTEUR_CARTOUCHE;
+
   const largeur = bornes.x1 - bornes.x0;
   const hauteur = bornes.y1 - bornes.y0;
 
@@ -635,6 +649,24 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
   svg.setAttribute("width", String(largeur));
   svg.setAttribute("height", String(hauteur));
 
+  // Le patron d'accessibilité n°11 de l'étude Deque, le plus fiable des douze
+  // testés sur l'ensemble navigateurs x lecteurs d'écran. Deux exigences :
+  // <title> et <desc> doivent être ENFANTS DIRECTS de <svg> -- SVG-AAM ne
+  // remonte pas plus profond -- et aria-labelledby prime sur <title> seul,
+  // notoirement peu fiable en NVDA + Firefox.
+  if (contexte) {
+    svg.setAttribute("role", "img");
+    svg.setAttribute("aria-labelledby", `${ID_TITRE} ${ID_DESC}`);
+    const titre = el("title");
+    titre.setAttribute("id", ID_TITRE);
+    titre.textContent = libelléCartouche(contexte).titre;
+    svg.appendChild(titre);
+    const desc = el("desc");
+    desc.setAttribute("id", ID_DESC);
+    desc.textContent = descriptionAccessible(contexte);
+    svg.appendChild(desc);
+  }
+
   const defs = el("defs");
   const couleursAvecFlèche = new Set(renderEdges.filter((e) => e.fleche).map((e) => couleurArête(e, colorFor)));
   // La légende dessine ses propres échantillons fléchés : leur marqueur doit
@@ -646,6 +678,8 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
 
   const background = rect(bornes.x0, bornes.y0, largeur, hauteur, PAPIER, "none", 0);
   svg.appendChild(background);
+
+  if (contexte) svg.appendChild(construireCartouche(contexte, bornes.x0 + MARGE_CADRE, bornes.y0 + MARGE_CADRE));
 
   // Rectangle occupé par chaque libellé : c'est là que son trait s'interrompt.
   const rectDuLibellé = (e: RenderEdge): Rect | null => {

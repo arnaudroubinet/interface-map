@@ -795,3 +795,54 @@ describe("buildGraphSvg — la pointe d'un trait tiré", () => {
     expect(svg.querySelector("path[marker-start]")).toBeNull();
   });
 });
+
+// --- Un schéma doit se décrire lui-même (C4, règle n°1). Collé dans un
+// ticket, un PNG ne disait ni son classeur, ni son palier, ni sa lecture.
+describe("buildGraphSvg — le cartouche", () => {
+  const contexte = {
+    titre: "Platform detail", lecture: "architecture", palier: "v2",
+    source: "carto.xlsx", date: "2026-08-22", composants: 2, flux: 1, technologies: 1,
+  };
+  const parc = async () =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "groupe" }, { id: "B", label: "B", kind: "groupe" }],
+      [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false }]
+    );
+
+  it("pose titre et description en enfants DIRECTS de <svg>, référencés par aria-labelledby", async () => {
+    const svg = buildGraphSvg(await parc(), () => "#111", contexte);
+    expect(svg.getAttribute("role")).toBe("img");
+    const ids = (svg.getAttribute("aria-labelledby") ?? "").split(" ");
+    expect(ids).toHaveLength(2);
+    for (const id of ids) {
+      const cible = [...svg.children].find((c) => c.getAttribute("id") === id);
+      expect(cible, `#${id} doit être un enfant direct de <svg>`).toBeDefined();
+    }
+    expect(svg.querySelector(":scope > title")?.textContent).toBe("Platform detail — architecture reading, milestone v2");
+  });
+
+  it("écrit le cartouche sur le dessin, au-dessus du contenu", async () => {
+    const svg = buildGraphSvg(await parc(), () => "#111", contexte);
+    const textes = [...svg.querySelectorAll(".fx-cartouche text")].map((t) => t.textContent);
+    expect(textes[0]).toContain("milestone v2");
+    expect(textes[1]).toContain("carto.xlsx");
+  });
+
+  // Sans contexte, rien : un cartouche vide affirmerait moins que rien.
+  it("n'ajoute ni rôle ni cartouche quand aucun contexte n'est fourni", async () => {
+    const svg = buildGraphSvg(await parc(), () => "#111");
+    expect(svg.getAttribute("role")).toBeNull();
+    expect(svg.querySelector(".fx-cartouche")).toBeNull();
+    expect(svg.querySelector(":scope > title")).toBeNull();
+  });
+
+  // La bande du cartouche doit être RÉSERVÉE : posée par-dessus, elle
+  // recouvrirait la première rangée de boîtes.
+  it("réserve sa bande dans le viewBox plutôt que de se poser par-dessus", async () => {
+    const layout = await parc();
+    const sans = buildGraphSvg(layout, () => "#111");
+    const avec = buildGraphSvg(layout, () => "#111", contexte);
+    const haut = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
+    expect(haut(avec)).toBeLessThan(haut(sans));
+  });
+});
