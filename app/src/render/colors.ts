@@ -45,6 +45,10 @@ function declaredColourOf(raw: string): string | undefined {
 export function coloursOfModel(model: {
   interfaces: readonly { flowType: string }[];
   flowTypes: readonly { type: string; colour: string }[];
+  // The external referential's colours. They are the ordinary source; the
+  // workbook's own Colour column stays available above them, because forcing a
+  // hue locally is legitimate and the referential is not always right.
+  referentialTechnologies?: readonly { type: string; colour: string }[];
 }): Map<string, string> {
   // A technology MUST be declared in the referential. Used without appearing in
   // it, it is not drawn anyway -- its representation direction is unknown, and
@@ -59,6 +63,12 @@ export function coloursOfModel(model: {
     .sort((a, b) => a.localeCompare(b, "fr"));
 
   const declaredColour = new Map<string, string>();
+  for (const t of model.referentialTechnologies ?? []) {
+    const colour = declaredColourOf(t.colour);
+    if (colour) declaredColour.set(t.type.trim(), colour);
+  }
+  // Second, so that a colour typed into the workbook overwrites the
+  // referential's.
   for (const t of model.flowTypes) {
     const colour = declaredColourOf(t.colour);
     if (colour) declaredColour.set(t.type.trim(), colour);

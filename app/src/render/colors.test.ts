@@ -169,3 +169,39 @@ describe("coloursOfModel — the contrast guard", () => {
     expect(coloursOfModel(estate("#1f5fae")).get("HTTP")).toBe("#1f5fae");
   });
 });
+
+describe("colour priority", () => {
+  const base = {
+    interfaces: [{ flowType: "HTTP" }],
+    flowTypes: [{ type: "HTTP", colour: "" }],
+  };
+
+  it("takes the referential's colour when the workbook declares none", () => {
+    const colours = coloursOfModel({
+      ...base,
+      referentialTechnologies: [{ type: "HTTP", colour: "#b8481f" }],
+    });
+    expect(colours.get("HTTP")).toBe("#b8481f");
+  });
+
+  it("lets a colour typed in the workbook win over the referential", () => {
+    const colours = coloursOfModel({
+      interfaces: [{ flowType: "HTTP" }],
+      flowTypes: [{ type: "HTTP", colour: "#0e7f56" }],
+      referentialTechnologies: [{ type: "HTTP", colour: "#b8481f" }],
+    });
+    expect(colours.get("HTTP")).toBe("#0e7f56");
+  });
+
+  it("falls back on the palette when neither declares one", () => {
+    expect(coloursOfModel(base).get("HTTP")).toBe(PALETTE[0]);
+  });
+
+  it("ignores a referential colour that is not hexadecimal", () => {
+    const colours = coloursOfModel({
+      ...base,
+      referentialTechnologies: [{ type: "HTTP", colour: "blue" }],
+    });
+    expect(colours.get("HTTP")).toBe(PALETTE[0]);
+  });
+});
