@@ -142,16 +142,12 @@ function xmlDuTableau(
   );
 }
 
-function xmlDesRelations(idTable: number, queryTableId?: number): string {
-  const query =
-    queryTableId === undefined
-      ? ""
-      : `<Relationship Id="rId2" Type="${NS_REL}/queryTable" Target="../queryTables/queryTable${queryTableId}.xml"/>`;
+function xmlDesRelations(queryTableId: number): string {
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-    `<Relationship Id="rId1" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>` +
-    `${query}</Relationships>`
+    `<Relationship Id="rId1" Type="${NS_REL}/queryTable" Target="../queryTables/queryTable${queryTableId}.xml"/>` +
+    `</Relationships>`
   );
 }
 
@@ -532,7 +528,9 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         `/xl/tables/table${idTable}.xml`,
         xmlDuTableau(idTable, name, ref, table.columns, table.formulaByColumn, queryTableId)
       );
-      writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, xmlDesRelations(idTable, queryTableId));
+      if (queryTableId !== undefined) {
+        writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, xmlDesRelations(queryTableId));
+      }
       relations.push(`<Relationship Id="rId${relations.length + 1}" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>`);
 
       contentTypes = contentTypes.replace(

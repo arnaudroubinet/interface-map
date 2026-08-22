@@ -176,5 +176,6 @@ describe("query tables", () => {
     );
     expect(readPart(cfb, "/xl/tables/table1.xml")!).not.toContain("queryTable");
     expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
+    expect(XLSX.CFB.find(cfb, "/xl/tables/_rels/table1.xml.rels")).toBeFalsy();
   });
 });
