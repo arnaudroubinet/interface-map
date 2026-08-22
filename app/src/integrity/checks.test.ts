@@ -1309,3 +1309,28 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
   });
 });
 
+
+// --- Le classeur fait foi sur la couleur, mais il doit savoir qu'on a dû la
+// corriger : sinon la teinte à l'écran n'est pas celle qu'il a écrite, et
+// personne ne comprend pourquoi.
+describe("contrôles — couleurs trop claires pour être dessinées", () => {
+  const bloc = (couleur: string) =>
+    runIntegrityChecks(model({ typesFlux: [base.typeFlux({ type: "HTTP", couleur })] })).blocsInformatifs.find(
+      (b) => b.id === "contraste"
+    );
+
+  it("signale une couleur déclarée trop claire pour un trait", () => {
+    expect(bloc("#ffee00")?.items.join(" ")).toContain("HTTP");
+    expect(bloc("#ffee00")?.niveau).toBe("avertissement");
+  });
+
+  it("ne signale rien quand la couleur déclarée passe le seuil", () => {
+    expect(bloc("#1f5fae")?.items).toEqual([]);
+  });
+
+  // Une valeur qui n'est pas une couleur relève des contrôles de vocabulaire,
+  // pas d'ici : la signaler deux fois dirait deux fois la même case.
+  it("ne signale pas une valeur qui n'est pas une couleur", () => {
+    expect(bloc("bleu ciel")?.items).toEqual([]);
+  });
+});

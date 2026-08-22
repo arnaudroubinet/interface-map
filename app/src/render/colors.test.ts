@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { colorForTechnologies, couleursDuModele } from "./colors";
+import { colorForTechnologies, couleursDuModele, PALETTE } from "./colors";
+import { ratioDeContraste } from "./contraste";
 import type { ParsedModel, InterfaceCatalogue, TypeFlux } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
@@ -76,8 +77,10 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
     expect(c.get("HTTP")).toBe("#123456");
   });
 
+  // Teinte assez foncée pour traverser le garde-fou de contraste intacte :
+  // ce test porte sur l'ÉCRITURE acceptée, pas sur la correction de clarté.
   it("accepte l'hexadécimal sans dièse et le normalise", () => {
-    expect(couleursDuModele(parc([["HTTP", "AABBCC"]], ["HTTP"])).get("HTTP")).toBe("#aabbcc");
+    expect(couleursDuModele(parc([["HTTP", "1F5FAE"]], ["HTTP"])).get("HTTP")).toBe("#1f5fae");
   });
 
   it("ignore une valeur qui n'est pas une couleur", () => {
@@ -129,5 +132,37 @@ describe("couleursDuModele — une technologie non déclarée ne prend pas de te
     const avec = couleursDuModele(parc(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
     expect(avec.get("HTTP")).toBe(sans.get("HTTP"));
     expect(avec.get("Kafka")).toBe(sans.get("Kafka"));
+  });
+});
+
+// --- QA : la palette de repli n'avait jamais été jugée comme ENCRE. Cinq
+// teintes sur huit passaient sous 3:1 comme trait, huit sur huit sous 4,5:1
+// comme texte -- et le libellé d'arête s'écrit dans cette couleur.
+describe("la palette de repli est lisible", () => {
+  it("place chaque teinte au-dessus de 4,5:1 sur blanc", () => {
+    for (const c of PALETTE) expect(ratioDeContraste(c, "#ffffff"), c).toBeGreaterThanOrEqual(4.5);
+  });
+
+  // Huit teintes qui passent le contraste mais se ressemblent ne valent rien :
+  // la légende les distingue par le nom, le dessin par la teinte.
+  it("garde les teintes distinctes les unes des autres", () => {
+    expect(new Set(PALETTE).size).toBe(PALETTE.length);
+  });
+});
+
+// --- Le référentiel peut imposer n'importe quelle teinte. Un jaune clair
+// déclaré au classeur produisait un trait invisible, sans un mot.
+describe("couleursDuModele — garde-fou de contraste", () => {
+  const parc = (couleur: string) => ({
+    interfaces: [{ typeDeFlux: "HTTP" }],
+    typesFlux: [{ type: "HTTP", couleur }],
+  });
+
+  it("assombrit une couleur déclarée illisible plutôt que de la dessiner telle quelle", () => {
+    expect(ratioDeContraste(couleursDuModele(parc("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
+  });
+
+  it("respecte telle quelle une couleur déclarée qui passe le seuil", () => {
+    expect(couleursDuModele(parc("#1f5fae")).get("HTTP")).toBe("#1f5fae");
   });
 });

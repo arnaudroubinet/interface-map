@@ -24,6 +24,8 @@ import {
   type InterfaceLookup,
 } from "../aggregation/core";
 import { intervalleDeVie, estVivant, seRencontrent, TOUJOURS, type Intervalle } from "../aggregation/paliers";
+import { HEXA, SEUIL_TRAIT } from "../render/colors";
+import { ratioDeContraste } from "../render/contraste";
 import { LONGUEUR_MAX_ONGLET } from "../parsing/build-model";
 import { estActeurTechnique } from "../aggregation/nature";
 import {
@@ -933,6 +935,31 @@ function typesFluxInutilises(model: ParsedModel): InfoBlock {
   };
 }
 
+// Une couleur trop claire est CORRIGÉE à l'affichage pour que le trait reste
+// visible. Le classeur doit l'apprendre ici : sinon la teinte à l'écran n'est
+// pas celle qu'il a écrite, et rien ne l'explique.
+function couleursIllisibles(model: ParsedModel): InfoBlock {
+  const items: string[] = [];
+  for (const t of model.typesFlux) {
+    const déclarée = HEXA.exec(t.couleur.trim());
+    if (!déclarée) continue;
+    const hex = `#${déclarée[1].toLowerCase()}`;
+    const ratio = ratioDeContraste(hex, "#ffffff");
+    if (ratio < SEUIL_TRAIT) {
+      items.push(
+        `${t.type} ${adresse(t)}: colour ${hex} only reaches ${ratio.toFixed(2)}:1 on white; it is darkened on screen so the line stays visible.`
+      );
+    }
+  }
+  return {
+    id: "contraste",
+    titre: "Colours too light to draw",
+    description: "A declared colour is darkened on screen so the line remains visible.",
+    items,
+    niveau: "avertissement",
+  };
+}
+
 function interfacesAConfirmer(model: ParsedModel): InfoBlock {
   return {
     id: "a-confirmer",
@@ -1061,6 +1088,8 @@ export function runIntegrityChecks(model: ParsedModel, rang: number | null = nul
     echangesRepetes(auPalier),
     cyclesDeDependance(auPalier),
     typesFluxInutilises(auPalier),
+    // Une couleur ne dépend d'aucun palier : le classeur entier.
+    couleursIllisibles(model),
     groupesUtilises(auPalier),
   ];
   const totalAnomalies = familles.reduce((sum, f) => sum + f.anomalies.length, 0);
