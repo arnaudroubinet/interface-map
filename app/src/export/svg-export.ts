@@ -16,6 +16,12 @@ export function serializeSvg(svg: SVGSVGElement, backgroundColor: string): strin
   background.setAttribute("fill", backgroundColor);
   clone.insertBefore(background, clone.firstChild);
 
+  // Le schéma affiché ne porte que son viewBox, pour tenir dans la fenêtre. Le
+  // FICHIER, lui, doit dire sa taille : sans width ni height, un .svg s'ouvre à
+  // une dimension arbitraire dans Word ou PowerPoint.
+  clone.setAttribute("width", width);
+  clone.setAttribute("height", height);
+
   return new XMLSerializer().serializeToString(clone);
 }
 

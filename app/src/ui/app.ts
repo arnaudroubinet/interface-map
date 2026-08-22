@@ -20,6 +20,7 @@ import { computeLayout, restreindreLayout, type LayoutResult } from "../layout/g
 import { toutesLesPlanches } from "../aggregation/planches";
 import { buildGraphSvg } from "../render/svg-builder";
 import type { ContexteSchema } from "../render/cartouche";
+import { brancherZoom } from "../render/zoom";
 import type { Lecture } from "../aggregation/fonctionnel";
 import { lectureUnion } from "../aggregation/fonctionnel";
 import type { ViewResult } from "../aggregation/views";
@@ -71,6 +72,23 @@ import {
   type Vue,
 } from "./state";
 
+
+// Les trois commandes de cadrage, posées sous le schéma : « Fit » ramène au
+// cadre complet, les deux autres zooment autour du centre. Elles vivent ici et
+// non dans le bandeau parce qu'elles pilotent CE schéma-là, qui vient d'être
+// construit.
+function construireCommandesZoom(commandes: { ajuster: () => void; zoomer: (f: number) => void }): HTMLElement {
+  const barre = el("div", { class: "commandes-zoom" });
+  const bouton = (libellé: string, titre: string, action: () => void) => {
+    const b = el("button", { type: "button", title: titre }, [libellé]);
+    b.addEventListener("click", action);
+    barre.appendChild(b);
+  };
+  bouton("Fit", "Fit the whole board", commandes.ajuster);
+  bouton("−", "Zoom out", () => commandes.zoomer(1 / 1.3));
+  bouton("+", "Zoom in", () => commandes.zoomer(1.3));
+  return barre;
+}
 
 // Ce que le schéma dira de lui-même. Tout vient de l'état : la vue, la
 // lecture, le palier affiché, le nom du fichier et sa date de sauvegarde --
@@ -428,7 +446,9 @@ export function mountApp(root: HTMLElement): void {
           .then((union) => {
             if (génération !== générationRendu) return;
             const positioned = restreindreLayout(union, vueDuCalcul);
-            zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul)));
+            const svg = buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul));
+            zoneRendu.appendChild(svg);
+            zoneRendu.appendChild(construireCommandesZoom(brancherZoom(svg)));
             // Les boutons d'export dépendent de la présence du SVG, qui
             // n'existait pas encore au moment du rendu du bandeau.
             renderBanner(bandeau, state, true, exportHandlers);

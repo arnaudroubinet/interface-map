@@ -8,7 +8,7 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
     const width = Number(svg.getAttribute("width")) || svg.viewBox.baseVal.width;
     const height = Number(svg.getAttribute("height")) || svg.viewBox.baseVal.height;
     if (!width || !height) {
-      return { ok: false, error: "Dimensions du schéma indisponibles." };
+      return { ok: false, error: "The diagram has no usable size." };
     }
 
     const source = serializeSvg(svg, backgroundColor);

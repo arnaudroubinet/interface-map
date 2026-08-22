@@ -4,6 +4,7 @@ import { buildGraphSvg } from "./svg-builder";
 import { styleDuNoeud } from "./styles-noeud";
 import { computeLayout, taillePastille } from "../layout/graph-layout";
 import { ratioDeContraste } from "./contraste";
+import { serializeSvg } from "../export/svg-export";
 import { colorForTechnologies } from "./colors";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "../layout/graph-layout";
@@ -952,5 +953,32 @@ describe("buildGraphSvg — la forme redit ce que la couleur dit", () => {
   it("laisse le trait d'un ajout plein", async () => {
     const svg = buildGraphSvg(await parc({}, {}, { ecart: "ajout" }), () => "#111");
     expect(svg.querySelector(".fx-aretes path")?.getAttribute("stroke-dasharray")).toBeNull();
+  });
+});
+
+// --- §2.9 : le SVG portait ses dimensions en dur, donc débordait de sa zone --
+// 47 % visible sur le classeur d'exemple -- sans aucun moyen de le ramener.
+describe("buildGraphSvg — la taille du schéma", () => {
+  const parc = async () =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "groupe" }, { id: "B", label: "B", kind: "groupe" }],
+      [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false }]
+    );
+
+  it("ne pose pas de dimensions absolues sur le schéma affiché", async () => {
+    const svg = buildGraphSvg(await parc(), () => "#111");
+    expect(svg.getAttribute("viewBox")).not.toBeNull();
+    expect(svg.getAttribute("width")).toBeNull();
+    expect(svg.getAttribute("height")).toBeNull();
+  });
+
+  // Le FICHIER doit dire sa taille : sans width ni height, un .svg s'ouvre à
+  // une dimension arbitraire dans Word ou PowerPoint.
+  it("repose les dimensions dans le fichier exporté, depuis le viewBox", async () => {
+    const svg = buildGraphSvg(await parc(), () => "#111");
+    const [, , l, h] = svg.getAttribute("viewBox")!.split(/\s+/);
+    const texte = serializeSvg(svg, "#ffffff");
+    expect(texte).toContain(`width="${l}"`);
+    expect(texte).toContain(`height="${h}"`);
   });
 });

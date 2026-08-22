@@ -739,9 +739,11 @@ export function buildGraphSvg(
   // qu'on l'ouvrait seul, alors que les largeurs d'étiquettes sont calibrées
   // pour cette pile-là.
   svg.setAttribute("font-family", POLICE);
+  // Le viewBox SEUL : posées en dur, les dimensions faisaient déborder le
+  // schéma de sa zone -- 47 % visible sur le classeur d'exemple -- sans aucun
+  // moyen de le ramener. Le fichier EXPORTÉ, lui, les repose (serializeSvg) :
+  // un .svg sans width ni height s'ouvre à une taille arbitraire dans Word.
   svg.setAttribute("viewBox", `${bornes.x0} ${bornes.y0} ${largeur} ${hauteur}`);
-  svg.setAttribute("width", String(largeur));
-  svg.setAttribute("height", String(hauteur));
 
   // Le patron d'accessibilité n°11 de l'étude Deque, le plus fiable des douze
   // testés sur l'ensemble navigateurs x lecteurs d'écran. Deux exigences :

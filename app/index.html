@@ -189,6 +189,15 @@
     background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
     background-size: 20px 20px;
   }
+  /* Le SVG ne porte plus ses dimensions : il s'étire dans sa zone plutôt que
+     d'en déborder. */
+  .zone-rendu > svg { display: block; width: 100%; height: auto; max-height: 100%; }
+  .commandes-zoom { display: flex; gap: 6px; margin-top: 8px; }
+  .commandes-zoom button {
+    font: inherit; padding: 2px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--surface); color: var(--text);
+  }
   .cible-depot {
     border: 2px dashed var(--line); border-radius: 8px; height: 100%;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
