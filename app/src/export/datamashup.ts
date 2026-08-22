@@ -16,6 +16,8 @@
 // Depart from any of the three and Excel reports a damaged file, or opens it
 // with no queries at all.
 
+import * as XLSX from "xlsx";
+
 export interface ReferentialUrls {
   // Where the actors are published. Empty means "this workbook has none",
   // which is an ordinary state, not a fault.
@@ -242,3 +244,85 @@ export const CUSTOM_XML_PROPS =
   `xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml">` +
   `<ds:schemaRefs><ds:schemaRef ds:uri="http://schemas.microsoft.com/DataMashup"/>` +
   `</ds:schemaRefs></ds:datastoreItem>`;
+
+async function inflateRaw(bytes: Uint8Array): Promise<Uint8Array> {
+  const stream = new Blob([bytes as BlobPart]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+// One entry out of a zip, walking the central directory rather than the local
+// headers: Excel writes data descriptors, which make the local header's sizes
+// unusable.
+async function entryOfZip(zip: Uint8Array, path: string): Promise<Uint8Array | null> {
+  if (zip.length < 22) return null;
+  const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  let end = -1;
+  for (let i = zip.length - 22; i >= 0; i--) {
+    if (view.getUint32(i, true) === 0x06054b50) { end = i; break; }
+  }
+  if (end < 0) return null;
+
+  const count = view.getUint16(end + 10, true);
+  let cursor = view.getUint32(end + 16, true);
+  const decoder = new TextDecoder();
+  for (let i = 0; i < count && cursor + 46 <= zip.length; i++) {
+    const method = view.getUint16(cursor + 10, true);
+    const packedSize = view.getUint32(cursor + 20, true);
+    const nameLength = view.getUint16(cursor + 28, true);
+    const extraLength = view.getUint16(cursor + 30, true);
+    const commentLength = view.getUint16(cursor + 32, true);
+    const local = view.getUint32(cursor + 42, true);
+    const name = decoder.decode(zip.subarray(cursor + 46, cursor + 46 + nameLength));
+    if (name === path) {
+      const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+      const packed = zip.subarray(start, start + packedSize);
+      return method === 0 ? packed : await inflateRaw(packed);
+    }
+    cursor += 46 + nameLength + extraLength + commentLength;
+  }
+  return null;
+}
+
+// The URL a given query fetches. The literal doubles its quotes, so the
+// expression stops at the first quote NOT followed by another.
+function urlOfQuery(section: string, name: string): string {
+  const match = new RegExp(`shared\\s+${name}\\s*=[\\s\\S]*?Web\\.Contents\\(\\s*"((?:[^"]|"")*)"`).exec(section);
+  return match ? match[1].replace(/""/g, '"') : "";
+}
+
+// The two URLs a deposited workbook already carries, so the page can show them
+// instead of asking for them again. A workbook without a referential, or whose
+// stream this module cannot make sense of, simply carries none: the URL is a
+// convenience, and refusing to open the file over it would be out of
+// proportion.
+export async function readReferentialUrls(bytes: ArrayBuffer): Promise<ReferentialUrls> {
+  try {
+    const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
+    const part = XLSX.CFB.find(cfb, "/customXml/item1.xml");
+    if (!part || !part.content) return NO_REFERENTIAL;
+
+    const text = new TextDecoder("utf-16le").decode(new Uint8Array(part.content as unknown as ArrayBufferLike));
+    const encoded = /<DataMashup[^>]*>([A-Za-z0-9+/=\s]+)<\/DataMashup>/.exec(text);
+    if (!encoded) return NO_REFERENTIAL;
+
+    const binary = atob(encoded[1].replace(/\s+/g, ""));
+    const stream = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) stream[i] = binary.charCodeAt(i);
+    if (stream.length < 8) return NO_REFERENTIAL;
+
+    const view = new DataView(stream.buffer);
+    const partsLength = view.getUint32(4, true);
+    if (8 + partsLength > stream.length) return NO_REFERENTIAL;
+
+    const section = await entryOfZip(stream.subarray(8, 8 + partsLength), "Formulas/Section1.m");
+    if (!section) return NO_REFERENTIAL;
+
+    const source = new TextDecoder().decode(section);
+    return {
+      actors: urlOfQuery(source, MASHUP_QUERIES[0]),
+      technologies: urlOfQuery(source, MASHUP_QUERIES[1]),
+    };
+  } catch {
+    return NO_REFERENTIAL;
+  }
+}
