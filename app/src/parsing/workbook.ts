@@ -10,26 +10,26 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
 
   const sheets: RawSheet[] = wb.SheetNames.map((name) => {
     const sheet = wb.Sheets[name];
-    // blankrows : on garde les lignes vides le temps de numéroter, puis on les
-    // écarte. Sans elles, l'indice se décalerait dès la première ligne sautée
-    // et tous les numéros suivants seraient faux.
+    // blankrows: the empty rows are kept long enough to number them, then
+    // dropped. Without them the index would shift from the first skipped row
+    // on, and every following number would be wrong.
     const brutes = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
       defval: "",
       raw: false,
       blankrows: true,
     });
-    // La première ligne de données suit l'en-tête, lui-même au début de la
-    // plage réelle de la feuille -- qui ne commence pas toujours en A1.
+    // The first data row follows the header, itself at the start of the sheet's
+    // real range -- which does not always begin at A1.
     const start = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
     const rows: RawRow[] = brutes
       .map((values, i) => ({ row: start + 2 + i, values }))
       .filter((r) => Object.values(r.values).some((v) => (v ?? "").toString().trim() !== ""));
     const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false })[0];
-    // Array.from, pas .map : sheet_to_json renvoie un tableau creux quand une
-    // cellule d'en-tête est vide (ex. colonne intercalaire sans nom) — .map
-    // saute les trous et les laisse dans le résultat, ce que find() (headers.ts)
-    // visite ensuite comme `undefined` et fait planter normalizeText().
-    // Array.from(iterable, fn) visite chaque index, trous compris.
+    // Array.from, not .map: sheet_to_json returns a sparse array when a header
+    // cell is empty (e.g. an unnamed spacer column) — .map skips the holes and
+    // leaves them in the result, which find() (headers.ts) then visits as
+    // `undefined` and crashes normalizeText() on.
+    // Array.from(iterable, fn) visits every index, holes included.
     const headers = Array.from(headerRow ?? [], (h) => (h ?? "").toString());
     return { name, headers, rows };
   });

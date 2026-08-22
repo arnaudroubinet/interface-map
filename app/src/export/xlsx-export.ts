@@ -3,9 +3,9 @@ import { downloadWorkbook } from "./download";
 import type { MatrixResult } from "../aggregation/views";
 import { cellLabel } from "../aggregation/core";
 
-// La matrix telle qu'elle est lue à l'écran -- c'est le même objet, déjà
-// élagué : une ligne par émetteur, une colonne par destinataire, et dans la
-// case les technologies du lien.
+// The matrix as it is read on screen -- it is the same object, already pruned:
+// one row per sender, one column per receiver, and in the cell the link's
+// technologies.
 function matrixGrid(matrix: MatrixResult): string[][] {
   const header = ["From \\ To", ...matrix.columns];
   const rows = matrix.rows.map((row) => [
@@ -19,8 +19,8 @@ function matrixGrid(matrix: MatrixResult): string[][] {
   return [header, ...rows];
 }
 
-// Le même contenu à plat. Excel ne sait rien faire d'une grille creuse : c'est
-// cette feuille-là qu'on trie et qu'on met en tableau croisé.
+// The same content, flattened. Excel can do nothing with a sparse grid: it is
+// that sheet one sorts and pivots.
 function flowList(matrix: MatrixResult): (string | number)[][] {
   const rows: (string | number)[][] = [["From", "To", "Technology", "Count", "Attenuated"]];
   for (const row of matrix.rows) {
@@ -39,19 +39,19 @@ function widths(grille: string[][]): { wch: number }[] {
   );
 }
 
-// Séparé du téléchargement : c'est la partie qui décide du contenu, donc la
-// seule qui vaille d'être testée. Le reste n'est que du DOM.
+// Separated from the download: this is the part that decides the content,
+// hence the only one worth testing. The rest is nothing but DOM.
 export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
   const grille = matrixGrid(matrix);
   const matrixSheet = XLSX.utils.aoa_to_sheet(grille);
   matrixSheet["!cols"] = widths(grille);
-  // Pas de volets figés : SheetJS en édition communautaire n'écrit pas la
-  // balise <pane>, on l'a vérifié sur le fichier produit. Ce qu'il écrit
-  // vraiment, ce sont les largeurs de colonnes et l'autofiltre -- c'est donc
-  // sur ceux-là qu'on s'appuie, et sur la feuille « Flux », qui est celle
-  // qu'on trie réellement dans Excel.
+  // No frozen panes: SheetJS in its community edition does not write the <pane>
+  // tag, as verified on the produced file. What it really writes is column
+  // widths and the autofilter -- so those are what is relied on, along with the
+  // "Flux" sheet, which is the one actually sorted in Excel.
+  //
   matrixSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: grille[0].length - 1 } }) };
   XLSX.utils.book_append_sheet(wb, matrixSheet, "Matrix");
 

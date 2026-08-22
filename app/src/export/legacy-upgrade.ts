@@ -4,26 +4,26 @@ import { FLOW_TYPES, LISTES, type WorkbookData } from "./template-export";
 import { MILESTONE_ORIGIN } from "./schema-upgrade";
 import { expectedFxSheet } from "../parsing/build-model";
 
-// Convertit un classeur au format d'origine vers le format actuel.
+// Converts a workbook in the original format to the current one.
 //
-// Les deux modèles ne disent pas la même chose. L'origine décrit UN LIEN entre
-// deux composants ; le format actuel décrit une interface EXPOSÉE une fois et
-// CONSOMMÉE par plusieurs. La conversion transpose ce qui se déduit, et laisse
-// vide ce qui ne s'invente pas -- les contrôles d'intégrité pointent alors
-// exactement ce qu'il reste à saisir, plutôt qu'un classeur d'apparence
-// complète et faux.
+// The two models do not say the same thing. The original describes A LINK
+// between two components; the current format describes an interface PUBLISHED
+// once and CONSUMED by several. The conversion transposes what can be deduced,
+// and leaves empty what cannot be invented -- the integrity checks then point
+// at exactly what is left to fill in, rather than a workbook that looks
+// complete and is wrong.
 
 const FLOWS_SHEET = "Flux";
 const COMPONENTS_SHEET = "Composants";
 
-// La colonne « Statut » du format d'origine porte en réalité la DÉCISION, et
-// sans accents. On ne transcrit pas une table de correspondance relevée sur un
-// fichier : on retrouve la valeur dans le vocabulaire actuel en comparant à la
-// normalisation près. Ce qui ne s'y retrouve pas reste vide, et la complétude
-// le signale -- plutôt que d'inventer une équivalence.
-// Le format d'origine parle français ; notre vocabulaire est en anglais depuis
-// le schéma v3. La correspondance est donc explicite -- une comparaison de
-// chaînes ne pouvait plus rien retrouver.
+// The original format's "Statut" column actually carries the DECISION, and
+// without accents. No mapping table taken from one file is transcribed: the
+// value is found again in the current vocabulary by comparing up to
+// normalisation. What is not found stays empty, and completeness reports it --
+// rather than an equivalence being invented.
+// The original format speaks French; our vocabulary has been English since
+// schema v3. The mapping is therefore explicit -- a string comparison could no
+// longer find anything.
 const DECISION_LEGACY: [string, string][] = [
   ["À conserver", "Keep"],
   ["À creuser", "Investigate"],
@@ -35,7 +35,7 @@ function currentDecision(value: string): string {
   const sought = normalizeText(value);
   if (!sought) return "";
   const found = DECISION_LEGACY.find(([fr]) => normalizeText(fr) === sought)?.[1];
-  // Une valeur déjà écrite dans le vocabulaire courant passe aussi.
+  // A value already written in the current vocabulary passes too.
   return found ?? LISTES.Decision.find((d) => normalizeText(d) === sought) ?? "";
 }
 
@@ -62,17 +62,17 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   const links = sheet(wb, FLOWS_SHEET);
   if (links.length === 0) throw new Error(`aucune sheet "${FLOWS_SHEET}" exploitable`);
 
-  // Les types réellement employés, et non la liste d'origine : celle-ci empile
-  // technologies et décisions dans la même colonne.
+  // The types actually used, not the original list: that one piles technologies
+  // and decisions into the same column.
   const usedTypes = [...new Set(links.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
   const unknownTypes = usedTypes.filter((t) => !knownDirection(t));
 
-  // Les composants déclarés, puis ceux que seuls les flux citent. Dans les
-  // fichiers réels, l'onglet Composants n'est pas tenu à jour : on ne perd pas
-  // les acteurs pour autant, on les crée sans groupe -- ce qu'un contrôle
-  // d'intégrité signale aussitôt.
+  // The declared components, then those only the flows name. In real files, the
+  // Composants sheet is not kept up to date: the actors are not lost for all
+  // that, they are created with no group -- which an integrity check reports at
+  // once.
   const actors: string[][] = [];
   const known = new Set<string>();
   for (const c of sheet(wb, COMPONENTS_SHEET)) {
@@ -94,7 +94,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
 
   const groups = [...new Set(actors.map((a) => a[1]).filter(Boolean))]
     .sort((a, b) => a.localeCompare(b, "fr"))
-    // Le périmètre n'existe pas dans le format d'origine : à saisir.
+    // The perimeter does not exist in the original format: to be filled in.
     .map((name) => [name, ""]);
 
   const interfaces: string[][] = [];
@@ -107,9 +107,9 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
     const flowName = text(link["Nom du flux"]);
     if (!source || !target || !flowName) continue;
 
-    // Le sens du type décide qui expose : pour Kafka ou JMS on représente la
-    // poussée du producteur, donc la source expose ; partout ailleurs c'est
-    // l'appelant qui consomme, et la cible expose.
+    // The type's direction decides who publishes: for Kafka or JMS the
+    // producer's push is represented, so the source publishes; everywhere else
+    // it is the caller that consumes, and the target publishes.
     const toConsumer = knownDirection(type) === "provider → consumer";
     const provider = toConsumer ? source : target;
     const consumer = toConsumer ? target : source;
@@ -117,15 +117,15 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
     const contract = text(link["Emplacement du contrat"]);
     interfaces.push([
       flowName,
-      // Le format d'origine ne connaît pas les versions de contrat : on laisse
-      // vide plutôt que d'inventer. Une version vide reste une version, le
-      // rattachement des consommations fonctionne donc à l'identique.
+      // The original format knows nothing of contract versions: it is left empty
+      // rather than invented. An empty version is still a version, so matching
+      // consumptions works identically.
       "",
       provider,
       type,
       text(link["Description"]),
-      // Le format d'origine ne distingue pas le lien de la référence : ce champ
-      // contient aussi bien une URL qu'un intitulé, on le range en référence.
+      // The original format does not tell the link from the reference: this field
+      // holds a URL as readily as a heading, so it is filed as a reference.
       "",
       contract,
       text(link["Commentaires"]),
@@ -134,50 +134,50 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
       "",
     ]);
 
-    // feuilleFxAttendue assainit le nom : plus aucun type de flux ne peut
-    // produire un onglet qu'Excel refuserait, donc plus aucune consommation
-    // n'est abandonnée en route.
+    // feuilleFxAttendue sanitises the name: no flow type can produce a sheet
+    // Excel would refuse any more, so no consumption is abandoned along the
+    // way.
     const tab = expectedFxSheet(provider, type);
     const rows = fx.get(tab) ?? [];
     rows.push([
       flowName,
       "",
       consumer,
-      // L'usage et la criticité n'existent pas dans le format d'origine.
+      // Usage and criticality do not exist in the original format.
       "",
       "",
       currentDecision(text(link["Statut"])),
       "",
-      // Le format d'origine ne connaît ni acteur technique ni republication :
-      // la colonne existe, elle reste vide, et la complétude la réclamera si
-      // l'équipe adopte la distinction.
+      // The original format knows neither technical actor nor republication: the
+      // column exists, it stays empty, and completeness will ask for it if the
+      // team adopts the distinction.
       "",
       MILESTONE_ORIGIN,
-      // Le format d'origine ne date aucun départ : même « À supprimer » ne dit
-      // que l'intention, et c'est une décision, pas un palier de retrait.
+      // The original format dates no departure: even "À supprimer" states only
+      // the intent, and that is a decision, not a retirement milestone.
       "",
     ]);
     fx.set(tab, rows);
   }
 
-  // Une feuille Flux non vide ne dit rien de plus qu'un tableau lu : si aucune
-  // colonne reconnue n'y correspond, aucune interface n'en sort. Des acteurs
-  // sans la moindre interface ne sont pas une cartographie -- juste une liste
-  // d'applications qui a l'air d'un résultat. Rendre ça en silence serait le
-  // pire des silences.
+  // A non-empty Flux sheet says no more than a table that was read: if no
+  // recognised column matches it, no interface comes out of it. Actors without a
+  // single interface are not a cartography -- just a list of applications that
+  // looks like a result. Returning that in silence would be the worst silence of
+  // all.
   if (interfaces.length === 0) {
     throw new Error("nothing recognisable in the original format: no flow could be recovered");
   }
 
   return {
     data: {
-      // Le format d'origine ne déclare ni types de flux ni types d'acteur :
-      // l'amorce fait foi, et les contrôles diront ce qui manque.
+      // The original format declares neither flow types nor actor types: the seed
+      // is authoritative, and the checks will say what is missing.
       flowTypes: [],
       actorTypes: [],
-      // Le format d'origine n'a aucune chronologie : tout ce qu'il contient
-      // existait à la bascule, et il n'annonce aucune suite -- un seul palier
-      // suffit donc à le porter.
+      // The original format has no chronology: everything it holds existed at the
+      // switch, and it announces no sequel -- so a single milestone is enough to
+      // carry it.
       milestones: [
         [MILESTONE_ORIGIN, "1", "Initial state", "Delivered", dateMigration.toISOString().slice(0, 10), "Taken from the original workbook."],
       ],

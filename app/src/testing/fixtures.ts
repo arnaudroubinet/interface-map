@@ -11,21 +11,21 @@ import type {
 } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
-// Les fabriques des tests, en un seul endroit.
+// The tests' factories, in one place.
 //
-// Ce ne sont pas des jeux d'essai : ce sont les littéraux EXHAUSTIFS des types
-// du modèle. Chaque fichier de tests en portait sa copie -- douze fichiers,
-// quatorze copies -- si bien qu'ajouter un champ à Consommation coûtait
-// quarante-cinq erreurs de compilation, dont quarante-deux dans des tests qui
-// ne s'intéressaient pas à ce champ. Ici, cela en coûte une.
+// These are not test fixtures: they are the EXHAUSTIVE literals of the model's
+// types. Every test file used to carry its own copy -- twelve files, fourteen
+// copies -- so that adding a field to Consumption cost forty-five compilation
+// errors, forty-two of them in tests that had no interest in that field. Here
+// it costs one.
 //
-// Les défauts sont NEUTRES, et volontairement pauvres : un fichier qui a besoin
-// d'autre chose -- un groupe nommé « Socle », un palier d'arrivée -- enveloppe
-// la fabrique plutôt que de la modifier. Changer un défaut ici changerait le
-// sens de tests écrits ailleurs, ce qui est exactement le piège qu'on fuit.
+// The defaults are NEUTRAL, and deliberately poor: a file that needs something
+// else -- a group named "Socle", an arrival milestone -- wraps the factory
+// rather than modifying it. Changing a default here would change the meaning
+// of tests written elsewhere, which is exactly the trap being avoided.
 //
-// N'est jamais embarquée dans le livrable : le point d'entrée est src/main.ts,
-// et rien de ce qui en dépend n'importe ce fichier.
+// Never embedded in the deliverable: the entry point is src/main.ts, and
+// nothing that depends on it imports this file.
 
 export function actor(o: Partial<Actor> = {}): Actor {
   return {
@@ -119,9 +119,9 @@ export function consumption(o: Partial<Consumption> = {}): Consumption {
   };
 }
 
-// Le modèle vide, sur lequel tout se construit par surcharge. Vide et non
-// « minimal viable » : un test qui a besoin d'un acteur le dit, et le lecteur
-// voit alors dans le test tout ce qui compte pour lui.
+// The empty model, which everything is built on by override. Empty and not
+// "minimal viable": a test that needs an actor says so, and the reader then
+// sees in the test everything that matters to it.
 export function template(o: Partial<ParsedModel> = {}): ParsedModel {
   return {
     actors: [],
@@ -140,8 +140,8 @@ export function template(o: Partial<ParsedModel> = {}): ParsedModel {
   };
 }
 
-// Une matrix de test, ses marges calculées comme le fait buildMatrixView : un
-// test qui poserait des totaux à la main pourrait affirmer n'importe quoi.
+// A test matrix, its margins computed the way buildMatrixView does: a test
+// that set totals by hand could assert anything at all.
 export function matrix(o: { columns: string[]; rows: MatrixRow[] }): MatrixResult {
   const total = (cells: MatrixCell[]) => cells.reduce((n, c) => n + c.count, 0);
   return {

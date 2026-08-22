@@ -16,65 +16,65 @@ import { matchesSheetName, hasPrefix, findHeader } from "./headers";
 import { normalizeText } from "../shared/text";
 
 const FORBIDDEN_CHARACTERS = /[:\\/?*[\]]/;
-// Les mêmes, un par un : la formule Excel des tables d'appoint doit refaire cet
-// assainissement à l'identique, et une expression régulière ne s'y écrit pas.
+// The same, one by one: the helper tables' Excel formula must reproduce this
+// sanitising identically, and a regular expression cannot be written there.
 export const FORBIDDEN_TAB_CHARACTERS = [":", "\\", "/", "?", "*", "[", "]"];
 export const REMPLACEMENT_ONGLET = "-";
 export const MAX_TAB_LENGTH = 31;
 
-// L'état appartient au FLUX, pas au composant : un acteur n'a plus de statut.
-// Le porter des deux côtés faisait qu'un acteur marqué décommissionné éteignait
-// silencieusement des flux pourtant déclarés actifs.
+// The state belongs to the FLOW, not to the component: an actor no longer has
+// a status. Carrying it on both sides meant an actor marked decommissioned
+// silently extinguished flows that were declared active.
 export const MILESTONE_COLUMNS = ["Milestone", "Rank", "Label", "Status", "Date", "Description"];
-// Les deux bornes de validité, ajoutées telles quelles à chaque feuille qui
-// porte des objets datables. Déclarées une fois : elles doivent rester
-// identiques d'une feuille à l'autre, sinon les contrôles temporels liraient
-// des colonnes différentes selon l'objet.
+// The two validity bounds, added as they are to every sheet carrying datable
+// objects. Declared once: they must stay identical from one sheet to the next,
+// otherwise the temporal checks would read different columns depending on the
+// object.
 export const VALIDITY_COLUMNS = ["Introduced at", "Retired at"];
 
-// Colonnes du format d'origine que le format actuel ne produit plus : l'axe des
-// paliers dit la même chose, en mieux. Elles restent LUES, et seulement lues,
-// pour que la mise à niveau sache quoi convertir. Elles ne figurent dans aucun
-// COLONNES_*, donc ni le modèle vierge ni aucun classeur produit ne les porte,
-// et leur absence n'est jamais signalée.
+// Columns of the original format that the current one no longer produces: the
+// milestone axis says the same thing, better. They are still READ, and only
+// read, so the upgrade knows what to convert. They appear in no COLUMNS_*, so
+// neither the blank template nor any produced workbook carries them, and their
+// absence is never reported.
 export const LEGACY_STATE_COLUMN = "État";
 export const LEGACY_STATUS_COLUMN = "Statut";
 
 export const ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description", "Comments", ...VALIDITY_COLUMNS];
 
 export const GROUP_COLUMNS = ["Group", "Perimeter"];
-// « Aperçu » est une colonne calculée du classeur, pas une donnée : le modèle y
-// met une formule qui affiche l'icône choisie. Le parseur l'ignore.
+// "Preview" is a calculated column of the workbook, not data: the template
+// puts a formula there showing the chosen icon. The parser ignores it.
 export const ACTOR_TYPE_COLUMNS = ["Actor type", "Icon", "Nature"];
 export const ICON_PREVIEW_COLUMN = "Preview";
 export const FLOW_TYPE_COLUMNS = ["Flow type", "Direction", "Description"];
 export const INTERFACE_COLUMNS = ["Flow name", "Version", "Provider", "Flow type", "Description", "Contract link", "Contract reference", "Comments", "To confirm", ...VALIDITY_COLUMNS];
-// « Republished as » porte la lecture fonctionnelle du côté où l'information
-// existe déjà. Un acteur technique consomme un flux et le republie sous l'une de
-// SES interfaces : c'est cette ligne de consommation qui sait de quel
-// fournisseur et de quelle version il s'agit. Une valeur par ligne -- donc une
-// liste déroulante ordinaire, là où la colonne Relays de la v3, qui nommait
-// plusieurs sources dans une seule case, n'en admettait aucune.
+// "Republished as" carries the functional reading on the side where the
+// information already exists. A technical actor consumes a flow and republishes
+// it under one of ITS interfaces: it is that consumption row that knows which
+// provider and which version are involved. One value per row -- hence an
+// ordinary drop-down, where v3's Relays column, which named several sources in
+// a single cell, allowed none.
 export const REPUBLICATION_COLUMN = "Republished as";
-// Portait la lecture fonctionnelle en v3, sur la ligne d'interface.
+// Carried the functional reading in v3, on the interface row.
 const LEGACY_RELAY_COLUMN = "Relays";
-// La couleur des technologies vient du référentiel externe. La colonne n'est
-// pas au schéma : lue si elle est là, ignorée sinon -- un classeur qui ne l'a
-// pas n'est pas en défaut, il s'en remet à la palette.
+// The technologies' colour comes from the external referential. The column is
+// not in the schema: read if present, ignored otherwise -- a workbook without
+// it is not at fault, it falls back on the palette.
 const FLOW_COLOUR_COLUMNS = ["Colour", "Color", "Couleur"];
 export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Criticality for this consumer", "Decision", "Comments", REPUBLICATION_COLUMN, ...VALIDITY_COLUMNS];
 
-// Numéro de schéma du classeur, écrit dans un onglet masqué. Un entier
-// monotone, pas un semver : il ne sert qu'à savoir quelles transformations
-// appliquer, et dans quel ordre.
+// The workbook's schema number, written on a hidden sheet. A monotonic
+// integer, not a semver: it serves only to know which transformations to
+// apply, and in what order.
 export const SCHEMA_VERSION = 4;
 export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 
-// Absence d'onglet, onglet vide ou valeur illisible : version 0, c'est-à-dire
-// « antérieur au versionnement ». On ne devine rien de plus -- la mise à
-// niveau saura quoi faire, et se tromper vers le haut ferait lire un classeur
-// avec des colonnes qu'il n'a pas.
+// A missing sheet, an empty sheet or an unreadable value: version 0, that is,
+// "before versioning". Nothing more is guessed -- the upgrade will know what to
+// do, and erring upwards would mean reading a workbook with columns it does
+// not have.
 function readSchemaVersion(sheets: RawSheet[]): number {
   const sheet = sheets.find((s) => matchesSheetName(s.name, VERSION_SHEET));
   if (!sheet) return 0;
@@ -107,9 +107,9 @@ function rowHasContent(row: Record<string, string>, headerMap: Map<string, strin
   return columns.some((c) => get(row, headerMap, c) !== "");
 }
 
-// Les deux normalisations acceptent encore l'écriture de la v2 : un classeur
-// v2 doit se lire correctement pour se convertir, et ces deux valeurs sont
-// interprétées dès la lecture, pas au moment de la conversion.
+// Both normalisations still accept v2's spelling: a v2 workbook must read
+// correctly in order to be converted, and these two values are interpreted at
+// read time, not at conversion time.
 function normDirection(raw: string): "provider-to-consumer" | "consumer-to-provider" {
   const v = normalizeText(raw);
   const toConsumer = v.startsWith(normalizeText("provider")) || v.startsWith(normalizeText("exposant"));
@@ -128,30 +128,30 @@ function validity(row: Record<string, string>, headerMap: Map<string, string>): 
   };
 }
 
-// Ce qu'Excel accepte comme nom d'onglet, pas une règle à nous : au plus 31
-// caractères, aucun des sept caractères interdits. Exportée pour que
-// migration-legacy.ts la consomme aussi -- sans elle, le parseur et la
-// migration pourraient un jour juger différemment le même nom, et produire un
-// classeur dont l'onglet manquant n'aurait jamais pu être créé.
+// What Excel accepts as a sheet name, not a rule of ours: at most 31
+// characters, none of the seven forbidden characters. Exported so that
+// legacy-upgrade.ts consumes it too -- without it, the parser and the
+// migration could one day judge the same name differently, and produce a
+// workbook whose missing sheet could never have been created.
 export function isValidTabName(name: string): boolean {
   return name.length <= 31 && !FORBIDDEN_CHARACTERS.test(name);
 }
 
-// La convention qui lie une consommation à son interface (§3.3) : reconstruite
-// ici, dans la formule Excel des tables d'appoint (template-export.ts) et dans
-// la migration legacy (migration-legacy.ts). Un seul endroit, pour que les
-// trois ne puissent pas s'écarter l'un de l'autre.
+// The convention binding a consumption to its interface (§3.3): rebuilt here,
+// in the helper tables' Excel formula (template-export.ts) and in the legacy
+// migration (legacy-upgrade.ts). One single place, so that the three cannot
+// drift apart from one another.
 export const FX_SHEET_PREFIX = "FX_";
 export const FX_SHEET_SEPARATOR = "_";
 
-// Excel refuse un nom de plus de 31 caractères ou portant l'un de : \ / ? * [ ].
-// Le nom étant DÉRIVÉ, un acteur au nom un peu long produisait un onglet
-// impossible -- que l'écriture écartait en silence, emportant ses
-// consommations avec lui. On assainit donc ici, au seul endroit où le nom se
-// fabrique, plutôt que de laisser le problème atteindre le classeur.
+// Excel refuses a name longer than 31 characters or carrying one of: \ / ? * [ ].
+// The name being DERIVED, an actor with a slightly long name produced an
+// impossible sheet -- which the writing dropped in silence, taking its
+// consumptions with it. So it is sanitised here, at the one place the name is
+// made, rather than letting the problem reach the workbook.
 //
-// Deux couples (exposant, type) peuvent désormais tomber sur le même nom une
-// fois coupés : un contrôle d'intégrité le signale plutôt que de les fondre.
+// Two (publisher, type) pairs can now land on the same name once cut: an
+// integrity check reports it rather than merging them.
 export function sanitiseTabName(name: string): string {
   const withoutForbidden = FORBIDDEN_TAB_CHARACTERS.reduce(
     (current, interdit) => current.split(interdit).join(REMPLACEMENT_ONGLET),
@@ -222,10 +222,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     }))
     .filter((a) => a.name !== "");
 
-  // Onglet « Groupes » : la SEULE source du périmètre. Son absence n'est pas
-  // rattrapée -- deviner le périmètre à partir des acteurs redonnerait deux
-  // vérités concurrentes sur la même question. Un contrôle d'intégrité réclame
-  // l'onglet, et sans lui aucun acteur n'est situé.
+  // The "Groups" sheet: the ONLY source of the perimeter. Its absence is not
+  // made up for -- guessing the perimeter from the actors would give two
+  // competing truths on the same question again. An integrity check asks for the
+  // sheet, and without it no actor is placed.
   const groupsSheet = findSheet(workbook.sheets, "Groups");
   let groups: Group[] = [];
   let groupsSheetMissing = true;
@@ -244,10 +244,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       .filter((g) => g.name !== "");
   }
 
-  // Onglet « TypesActeur » : quelle icône porte quel type. La liste des types
-  // est propre à chaque référentiel, donc c'est le classeur qui la désigne.
-  // Optionnel, comme « Groupes » : sans lui, les nœuds portent le jeton neutre
-  // et un contrôle d'intégrité le signale.
+  // The "ActorTypes" sheet: which icon which type carries. The list of types is
+  // particular to each referential, so it is the workbook that names it.
+  // Optional, like "Groups": without it the nodes carry the neutral token and an
+  // integrity check reports it.
   const actorTypesSheet = findSheet(workbook.sheets, "ActorTypes");
   let actorTypes: ActorType[] = [];
   if (actorTypesSheet && findHeader(actorTypesSheet.headers, "Actor type")) {
@@ -289,8 +289,8 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       if (!rowHasContent(r, headerMapMilestones, MILESTONE_COLUMNS)) continue;
       const name = get(r, headerMapMilestones, "Milestone");
       if (name === "") continue;
-      // Un rang illisible vaut 0 : la ligne reste lue et un contrôle réclame
-      // le rang, plutôt que de la faire disparaître en silence.
+      // An unreadable rank counts as 0: the row is still read and a check asks
+      // for the rank, rather than making it vanish in silence.
       const rank = Number.parseInt(get(r, headerMapMilestones, "Rank"), 10);
       milestones.push({
         sheet: milestonesSheet.name,
@@ -328,9 +328,9 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         comments: get(r, headerMapInterfaces, "Comments"),
         toConfirm: normYes(get(r, headerMapInterfaces, "To confirm")),
         expectedSheet,
-        // Colonne de la v3, remplacée par « Republished as » sur la consommation.
-        // On la lit encore -- et seulement ici -- pour que la mise à niveau puisse
-        // déplacer l'information ; plus rien d'autre ne la consulte.
+        // A v3 column, replaced by "Republished as" on the consumption. It is
+        // still read -- and only here -- so the upgrade can move the information;
+        // nothing else consults it any more.
         legacyRelays: (() => {
           const header = findHeader(interfacesSheet.headers, LEGACY_RELAY_COLUMN);
           return header ? (r[header] ?? "").toString().trim() : "";
@@ -341,9 +341,9 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     .filter((i) => i.flowName !== "");
 
   const fxSheets = workbook.sheets.filter(
-    // FX_Modèle était le gabarit que recopiait la macro. Elle n'existe plus, et
-    // les classeurs produits n'en portent plus ; on continue de l'écarter pour
-    // les classeurs antérieurs, où l'onglet traîne encore.
+    // FX_Modèle was the pattern the macro copied. It no longer exists, and the
+    // produced workbooks no longer carry one; it is still dropped for earlier
+    // workbooks, where the sheet still lingers.
     (s) => hasPrefix(s.name, FX_SHEET_PREFIX) && !matchesSheetName(s.name, "FX_Modèle")
   );
   const fxSheetNames = fxSheets.map((s) => s.name);

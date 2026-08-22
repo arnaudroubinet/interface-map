@@ -1,6 +1,6 @@
-// Déclaration pour les imports « ?raw » : le contenu du fichier importé comme
-// simple chaîne, au lieu d'être interprété comme du code. Vitest (Vite) le
-// gère nativement ; esbuild le gère via le plugin de esbuild.build.mjs.
+// Declaration for "?raw" imports: the imported file's content as a plain
+// string, instead of being interpreted as code. Vitest (Vite) handles it
+// natively; esbuild handles it through the plugin in esbuild.build.mjs.
 declare module "*?raw" {
   const content: string;
   export default content;

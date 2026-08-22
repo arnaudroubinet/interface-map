@@ -198,7 +198,7 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
   const provider = plage(columnOf(INTERFACE_COLUMNS, "Provider"));
   const type = plage(columnOf(INTERFACE_COLUMNS, "Flow type"));
   // The expected sheet, rebuilt as everywhere else in the project
-  // (feuilleFxAttendue, in parsing/build-model.ts, is authoritative).
+  // (expectedFxSheet, in parsing/build-model.ts, is authoritative).
   const tab = sanitiseTabFormula(`"${FX_SHEET_PREFIX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
   const notEmpty = `${flows}<>""`;
   const spread = (table: string) =>
@@ -290,7 +290,7 @@ const EMPTY_WORKBOOK: WorkbookData = { flowTypes: [], actorTypes: [], milestones
 // does not exist", reports it on re-reading -- so this is not a silence.
 //
 // The consumption sheets, under the name Excel accepts. The rule is the one in
-// feuilleFxAttendue and it lives in one place only: applying it here as well
+// expectedFxSheet and it lives in one place only: applying it here as well
 // makes the writing total -- before, an overlong name was dropped in silence,
 // and its consumptions disappeared from the produced workbook.
 function fxTabs(data: WorkbookData): WorkbookData["fx"] {

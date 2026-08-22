@@ -1,23 +1,23 @@
 import { normalizeText } from "../shared/text";
 
-// Le classeur parle anglais. Les noms français du format d'origine restent
-// RECONNUS, et seulement reconnus : c'est ce qui permet de lire un classeur
-// d'avant le versionnement pour le convertir. Aucun classeur produit ne les
-// porte plus, et rien d'autre que la mise à niveau n'en dépend.
+// The workbook speaks English. The original format's French names are still
+// RECOGNISED, and only recognised: that is what allows a workbook from before
+// versioning to be read in order to convert it. No produced workbook carries
+// them any more, and nothing but the upgrade depends on them.
 export const ORIGIN_NAMES: Record<string, string | string[]> = {
-  // Feuilles. Plusieurs écritures ont circulé pour la même chose : les
-  // classeurs tenus à la main préfixaient « Ref » leurs référentiels, et
-  // nommaient « Flux » le catalogue des interfaces -- à ne pas confondre avec
-  // l'onglet « Flux » du format d'origine, qui décrit un LIEN entre deux
-  // composants. Les deux se distinguent sans ambiguïté : ce dernier n'a pas
-  // d'onglet d'acteurs reconnaissable, donc le parseur échoue et l'aiguillage
-  // de reparation.ts l'envoie au bon convertisseur.
+  // Sheets. Several spellings circulated for the same thing: hand-kept
+  // workbooks prefixed their referentials with "Ref", and named the interface
+  // catalogue "Flux" -- not to be confused with the original format's "Flux"
+  // sheet, which describes a LINK between two components. The two are told
+  // apart without ambiguity: the latter has no recognisable actors sheet, so
+  // the parser fails and repair.ts's routing sends it to the right converter.
+  //
   Actors: ["Acteurs", "RefActeur", "RefActeurs"],
   Groups: "Groupes",
   ActorTypes: ["TypesActeur", "RefTypesActeur"],
   FlowTypes: ["TypesFlux", "RefTypesFlux"],
   Interfaces: "Flux",
-  // Colonnes
+  // Columns
   Name: "Nom",
   Group: "Groupe",
   "Actor type": "Type d'acteur",
@@ -37,10 +37,10 @@ export const ORIGIN_NAMES: Record<string, string | string[]> = {
   "Criticality for this consumer": "Criticité pour ce consommateur",
   Decision: "Décision",
 };
-// Toutes les écritures acceptées pour un nom : la courante, en anglais, puis
-// celles qui ont circulé avant le versionnement -- il y en a parfois plusieurs
-// pour la même chose. Les feuilles et colonnes nées avec le versionnement ne
-// figurent pas ici : aucun classeur ne les a jamais portées en français.
+// Every spelling accepted for a name: the current one, in English, then those
+// that circulated before versioning -- sometimes several for the same thing.
+// Sheets and columns born with versioning do not appear here: no workbook ever
+// carried them in French.
 function spellings(expected: string): string[] {
   const origin = ORIGIN_NAMES[expected];
   if (!origin) return [expected];

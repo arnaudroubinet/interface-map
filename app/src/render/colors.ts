@@ -1,15 +1,15 @@
 import { normalizeText } from "../shared/text";
 import { darkenTo, contrastRatio } from "./contrast";
 
-// Palette catégorielle, ordre fixe. Les huit teintes passent 4,5:1 sur blanc :
-// elles servent d'ENCRE autant que de trait, et l'ancienne palette échouait des
-// deux côtés -- #eda100 à 2,17:1, #1baf7a à 2,82:1, cinq teintes sur huit sous
-// 3:1 comme simple trait. Ratios mesurés, dans l'ordre : 6,35 · 5,27 · 5,01 ·
-// 5,65 · 5,68 · 4,95 · 8,56 · 6,31.
+// A categorical palette, fixed order. All eight hues pass 4.5:1 on white: they
+// serve as INK as much as stroke, and the old palette failed on both counts --
+// #eda100 at 2.17:1, #1baf7a at 2.82:1, five hues out of eight below 3:1 as a
+// plain stroke. Measured ratios, in order: 6.35 · 5.27 · 5.01 · 5.65 · 5.68 ·
+// 4.95 · 8.56 · 6.31.
 //
-// La couleur reste un rappel : le nom de la technologie est écrit partout où
-// elle apparaît, donc au-delà de huit on reboucle plutôt que d'inventer une
-// teinte non validée.
+// The colour stays a reminder: the technology's name is written everywhere it
+// appears, so beyond eight it wraps around rather than inventing an
+// unvalidated hue.
 export const PALETTE = ["#1f5fae", "#b8481f", "#0e7f56", "#8a5f00", "#a8446a", "#008300", "#4a3aa7", "#b32d2c"];
 
 export function colourForTechnologies(technologies: string[]): Map<string, string> {
@@ -19,20 +19,20 @@ export function colourForTechnologies(technologies: string[]): Map<string, strin
   return map;
 }
 
-// Le référentiel externe porte la couleur de chaque technologie. Une couleur
-// déclarée est donc respectée telle quelle : c'est ce qui l'ancre à la
-// technologie plutôt qu'à son rang alphabétique, lequel décalait toutes les
-// teintes dès qu'on ajoutait une technologie avant les autres.
+// The external referential carries each technology's colour. A declared colour
+// is therefore honoured as it is: that is what anchors it to the technology
+// rather than to its alphabetical rank, which shifted every hue as soon as a
+// technology was added ahead of the others.
 //
-// La palette ne sert plus qu'aux technologies qui n'en déclarent aucune, et
-// elle évite les teintes déjà prises : sans quoi deux traits se retrouveraient
-// de la même couleur alors qu'il restait des teintes libres.
+// The palette now serves only the technologies that declare none, and it
+// avoids the hues already taken: failing which two lines would end up the same
+// colour while free hues remained.
 export const HEXA = /^#?([0-9a-f]{6})$/i;
 
-// Le référentiel fait foi sur la TEINTE, pas sur la clarté : un jaune déclaré
-// reste jaune, mais assez foncé pour qu'on voie le trait. Sans ce garde-fou, le
-// classeur pouvait rendre un flux invisible sans que rien ne le dise -- et le
-// rapport d'intégrité l'annonce désormais.
+// The referential is authoritative on the HUE, not on the lightness: a
+// declared yellow stays yellow, but dark enough for the line to be seen.
+// Without that guard the workbook could make a flow invisible with nothing to
+// say so -- and the integrity report now announces it.
 export const LINE_THRESHOLD = 3;
 
 function declaredColourOf(raw: string): string | undefined {
@@ -46,12 +46,12 @@ export function coloursOfModel(model: {
   interfaces: readonly { flowType: string }[];
   flowTypes: readonly { type: string; colour: string }[];
 }): Map<string, string> {
-  // Une technologie DOIT être déclarée au référentiel. Employée sans y figurer,
-  // elle n'est de toute façon pas dessinée -- son sens de représentation est
-  // inconnu, le contrôle de référence le dit -- mais elle prenait quand même
-  // une teinte, et décalait donc celles des technologies réellement dessinées.
-  // Sur un classeur réel, trois technologies dessinées se partageaient les 1re,
-  // 3e et 4e teintes parce que deux inconnues s'étaient glissées entre elles.
+  // A technology MUST be declared in the referential. Used without appearing in
+  // it, it is not drawn anyway -- its representation direction is unknown, and
+  // the reference check says so -- but it still took a hue, and therefore
+  // shifted those of the technologies actually drawn. On a real workbook, three
+  // drawn technologies shared the 1st, 3rd and 4th hues because two unknown ones
+  // had slipped in between them.
   const declaredTypes = new Map(model.flowTypes.map((t) => [normalizeText(t.type), t]));
   const used = new Set(model.interfaces.map((i) => i.flowType.trim()).filter(Boolean));
   const drawn = [...used]
@@ -73,10 +73,10 @@ export function coloursOfModel(model: {
     taken.add(colour);
   }
 
-  // Les teintes libres d'abord, dans l'ordre de la palette ; une fois épuisées
-  // on reboucle sur la palette entière plutôt que d'inventer une teinte non
-  // validée -- le nom de la technologie reste écrit partout où sa couleur
-  // apparaît, la couleur n'est qu'un rappel.
+  // The free hues first, in the palette's order; once exhausted it wraps around
+  // the whole palette rather than inventing an unvalidated hue -- the
+  // technology's name stays written everywhere its colour appears, and the
+  // colour is only a reminder.
   const free = PALETTE.filter((c) => !taken.has(c));
   const spare = free.length > 0 ? free : PALETTE;
   let i = 0;

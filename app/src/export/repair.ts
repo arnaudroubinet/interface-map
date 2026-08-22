@@ -6,22 +6,22 @@ import type { WorkbookData } from "./template-export";
 
 export interface Reparation {
   data: WorkbookData;
-  // Renseigné seulement quand le classeur venait du format d'origine : c'est là
-  // que des choix ont été faits faute d'information, et qu'il faut le dire.
+  // Filled only when the workbook came from the original format: that is where
+  // choices were made for want of information, and it must be said.
   legacyReport: MigrationReport | null;
 }
 
-// La porte unique : on donne un classeur, on récupère un classeur complet et au
-// format courant. Trois cas, un seul geste pour l'utilisateur.
+// The single door: hand in a workbook, get back one that is complete and in
+// the current format. Three cases, one single gesture for the user.
 //
-// L'aiguillage se fait sur ce que le parseur sait lire, et non sur le nom des
-// feuilles : un classeur de notre famille se lit, un classeur d'origine non.
-// C'est le test le plus sûr, puisque c'est exactement la question qui compte.
+// The routing is done on what the parser can read, not on the sheets' names: a
+// workbook of our family reads, an original one does not. That is the surest
+// test, since it is exactly the question that matters.
 export function repairWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): Reparation {
   const lu = buildModel(parseWorkbook(paquet));
   if (lu.ok) {
-    // Notre famille : mise à niveau du schéma s'il y a lieu, et création des
-    // onglets attendus, que le classeur soit à jour ou non.
+    // Our family: schema upgrade where applicable, and creation of the expected
+    // sheets, whether the workbook is up to date or not.
     return { data: upgrade(lu.model, dateMigration), legacyReport: null };
   }
   const legacy = migrateLegacyWorkbook(paquet, dateMigration);
