@@ -12,8 +12,8 @@ import {
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
-// Les fabriques partagées, avec les seuls défauts propres à ce fichier : deux
-// groupes G1/G2, et une consommation déjà décidée.
+// The shared factories, with only the defaults particular to this file: two
+// groups G1/G2, and a consumption already decided.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
@@ -63,7 +63,7 @@ describe("buildFlowInstances", () => {
     expect(flows[0].interfaceName).toBe("F");
   });
 
-  it("marks a flow attenuated when Décision=À transformer", () => {
+  it("marks a flow dimmed when Decision=Transform", () => {
     const flows = buildFlowInstances(model({ consumptions: [consumption({ decision: "Transform" })] }));
     expect(flows[0].attenuated).toBe(true);
   });
@@ -75,7 +75,7 @@ describe("buildFlowInstances", () => {
     // consumption is filed under the FIRST interface's tab (FX_A_HTTP) —
     // a Map keyed by name alone (the pre-fix behaviour) always keeps the
     // LAST-inserted entry ("C"/Kafka) and would wrongly resolve to that one;
-    // only a (feuille, nom du flux) lookup (§3.3) resolves to "A"/HTTP here.
+    // only a (sheet, flow name) lookup (§3.3) resolves to "A"/HTTP here.
     const flows = buildFlowInstances(
       model({
         flowTypes: [
@@ -157,11 +157,11 @@ describe("aggregateEdges", () => {
     expect(withoutCounter[0].label).toBe("HTTP");
   });
 
-  // En mode fonctionnel, typeDeFlux est vidé (§4.2). Le libellé valait d'abord
-  // " ×2" -- un compteur précédé d'un espace fantôme --, puis « 2 » tout court,
-  // ce qui n'apprenait rien de plus. Ce sont les échanges qui portent le sens
-  // dès lors que le medium a disparu.
-  it("nomme les échanges quand la technologie est vide", () => {
+  // In functional mode, flowType is emptied (§4.2). The label first read " ×2"
+  // -- a counter preceded by a phantom space -- then plain "2", which taught
+  // nothing more. It is the exchanges that carry the meaning once the medium
+  // is gone.
+  it("names the exchanges when the technology is empty", () => {
     const flow = (flowName: string): ReturnType<typeof buildFlowInstances>[number] => ({
       interfaceName: flowName,
       version: "",
@@ -211,7 +211,7 @@ describe("nodesFromEdges", () => {
   });
 });
 
-describe("buildFlowInstances — filtrage par palier", () => {
+describe("buildFlowInstances — filtering by milestone", () => {
   const milestones = [
     { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
@@ -236,7 +236,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
   });
 
-  // Le retrait est exclu : retiré EN v2, la ligne n'y est déjà plus.
+  // The retirement is exclusive: retired AT v2, the row is already gone there.
   it("drops a flow retired at the very rank displayed", () => {
     const m = model({
       milestones,
@@ -267,18 +267,18 @@ describe("buildFlowInstances — filtrage par palier", () => {
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
   });
 
-  // Un classeur sans aucun palier déclaré se comporte exactement comme avant.
+  // A workbook with no milestone declared behaves exactly as before.
   it("keeps everything when no rank is displayed", () => {
     expect(buildFlowInstances(model({}), null)).toHaveLength(1);
   });
 });
 
-// --- QA : le repli par (nom, version) rattachait une consommation à la
-// PREMIÈRE interface portant ce nom. Deux exposants publiant le même nom
-// étant deux interfaces distinctes, ce repli faisait signer un consommateur
-// chez quelqu'un qu'il n'a jamais choisi. Mieux vaut ne pas résoudre : le
-// contrôle de référence le dit alors clairement.
-describe("résolution d'une consommation — le nom seul ne tranche pas entre deux exposants", () => {
+// --- QA: the (name, version) fallback attached a consumption to the FIRST
+// interface carrying that name. Two publishers publishing the same name being
+// two distinct interfaces, that fallback had a consumer sign with someone it
+// never chose. Better not to resolve: the reference check then says so
+// plainly.
+describe("resolving a consumption — the name alone does not decide between two publishers", () => {
   const twoPublishers = (consumptionSheet: string) =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
@@ -289,47 +289,47 @@ describe("résolution d'une consommation — le nom seul ne tranche pas entre de
       consumptions: [consumption({ flowName: "Kashyyyk", consumerName: "C", sheet: consumptionSheet })],
     });
 
-  it("résout sans hésiter quand l'onglet désigne l'exposant", () => {
+  it("resolves without hesitation when the sheet names the publisher", () => {
     const flows = buildFlowInstances(twoPublishers("FX_B_HTTP"));
     expect(flows.map((f) => f.provider)).toEqual(["B"]);
   });
 
-  it("ne devine pas quand l'onglet ne désigne personne", () => {
+  it("does not guess when the sheet names nobody", () => {
     expect(buildFlowInstances(twoPublishers("FX_Inconnu_HTTP"))).toHaveLength(0);
   });
 
-  it("résout encore par le nom quand un seul exposant le porte", () => {
+  it("still resolves by name when a single publisher carries it", () => {
     const m = twoPublishers("FX_Inconnu_HTTP");
     const flows = buildFlowInstances({ ...m, interfaces: [m.interfaces[0]] });
     expect(flows.map((f) => f.provider)).toEqual(["A"]);
   });
 });
 
-// --- QA : en mode fonctionnel la technologie est vidée à dessein, pour que les
-// traits d'une même paire fusionnent. Le compteur restait alors seul, et un
-// trait annonçant « 2 » n'apprend ni ce qui circule ni pourquoi -- la vue
-// métier n'avait, dans cet état, aucune valeur.
-describe("libelleCellule — ce que porte un trait sans technologie", () => {
-  it("nomme les échanges plutôt que de les compter", () => {
+// --- QA: in functional mode the technology is emptied on purpose, so that the
+// lines of one pair merge. The counter was then left alone, and a line
+// announcing "2" teaches neither what travels nor why -- the business view had,
+// in that state, no value at all.
+describe("cellLabel — what a line with no technology carries", () => {
+  it("names the exchanges rather than counting them", () => {
     expect(cellLabel("", 2, ["Member lookup", "Premium calculation"])).toBe("Member lookup, Premium calculation");
   });
 
-  it("au-delà de deux, nomme les deux premiers et compte le reste", () => {
+  it("beyond two, names the first two and counts the rest", () => {
     expect(cellLabel("", 4, ["A", "B", "C", "D"])).toBe("A, B +2");
   });
 
-  it("garde le compteur seul quand aucun nom n'est connu", () => {
+  it("keeps the counter alone when no name is known", () => {
     expect(cellLabel("", 3, [])).toBe("3");
   });
 
-  it("ne change rien quand la technologie est là", () => {
+  it("changes nothing when the technology is there", () => {
     expect(cellLabel("HTTP", 2, ["A", "B"])).toBe("HTTP ×2");
     expect(cellLabel("HTTP", 1, ["A"])).toBe("HTTP");
   });
 });
 
-describe("groupFlows — les noms d'échange suivent le trait fusionné", () => {
-  it("rassemble les noms des flux fusionnés, sans doublon", () => {
+describe("groupFlows — the exchange names follow the merged line", () => {
+  it("gathers the merged flows' names, without duplicates", () => {
     const m = model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       interfaces: [iface({ flowName: "F1" }), iface({ flowName: "F2", row: 1 })],
@@ -344,12 +344,12 @@ describe("groupFlows — les noms d'échange suivent le trait fusionné", () => 
   });
 });
 
-// --- Le tracé et la pointe portaient la même information. Un flux tiré --
-// HTTP, déclaré « consumer → provider » -- voyait donc son TRACÉ inversé en
-// plus de sa pointe : la donnée semblait remonter le tuyau, et un fournisseur
-// n'avait rien qui sorte de lui. Le tracé suit désormais la donnée, du
-// fournisseur vers le consommateur ; seule la pointe dit qui appelle.
-describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initiative", () => {
+// --- The line and the arrowhead carried the same information. A pulled flow --
+// HTTP, declared "consumer → provider" -- therefore had its LINE reversed as
+// well as its head: the data seemed to climb back up the pipe, and a provider
+// had nothing coming out of it. The line now follows the data, from provider to
+// consumer; only the head says who calls.
+describe("directedEndpoints — the line follows the data, the head says the initiative", () => {
   const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
@@ -358,82 +358,82 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
       consumptions: [consumption({ consumerName: "B" })],
     });
 
-  it("va du fournisseur au consommateur, qu'il soit poussé ou tiré", () => {
+  it("goes from provider to consumer, whether pushed or pulled", () => {
     for (const direction of ["provider-to-consumer", "consumer-to-provider"] as const) {
       const g = groupFlows(buildFlowInstances(estate(direction)), identityNodeKey, true);
       expect([g[0].from, g[0].to]).toEqual(["A", "B"]);
     }
   });
 
-  it("marque le trait comme tiré quand le consommateur prend l'initiative", () => {
+  it("marks the line as pulled when the consumer takes the initiative", () => {
     expect(groupFlows(buildFlowInstances(estate("consumer-to-provider")), identityNodeKey, true)[0].pulled).toBe(true);
     expect(groupFlows(buildFlowInstances(estate("provider-to-consumer")), identityNodeKey, true)[0].pulled).toBe(false);
   });
 });
 
-// --- Une carte des TUYAUX ou une carte des ÉCHANGES : l'étiquette ne disait
-// que le protocole, et le nom de ce qui circule n'apparaissait nulle part.
-describe("libelleCellule — ce qui s'écrit sur le trait", () => {
+// --- A map of PIPES or a map of EXCHANGES: the label said nothing but the
+// protocol, and the name of what travels appeared nowhere.
+describe("cellLabel — what is written on the line", () => {
   const names = ["Policy events 1.0", "Claims 2.0"];
 
-  it("nomme la technologie seule par défaut", () => {
+  it("names the technology alone by default", () => {
     expect(cellLabel("Kafka", 2, names)).toBe("Kafka ×2");
     expect(cellLabel("Kafka", 2, names, "technology")).toBe("Kafka ×2");
   });
 
-  it("nomme les échanges quand on le demande", () => {
+  it("names the exchanges when asked to", () => {
     expect(cellLabel("Kafka", 2, names, "exchanges")).toBe("Policy events 1.0, Claims 2.0");
   });
 
-  // Le compteur reste avec le tuyau : sur un trait qui fusionne cinq flux
-  // dont deux sont nommés, « ×5 » est la seule chose qui dise combien il en
+  // The counter stays with the pipe: on a line merging five flows of which
+  // two are named, "×5" is the only thing that says how many there are
   // reste.
-  it("nomme les deux, l'échange en tête", () => {
+  it("names both, the exchange first", () => {
     expect(cellLabel("Kafka", 2, names, "both")).toBe("Policy events 1.0, Claims 2.0 — Kafka ×2");
   });
 
-  // Au-delà de deux noms l'étiquette mangerait le dessin : le reste se compte,
-  // et se lit dans l'infobulle du trait.
-  it("s'arrête à deux noms et compte le reste", () => {
+  // Beyond two names the label would eat the drawing: the rest is counted, and
+  // reads in the line's tooltip.
+  it("stops at two names and counts the rest", () => {
     expect(cellLabel("Kafka", 5, [...names, "A", "B", "C"], "exchanges")).toBe("Policy events 1.0, Claims 2.0 +3");
   });
 
-  // La lecture fonctionnelle vide la technologie : « technology » ne peut pas
-  // laisser une étiquette réduite à un compteur, qui n'apprend rien.
-  it("retombe sur les échanges quand aucune technologie n'est nommée", () => {
+  // The functional reading empties the technology: "technology" cannot leave a
+  // label reduced to a counter, which teaches nothing.
+  it("falls back to the exchanges when no technology is named", () => {
     expect(cellLabel("", 1, ["Policy events 1.0"])).toBe("Policy events 1.0");
   });
 
-  // Rien à nommer du tout : le compteur est alors la seule information vraie.
-  it("garde le compteur quand il n'y a ni technologie ni nom", () => {
+  // Nothing to name at all: the counter is then the only true information.
+  it("keeps the counter when there is neither technology nor name", () => {
     expect(cellLabel("", 3, [], "exchanges")).toBe("3");
   });
 
-  // « both » sans technologie ne doit pas produire un tiret orphelin.
-  it("n'écrit pas de tiret quand il n'y a pas de technologie à joindre", () => {
+  // "both" with no technology must not produce an orphan dash.
+  it("writes no dash when there is no technology to join", () => {
     expect(cellLabel("", 2, names, "both")).toBe("Policy events 1.0, Claims 2.0");
   });
 });
 
-// --- Trier cette liste a été essayé comme prérequis de stabilité entre
-// paliers, et mesuré : 16 % de surface en plus sur la vue détaillée pour rien,
-// la stabilité venant du placement sur l'union des paliers.
+// --- Sorting this list was tried as a prerequisite for milestone-to-milestone
+// stability, and measured: 16% more area on the detailed view for nothing, the
+// stability coming from laying out over the union of milestones.
 describe("nodesFromEdges", () => {
   const edges = (paires: [string, string][]) =>
     paires.map(([from, to]) => ({ from, to, technology: "HTTP", count: 1, label: "HTTP", attenuated: false }));
 
-  it("ne perd ni ne double aucun nœud", () => {
+  it("neither loses nor duplicates any node", () => {
     const ids = nodesFromEdges(edges([["A", "B"], ["B", "C"], ["A", "C"]]), (id) => id, () => "actor").map((n) => n.id);
     expect(ids).toEqual(["A", "B", "C"]);
   });
 });
 
-// --- §A3 : la criticité est saisie, contrôlée et exportée depuis toujours, et
-// n'était jamais dessinée. C'est pourtant la donnée la plus décisionnelle du
+// --- §A3: criticality has been entered, checked and exported since day one,
+// and was never drawn. It is nonetheless the most decision-bearing field of the
 // classeur.
-describe("groupFlows — la criticité portée par le trait", () => {
-  // Un parc où B consomme la même interface plusieurs fois, chaque ligne avec
-  // sa propre criticité : c'est le cas que l'agrégation doit trancher.
+describe("groupFlows — the criticality the line carries", () => {
+  // An estate where B consumes the same interface several times, each row with
+  // its own criticality: that is the case the aggregation must settle.
   const flowsWith = (criticalities: string[]) =>
     buildFlowInstances(
       base.template({
@@ -451,25 +451,25 @@ describe("groupFlows — la criticité portée par le trait", () => {
       })
     );
 
-  it("retient la criticité la plus forte des consommations agrégées", () => {
+  it("keeps the strongest criticality of the aggregated consumptions", () => {
     const g = groupFlows(flowsWith(["3 - Standard", "1 - Critical", "2 - Important"]), identityNodeKey, true)[0];
     expect(g.criticality).toBe("1 - Critical");
   });
 
-  it("garde la seule criticité présente quand il n'y en a qu'une", () => {
+  it("keeps the one criticality present when there is only one", () => {
     expect(groupFlows(flowsWith(["2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
   });
 
-  // Une case vide n'est pas une criticité basse : elle n'est rien, et ne doit
-  // pas écraser celle d'une autre consommation du même trait.
-  it("ignore une criticité non renseignée", () => {
+  // An empty cell is not a low criticality: it is nothing, and must not crush
+  // another consumption's on the same line.
+  it("ignores a criticality that is not filled in", () => {
     expect(groupFlows(flowsWith(["", "2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
     expect(groupFlows(flowsWith([""]), identityNodeKey, true)[0].criticality).toBeUndefined();
   });
 
-  // L'ordre se lit dans le vocabulaire lui-même : en tenir une seconde liste
-  // ferait diverger les deux.
-  it("range une valeur hors vocabulaire après toutes les autres", () => {
+  // The order is read from the vocabulary itself: keeping a second list would
+  // make the two drift apart.
+  it("files a value outside the vocabulary after all the others", () => {
     expect(groupFlows(flowsWith(["Inconnue", "3 - Standard"]), identityNodeKey, true)[0].criticality).toBe("3 - Standard");
   });
 });

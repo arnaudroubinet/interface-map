@@ -8,9 +8,9 @@ import { actorsForReading, reading } from "../aggregation/reading";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
-// Le flux, résolu comme au point d'entrée réel (app.ts) : un test qui
-// passerait un tableau vide masquerait une dépendance réelle du rail au
-// contenu des flux (§ filtre Technologies).
+// The flows, resolved as at the real entry point (app.ts): a test passing an
+// empty array would hide a real dependency of the rail on the flows' content
+// (§ Technologies filter).
 function flows(state: AppState): ReturnType<typeof reading> {
   return state.file ? reading(state.file.model, null, state.mode) : { flows: [], actors: [] };
 }
@@ -27,10 +27,10 @@ function consumption(o: Partial<Consumption> = {}): Consumption {
   return base.consumption({ consumerName: "Bus", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
 }
 
-// Tatooine expose F vers Bus (Middleware, Technical), qui la relaie sous F2 vers
-// Naboo : en fonctionnel, la chaîne relie directement Tatooine à
-// Naboo, sans technologie -- c'est ce terrain que le filtre « Technologies »
-// doit refléter.
+// Tatooine publishes F towards Bus (Middleware, Technical), which relays it as
+// F2 towards Naboo: in the functional reading the chain links Tatooine
+// directly to Naboo, with no technology -- that is the ground the
+// "Technologies" filter must reflect.
 const modelWithFlows: ParsedModel = {
   actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Naboo", "Application")],
   groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
@@ -43,10 +43,10 @@ const modelWithFlows: ParsedModel = {
   milestones: [],
   interfaces: [iface({}), iface({ flowName: "F2", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" })],
   consumptions: [
-    // C'est la CONSOMMATION qui dit sous quelle interface elle ressort (v4) :
-    // le terrain portait encore la colonne « Relays » de la v3, que plus rien
-    // ne lit -- la chaîne fonctionnelle n'existait donc pas, et le test du
-    // filtre passait faute de flux plutôt que faute de technologie.
+    // It is the CONSUMPTION that says under which interface it comes back out
+    // (v4): the ground still carried v3's "Relays" column, which nothing reads
+    // any more -- the functional chain therefore did not exist, and the filter's
+    // test passed for want of flows rather than for want of technology.
     consumption({ republishedAs: "F2" }),
     consumption({ flowName: "F2", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
   ],
@@ -109,16 +109,16 @@ function actorOptions(root: HTMLElement): string[] {
   return [...root.querySelectorAll(".rail-select option")].map((o) => o.textContent ?? "");
 }
 
-describe("renderRail — sélecteur « par acteur »", () => {
-  it("liste tous les acteurs en architecture", () => {
+describe("renderRail — the \"by actor\" selector", () => {
+  it("lists every actor in the architecture reading", () => {
     const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
     expect(actorOptions(root)).toContain("Bus");
   });
 
-  // §5.2 : le sélecteur ne liste que les acteurs métier en fonctionnel.
-  it("ne liste que les acteurs métier en fonctionnel", () => {
+  // §5.2: the selector lists only the business actors in the functional reading.
+  it("lists only the business actors in the functional reading", () => {
     const state = withView(
       withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "functional"),
       "by-actor"
@@ -131,11 +131,11 @@ describe("renderRail — sélecteur « par acteur »", () => {
   });
 });
 
-// L'écran de mise à niveau lit un classeur mal compris (§ commentaire de
-// vueAuChargement) : ses anomalies ne sont pas fiables, le badge ne doit donc
-// pas les afficher tant que le classeur n'est pas à niveau.
-describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () => {
-  it("n'affiche pas le compteur d'anomalies quand le classeur est bloqué en mise à niveau", () => {
+// The upgrade screen reads a misunderstood workbook (§ viewOnLoad's comment):
+// its anomalies are not reliable, so the badge must not show them until the
+// workbook is up to date.
+describe("renderRail — the anomaly badge on the upgrade screen", () => {
+  it("does not show the anomaly counter when the workbook is blocked on the upgrade", () => {
     const oldModel: ParsedModel = { ...model, schemaVersion: SCHEMA_VERSION - 1 };
     const reportWithAnomalies: IntegrityReport = {
       families: [],
@@ -154,17 +154,17 @@ describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () =
   });
 });
 
-describe("renderRail — filtre « Technologies » de la vue par acteur", () => {
-  // Une technologie vide n'en est pas une (§5.2, la légende disparaît avec les
-  // technologies) : la proposer produirait une case à cocher sans étiquette,
-  // qui vide tout le schéma en un clic sans rien expliquer.
-  it("n'affiche pas le bloc Technologies en mode fonctionnel", () => {
+describe("renderRail — the by-actor view's \"Technologies\" filter", () => {
+  // An empty technology is not one (§5.2, the legend disappears with the
+  // technologies): offering it would produce an unlabelled checkbox that empties
+  // the whole diagram in one click while explaining nothing.
+  it("does not show the Technologies block in functional mode", () => {
     const state = withActorSelection(
       withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null }), "functional"), "by-actor"),
       "Tatooine"
     );
-    // Le terrain porte bien un lien fonctionnel : sans cette ligne, le test
-    // passerait aussi sur un parc vide, où il n'y a rien à filtrer.
+    // The ground does carry a functional link: without this line, the test would
+    // pass on an empty estate too, where there is nothing to filter.
     expect(flows(state).flows).toHaveLength(1);
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
@@ -172,7 +172,7 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
     expect(titles.some((t) => t.startsWith("Technologies"))).toBe(false);
   });
 
-  it("affiche le bloc Technologies en architecture", () => {
+  it("shows the Technologies block in the architecture reading", () => {
     const state = withActorSelection(
       withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null }), "by-actor"),
       "Tatooine"
@@ -184,15 +184,15 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
   });
 });
 
-// --- QA : le sélecteur listait les acteurs du CLASSEUR, pas ceux de la lecture
-// courante. Il proposait donc un acteur que le palier affiché a retiré, et en
-// sélectionnait un tout seul faute de mieux : une boîte fantôme, sans un mot
+// --- QA: the selector listed the WORKBOOK's actors, not the current reading's.
+// So it offered an actor the displayed milestone had retired, and selected one
+// on its own for want of anything better: a phantom box, with not a word
 // d'explication.
 // ---------------------------------------------------------------------------
-// 2. Le sélecteur « By actor » propose des acteurs que le palier a retirés.
+// 2. The "By actor" selector offers actors the milestone has retired.
 // ---------------------------------------------------------------------------
 
-describe("le sélecteur « By actor » suit le palier affiché", () => {
+describe("the \"By actor\" selector follows the displayed milestone", () => {
   const estate = base.template({
     actors: [
       base.actor({ name: "Aaa", introducedAt: "v1", retiredAt: "v2" }),
@@ -206,7 +206,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
     consumptions: [base.consumption({ flowName: "F", consumerName: "Aaa", sheet: "FX_Bbb_HTTP" })],
   });
 
-  it("n'offre pas un acteur absent de la lecture courante", () => {
+  it("does not offer an actor absent from the current reading", () => {
     const state: AppState = withView(
       withLoadedFile(initialState(), {
         name: "c.xlsx",
@@ -226,10 +226,10 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
   });
 });
 
-// --- §2.3 : l'étiquette nommait le protocole et jamais ce qui circule. Le
-// choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
-// qui est nommé.
-describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
+// --- §2.3: the label named the protocol and never what travels. The choice is
+// made in the rail, beside the counter -- which decides the ×N, not what gets
+// named.
+describe("renderRail — what a line's label names", () => {
   const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, dateModification: null });
   const rendered = (s: AppState) => {
     const root = document.createElement("div");
@@ -237,12 +237,12 @@ describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
     return root;
   };
 
-  it("propose les trois lectures de l'étiquette", () => {
+  it("offers the label's three readings", () => {
     const options = [...rendered(loaded()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
     expect(options).toEqual(["technology", "exchanges", "both"]);
   });
 
-  it("montre celle qui est retenue", () => {
+  it("shows the one that is chosen", () => {
     const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, pngScale: 2 as const, weightByCriticality: false } };
     const select = rendered(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");

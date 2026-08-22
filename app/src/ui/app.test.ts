@@ -22,8 +22,8 @@ const data: WorkbookData = {
   fx: [{ name: "FX_Tatooine_HTTP", rows: [["Authent", "", "Mygeeto", "", "", "Keep", "", "", "", ""]] }],
 };
 
-// jsdom's File n'implémente pas arrayBuffer() : on ne construit pas un vrai
-// File, juste ce que handleFile lui demande (name, arrayBuffer()).
+// jsdom's File does not implement arrayBuffer(): no real File is built, only
+// what handleFile asks of it (name, arrayBuffer()).
 function dropFile(root: HTMLElement): void {
   const buffer = writeTemplate(data);
   const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
@@ -38,11 +38,11 @@ function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
   return button as HTMLButtonElement;
 }
 
-// Le rapport (Markdown) ne dépend pas du mode (§5.3) : les deux lectures
-// jugent le MÊME classeur, avec les mêmes anomalies. Deux noms pour un
-// contenu identique ferait croire à deux rapports différents.
-describe("export Markdown — nom de fichier indépendant du mode", () => {
-  it("produit le même nom en architecture et en fonctionnel", async () => {
+// The (Markdown) report does not depend on the mode (§5.3): both readings
+// judge the SAME workbook, with the same anomalies. Two names for identical
+// content would suggest two different reports.
+describe("Markdown export — a file name independent of the mode", () => {
+  it("produces the same name in the architecture and functional readings", async () => {
     const root = document.createElement("div");
     mountApp(root);
     dropFile(root);
@@ -69,9 +69,9 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
   });
 });
 
-// Ghost expose GhostFeed, que Bus (Middleware, Technical) consomme sans le
-// relayer : la chaîne fonctionnelle s'arrête là, Ghost n'a plus aucun flux en
-// fonctionnel. §5.2 : il doit rester affiché, seul.
+// Ghost publishes GhostFeed, which Bus (Middleware, Technical) consumes
+// without relaying: the functional chain stops there, and Ghost has no flow
+// left in the functional reading. §5.2: it must stay displayed, alone.
 const dataWithIsolatedActor: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [
@@ -98,10 +98,10 @@ const dataWithIsolatedActor: WorkbookData = {
   ],
 };
 
-// La vue « par acteur » doit dessiner l'acteur isolé, seul, plutôt que
-// d'afficher le message « aucun flux » réservé à l'absence de sélection.
-describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
-  it("dessine l'acteur seul au lieu du message « aucun flux »", async () => {
+// The "by actor" view must draw the isolated actor, alone, rather than show
+// the "no flow" message reserved for the absence of a selection.
+describe("by-actor view — a business actor isolated in the functional reading", () => {
+  it("draws the actor alone instead of the \"no flow\" message", async () => {
     const root = document.createElement("div");
     mountApp(root);
     const buffer = writeTemplate(dataWithIsolatedActor);
@@ -133,10 +133,10 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
   });
 });
 
-// L'unique anomalie du classeur porte sur une interface retirée à V2 : au
-// palier courant (le dernier livré), elle est déjà filtrée, le rapport
-// affiché est donc sain. La vue d'atterrissage doit refléter CE rapport, pas
-// celui — non filtré — qui a servi à choisir la vue avant le calage sur le
+// The workbook's one anomaly concerns an interface retired at V2: at the
+// current milestone (the last delivered) it is already filtered out, so the
+// displayed report is sound. The landing view must reflect THAT report, not
+// the unfiltered one used to choose the view before settling on the
 // palier courant.
 const dataWithRetiredAnomaly: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
@@ -154,8 +154,8 @@ const dataWithRetiredAnomaly: WorkbookData = {
   fx: [{ name: "FX_Tatooine_HTTP", rows: [["RetiredIface", "", "Mygeeto", "test usage", "", "Keep", "", "", "V1", "V2"]] }],
 };
 
-describe("vue d'atterrissage — anomalie sur une ligne retirée au palier courant", () => {
-  it("ouvre sur Group to group, pas sur Integrity checks", async () => {
+describe("landing view — an anomaly on a row retired at the current milestone", () => {
+  it("opens on Group to group, not on Integrity checks", async () => {
     const root = document.createElement("div");
     mountApp(root);
     const buffer = writeTemplate(dataWithRetiredAnomaly);
@@ -172,9 +172,9 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
   });
 });
 
-// Un seul palier déclaré n'est pas « aucun palier » : comparer réclame deux
-// bornes, la seconde manque, mais le classeur n'est pas silencieux sur son
-// axe du temps -- le dire autrement le contredirait.
+// One milestone declared is not "no milestone": comparing asks for two bounds,
+// the second is missing, but the workbook is not silent about its time axis for
+// all that -- saying otherwise would contradict it.
 const dataWithASingleMilestone: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [],
@@ -185,8 +185,8 @@ const dataWithASingleMilestone: WorkbookData = {
   fx: [],
 };
 
-describe("vue Écarts — un seul palier déclaré", () => {
-  it("ne prétend pas que le classeur ne déclare aucun palier", async () => {
+describe("Changes view — a single milestone declared", () => {
+  it("does not claim the workbook declares no milestone", async () => {
     const root = document.createElement("div");
     mountApp(root);
     const buffer = writeTemplate(dataWithASingleMilestone);
@@ -206,13 +206,13 @@ describe("vue Écarts — un seul palier déclaré", () => {
 });
 
 
-// --- QA : la mémoire du placement est indexée sur ce qui décide du DESSIN.
-// La sélection de chaîne y manquait, et changer de chaîne ne changeait donc
-// rien à l'écran : deux vues différentes partageaient le même schéma.
-describe("vue Chaîne — changer de chaîne redessine", () => {
-  // Deux chaînes DISJOINTES : aucun acteur commun. C'est ce qui rend le défaut
-  // détectable -- avec une plomberie partagée, le dessin resterait plausible
-  // même en réutilisant le placement de l'autre chaîne.
+// --- QA: the layout memo is keyed on what decides the DRAWING. The chain
+// selection was missing from it, so switching chains changed nothing on screen:
+// two different views shared the same diagram.
+describe("Chain view — switching chains redraws", () => {
+  // Two DISJOINT chains: no actor in common. That is what makes the defect
+  // detectable -- with shared plumbing the drawing would stay plausible even
+  // while reusing the other chain's layout.
   const twoChains: WorkbookData = {
     flowTypes: [["Kafka", "provider → consumer", ""]],
     actorTypes: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
@@ -240,7 +240,7 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
     ],
   };
 
-  it("dessine la chaîne retenue, et pas la précédente", async () => {
+  it("draws the chain chosen, and not the previous one", async () => {
     const root = document.createElement("div");
     mountApp(root);
     const buffer = writeTemplate(twoChains);
@@ -259,9 +259,9 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
     const labels = [...select.options].map((o) => o.textContent);
     expect(labels).toHaveLength(2);
 
-    // Les BOÎTES, pas seulement les étiquettes : celles-ci viennent de la vue
-    // courante et changeraient même sur un placement périmé. Les boîtes, elles,
-    // viennent du placement -- c'est là que le défaut se voit.
+    // The BOXES, not only the labels: the labels come from the current view and
+    // would change even on a stale layout. The boxes come from the layout -- that
+    // is where the defect shows.
     const boxes = async () =>
       vi.waitFor(() => {
         const svg = root.querySelector(".render-area svg");
