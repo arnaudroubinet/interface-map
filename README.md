@@ -15,7 +15,7 @@ cd app
 npm ci
 npm test          # 628 tests
 npm run typecheck
-npm run build     # → app/dist/carte-des-interfaces.html
+npm run build     # → app/dist/interface-map.html
 ```
 
 Ouvrez le fichier produit dans un navigateur, puis déposez-y un classeur. Sans

@@ -1,4 +1,4 @@
-# Le livrable est UN fichier : app/dist/carte-des-interfaces.html, autonome et
+# Le livrable est UN fichier : app/dist/interface-map.html, autonome et
 # hors ligne. Ce workflow le fabrique et l'attache à la release, pour qu'on
 # n'ait jamais à demander « qui a construit celui-ci, et depuis quel commit ».
 #
@@ -46,8 +46,8 @@ jobs:
       # même sans release.
       - uses: actions/upload-artifact@v7
         with:
-          name: carte-des-interfaces
-          path: app/dist/carte-des-interfaces.html
+          name: interface-map
+          path: app/dist/interface-map.html
           if-no-files-found: error
 
       # Sur une release : le fichier s'attache au tag qui l'a demandée.
@@ -57,4 +57,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
-        run: gh release upload "$TAG" dist/carte-des-interfaces.html --clobber
+        run: gh release upload "$TAG" dist/interface-map.html --clobber

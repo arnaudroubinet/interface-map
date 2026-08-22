@@ -3319,7 +3319,7 @@ git commit -m "feat: wire the UI shell (drop zone, banner, rail, render loop)"
 
 **Interfaces:**
 - Consumes: `app/src/main.ts` (Task 13) as the esbuild entry point.
-- Produces: `app/dist/carte-des-interfaces.html` — the final single-file deliverable.
+- Produces: `app/dist/interface-map.html` — the final single-file deliverable.
 
 **Design plan.** This is an internal technical tool — read and operated, not browsed — for architects reviewing system-integration flows. The treatment stays utilitarian-polished (no hero, no decoration for its own sake), grounded in the one vernacular that actually fits the subject: architecture diagrams are drawn on grid paper, so the render zone carries a faint blueprint dot-grid instead of a plain flat panel. Everything else stays quiet around it.
 
@@ -3478,8 +3478,8 @@ const result = await esbuild.build({
 const js = result.outputFiles[0].text;
 const template = readFileSync("index.html", "utf8");
 const html = template.replace("/*__SCRIPT__*/", () => js);
-writeFileSync("dist/carte-des-interfaces.html", html);
-console.log("Built dist/carte-des-interfaces.html");
+writeFileSync("dist/interface-map.html", html);
+console.log("Built dist/interface-map.html");
 ```
 
 (`() => js` as the replacement avoids `String.prototype.replace` interpreting `$`-sequences inside the bundled JS as special patterns.)
@@ -3487,11 +3487,11 @@ console.log("Built dist/carte-des-interfaces.html");
 - [ ] **Step 3: Run the build**
 
 Run: `cd app && npm run build`
-Expected: `Built dist/carte-des-interfaces.html` printed, file exists, size in the low hundreds of KB (SheetJS + dagre + app code).
+Expected: `Built dist/interface-map.html` printed, file exists, size in the low hundreds of KB (SheetJS + dagre + app code).
 
 - [ ] **Step 4: Sanity-check the output is self-contained**
 
-Run: `grep -c "http://" app/dist/carte-des-interfaces.html; grep -c "cdn" app/dist/carte-des-interfaces.html`
+Run: `grep -c "http://" app/dist/interface-map.html; grep -c "cdn" app/dist/interface-map.html`
 Expected: both `0` (aside from the SVG namespace URIs, which are not network resources — if the first grep is non-zero, verify every match is `http://www.w3.org/...` XML namespace strings, not an actual fetch/URL).
 
 - [ ] **Step 5: Commit**
@@ -3587,7 +3587,7 @@ Run: `cd app && npm run build`
 
 - [ ] **Step 2: Open it and exercise the golden path**
 
-Use the `run` skill (or open `app/dist/carte-des-interfaces.html` directly in a browser) to:
+Use the `run` skill (or open `app/dist/interface-map.html` directly in a browser) to:
 1. Open the file via `file://` (double-click or drag into a browser tab) — confirm the drop target appears with no console errors.
 2. Drag `Exemples/cartographie-interfaces_3.xlsx` onto the page — confirm the banner shows the filename, counts, and a save date; confirm "Groupe à groupe" is selected by default.
 3. Click through all 6 views in the rail; for "Par acteur" and "Par technologie", change the selector and confirm the diagram updates.

@@ -15,7 +15,7 @@
 
 ## Global Constraints
 
-- Livrable : un `.html` unique et autonome. `npm run build` produit `app/dist/carte-des-interfaces.html`.
+- Livrable : un `.html` unique et autonome. `npm run build` produit `app/dist/interface-map.html`.
 - Tests : `npx vitest run` depuis `app/`. Typage : `npx tsc --noEmit`. Les deux doivent passer avant chaque commit.
 - TDD strict : le test échoue d'abord, on vérifie qu'il échoue, puis on implémente.
 - Le classeur et l'interface sont en **anglais** ; le code et les commentaires en **français**. Commits en anglais, style conventionnel.
@@ -23,7 +23,7 @@
 - Nature vide ⇒ métier. Aucune nature n'est devinée d'après le nom d'un type.
 - `VERSION_MODELE` passe de `2` à `3`. L'étape `2 → 3` est l'identité sur le modèle.
 - Les commentaires expliquent POURQUOI, jamais QUOI. Ne pas commenter du code non modifié.
-- Chaque tâche se vérifie aussi dans Chrome quand elle touche l'interface (serveur local sur `http://127.0.0.1:8931/app/dist/carte-des-interfaces.html`, chargement par glisser-déposer synthétique).
+- Chaque tâche se vérifie aussi dans Chrome quand elle touche l'interface (serveur local sur `http://127.0.0.1:8931/app/dist/interface-map.html`, chargement par glisser-déposer synthétique).
 
 ---
 

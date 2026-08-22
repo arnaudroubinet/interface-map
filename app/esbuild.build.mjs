@@ -44,5 +44,5 @@ const result = await esbuild.build({
 const js = result.outputFiles[0].text;
 const template = readFileSync("index.html", "utf8");
 const html = template.replace("/*__SCRIPT__*/", () => js);
-writeFileSync("dist/carte-des-interfaces.html", html);
-console.log("Built dist/carte-des-interfaces.html");
+writeFileSync("dist/interface-map.html", html);
+console.log("Built dist/interface-map.html");

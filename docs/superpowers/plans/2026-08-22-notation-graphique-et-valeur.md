@@ -14,7 +14,7 @@
 
 Ces contraintes lient **toutes** les tâches. Aucune ne se négocie tâche par tâche.
 
-- **Livrable mono-fichier.** `npm run build` doit continuer à produire un unique `app/dist/carte-des-interfaces.html` autonome, ouvrable en `file://`, sans réseau ni CDN. Toute dépendance nouvelle est inlinée : son poids compte, le bundle fait déjà ~2,19 Mo. **N'ajouter aucune dépendance npm sans mesurer le delta de poids et le mentionner dans le message de commit.**
+- **Livrable mono-fichier.** `npm run build` doit continuer à produire un unique `app/dist/interface-map.html` autonome, ouvrable en `file://`, sans réseau ni CDN. Toute dépendance nouvelle est inlinée : son poids compte, le bundle fait déjà ~2,19 Mo. **N'ajouter aucune dépendance npm sans mesurer le delta de poids et le mentionner dans le message de commit.**
 - **Pas de backend, pas de framework UI.** Le DOM se construit à la main, comme partout dans `src/ui/` et `src/render/`.
 - **`npx tsc --noEmit` doit rester propre** et `npx vitest run` doit rester vert à la fin de **chaque** tâche. Point de départ : 661 tests, 37 fichiers.
 - **L'interface parle anglais ; les commentaires de code parlent français.** Tout texte visible par l'utilisateur (libellé de bouton, message, entrée de légende, titre de vue, contenu d'un fichier exporté) s'écrit en anglais. Les commentaires expliquent *pourquoi*, jamais *quoi*.
@@ -23,7 +23,7 @@ Ces contraintes lient **toutes** les tâches. Aucune ne se négocie tâche par t
 - **La convention de flèche ne change pas :** le TRAIT suit la donnée, du fournisseur vers le consommateur ; la POINTE dit qui appelle — `marker-end` pour un flux poussé (`exposant-consommateur`), `marker-start` pour un flux tiré (`consommateur-exposant`). Toute vue, toute matrice, tout export s'y conforme.
 - **Une technologie doit être déclarée au référentiel** (`FlowTypes`). Une technologie employée sans y figurer n'est ni dessinée ni colorée ; c'est une règle non discutable du produit.
 - **Ne pas ajouter de commentaires, docstrings ou annotations de type à du code qu'on ne modifie pas.**
-- **Vérifier dans Chrome, pas seulement par vitest.** Le rendu est le produit. Recette : `npm run build` dans `app/`, servir la racine du dépôt (`npx http-server -p 8899 -c-1 .`), ouvrir `http://127.0.0.1:8899/app/dist/carte-des-interfaces.html`. Le chargement d'un classeur ne passe **que** par le glisser-déposer :
+- **Vérifier dans Chrome, pas seulement par vitest.** Le rendu est le produit. Recette : `npm run build` dans `app/`, servir la racine du dépôt (`npx http-server -p 8899 -c-1 .`), ouvrir `http://127.0.0.1:8899/app/dist/interface-map.html`. Le chargement d'un classeur ne passe **que** par le glisser-déposer :
   ```js
   const buf = await fetch("/Exemples/exemple.xlsx").then(r => r.arrayBuffer());
   const f = new File([buf], "exemple.xlsx", { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });

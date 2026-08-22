@@ -80,7 +80,7 @@ export function buildDrawio(
   );
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<mxfile host="carte-des-interfaces">',
+    '<mxfile host="interface-map">',
     ...boards.flatMap((p, i) => diagram(p, i, technologyColour, byActorPage)),
     "</mxfile>",
     "",
