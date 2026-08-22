@@ -65,6 +65,7 @@ export interface RailCallbacks {
   onSelectionTechnologie: (type: string) => void;
   onSelectionChaine: (chaîne: string) => void;
   onVoisinage: (value: Voisinage) => void;
+  onGraisseParCriticite: (value: boolean) => void;
   onPalierAffiche: (palier: string) => void;
   onPalierCompare: (palier: string) => void;
   onOptionCompteurs: (value: boolean) => void;
@@ -407,6 +408,17 @@ export function renderRail(
     echelleSelect.addEventListener("change", () => callbacks.onEchellePng(Number(echelleSelect.value) as 1 | 2 | 4));
     echelleLabel.appendChild(echelleSelect);
     options.appendChild(echelleLabel);
+
+    // La criticité est saisie, contrôlée et exportée depuis toujours, et
+    // n'était jamais dessinée. C'est la donnée la plus décisionnelle du
+    // classeur.
+    const critLabel = el("label", { class: "rail-option-criticite" });
+    const critInput = el("input", { type: "checkbox" });
+    critInput.checked = state.options.graisseParCriticite;
+    critInput.addEventListener("change", () => callbacks.onGraisseParCriticite(critInput.checked));
+    critLabel.appendChild(critInput);
+    critLabel.appendChild(document.createTextNode(" thickness by criticality"));
+    options.appendChild(critLabel);
 
     root.appendChild(options);
   }

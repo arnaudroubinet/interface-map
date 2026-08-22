@@ -1102,3 +1102,42 @@ describe("buildGraphSvg — la pointe tient dans le segment qui la porte", () =>
     }
   });
 });
+
+// --- §A3 : la graisse du trait est la variable de Bertin faite pour l'ORDRE.
+// Elle est volontairement uniforme ailleurs -- faire varier l'épaisseur avec le
+// NOMBRE de flux écrasait les voisins -- mais ce raisonnement valait pour un
+// volume, pas pour un ordre.
+describe("buildGraphSvg — la graisse suit la criticité", () => {
+  const parc = async (criticite?: string) =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "acteur" }, { id: "B", label: "B", kind: "acteur" }],
+      [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, criticite }]
+    );
+  const graisse = (svg: SVGSVGElement) => Number(svg.querySelector(".fx-aretes path")!.getAttribute("stroke-width"));
+
+  it("épaissit le trait critique quand le réglage est actif", async () => {
+    expect(graisse(buildGraphSvg(await parc("1 - Critical"), () => "#111", null, { graisseParCriticite: true }))).toBeGreaterThan(2);
+  });
+
+  it("amincit le trait standard", async () => {
+    expect(graisse(buildGraphSvg(await parc("3 - Standard"), () => "#111", null, { graisseParCriticite: true }))).toBeLessThan(2);
+  });
+
+  // Désactivé, rien ne bouge : la graisse sert ailleurs à ne RIEN dire, et les
+  // deux usages ne se mélangent pas.
+  it("garde une graisse uniforme quand le réglage est inactif", async () => {
+    expect(graisse(buildGraphSvg(await parc("1 - Critical"), () => "#111"))).toBe(2);
+  });
+
+  // Une criticité non renseignée ne doit pas produire un trait invisible.
+  it("garde la graisse par défaut sur une criticité absente", async () => {
+    expect(graisse(buildGraphSvg(await parc(undefined), () => "#111", null, { graisseParCriticite: true }))).toBe(2);
+  });
+
+  it("annonce les graisses employées dans la légende", async () => {
+    const svg = buildGraphSvg(await parc("1 - Critical"), () => "#111", null, { graisseParCriticite: true });
+    const textes = [...svg.querySelectorAll(".fx-legende text")].map((t) => t.textContent);
+    expect(textes).toContain("criticality: 1 - Critical");
+    expect(textes).not.toContain("criticality: 3 - Standard");
+  });
+});

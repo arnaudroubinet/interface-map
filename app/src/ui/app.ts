@@ -479,7 +479,9 @@ export function mountApp(root: HTMLElement): void {
           .then((union) => {
             if (génération !== générationRendu) return;
             const positioned = restreindreLayout(union, vueDuCalcul);
-            const svg = buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul));
+            const svg = buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul), {
+              graisseParCriticite: state.options.graisseParCriticite,
+            });
             zoneRendu.appendChild(svg);
             zoneRendu.appendChild(construireCommandesZoom(brancherZoom(svg)));
             // Les boutons d'export dépendent de la présence du SVG, qui
@@ -500,6 +502,7 @@ export function mountApp(root: HTMLElement): void {
       onMode: (mode) => setState(withMode(state, mode)),
       onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
       onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),
+      onGraisseParCriticite: (value) => setState(withOptions(withMessageBandeau(state, null), { graisseParCriticite: value })),
       onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onSelectionChaine: (chaîne) => setState(withSelectionChaine(withMessageBandeau(state, null), chaîne)),
       onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),

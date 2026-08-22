@@ -85,6 +85,7 @@ const callbacks: RailCallbacks = {
   onSelectionTechnologie: noop,
   onSelectionChaine: noop,
   onVoisinage: noop,
+  onGraisseParCriticite: noop,
   onPalierAffiche: noop,
   onPalierCompare: noop,
   onOptionCompteurs: noop,
@@ -241,7 +242,7 @@ describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const, echellePng: 2 as const } };
+    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
     const select = rendu(s).querySelector(".rail-option-libelle select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });

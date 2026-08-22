@@ -1,12 +1,13 @@
 import type { LayoutNode } from "../layout/graph-layout";
 import { COULEUR_ECART, ENCRE, styleDuNoeud } from "./styles-noeud";
+import { normalizeText } from "../shared/text";
 
 // Ce que la légende annonce doit être ce que le dessin utilise. Elle vit ici,
 // en DONNÉES, et non dans le constructeur SVG : le fichier draw.io doit
 // dessiner exactement la même, et deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
 export type ÉchantillonLegende =
-  | { forme: "trait"; couleur: string; pointillé?: boolean; pointe?: "debut" | "fin" }
+  | { forme: "trait"; couleur: string; pointillé?: boolean; pointe?: "debut" | "fin"; épaisseur?: number }
   | { forme: "boite"; fond: string; bord: string; pointillé?: boolean; coinCoupé?: boolean; pile?: boolean };
 
 export interface EntreeLegende {
@@ -25,6 +26,7 @@ export interface NoeudLegendable {
 
 export interface ArêteLegendable {
   technologie: string;
+  criticite?: string;
   ecart?: "ajout" | "retrait";
   // La pointe et le pointillé sont de la NOTATION : ils disent qui appelle et
   // si le contenu change en route. La couleur, elle, n'est qu'un rappel.
@@ -44,7 +46,8 @@ const LIBELLE_ECART: Record<"ajout" | "retrait", string> = {
 export function entreesDeLegende(
   edges: readonly ArêteLegendable[],
   nodes: readonly NoeudLegendable[],
-  colorFor: (tech: string) => string
+  colorFor: (tech: string) => string,
+  graisseParCriticite = false
 ): EntreeLegende[] {
   const entrées: EntreeLegende[] = [];
 
@@ -82,6 +85,19 @@ export function entreesDeLegende(
       texte: "consumer pulls",
     });
   }
+  // Une graisse non annoncée est une notation muette de plus, exactement ce
+  // que la pointe était avant.
+  if (graisseParCriticite) {
+    for (const [valeur, épaisseur] of [
+      ["1 - Critical", 3.5],
+      ["2 - Important", 2],
+      ["3 - Standard", 1],
+    ] as [string, number][]) {
+      if (!edges.some((e) => normalizeText(e.criticite ?? "") === normalizeText(valeur))) continue;
+      entrées.push({ échantillon: { forme: "trait", couleur: ENCRE, épaisseur }, texte: `criticality: ${valeur}` });
+    }
+  }
+
   if (edges.some((e) => !e.ecart && e.atténué === true)) {
     entrées.push({
       échantillon: { forme: "trait", couleur: ENCRE, pointillé: true },

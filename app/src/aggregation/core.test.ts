@@ -427,3 +427,49 @@ describe("nodesFromEdges", () => {
     expect(ids).toEqual(["A", "B", "C"]);
   });
 });
+
+// --- §A3 : la criticité est saisie, contrôlée et exportée depuis toujours, et
+// n'était jamais dessinée. C'est pourtant la donnée la plus décisionnelle du
+// classeur.
+describe("groupFlows — la criticité portée par le trait", () => {
+  // Un parc où B consomme la même interface plusieurs fois, chaque ligne avec
+  // sa propre criticité : c'est le cas que l'agrégation doit trancher.
+  const fluxAvec = (criticites: string[]) =>
+    buildFlowInstances(
+      base.modele({
+        groupes: [base.groupe({ nom: "G" })],
+        typesActeur: [base.typeActeur()],
+        typesFlux: [base.typeFlux()],
+        fxSheetNames: ["FX_A_HTTP"],
+        acteurs: [base.acteur({ nom: "A" }), base.acteur({ nom: "B" })],
+        interfaces: criticites.map((_, i) =>
+          base.iface({ nomDuFlux: `F${i}`, acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" })
+        ),
+        consommations: criticites.map((criticite, i) =>
+          base.conso({ nomDuFlux: `F${i}`, acteurConsommateur: "B", feuille: "FX_A_HTTP", criticite })
+        ),
+      })
+    );
+
+  it("retient la criticité la plus forte des consommations agrégées", () => {
+    const g = groupFlows(fluxAvec(["3 - Standard", "1 - Critical", "2 - Important"]), identityNodeKey, true)[0];
+    expect(g.criticite).toBe("1 - Critical");
+  });
+
+  it("garde la seule criticité présente quand il n'y en a qu'une", () => {
+    expect(groupFlows(fluxAvec(["2 - Important"]), identityNodeKey, true)[0].criticite).toBe("2 - Important");
+  });
+
+  // Une case vide n'est pas une criticité basse : elle n'est rien, et ne doit
+  // pas écraser celle d'une autre consommation du même trait.
+  it("ignore une criticité non renseignée", () => {
+    expect(groupFlows(fluxAvec(["", "2 - Important"]), identityNodeKey, true)[0].criticite).toBe("2 - Important");
+    expect(groupFlows(fluxAvec([""]), identityNodeKey, true)[0].criticite).toBeUndefined();
+  });
+
+  // L'ordre se lit dans le vocabulaire lui-même : en tenir une seconde liste
+  // ferait diverger les deux.
+  it("range une valeur hors vocabulaire après toutes les autres", () => {
+    expect(groupFlows(fluxAvec(["Inconnue", "3 - Standard"]), identityNodeKey, true)[0].criticite).toBe("3 - Standard");
+  });
+});

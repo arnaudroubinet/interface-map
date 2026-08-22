@@ -58,6 +58,7 @@ function rect(x: number, y: number, w: number, h: number, fill: string, stroke: 
 
 
 interface RenderEdge {
+  criticite?: string;
   points: { x: number; y: number }[];
   // Centre de la pastille, placé par le moteur de layout.
   centreLibellé?: { x: number; y: number };
@@ -119,7 +120,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
 
   // Un flux dessiné tel quel, avec sa propre pointe.
   const seul = (edge: LayoutEdge) => {
-      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, ecart: edge.ecart, label: edge.label, fleche: true });
+      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, ecart: edge.ecart, label: edge.label, criticite: edge.criticite, fleche: true });
   };
 
   for (const groupe of groupes.values()) {
@@ -135,7 +136,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
       // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
       // le libellé plutôt du côté le moins encombré.
-      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, ecart: edge.ecart, label: edge.label, fleche: true });
+      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, ecart: edge.ecart, label: edge.label, criticite: edge.criticite, fleche: true });
       continue;
     }
 
@@ -175,7 +176,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Toutes les branches convergent vers la même confluence encombrée :
       // le libellé se place près de sa propre source, là où les branches sont
       // encore écartées les unes des autres (à leurs ports de sortie).
-      résultat.push({ points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, label: edge.label, fleche: false });
+      résultat.push({ points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technologie: edge.technologie, count: edge.count, tire: edge.tire, noms: edge.noms, atténué: edge.atténué, label: edge.label, criticite: edge.criticite, fleche: false });
     }
 
     résultat.push({
@@ -185,6 +186,9 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       count: groupe.reduce((s, e) => s + e.count, 0),
       noms: [...new Set(groupe.flatMap((e) => e.noms ?? []))],
       atténué: groupe[0].atténué,
+      // Le tronc porte la criticité la plus forte de ses branches : il tombe
+      // avec la plus vitale d'entre elles.
+      criticite: groupe.map((e) => e.criticite).find(Boolean),
       fleche: true,
       estTronc: true,
     });
@@ -314,7 +318,28 @@ function couleurArête(edge: RenderEdge, colorFor: (tech: string) => string): st
   return edge.ecart ? COULEUR_ECART[edge.ecart] : colorFor(edge.technologie);
 }
 
-function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, rectLibellé: Rect | null): SVGGElement {
+// La graisse du trait est la variable de Bertin faite pour l'ORDRE. Elle est
+// volontairement uniforme ailleurs -- faire varier l'épaisseur avec le NOMBRE
+// de flux agrégés écrasait visuellement les voisins, et le volume se lit dans
+// le « ×N ». Ce raisonnement valait pour un volume ; il ne vaut pas pour un
+// ordre, et la criticité en est un.
+const ÉPAISSEUR_PAR_CRITICITE: Record<string, number> = {
+  "1 - critical": 3.5,
+  "2 - important": 2,
+  "3 - standard": 1,
+};
+
+function épaisseurDuTrait(edge: RenderEdge, parCriticite: boolean): number {
+  if (!parCriticite || !edge.criticite) return ÉPAISSEUR_TRAIT;
+  return ÉPAISSEUR_PAR_CRITICITE[normalizeText(edge.criticite)] ?? ÉPAISSEUR_TRAIT;
+}
+
+function buildEdgeElement(
+  edge: RenderEdge,
+  colorFor: (tech: string) => string,
+  rectLibellé: Rect | null,
+  parCriticite: boolean
+): SVGGElement {
   const g = el("g");
   const couleur = couleurArête(edge, colorFor);
 
@@ -339,7 +364,7 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     path.setAttribute("d", cheminArrondi(morceau));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", couleur);
-    path.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
+    path.setAttribute("stroke-width", String(épaisseurDuTrait(edge, parCriticite)));
     // La pointe ne va que sur le morceau qui aborde celui qu'elle désigne : le
     // dernier quand le fournisseur pousse, le premier quand le consommateur
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
@@ -718,7 +743,7 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
     l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON - (é.pointe === "fin" ? marge : 0)));
     l.setAttribute("y2", String(ligne));
     l.setAttribute("stroke", é.couleur);
-    l.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
+    l.setAttribute("stroke-width", String(é.épaisseur ?? ÉPAISSEUR_TRAIT));
     if (é.pointillé) l.setAttribute("stroke-dasharray", "6 4");
     if (é.pointe === "fin") l.setAttribute("marker-end", `url(#${idMarqueurFlèche(é.couleur)})`);
     if (é.pointe === "debut") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.couleur, true)})`);
@@ -776,7 +801,8 @@ export function buildGraphSvg(
   colorFor: (tech: string) => string,
   // Ce que le schéma dit de lui-même. `null` pour les appels qui n'ont rien à
   // en dire -- un test de rendu, un fragment -- plutôt qu'un cartouche vide.
-  contexte: ContexteSchema | null = null
+  contexte: ContexteSchema | null = null,
+  options?: { graisseParCriticite?: boolean }
 ): SVGSVGElement {
   // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
   // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
@@ -793,7 +819,7 @@ export function buildGraphSvg(
   // Et une technologie vide n'en est pas une -- le mode fonctionnel vide
   // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
   // qu'un code couleur introuvable sur le dessin.
-  const entrées = entreesDeLegende(renderEdges, layout.nodes, colorFor);
+  const entrées = entreesDeLegende(renderEdges, layout.nodes, colorFor, options?.graisseParCriticite === true);
   const légendeL = entrées.length ? largeurLegende(entrées.map((e) => e.texte)) : 0;
   const légendeH = entrées.length ? LEGENDE_PAD * 2 + entrées.length * LEGENDE_LIGNE : 0;
 
@@ -876,7 +902,9 @@ export function buildGraphSvg(
 
   const coucheArêtes = el("g");
   coucheArêtes.setAttribute("class", "fx-aretes");
-  for (const edge of renderEdges) coucheArêtes.appendChild(buildEdgeElement(edge, colorFor, rectDuLibellé(edge)));
+  for (const edge of renderEdges) {
+    coucheArêtes.appendChild(buildEdgeElement(edge, colorFor, rectDuLibellé(edge), options?.graisseParCriticite === true));
+  }
   svg.appendChild(coucheArêtes);
 
   // Les frontières passent sous les arêtes : ce sont des repères de fond, pas

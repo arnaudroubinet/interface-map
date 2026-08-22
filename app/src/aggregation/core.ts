@@ -1,7 +1,7 @@
 import type { Acteur, InterfaceCatalogue, ParsedModel, Consommation, ValiditePalier } from "../parsing/model";
 import { intervalleDeVie, estVivant } from "./paliers";
 import { normalizeText } from "../shared/text";
-import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "./vocabulaires";
+import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE, VOCABULAIRE_CRITICITE } from "./vocabulaires";
 
 export type NodeId = string;
 export type NodeKind = "groupe" | "plateforme" | "acteur" | "acteur-selectionne" | "frontiere";
@@ -41,6 +41,11 @@ export interface GraphEdge {
   to: NodeId;
   technologie: string;
   count: number;
+  // La criticité la plus forte portée par ce trait, quand la vue veut la
+  // dessiner. Saisie, contrôlée et exportée depuis toujours, elle n'était
+  // jamais dessinée -- c'est pourtant la donnée la plus décisionnelle du
+  // classeur.
+  criticite?: string;
   label: string;
   atténué: boolean;
   // La pointe va au départ du trait plutôt qu'à son arrivée : le consommateur
@@ -349,6 +354,22 @@ export interface EdgeGroup {
   // sans doublon : c'est d'eux que le libellé tire son sens quand la
   // technologie n'est plus là pour le porter.
   noms: string[];
+  // La criticité la PLUS FORTE des consommations rassemblées sous ce trait :
+  // un trait qui porte un flux vital et deux flux ordinaires est vital.
+  criticite?: string;
+}
+
+// L'ordre du vocabulaire, du plus critique au moins. On le lit dans la liste
+// elle-même plutôt que d'en tenir une seconde : les deux divergeraient.
+function rangDeCriticite(valeur: string): number {
+  const i = VOCABULAIRE_CRITICITE.findIndex((v) => normalizeText(v) === normalizeText(valeur));
+  return i < 0 ? VOCABULAIRE_CRITICITE.length : i;
+}
+
+function laPlusForte(a: string | undefined, b: string): string | undefined {
+  if (!a) return b.trim() ? b : undefined;
+  if (!b.trim()) return a;
+  return rangDeCriticite(b) < rangDeCriticite(a) ? b : a;
 }
 
 export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops: boolean): EdgeGroup[] {
@@ -371,9 +392,19 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
     if (existing) {
       existing.count += 1;
       existing.atténué = existing.atténué && flow.atténué;
+      existing.criticite = laPlusForte(existing.criticite, flow.conso.criticite);
       if (!existing.noms.includes(nom)) existing.noms.push(nom);
     } else {
-      groups.set(key, { from, to, technologie: flow.typeDeFlux, count: 1, atténué: flow.atténué, tire: estTire(flow), noms: [nom] });
+      groups.set(key, {
+        from,
+        to,
+        technologie: flow.typeDeFlux,
+        count: 1,
+        atténué: flow.atténué,
+        tire: estTire(flow),
+        noms: [nom],
+        criticite: flow.conso.criticite.trim() || undefined,
+      });
     }
   }
 

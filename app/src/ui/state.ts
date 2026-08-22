@@ -65,6 +65,10 @@ export interface AppOptions {
   // c'est le cas où 600 dpi paie encore. Le bon réflexe reste le SVG, qui est
   // vectoriel et n'a pas de résolution.
   echellePng: 1 | 2 | 4;
+  // La graisse du trait suit la criticité de la consommation. Désactivé par
+  // défaut : la graisse sert ailleurs à ne RIEN dire, et les deux usages ne se
+  // mélangent pas.
+  graisseParCriticite: boolean;
 }
 
 // Ce que l'utilisateur a décoché dans la vue par acteur. Remis à zéro dès qu'on
@@ -127,7 +131,7 @@ export function initialState(): AppState {
     mode: "architecture",
     palierAffiche: null,
     palierCompare: null,
-    options: { compteurs: true, libelléArête: "technology", echellePng: 2 },
+    options: { compteurs: true, libelléArête: "technology", echellePng: 2, graisseParCriticite: false },
     filtresActeur: { technosMasquees: [], acteursMasques: [], voisinage: "direct" },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
