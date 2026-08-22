@@ -81,9 +81,12 @@ change simplement de source.
   Le cas est légitime — on cartographie souvent avant que le référentiel ne
   soit à jour — mais il mérite d'être vu.
 
-Ces listes aident la frappe, elles ne valident rien : Excel n'empêche pas de
-coller une valeur hors liste. C'est la règle déjà posée pour les listes
-dépendantes des onglets `FX_`, et elle vaut ici pour la même raison.
+Ces listes aident la frappe, elles ne valident rien. Les listes alimentées par
+le référentiel sont donc écrites **sans alerte de refus** : une liste qui refuse
+serait bloquante là où le référentiel est en retard sur la cartographie, et sur
+un classeur sans référentiel elle se réduit à une cellule vide — `Name` et
+`Flow type`, les deux clés du classeur, deviendraient impossibles à saisir. Les
+listes dont le classeur possède lui-même le vocabulaire gardent leur refus.
 
 ## 5. L'URL est une propriété du classeur
 
@@ -176,6 +179,12 @@ plages nommées, des relations de feuille et des entrées dans
 
 Une contrainte technique : `writePart` encode en UTF-8. `customXml/item1.xml`
 étant en UTF-16, il faut un `writeBinaryPart` prenant un `Uint8Array`.
+
+Corollaire à connaître : les deux onglets `Ref*` appartiennent à leurs requêtes,
+et l'outil n'en écrit que l'en-tête. **Un classeur que l'outil réécrit revient
+donc avec ses onglets `Ref*` vides jusqu'à ce qu'Excel actualise** — les listes
+déroulantes ne proposent rien d'ici là, ce qui est sans conséquence puisque
+aucune ne refuse (§4).
 
 `saveData="1"` sur la connexion n'est pas un détail : les dernières valeurs
 chargées sont **enregistrées dans le fichier**. Un classeur ouvert sans réseau,
