@@ -1,21 +1,21 @@
 import type { WorkbookData } from "./template-export";
 
-// Un référentiel fictif complet, pour montrer l'outil rempli plutôt que vide.
-// Le domaine et TOUS les noms -- groupes, composants, flux -- sont étrangers à
-// nos classeurs d'exemple : rien ici ne doit se confondre avec un vrai
-// référentiel, ni avec le jeu de test.
+// A complete fictional referential, to show the tool filled rather than empty.
+// The domain and ALL the names -- groups, components, flows -- are foreign to
+// our sample workbooks: nothing here must be confused with a real referential,
+// nor with the test fixtures.
 //
-// Il est construit pour ne déclencher aucune anomalie : chaque interface a une
-// description et un contrat, chaque consommation son usage, sa criticité et sa
-// décision, chaque ligne son palier d'arrivée, chaque acteur au moins un flux,
-// chaque groupe et chaque type d'acteur déclaré est effectivement porté.
+// It is built to trigger no anomaly at all: every interface has a description
+// and a contract, every consumption its usage, its criticality and its
+// decision, every row its arrival milestone, every actor at least one flow,
+// and every declared group and actor type is actually carried.
 
-// Type d'acteur | Icône | Nature
+// Actor type | Icon | Nature
 //
-// C'est cette colonne qui fait exister la lecture métier : un acteur technique
-// n'apparaît pas sur un schéma fonctionnel, les flux qui le traversent sont
-// raboutés bout à bout. Sans elle, les deux modes rendent le même dessin et
-// l'exemple ne montrerait pas ce qu'il est censé montrer.
+// This column is what makes the business reading exist: a technical actor does
+// not appear on a functional diagram, and the flows crossing it are joined end
+// to end. Without it, both modes return the same drawing and the sample would
+// not show what it is meant to show.
 const ACTOR_TYPES = [
   ["Application", "app-window", "Business"],
   ["Service", "cog", "Business"],
@@ -33,14 +33,14 @@ const GROUPS = [
   ["Support", "External"],
 ];
 
-// Palier | Rang | Libellé | Statut | Date | Description
+// Milestone | Rank | Label | Status | Date | Description
 const MILESTONES = [
   ["v1", "1", "Initial platform", "Delivered", "2026-01-15", "Platform and policies go live"],
   ["v2", "2", "Opening to partners", "Delivered", "2026-06-01", "Care statements and outsourced payroll"],
   ["v3", "3", "Real time", "Planned", "2026-12-01", "Lookups move to version 2"],
 ];
 
-// Nom | Groupe | Type d'acteur | Responsable | Description | Commentaires | Intro | Retrait
+// Name | Group | Actor type | Owner | Description | Comments | Introduced | Retired
 const ACTORS = [
   ["Chandrila", "Core", "Application", "Policy team", "Policy management", "", "v1", ""],
   ["Sullust", "Core", "Service", "Actuarial team", "Pricing engine", "", "v1", ""],
@@ -54,29 +54,29 @@ const ACTORS = [
   ["Serenno", "Institutional", "Partner", "Legal division", "Sector regulator", "", "v1", ""],
   ["Vjun", "Support", "Packaged product", "IT department", "Outsourced payroll software", "", "v2", ""],
   ["Crait", "Support", "Person", "Member services", "Case handling", "", "v1", ""],
-  // Trois relais successifs, tous techniques : ils disparaissent en lecture
-  // métier et la chaîne se raboute d'un bout à l'autre. Deux sont sur la
-  // plateforme, le troisième ne l'est pas -- une chaîne fonctionnelle traverse
-  // donc aussi la frontière, ce qui est le cas courant chez un assureur.
+  // Three successive relays, all technical: they disappear in the business
+  // reading and the chain joins up end to end. Two are on the platform, the
+  // third is not -- so a functional chain also crosses the boundary, which is
+  // the common case at an insurer.
   ["Kafka", "Core", "Infrastructure", "Integration team", "Event broker", "", "v1", ""],
   ["Dagobah", "Core", "Infrastructure", "Integration team", "Contract management gateway", "", "v1", ""],
   ["ESB", "Support", "Infrastructure", "IT department", "Shared enterprise service bus, operated outside the platform", "", "v1", ""],
 ];
 
-// Nom du flux | Version | Exposant | Type de flux | Description | Lien contrat | Référence | Commentaires | À confirmer | Relais | Intro | Retrait
+// Flow name | Version | Provider | Flow type | Description | Contract link | Reference | Comments | To confirm | Relays | Introduced | Retired
 const INTERFACES = [
-  // Une migration en cours, pour que le fichier d'exemple montre aussi le
-  // rapport de suivi : la 1.0 est en retrait, la 2.0 la remplace, et deux
-  // consommateurs n'ont pas encore basculé.
+  // A migration under way, so that the sample file also shows the follow-up
+  // report: 1.0 is on its way out, 2.0 replaces it, and two consumers have not
+  // switched yet.
   ["Member lookup", "1.0", "Takodana", "HTTP", "Reading a member record", "https://contrats.interne/adherent", "CTR-ADH-01", "", "No", "v1", "v3"],
   ["Member lookup", "2.0", "Takodana", "HTTP", "Reading a member record, enriched format", "https://contrats.interne/adherent-v2", "CTR-ADH-01", "", "No", "v2", ""],
   ["Premium calculation", "1.0", "Sullust", "HTTP", "Premium computed from a profile", "https://contrats.interne/cotisation", "CTR-COT-02", "", "No", "v1", ""],
   ["Subscription", "1.0", "Chandrila", "HTTP", "Creating and amending a policy", "https://contrats.interne/souscription", "CTR-SOU-03", "", "No", "v1", ""],
   ["Policy events", "1.0", "Chandrila", "Kafka", "Publishing policy changes", "https://contrats.interne/vie-contrat", "CTR-VIE-04", "", "No", "v1", ""],
-  // Deux chaînes traversent le bus, en sens opposés : c'est ce qui distingue un
-  // schéma d'architecture d'un schéma métier. En architecture on voit les
-  // quatre segments et le bus au milieu ; en métier, « Ilum ─► Chandrila »
-  // et « Chandrila ─► Ilum », le medium retiré.
+  // Two chains cross the bus, in opposite directions: this is what tells an
+  // architecture diagram from a business one. In architecture one sees the four
+  // segments and the bus in the middle; in business, "Ilum ─► Chandrila" and
+  // "Chandrila ─► Ilum", with the medium removed.
   ["Raw statement", "1.0", "Ilum", "File", "Statement file dropped by the care facility", "https://contrats.interne/decompte-brut", "CTR-DEC-05", "", "No", "v1", ""],
   ["Care statement", "1.0", "Malastare", "File", "Statements normalised for the policy system", "https://contrats.interne/decompte", "CTR-DEC-06", "", "No", "v1", ""],
   ["Policy stream", "1.0", "Malastare", "Kafka", "Policy changes republished to partners", "https://contrats.interne/flux-contrat", "CTR-VIE-10", "", "No", "v1", ""],
@@ -84,22 +84,22 @@ const INTERFACES = [
   ["Member mail", "1.0", "Rodia", "SMTP", "Emails sent to members", "https://contrats.interne/courrier", "CTR-COU-07", "", "No", "v1", ""],
   ["Regulatory return", "1.0", "Onderon", "File", "Periodic extract for the regulator", "https://contrats.interne/etat", "CTR-ETA-08", "Scope to confirm", "Yes", "v1", ""],
   ["Payslips", "1.0", "Vjun", "SFTP", "Monthly payslip delivery", "https://contrats.interne/paie", "CTR-PAI-09", "", "No", "v2", ""],
-  // Chandrila ─► Kafka ─► Dagobah ─► ESB ─► Bracca : quatre segments, trois
-  // relais. En architecture on voit les quatre ; en métier, « Chandrila ─► North
-  // Broker », toute la plomberie retirée.
+  // Chandrila ─► Kafka ─► Dagobah ─► ESB ─► Bracca: four segments, three relays.
+  // In architecture one sees all four; in business, "Chandrila ─► North Broker",
+  // with all the plumbing removed.
   ["Policy notice", "1.0", "Chandrila", "Kafka", "Policy change notice for the sales network", "https://contrats.interne/avis", "CTR-AVI-11", "", "No", "v1", ""],
   ["notice.stream", "1.0", "Kafka", "Kafka", "Notices republished on the broker topic", "https://contrats.interne/avis-topic", "CTR-AVI-12", "", "No", "v1", ""],
   ["notice.norm", "1.0", "Dagobah", "HTTP", "Notices normalised to the partner contract", "https://contrats.interne/avis-norme", "CTR-AVI-13", "", "No", "v1", ""],
   ["notice.out", "1.0", "ESB", "SFTP", "Notices delivered to the broker network", "https://contrats.interne/avis-sortie", "CTR-AVI-14", "", "No", "v1", ""],
-  // Une seconde chaîne par le même relais, mais qui ne quitte pas la
-  // plateforme : Chandrila ─► Kafka ─► Takodana. Un seul saut, et les deux extrémités
-  // sont internes -- l'autre chaîne en compte trois et sort du périmètre. Le
-  // même bus sert les deux sans les confondre, ce qui est exactement ce que la
-  // republication par ligne permet de dire.
+  // A second chain through the same relay, but one that does not leave the
+  // platform: Chandrila ─► Kafka ─► Takodana. A single hop, and both ends are
+  // internal -- the other chain has three and leaves the perimeter. The same bus
+  // serves both without conflating them, which is exactly what per-row
+  // republication makes it possible to say.
   ["events.core", "1.0", "Kafka", "Kafka", "Policy events republished for the platform", "https://contrats.interne/vie-socle", "CTR-VIE-15", "", "No", "v1", ""],
 ];
 
-// Nom du flux | Version | Consommateur | Usage | Criticité | Décision | Commentaires | Intro | Retrait
+// Flow name | Version | Consumer | Usage | Criticality | Decision | Comments | Introduced | Retired
 const consumption = (
   flows: string,
   consumer: string,
@@ -108,8 +108,8 @@ const consumption = (
   decision = "Keep",
   version = "1.0",
   arrival = "v1",
-  // Renseigné sur les seules entrées du bus : sous laquelle de SES interfaces
-  // cette entrée ressort. C'est ce qui raboute la chaîne en lecture métier.
+  // Filled only on the bus's inputs: under which of ITS interfaces this input
+  // comes back out. This is what joins the chain up in the business reading.
   republishedAs = ""
 ) => [flows, version, consumer, usage, criticality, decision, "", republishedAs, arrival, ""];
 
@@ -165,7 +165,7 @@ const FX = [
     rows: [
       consumption("Supporting documents", "Chandrila", "Dropping subscription documents", "2 - Important"),
       consumption("Supporting documents", "Rodia", "Dropping documents filed online", "2 - Important"),
-      // Un flux en cours de bascule : atténué sur les schémas.
+      // A flow in the middle of switching over: dimmed on the diagrams.
       consumption("Supporting documents", "Crait", "Manual drop, replaced by the portal", "3 - Standard", "Transform"),
     ],
   },
@@ -178,8 +178,8 @@ const FX = [
     rows: [consumption("Regulatory return", "Serenno", "Quarterly regulatory filing", "1 - Critical")],
   },
   {
-    // Le premier maillon partage l'onglet de Chandrila : même exposant, même
-    // technologie que « Policy events ».
+    // The first hop shares Chandrila's sheet: same publisher, same technology
+    // as "Policy events".
     name: "FX_Kafka_Kafka",
     rows: [
       consumption("notice.stream", "Dagobah", "Routing to the contract gateway", "2 - Important", "Keep", "1.0", "v1", "notice.norm 1.0"),
@@ -201,8 +201,8 @@ const FX = [
 ];
 
 export const SAMPLE_DATA: WorkbookData = {
-  // Le référentiel des technologies se contente de l'amorce ; celui des types
-  // d'acteur, non : il doit porter la nature.
+  // The technologies' referential makes do with the seed; the actor types' does
+  // not: it must carry the nature.
   flowTypes: [],
   actorTypes: ACTOR_TYPES,
   milestones: MILESTONES,

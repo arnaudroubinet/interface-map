@@ -7,21 +7,21 @@ import {
 } from "../aggregation/vocabularies";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 
-// Ce que le classeur produit contient AVANT toute saisie : ses vocabulaires,
-// ses icônes, ses seize technologies, et le mode d'emploi que porte son premier
-// onglet.
+// What the produced workbook holds BEFORE anything is typed: its vocabularies,
+// its icons, its sixteen technologies, and the instructions its first sheet
+// carries.
 //
-// Ce sont des données, pas de la machinerie. Elles vivaient au milieu du module
-// qui assemble le classeur et ses formules Excel, si bien que corriger une
-// faute dans le mode d'emploi obligeait à ouvrir le fichier le plus technique
-// du projet. Les séparer ne change rien à ce qui est écrit dans le classeur :
-// c'est le même contenu, rangé là où on le cherche.
+// These are data, not machinery. They used to live in the middle of the module
+// that assembles the workbook and its Excel formulas, so that fixing a typo in
+// the instructions meant opening the project's most technical file. Separating
+// them changes nothing of what is written in the workbook: it is the same
+// content, filed where one looks for it.
 
-// Valeurs de référence du domaine. Ce sont elles qu'on recopie dans les
-// colonnes du classeur ; l'outil ne les impose pas, il les propose.
-// Les types d'acteur ne figurent PAS ici : ils sont désormais énumérés par
-// l'onglet TypesActeur, qui fait foi. Les avoir aux deux endroits aurait laissé
-// deux vérités concurrentes sur la même question.
+// The domain's reference values. They are what gets copied into the workbook's
+// columns; the tool does not impose them, it offers them.
+// The actor types are NOT here: they are now enumerated by the ActorTypes
+// sheet, which is authoritative. Having them in both places would have left
+// two competing truths on the same question.
 export const LISTES: Record<string, string[]> = {
   Perimeter: VOCABULARY_PERIMETER,
   Direction: VOCABULARY_DIRECTION,
@@ -29,14 +29,14 @@ export const LISTES: Record<string, string[]> = {
   Criticality: VOCABULARY_CRITICALITY,
   Confirmation: ["Yes", "No"],
   Nature: VOCABULARY_NATURE,
-  // Les noms d'icône acceptés, pour que la colonne Icône de TypesActeur se
-  // remplisse par recopie plutôt que de mémoire, avec un aperçu en regard.
+  // The accepted icon names, so that ActorTypes' Icon column is filled by
+  // copying rather than from memory, with a preview alongside.
   Icon: AVAILABLE_ICONS,
   Preview: AVAILABLE_ICONS.map((n) => ICON_PREVIEWS[n] ?? ""),
 };
 
-// Correspondance de départ entre type d'acteur et icône. Rien n'y est figé :
-// c'est précisément ce que l'onglet TypesActeur sert à changer.
+// The starting mapping from actor type to icon. Nothing in it is fixed: that
+// is precisely what the ActorTypes sheet is there to change.
 export const DEFAULT_ICONS: [string, string][] = [
   ["Application", "app-window"],
   ["Service", "cog"],
@@ -46,11 +46,11 @@ export const DEFAULT_ICONS: [string, string][] = [
   ["Infrastructure", "server"],
 ];
 
-// Les technologies courantes, avec le sens dans lequel on les représente. Repris
-// du référentiel réel, mais débarrassé de ce qui n'y avait pas sa place : les
-// variantes dépôt/retrait (le sens se déduit de qui expose), les composites
-// « + ESB » et « + ETL » (ce sont deux liens, pas un), et OIDC-SSO (un flux
-// HTTP, pas une technologie).
+// The common technologies, with the direction they are represented in. Taken
+// from the real referential, but stripped of what had no place in it: the
+// deposit/withdrawal variants (the direction follows from who publishes), the
+// "+ ESB" and "+ ETL" composites (those are two links, not one), and OIDC-SSO
+// (an HTTP flow, not a technology).
 export const FLOW_TYPES: [string, string, string][] = [
   ["HTTP", "consumer → provider", "Direct HTTP call, REST or SOAP"],
   ["gRPC", "consumer → provider", "Remote procedure call"],
@@ -71,10 +71,10 @@ export const FLOW_TYPES: [string, string, string][] = [
 ];
 
 
-// L'onglet d'explication. Chaque ligne porte SON RÔLE, et le rôle décide de la
-// mise en forme : c'est ce qui permet de ne plus couper les phrases à la main.
-// L'ancienne version le faisait -- des lignes de 80 caractères découpées dans
-// le code -- et la coupure se défaisait dès qu'on élargissait la colonne.
+// The explanation sheet. Each row carries ITS ROLE, and the role decides the
+// formatting: that is what allows sentences to no longer be broken by hand.
+// The old version did -- 80-character lines cut up in the code -- and the
+// break came undone as soon as the column was widened.
 export type RowRole = "title" | "section" | "body" | "aside";
 
 export interface InstructionsRow {

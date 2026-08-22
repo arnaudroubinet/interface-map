@@ -3,22 +3,22 @@ import { legendEntries } from "../render/legend";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { subLabel } from "../layout/graph-layout";
 
-// Toutes les planches, dans un fichier qu'on peut rouvrir et retoucher : une
-// par onglet, comme draw.io présente ses pages. C'est le pendant modifiable des
-// exports d'image, au placement près -- celui qu'ELK a calculé, repris tel
-// quel. Le refaire dans draw.io donnerait d'autres planches que celles qu'on
-// regardait.
+// Every board, in a file that can be reopened and reworked: one per tab, the
+// way draw.io presents its pages. It is the editable counterpart of the image
+// exports, layout included -- the one ELK computed, taken as it is. Redoing it
+// in draw.io would give boards other than the ones being looked at.
+//
 
 const XML: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
 const escapeXml = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
 
-// Le gabarit C4 de draw.io, celui-là même dont le placement reprend les cotes :
-// nom en gras, type entre crochets, description en dessous.
+// draw.io's C4 template, the very one whose dimensions the layout takes up:
+// name in bold, type in brackets, description below.
 //
-// Un libellé est du HTML transporté dans un attribut XML : le texte du classeur
-// y passe donc DEUX échappements, un pour le HTML que draw.io rendra, un pour
-// l'attribut qui le porte. N'en faire qu'un produit un fichier qu'aucun
-// analyseur XML n'ouvre -- draw.io compris.
+// A label is HTML carried inside an XML attribute: the workbook's text
+// therefore goes through TWO escapings, one for the HTML draw.io will render,
+// one for the attribute carrying it. Doing only one produces a file no XML
+// parser opens -- draw.io included.
 function content(n: LayoutNode): string {
   const pieces = [`<b>${escapeXml(n.label)}</b>`];
   if (n.subtitle) pieces.push(`[${escapeXml(n.subtitle)}]`);
@@ -55,26 +55,26 @@ function edgeLabelMode(e: LayoutEdge): string {
 
 export interface PlacedBoard {
   title: string;
-  // Ce que la page dit d'elle-même : le même bloc que le cartouche du SVG.
-  // draw.io est le format DESTINÉ À CIRCULER, et ses pages partaient sans.
+  // What the page says about itself: the same block as the SVG's title block.
+  // draw.io is the format MEANT TO CIRCULATE, and its pages left without it.
   context?: DiagramContext;
-  // L'acteur que la planche détaille, quand elle en détaille un : c'est vers
-  // elle que pointe la boîte de cet acteur, où qu'elle apparaisse.
+  // The actor the board details, when it details one: it is what this actor's
+  // box points at, wherever that box appears.
   actor?: string;
   layout: LayoutResult;
 }
 
-// Un onglet par planche : le fichier porte tout ce que l'outil sait dessiner,
-// et draw.io les présente comme il présente ses pages. Rouvrir le classeur pour
-// en tirer une seule vue reviendrait à refaire le travail à chaque fois.
+// One tab per board: the file carries everything the tool can draw, and
+// draw.io presents them as it presents its pages. Reopening the workbook to
+// pull one single view out would mean redoing the work every time.
 export function buildDrawio(
   boards: PlacedBoard[],
   technologyColour: (technology: string) => string
 ): string {
-  // La planche d'un acteur se déclare comme telle : c'est ce qui permet,
-  // depuis n'importe quelle boîte, d'ouvrir la page qui détaille cet acteur.
-  // Chercher par le titre viserait aussi bien l'onglet du type de flux
-  // homonyme -- « HTTP » nomme aussi bien une technologie qu'un acteur.
+  // An actor's board declares itself as such: that is what makes it possible,
+  // from any box, to open the page detailing that actor. Searching by title
+  // would just as readily hit the tab of the flow type of the same name --
+  // "HTTP" names a technology as readily as an actor.
   const byActorPage = new Map(
     boards.flatMap((p, i) => (p.actor ? [[p.actor, `page_${i}`] as [string, string]] : []))
   );
@@ -87,9 +87,9 @@ export function buildDrawio(
   ].join("\n");
 }
 
-// Le cartouche et la légende, en cellules draw.io. Les entrées viennent de la
-// même fonction que celles du SVG : deux légendes divergentes pour un même
-// schéma sont précisément ce qu'on veut rendre impossible.
+// The title block and the legend, as draw.io cells. The entries come from the
+// same function as the SVG's: two diverging legends for one diagram are
+// precisely what this makes impossible.
 function explanatoryBlocks(
   { title, context, layout }: PlacedBoard,
   cellule: (id: string) => string,
@@ -159,32 +159,32 @@ function diagram(
   const { title, layout } = board;
   const parId = new Map(layout.nodes.map((n) => [n.id, n]));
   const cells: string[] = [];
-  // Les identifiants sont uniques dans le FICHIER, pas dans la page : deux
-  // planches citent presque toujours le même acteur, et draw.io rattacherait
-  // alors les traits de l'une aux boîtes de l'autre.
+  // The identifiers are unique within the FILE, not within the page: two boards
+  // almost always name the same actor, and draw.io would then attach one's lines
+  // to the other's boxes.
   const cellule = (id: string) => `p${index}_${escapeXml(id)}`;
 
   for (const n of layout.nodes) {
-    // Seul point du fichier où les deux conventions se rencontrent, et il a
-    // déjà coûté un défaut livré : le placement donne le CENTRE d'une boîte
-    // (voir graph-layout), draw.io lit un COIN haut-gauche. Sans la conversion,
-    // chaque boîte glisse d'une demi-boîte.
-    // Et draw.io place un enfant DANS son cadre : son coin se lit depuis le
-    // coin du cadre. L'écart de centre à centre ne dirait la même chose que si
-    // le cadre et la boîte avaient la même taille -- ils ne l'ont jamais.
+    // The one point in the file where the two conventions meet, and it has
+    // already cost one shipped defect: the layout gives a box's CENTRE (see
+    // graph-layout), draw.io reads a top-left CORNER. Without the conversion,
+    // every box slides by half a box.
+    // And draw.io places a child INSIDE its frame: its corner is read from the
+    // frame's corner. The centre-to-centre offset would say the same thing only
+    // if frame and box had the same size -- they never do.
     const parent = n.parent ? parId.get(n.parent) : undefined;
     const x = n.x - n.width / 2 - (parent ? parent.x - parent.width / 2 : 0);
     const y = n.y - n.height / 2 - (parent ? parent.y - parent.height / 2 : 0);
-    // Un UserObject plutôt qu'un mxCell nu : c'est lui qui porte l'infobulle,
-    // le lien et les données de forme, que draw.io montre dans « Modifier les
-    // données ». Un mxCell ne sait porter qu'un libellé.
+    // A UserObject rather than a bare mxCell: it is what carries the tooltip,
+    // the link and the shape data, which draw.io shows under "Edit Data". An
+    // mxCell can carry nothing but a label.
     const page = byActorPage.get(n.label);
     const attributs = [
       `id="${cellule(n.id)}"`,
       `label="${escapeXml(content(n))}"`,
       n.description ? `tooltip="${escapeXml(n.description)}"` : "",
-      // Cliquer une boîte ouvre la planche de cet acteur, quand elle existe :
-      // soixante onglets ne se parcourent pas à la main.
+      // Clicking a box opens that actor's board, when it exists: sixty tabs are
+      // not browsed by hand.
       page && page !== `page_${index}` ? `link="data:page/id,${page}"` : "",
       n.subtitle ? `type="${escapeXml(n.subtitle)}"` : "",
       n.external ? 'perimeter="External"' : "",
@@ -206,11 +206,11 @@ function diagram(
       `strokeColor=${technologyColour(e.technology)}`,
       "strokeWidth=2",
       e.attenuated ? "dashed=1" : "dashed=0",
-      // Le trait va toujours du fournisseur au consommateur -- c'est le sens de
-      // la donnée. La pointe, elle, désigne celui qui est sollicité : à
-      // l'arrivée quand le fournisseur pousse, au départ quand le consommateur
-      // appelle. Retourner le trait à la place ferait remonter la donnée, et
-      // draw.io raconterait autre chose que le schéma d'où il sort.
+      // The line always goes from provider to consumer -- that is the data's
+      // direction. The arrowhead designates the one being called on: at the
+      // arrival when the provider pushes, at the start when the consumer calls.
+      // Turning the line round instead would make the data climb back up, and
+      // draw.io would tell something other than the diagram it comes from.
       ...(e.pulled
         ? ["startArrow=block", "startFill=1", "endArrow=none"]
         : ["endArrow=block", "endFill=1", "startArrow=none"]),
@@ -226,8 +226,8 @@ function diagram(
 
   return [
     `  <diagram name="${escapeXml(title)}" id="page_${index}">`,
-    // tooltips et fold ne sont pas décoratifs : sans eux draw.io n'affiche pas
-    // les infobulles et ne replie pas la frontière de plateforme.
+    // tooltips and fold are not decorative: without them draw.io shows no
+    // tooltips and does not fold the platform boundary.
     `    <mxGraphModel dx="${Math.round(layout.width)}" dy="${Math.round(
       layout.height
     )}" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">`,
