@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { titleBlockText, descriptionAccessible, type ContexteSchema } from "./title-block";
+import { titleBlockText, descriptionAccessible, type DiagramContext } from "./title-block";
 
-const ctx = (o: Partial<ContexteSchema> = {}): ContexteSchema => ({
+const ctx = (o: Partial<DiagramContext> = {}): DiagramContext => ({
   title: "Platform detail",
   reading: "architecture",
   milestone: "v2",

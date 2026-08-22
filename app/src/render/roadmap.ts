@@ -1,6 +1,6 @@
 import type { Roadmap } from "../aggregation/roadmap";
 import { ENCRE, PAPIER, styleDuNoeud } from "./node-styles";
-import { buildTitleBlock, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
+import { buildTitleBlock, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const POLICE = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
@@ -30,7 +30,7 @@ function text(x: number, y: number, content: string, size: number, colour: strin
   return t;
 }
 
-export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null, contexte: ContexteSchema | null): SVGSVGElement {
+export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null, context: DiagramContext | null): SVGSVGElement {
   const svg = el("svg");
   svg.setAttribute("xmlns", SVG_NS);
   svg.setAttribute("font-family", POLICE);
@@ -42,7 +42,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   const columns = ranks.length ? Math.max(...ranks) - rangMin + 2 : 1;
   const x = (rank: number) => MARGE + LARGEUR_LIBELLE + (rank - rangMin) * LARGEUR_PALIER;
 
-  const hautDesLignes = MARGE + (contexte ? HAUTEUR_CARTOUCHE : 0) + HAUTEUR_ENTETE;
+  const hautDesLignes = MARGE + (context ? HAUTEUR_CARTOUCHE : 0) + HAUTEUR_ENTETE;
   const width = MARGE * 2 + LARGEUR_LIBELLE + columns * LARGEUR_PALIER;
   const height = hautDesLignes + timeline.segments.length * HAUTEUR_LIGNE + MARGE;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -55,7 +55,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   fill.setAttribute("fill", PAPIER);
   svg.appendChild(fill);
 
-  if (contexte) svg.appendChild(buildTitleBlock(contexte, MARGE, MARGE));
+  if (context) svg.appendChild(buildTitleBlock(context, MARGE, MARGE));
 
   // L'axe : une graduation par palier, avec son nom et sa date. Le palier
   // affiché porte une verticale pleine -- c'est le « vous êtes ici ».

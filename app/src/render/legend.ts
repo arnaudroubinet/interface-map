@@ -1,5 +1,5 @@
 import type { LayoutNode } from "../layout/graph-layout";
-import { COULEUR_ECART, ENCRE, styleDuNoeud } from "./node-styles";
+import { CHANGE_COLOUR, ENCRE, styleDuNoeud } from "./node-styles";
 import { normalizeText } from "../shared/text";
 
 // Ce que la légende annonce doit être ce que le dessin utilise. Elle vit ici,
@@ -27,7 +27,7 @@ export interface NoeudLegendable {
 export interface LegendableEdge {
   technology: string;
   criticality?: string;
-  ecart?: "added" | "removed";
+  change?: "added" | "removed";
   // La pointe et le pointillé sont de la NOTATION : ils disent qui appelle et
   // si le contenu change en route. La couleur, elle, n'est qu'un rappel.
   //
@@ -38,7 +38,7 @@ export interface LegendableEdge {
   attenuated?: boolean;
 }
 
-const LIBELLE_ECART: Record<"added" | "removed", string> = {
+const CHANGE_LABEL: Record<"added" | "removed", string> = {
   added: "+n : flows added",
   removed: "−n : flows removed",
 };
@@ -51,13 +51,13 @@ export function entreesDeLegende(
 ): EntreeLegende[] {
   const inputs: EntreeLegende[] = [];
 
-  for (const ecart of ["added", "removed"] as const) {
-    if (edges.some((e) => e.ecart === ecart)) {
+  for (const change of ["added", "removed"] as const) {
+    if (edges.some((e) => e.change === change)) {
       inputs.push({
         // Le retrait porte aussi le tiret long : sans lui, vert et rouge
         // deviennent le même gris à l'impression.
-        sample: { shape: "line", colour: COULEUR_ECART[ecart], dashed: ecart === "removed" },
-        text: LIBELLE_ECART[ecart],
+        sample: { shape: "line", colour: CHANGE_COLOUR[change], dashed: change === "removed" },
+        text: CHANGE_LABEL[change],
       });
     }
   }
@@ -74,7 +74,7 @@ export function entreesDeLegende(
   // pose « du fournisseur vers le consommateur » faute de mieux -- une chaîne
   // traverse plusieurs médias, parfois de sens opposés -- et y annoncer
   // « provider pushes » affirmerait ce que le schéma ne sait pas.
-  const dessin = edges.filter((e) => !e.ecart && e.arrow);
+  const dessin = edges.filter((e) => !e.change && e.arrow);
   if (dessin.some((e) => e.pulled === true)) {
     inputs.push({
       sample: { shape: "line", colour: ENCRE, head: "end" },
@@ -98,7 +98,7 @@ export function entreesDeLegende(
     }
   }
 
-  if (edges.some((e) => !e.ecart && e.attenuated === true)) {
+  if (edges.some((e) => !e.change && e.attenuated === true)) {
     inputs.push({
       sample: { shape: "line", colour: ENCRE, dashed: true },
       text: "decision: Transform — content changes on the way",
@@ -109,7 +109,7 @@ export function entreesDeLegende(
   // l'annoncer désignerait un code couleur absent du dessin. Et une
   // technologie vide n'en est pas une -- la lecture fonctionnelle la vide sur
   // toutes ses arêtes.
-  const technologies = [...new Set(edges.filter((e) => !e.ecart && e.technology !== "").map((e) => e.technology))].sort((a, b) =>
+  const technologies = [...new Set(edges.filter((e) => !e.change && e.technology !== "").map((e) => e.technology))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
   for (const tech of technologies) {

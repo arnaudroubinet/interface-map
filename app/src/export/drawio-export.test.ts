@@ -287,7 +287,7 @@ describe("export draw.io — un trait tiré", () => {
 describe("construireDrawio — chaque page se décrit", () => {
   const board = (): PlacedBoard => ({
     title: "Platform detail",
-    contexte: {
+    context: {
       title: "Platform detail", reading: "architecture", milestone: "v2",
       source: "carto.xlsx", date: "2026-08-22", composants: 2, flows: 1, technologies: 1,
     },
@@ -323,7 +323,7 @@ describe("construireDrawio — chaque page se décrit", () => {
 
   // Sans contexte, pas de cartouche inventé : le titre de la planche suffit.
   it("se contente du titre de la planche quand aucun contexte n'est fourni", () => {
-    const sans = { ...board(), contexte: undefined };
+    const sans = { ...board(), context: undefined };
     const xml = buildDrawio([sans], () => "#111");
     expect(xml).toContain("Platform detail");
     expect(xml).not.toContain("milestone");

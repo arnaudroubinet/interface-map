@@ -7,7 +7,7 @@ import type { FlowInstance } from "./core";
 // B vers A : B a besoin de A.
 const lien = (provider: string, consumer: string): FlowInstance =>
   ({ provider, consumer, interfaceName: "F", version: "", flowType: "HTTP", direction: "provider-to-consumer",
-     attenuated: false, iface: base.iface(), conso: base.conso() }) as FlowInstance;
+     attenuated: false, iface: base.iface(), consumption: base.consumption() }) as FlowInstance;
 
 const estate = [lien("A", "B"), lien("B", "C"), lien("D", "A")];
 

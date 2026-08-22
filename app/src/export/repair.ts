@@ -1,11 +1,11 @@
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
-import { mettreANiveau } from "./schema-upgrade";
-import { migrerClasseurLegacy, type RapportMigration } from "./legacy-upgrade";
-import type { DonneesClasseur } from "./template-export";
+import { upgrade } from "./schema-upgrade";
+import { migrateLegacyWorkbook, type RapportMigration } from "./legacy-upgrade";
+import type { WorkbookData } from "./template-export";
 
 export interface Reparation {
-  donnees: DonneesClasseur;
+  data: WorkbookData;
   // Renseigné seulement quand le classeur venait du format d'origine : c'est là
   // que des choix ont été faits faute d'information, et qu'il faut le dire.
   rapportLegacy: RapportMigration | null;
@@ -17,13 +17,13 @@ export interface Reparation {
 // L'aiguillage se fait sur ce que le parseur sait lire, et non sur le nom des
 // feuilles : un classeur de notre famille se lit, un classeur d'origine non.
 // C'est le test le plus sûr, puisque c'est exactement la question qui compte.
-export function reparerClasseur(paquet: ArrayBuffer, dateMigration: Date = new Date()): Reparation {
+export function repairWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): Reparation {
   const lu = buildModel(parseWorkbook(paquet));
   if (lu.ok) {
     // Notre famille : mise à niveau du schéma s'il y a lieu, et création des
     // onglets attendus, que le classeur soit à jour ou non.
-    return { donnees: mettreANiveau(lu.model, dateMigration), rapportLegacy: null };
+    return { data: upgrade(lu.model, dateMigration), rapportLegacy: null };
   }
-  const legacy = migrerClasseurLegacy(paquet, dateMigration);
-  return { donnees: legacy.donnees, rapportLegacy: legacy };
+  const legacy = migrateLegacyWorkbook(paquet, dateMigration);
+  return { data: legacy.data, rapportLegacy: legacy };
 }

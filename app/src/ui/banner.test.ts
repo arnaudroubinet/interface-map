@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { EXPORTS } from "./banner";
-import { initialState, withFichierCharge, withVue, withMode } from "./state";
+import { initialState, withLoadedFile, withVue, withMode } from "./state";
 import type { AppState } from "./state";
 import * as base from "../testing/fixtures";
 import type { IntegrityReport } from "../integrity/checks";
@@ -19,7 +19,7 @@ const report: IntegrityReport = {
 };
 
 const loaded = (): AppState =>
-  withFichierCharge(initialState(), { name: "c.xlsx", model: base.template(), report: report, dateModification: null });
+  withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, dateModification: null });
 
 const actif = (label: string, state: AppState, dessin = true) =>
   EXPORTS.find((e) => e.label === label)!.actif(state, dessin);

@@ -8,7 +8,7 @@ import {
 } from "../aggregation/core";
 import { liveActors } from "../aggregation/milestones";
 import { flowsForReading } from "../aggregation/reading";
-import { couleursDuModele } from "../render/colors";
+import { coloursOfModel } from "../render/colors";
 import { identifiants } from "./identifiers";
 import { normalizeText } from "../shared/text";
 
@@ -44,7 +44,7 @@ function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): F
 
 const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
-export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mode = "architecture"): string {
+export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mode = "architecture"): string {
   // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
   // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs.
   const fonctionnel = mode === "functional";
@@ -66,7 +66,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
   // des identifiants, là où le classeur écrit « REST + ESB ».
   const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
   const tags = identifiants(technos);
-  const colours = couleursDuModele(model);
+  const colours = coloursOfModel(model);
 
   const rows: string[] = [
     `// Interface map${fonctionnel ? ", functional reading: chains folded, media removed." : "."}`,
@@ -172,9 +172,9 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     if (f.iface.contractLink.trim()) body.push(`        link ${f.iface.contractLink.trim()}`);
     body.push(
       ...metadata("        ", [
-        ["usage", f.conso.usage],
-        ["criticality", f.conso.criticality],
-        ["decision", f.conso.decision],
+        ["usage", f.consumption.usage],
+        ["criticality", f.consumption.criticality],
+        ["decision", f.consumption.decision],
         ["contractReference", f.iface.contractReference],
         // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
         // ce drapeau, le fichier produit affirmerait plus que lui.
@@ -182,9 +182,9 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
         // Deux colonnes de commentaires, deux sujets : le contrat d'un côté,
         // l'usage qu'un consommateur en fait de l'autre.
         ["interfaceComments", f.iface.comments],
-        ["consumptionComments", f.conso.comments],
-        ["introducedAt", f.conso.introducedAt],
-        ["retiredAt", f.conso.retiredAt],
+        ["consumptionComments", f.consumption.comments],
+        ["introducedAt", f.consumption.introducedAt],
+        ["retiredAt", f.consumption.retiredAt],
       ])
     );
     body.push("    }");

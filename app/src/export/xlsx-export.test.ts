@@ -21,7 +21,7 @@ const matrix: MatrixResult = base.matrix({
 
 // On relit le classeur écrit, pas l'objet en mémoire : c'est le fichier reçu
 // dans Excel qui compte.
-function classeurProduit(): XLSX.WorkBook {
+function producedWorkbook(): XLSX.WorkBook {
   const wb = buildMatrixWorkbook(matrix);
   const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   return XLSX.read(new Uint8Array(octets), { type: "array" });
@@ -29,12 +29,12 @@ function classeurProduit(): XLSX.WorkBook {
 
 describe("export Excel de la matrix", () => {
   it("écrit une feuille grille et une feuille à plat", () => {
-    const wb = classeurProduit();
+    const wb = producedWorkbook();
     expect(wb.SheetNames).toEqual(["Matrix", "Flows"]);
   });
 
   it("place les technologies à l'intersection émetteur/destinataire", () => {
-    const wb = classeurProduit();
+    const wb = producedWorkbook();
     const grille = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Matrix, { header: 1, defval: "" });
     expect(grille[0]).toEqual(["From \\ To", "Kamino", "Muet"]);
     expect(grille[1][0]).toBe("Tatooine");
@@ -43,7 +43,7 @@ describe("export Excel de la matrix", () => {
   });
 
   it("déplie un flux par ligne dans la feuille à plat, avec son compte", () => {
-    const wb = classeurProduit();
+    const wb = producedWorkbook();
     const flows = XLSX.utils.sheet_to_json<Record<string, string | number>>(wb.Sheets.Flows, { defval: "" });
     expect(flows).toEqual([
       { From: "Tatooine", To: "Kamino", Technology: "HTTP", Count: 3, Attenuated: "" },
@@ -55,7 +55,7 @@ describe("export Excel de la matrix", () => {
   // réellement : l'autofiltre sur la ligne d'en-tête. Les volets figés, eux,
   // ne sont pas produits par l'édition communautaire.
   it("pose un autofiltre sur l'en-tête des deux feuilles", () => {
-    const wb = classeurProduit();
+    const wb = producedWorkbook();
     expect(wb.Sheets.Matrix["!autofilter"]).toBeDefined();
     expect(wb.Sheets.Flows["!autofilter"]).toBeDefined();
   });
@@ -79,14 +79,14 @@ describe("export Excel de la matrix — mode fonctionnel (technologie vide)", ()
     ],
   });
 
-  function classeurFonctionnel(): XLSX.WorkBook {
+  function functionalWorkbook(): XLSX.WorkBook {
     const wb = buildMatrixWorkbook(matriceFonctionnelle);
     const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
     return XLSX.read(new Uint8Array(octets), { type: "array" });
   }
 
   it("montre le compteur seul quand il n'y a pas de technologie", () => {
-    const wb = classeurFonctionnel();
+    const wb = functionalWorkbook();
     const grille = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Matrix, { header: 1, defval: "" });
     expect(grille[1][1]).toBe("1");
     expect(grille[1][2]).toBe("3");

@@ -10,7 +10,7 @@ import { PERIMETER_PLATFORM, PERIMETER_EXTERNAL } from "../aggregation/vocabular
 import { liveActors } from "../aggregation/milestones";
 import { flowsForReading } from "../aggregation/reading";
 import { identifiants } from "./identifiers";
-import { couleursDuModele } from "../render/colors";
+import { coloursOfModel } from "../render/colors";
 import { normalizeText } from "../shared/text";
 
 // Le classeur en Structurizr DSL : le modèle, pas une planche. C'est la
@@ -74,7 +74,7 @@ function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): F
   return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
 }
 
-export function modeleEnStructurizr(
+export function modelToStructurizr(
   model: ParsedModel,
   rank: number | null,
   nomClasseur: string,
@@ -162,9 +162,9 @@ export function modeleEnStructurizr(
         // déjà pris par le libellé -- nom et version du flux, comme sur les
         // schémas --, d'où la propriété plutôt que la perte.
         ["Description", f.iface.description],
-        ["Usage", f.conso.usage],
-        ["Criticality", f.conso.criticality],
-        ["Decision", f.conso.decision],
+        ["Usage", f.consumption.usage],
+        ["Criticality", f.consumption.criticality],
+        ["Decision", f.consumption.decision],
         ["Contract reference", f.iface.contractReference],
         // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
         // ce drapeau, le fichier produit affirmerait plus que lui.
@@ -173,9 +173,9 @@ export function modeleEnStructurizr(
         // l'usage qu'un consommateur en fait de l'autre. Les fondre en une
         // seule perdrait de qui vient quoi.
         ["Interface comments", f.iface.comments],
-        ["Consumption comments", f.conso.comments],
-        ["Introduced at", f.conso.introducedAt],
-        ["Retired at", f.conso.retiredAt],
+        ["Consumption comments", f.consumption.comments],
+        ["Introduced at", f.consumption.introducedAt],
+        ["Retired at", f.consumption.retiredAt],
       ])
     );
     body.push("        }");
@@ -200,7 +200,7 @@ export function modeleEnStructurizr(
   }
   // Chaque technologie garde la couleur qu'elle a dans l'outil : deux lectures
   // du même parc, sur deux outils, ne doivent pas changer de code couleur.
-  const colours = couleursDuModele(model);
+  const colours = coloursOfModel(model);
   for (const techno of [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
     rows.push(`            relationship "${text(techno)}" {`, `                color ${colours.get(techno) ?? "#000000"}`, "            }");
   }

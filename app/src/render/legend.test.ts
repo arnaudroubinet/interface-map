@@ -24,7 +24,7 @@ describe("entreesDeLegende", () => {
   // Un trait marqué d'un écart ne porte plus la couleur de sa technologie.
   it("annonce les écarts et tait les technologies quand le schéma est un écart", () => {
     const inputs = entreesDeLegende(
-      [{ technology: "HTTP", ecart: "added" }, { technology: "SFTP", ecart: "removed" }],
+      [{ technology: "HTTP", change: "added" }, { technology: "SFTP", change: "removed" }],
       [node()],
       () => "#111111"
     );
@@ -107,7 +107,7 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
   // Un schéma d'écart n'a pas de pointe à expliquer : ses traits ne portent
   // plus ni technologie ni sens, seulement un ajout ou un retrait.
   it("n'explique pas la pointe sur un schéma d'écart", () => {
-    const texts = entreesDeLegende([{ technology: "HTTP", ecart: "added", arrow: true, pulled: true }], [node()], () => "#111111").map((e) => e.text);
+    const texts = entreesDeLegende([{ technology: "HTTP", change: "added", arrow: true, pulled: true }], [node()], () => "#111111").map((e) => e.text);
     expect(texts.some((t) => t.includes("pushes") || t.includes("pulls"))).toBe(false);
   });
 });
@@ -137,7 +137,7 @@ describe("entreesDeLegende — les formes s'annoncent aussi", () => {
   // Le retrait porte le tiret long : sans lui, vert et rouge deviennent le
   // même gris à l'impression.
   it("montre le retrait en pointillé dans sa propre entrée", () => {
-    const inputs = entreesDeLegende([{ technology: "HTTP", ecart: "removed" }], [node()], () => "#111111");
+    const inputs = entreesDeLegende([{ technology: "HTTP", change: "removed" }], [node()], () => "#111111");
     expect(inputs[0].sample).toMatchObject({ dashed: true });
   });
 });

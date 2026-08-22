@@ -12,22 +12,22 @@ const TYPES: Record<string, string> = {
 // façon au plus jusqu'au rechargement de la page.
 const DELAI_REVOCATION_MS = 120_000;
 
-export function downloadText(content: string, nomFichier: string): void {
-  downloadBlob(new Blob([content], { type: "text/markdown;charset=utf-8" }), nomFichier);
+export function downloadText(content: string, fileName: string): void {
+  downloadBlob(new Blob([content], { type: "text/markdown;charset=utf-8" }), fileName);
 }
 
-export function downloadWorkbook(octets: ArrayBuffer, nomFichier: string): void {
-  const extension = nomFichier.split(".").pop() ?? "xlsx";
-  downloadBlob(new Blob([octets], { type: TYPES[extension] ?? TYPES.xlsx }), nomFichier);
+export function downloadWorkbook(octets: ArrayBuffer, fileName: string): void {
+  const extension = fileName.split(".").pop() ?? "xlsx";
+  downloadBlob(new Blob([octets], { type: TYPES[extension] ?? TYPES.xlsx }), fileName);
 }
 
 // Le seul endroit qui déclenche un téléchargement. Il n'y en avait pas un mais
 // trois, chacun avec sa copie du même piège.
-export function downloadBlob(blob: Blob, nomFichier: string): void {
+export function downloadBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = nomFichier;
+  a.download = fileName;
   // Ancre attachée au document avant le clic : un clic synchrone sur une ancre
   // détachée est connu pour échouer par intermittence hors Chrome (§2.4 exige
   // aussi Firefox et Safari).

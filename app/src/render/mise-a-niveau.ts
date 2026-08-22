@@ -5,18 +5,18 @@ import { el } from "../shared/dom";
 // et elle est dite avant d'être proposée : la mise à niveau reconstruit le
 // classeur, elle ne le retouche pas.
 export function buildEcranMiseANiveau(
-  versionClasseur: number,
-  versionAttendue: number,
-  onMettreANiveau: () => void
+  workbookVersion: number,
+  expectedVersion: number,
+  onUpgrade: () => void
 ): HTMLElement {
   // Le désaccord se lit dans les deux sens, et il n'appelle pas la même
   // réponse. En retard, l'outil sait reconstruire le classeur. En avance, il
   // ne sait rien faire du tout : proposer une mise à niveau reviendrait à
   // proposer une rétrogradation, qui perdrait ce que ce parseur ne lit pas.
-  if (versionClasseur > versionAttendue) {
+  if (workbookVersion > expectedVersion) {
     return el("div", { class: "drop-target" }, [
       el("p", { class: "drop-target-title" }, [
-        `This workbook follows model v${versionClasseur}; the tool only reads v${versionAttendue}.`,
+        `This workbook follows model v${workbookVersion}; the tool only reads v${expectedVersion}.`,
       ]),
       el("p", { class: "drop-target-text" }, [
         "It was written by a newer version of the tool. Anything it holds that this version does not know would be dropped without a word, so no view is available.",
@@ -28,11 +28,11 @@ export function buildEcranMiseANiveau(
   }
 
   const bouton = el("button", { class: "export-button" }, ["Download the upgraded workbook"]);
-  bouton.addEventListener("click", onMettreANiveau);
+  bouton.addEventListener("click", onUpgrade);
 
   return el("div", { class: "drop-target" }, [
     el("p", { class: "drop-target-title" }, [
-      `This workbook follows model v${versionClasseur}; the tool expects v${versionAttendue}.`,
+      `This workbook follows model v${workbookVersion}; the tool expects v${expectedVersion}.`,
     ]),
     // On ne nomme plus la cause : elle change d'un palier à l'autre. Le v0
     // manquait des colonnes ; le v1 les a toutes et n'a que des formules

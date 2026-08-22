@@ -2,17 +2,17 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import {
   initialState,
-  withFichierCharge,
+  withLoadedFile,
   withVue,
   withOptions,
-  withSelectionActeur,
-  withActeurMasqueMatrice,
-  withGranulariteMatrice,
+  withActorSelection,
+  withActorHiddenInMatrix,
+  withMatrixGrain,
   withMode,
-  withPalierAffiche,
-  vueAuChargement,
+  withDisplayedMilestone,
+  viewOnLoad,
 } from "./state";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
@@ -22,7 +22,7 @@ const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 
 describe("initialState", () => {
   it("starts with no file loaded and no options set", () => {
     const state = initialState();
-    expect(state.fichier).toBeNull();
+    expect(state.file).toBeNull();
     expect(state.view).toBe("group-to-group");
     expect(state.options).toEqual({ counters: true, edgeLabelMode: "technology", echellePng: 2, graisseParCriticite: false });
   });
@@ -30,10 +30,10 @@ describe("initialState", () => {
 
 describe("withFichierCharge", () => {
   it("replaces the whole state at once and opens on the default view when the file is clean", () => {
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "classeur.xlsx", model, report, dateModification: null,
     });
-    expect(loaded.fichier?.name).toBe("classeur.xlsx");
+    expect(loaded.file?.name).toBe("classeur.xlsx");
     expect(loaded.view).toBe("group-to-group");
   });
 
@@ -45,7 +45,7 @@ describe("withFichierCharge", () => {
       totalActions: 0,
       totalAvertissements: 0,
     };
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "classeur.xlsx", model, report: enDefaut, dateModification: null,
     });
     expect(loaded.view).toBe("checks");
@@ -54,22 +54,22 @@ describe("withFichierCharge", () => {
 
 describe("withVue / withOptions / withSelectionActeur", () => {
   it("updates only the targeted slice of state", () => {
-    const state = withSelectionActeur(withOptions(withVue(initialState(), "by-actor"), { counters: false }), "Tatooine");
+    const state = withActorSelection(withOptions(withVue(initialState(), "by-actor"), { counters: false }), "Tatooine");
     expect(state.view).toBe("by-actor");
     expect(state.options.counters).toBe(false);
-    expect(state.selectionActeur).toBe("Tatooine");
+    expect(state.actorSelection).toBe("Tatooine");
   });
 });
 
 describe("withGranulariteMatrice", () => {
   it("starts on acteur-to-acteur", () => {
-    expect(initialState().filtresMatrice.granularite).toBe("actor");
+    expect(initialState().filtresMatrice.grain).toBe("actor");
   });
 
   it("clears the masked rows, whose names no longer mean anything", () => {
-    const hidden = withActeurMasqueMatrice(initialState(), "Tatooine", true);
-    const folded = withGranulariteMatrice(hidden, "group");
-    expect(folded.filtresMatrice.granularite).toBe("group");
+    const hidden = withActorHiddenInMatrix(initialState(), "Tatooine", true);
+    const folded = withMatrixGrain(hidden, "group");
+    expect(folded.filtresMatrice.grain).toBe("group");
     expect(folded.filtresMatrice.hiddenActors).toEqual([]);
   });
 });
@@ -78,7 +78,7 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
   const ancien = { ...model, schemaVersion: 0 };
 
   it("ouvre sur l'écran de mise à niveau plutôt que sur une vue", () => {
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "vieux.xlsx", model: ancien, report, dateModification: null,
     });
     expect(loaded.view).toBe("upgrade");
@@ -92,14 +92,14 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
       families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
       infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalAvertissements: 0,
     };
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "vieux.xlsx", model: ancien, report: enDefaut, dateModification: null,
     });
     expect(loaded.view).toBe("upgrade");
   });
 
   it("laisse un classeur à jour ouvrir normalement", () => {
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "a-jour.xlsx", model, report, dateModification: null,
     });
     expect(loaded.view).toBe("group-to-group");
@@ -107,7 +107,7 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
 });
 
 describe("withFichierCharge — palier d'ouverture", () => {
-  const avecPaliers = {
+  const withMilestones = {
     ...model,
     milestones: [
       { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
@@ -117,15 +117,15 @@ describe("withFichierCharge — palier d'ouverture", () => {
   };
 
   it("ouvre sur le dernier palier livré, en comparant au précédent", () => {
-    const loaded = withFichierCharge(initialState(), {
-      name: "c.xlsm", model: avecPaliers, report, dateModification: null,
+    const loaded = withLoadedFile(initialState(), {
+      name: "c.xlsm", model: withMilestones, report, dateModification: null,
     });
     expect(loaded.shownMilestone).toBe("v2");
     expect(loaded.comparedMilestone).toBe("v1");
   });
 
   it("laisse les deux à null quand le classeur ne déclare aucun palier", () => {
-    const loaded = withFichierCharge(initialState(), {
+    const loaded = withLoadedFile(initialState(), {
       name: "c.xlsm", model, report, dateModification: null,
     });
     expect(loaded.shownMilestone).toBeNull();
@@ -168,15 +168,15 @@ describe("mode de lecture", () => {
   // Passer en fonctionnel sans corriger la sélection montre une seule boîte
   // et aucun message : la boîte disparue du sélecteur reste pourtant visée.
   it("efface la sélection d'acteur en passant en fonctionnel si elle visait un acteur technique", () => {
-    const loaded = withFichierCharge(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
-    const s = withSelectionActeur(loaded, "Bus");
-    expect(withMode(s, "functional").selectionActeur).toBeNull();
+    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
+    const s = withActorSelection(loaded, "Bus");
+    expect(withMode(s, "functional").actorSelection).toBeNull();
   });
 
   it("garde la sélection quand elle visait déjà un acteur métier", () => {
-    const loaded = withFichierCharge(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
-    const s = withSelectionActeur(loaded, "Tatooine");
-    expect(withMode(s, "functional").selectionActeur).toBe("Tatooine");
+    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
+    const s = withActorSelection(loaded, "Tatooine");
+    expect(withMode(s, "functional").actorSelection).toBe("Tatooine");
   });
 });
 
@@ -192,21 +192,21 @@ describe("withPalierAffiche — la sélection suit ce que le palier montre", () 
     actors: [actor("Tatooine", "v2"), actor("Chandrila")],
   };
   const loaded = () =>
-    withSelectionActeur(
-      withFichierCharge(initialState(), { name: "c.xlsx", model: avecFrise, report, dateModification: null }),
+    withActorSelection(
+      withLoadedFile(initialState(), { name: "c.xlsx", model: avecFrise, report, dateModification: null }),
       "Tatooine"
     );
 
   it("lâche un acteur que le nouveau palier ne montre plus", () => {
-    expect(withPalierAffiche(loaded(), "v2").selectionActeur).toBeNull();
+    expect(withDisplayedMilestone(loaded(), "v2").actorSelection).toBeNull();
   });
 
   it("garde un acteur que le nouveau palier montre encore", () => {
-    expect(withPalierAffiche(loaded(), "v1").selectionActeur).toBe("Tatooine");
+    expect(withDisplayedMilestone(loaded(), "v1").actorSelection).toBe("Tatooine");
   });
 
   it("garde la sélection quand on retire le filtre de palier", () => {
-    expect(withPalierAffiche(loaded(), null).selectionActeur).toBe("Tatooine");
+    expect(withDisplayedMilestone(loaded(), null).actorSelection).toBe("Tatooine");
   });
 });
 
@@ -219,15 +219,15 @@ describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
   });
 
   it("bloque sur un classeur en retard", () => {
-    expect(vueAuChargement(at(VERSION_MODELE - 1))).toBe("upgrade");
+    expect(viewOnLoad(at(SCHEMA_VERSION - 1))).toBe("upgrade");
   });
 
   it("bloque aussi sur un classeur en avance", () => {
-    expect(vueAuChargement(at(VERSION_MODELE + 1))).toBe("upgrade");
+    expect(viewOnLoad(at(SCHEMA_VERSION + 1))).toBe("upgrade");
   });
 
   it("laisse passer un classeur à la bonne version", () => {
-    expect(vueAuChargement(at(VERSION_MODELE))).not.toBe("upgrade");
+    expect(viewOnLoad(at(SCHEMA_VERSION))).not.toBe("upgrade");
   });
 });
 
@@ -235,7 +235,7 @@ describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
 // que la vue d'architecture. Le rail ne retirait pourtant que « par
 // technologie », et la vue restait offerte.
 describe("withMode — les vues qui n'ont pas de sens en fonctionnel", () => {
-  const loaded = () => withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null });
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null });
 
   // « Groupe à groupe » a été ROUVERT en fonctionnel : « quelle direction
   // alimente quelle direction » est précisément la question d'un comité de

@@ -1,21 +1,21 @@
 import type { Consumption, InterfaceCatalogue, ParsedModel } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsommation } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
-import type { DonneesClasseur } from "./template-export";
+import type { WorkbookData } from "./template-export";
 
 // Le point d'ancrage de tout classeur converti : « tout ceci existait déjà au
 // moment de la bascule ». Il ne prétend pas dire quand chaque objet est
 // réellement apparu -- cette information n'existe nulle part dans le format
 // d'origine, et l'inventer produirait un historique faux.
-export const PALIER_ORIGINE = "Origin";
+export const MILESTONE_ORIGIN = "Origin";
 
 // Ce que le format d'origine déclarait DÉJÀ retiré était parti avant la
 // bascule : il
 // lui faut donc un avant, sans quoi son arrivée et son retrait tomberaient sur
 // le même palier -- un intervalle vide, que les contrôles signalent à juste
 // titre. « Avant » n'est créé que si quelque chose l'habite.
-export const PALIER_AVANT = "Before";
+export const MILESTONE_BEFORE = "Before";
 
 // Une étape par incrément de version, dans l'ordre. La chaîne est le point
 // important : elle permet d'ajouter un palier de schéma sans revenir sur les
@@ -25,13 +25,13 @@ export const PALIER_AVANT = "Before";
 // modèle qui porte le sens, et la mise à plat en colonnes vient après. Une
 // étape qui manipulerait des tableaux de cellules casserait au premier
 // remaniement de colonnes.
-export interface EtapeMiseANiveau {
+export interface UpgradeStep {
   de: number;
   vers: number;
-  appliquer: (model: ParsedModel, contexte: ContexteMiseANiveau) => ParsedModel;
+  appliquer: (model: ParsedModel, context: UpgradeContext) => ParsedModel;
 }
 
-export interface ContexteMiseANiveau {
+export interface UpgradeContext {
   // La date à laquelle la migration est exécutée : c'est elle que porte le
   // palier Origin. Injectée plutôt que lue de l'horloge, pour que la
   // conversion soit reproductible et testable.
@@ -46,7 +46,7 @@ function jour(d: Date): string {
 // partance ou à venir. Un seul, parce que c'est tout ce qu'il sait dire :
 // « plus tard ». Découper ce « plus tard » demanderait une information qui
 // n'existe nulle part dans le fichier.
-export const PALIER_SUIVANT = "Upcoming";
+export const MILESTONE_NEXT = "Upcoming";
 
 const est = (value: string, attendu: string) => normalizeText(value) === normalizeText(attendu);
 
@@ -54,9 +54,9 @@ const est = (value: string, attendu: string) => normalizeText(value) === normali
 // se contente pas d'ajouter des colonnes vides, elle traduit ce que le classeur
 // disait déjà du temps. Elle lit des valeurs françaises, elle passe donc AVANT
 // la traduction.
-function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): ParsedModel {
-  const avant = {
-    name: PALIER_AVANT,
+function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedModel {
+  const before = {
+    name: MILESTONE_BEFORE,
     rank: 1,
     label: "Before tracking",
     status: "Delivered",
@@ -64,15 +64,15 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     description: "What had already gone before the timeline was kept.",
   };
   const origin = {
-    name: PALIER_ORIGINE,
+    name: MILESTONE_ORIGIN,
     rank: 2,
     label: "Initial state",
     status: "Delivered",
-    date: jour(contexte.dateMigration),
+    date: jour(context.dateMigration),
     description: "Everything the workbook held when it moved onto milestones.",
   };
   const suivant = {
-    name: PALIER_SUIVANT,
+    name: MILESTONE_NEXT,
     rank: 3,
     label: "Changes already announced",
     status: "Planned",
@@ -80,7 +80,7 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     description: "What the workbook declared as going or coming before the move.",
   };
 
-  const bounds = (v: { introducedAt: string; retiredAt: string }, removed: string, arrivee = PALIER_ORIGINE) => ({
+  const bounds = (v: { introducedAt: string; retiredAt: string }, removed: string, arrivee = MILESTONE_ORIGIN) => ({
     introducedAt: v.introducedAt.trim() || arrivee,
     retiredAt: v.retiredAt.trim() || removed,
   });
@@ -93,8 +93,8 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
       ...i,
       ...bounds(
         i,
-        alreadyGone ? PALIER_ORIGINE : est(i.legacyState, "À décommissionner") ? PALIER_SUIVANT : "",
-        alreadyGone ? PALIER_AVANT : PALIER_ORIGINE
+        alreadyGone ? MILESTONE_ORIGIN : est(i.legacyState, "À décommissionner") ? MILESTONE_NEXT : "",
+        alreadyGone ? MILESTONE_BEFORE : MILESTONE_ORIGIN
       ),
     };
   });
@@ -108,8 +108,8 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
       ...c,
       ...bounds(
         c,
-        alreadyGone ? PALIER_ORIGINE : "",
-        alreadyGone ? PALIER_AVANT : est(c.legacyStatus, "En projet") ? PALIER_SUIVANT : PALIER_ORIGINE
+        alreadyGone ? MILESTONE_ORIGIN : "",
+        alreadyGone ? MILESTONE_BEFORE : est(c.legacyStatus, "En projet") ? MILESTONE_NEXT : MILESTONE_ORIGIN
       ),
     };
   });
@@ -130,7 +130,7 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     milestones:
       model.milestones.length > 0
         ? model.milestones
-        : [...(utilise(PALIER_AVANT) ? [avant] : []), origin, ...(utilise(PALIER_SUIVANT) ? [suivant] : [])].map(
+        : [...(utilise(MILESTONE_BEFORE) ? [before] : []), origin, ...(utilise(MILESTONE_NEXT) ? [suivant] : [])].map(
             // Ces paliers n'existaient pas dans le classeur d'origine : leur
             // emplacement est celui qu'ils auront à l'écriture, en-tête compris.
             (p, i) => ({ ...p, rank: i + 1, sheet: "Milestones", row: i + 2 })
@@ -203,7 +203,7 @@ function deriveGroups(model: ParsedModel): ParsedModel {
   };
 }
 
-export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
+export const UPGRADE_STEPS: UpgradeStep[] = [
   // Un seul format a jamais circulé : celui d'avant le versionnement. Tout ce
   // qu'il faut lui faire tient en une étape -- poser les paliers, puis
   // traduire -- et l'ordre des deux temps compte, le premier lisant du
@@ -212,7 +212,7 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
   {
     de: 0,
     vers: 1,
-    appliquer: (model, contexte) => traduireLesValeurs(seedMilestones(deriveGroups(model), contexte)),
+    appliquer: (model, context) => traduireLesValeurs(seedMilestones(deriveGroups(model), context)),
   },
   // Le v1 est parti en production avec des formules qui citaient l'onglet
   // « Listes », renommé « Lists » à la traduction. Excel n'y voyait pas une
@@ -283,7 +283,7 @@ const oui = (v: boolean) => (v ? "Yes" : "No");
 
 // Le modèle relu, remis à plat dans l'ordre des colonnes du classeur. C'est
 // une reconstruction : ce que le parseur n'a pas compris n'y est pas.
-export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
+export function dataFromModel(model: ParsedModel): WorkbookData {
   const lookup = buildInterfaceLookup(model);
   const parOnglet = new Map<string, string[][]>();
   // Excel ne distingue pas deux feuilles dont les noms ne diffèrent que par la
@@ -350,23 +350,23 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
   };
 }
 
-export function mettreANiveau(model: ParsedModel, dateMigration: Date = new Date()): DonneesClasseur {
+export function upgrade(model: ParsedModel, dateMigration: Date = new Date()): WorkbookData {
   // Un classeur plus récent que l'outil ne traverse aucune étape et ressortirait
   // étiqueté à la version de l'outil : une rétrogradation silencieuse, qui perd
   // tout ce que ce parseur-là ne sait pas encore lire. Mieux vaut refuser et le
   // dire que rendre un fichier appauvri qui a l'air correct.
-  if (model.schemaVersion > VERSION_MODELE) {
+  if (model.schemaVersion > SCHEMA_VERSION) {
     throw new Error(
-      `This workbook is newer than the tool (schema ${model.schemaVersion}, tool ${VERSION_MODELE}). Update the tool rather than downgrade the file.`
+      `This workbook is newer than the tool (schema ${model.schemaVersion}, tool ${SCHEMA_VERSION}). Update the tool rather than downgrade the file.`
     );
   }
 
-  const contexte: ContexteMiseANiveau = { dateMigration };
+  const context: UpgradeContext = { dateMigration };
   let current = model;
-  for (const step of ETAPES_MISE_A_NIVEAU) {
+  for (const step of UPGRADE_STEPS) {
     if (step.de < model.schemaVersion) continue;
-    if (step.vers > VERSION_MODELE) break;
-    current = step.appliquer(current, contexte);
+    if (step.vers > SCHEMA_VERSION) break;
+    current = step.appliquer(current, context);
   }
-  return donneesDepuisModele(current);
+  return dataFromModel(current);
 }

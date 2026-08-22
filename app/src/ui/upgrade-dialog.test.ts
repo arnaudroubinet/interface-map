@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
-import { ouvrirMigration } from "./upgrade-dialog";
-import { writeTemplate, type DonneesClasseur } from "../export/template-export";
+import { openMigration } from "./upgrade-dialog";
+import { writeTemplate, type WorkbookData } from "../export/template-export";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
   return { ...actual, downloadWorkbook: vi.fn() };
 });
 
-const donneesVides: DonneesClasseur = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
+const donneesVides: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
 function drop(zone: HTMLElement, file: File): void {
   const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -23,7 +23,7 @@ function drop(zone: HTMLElement, file: File): void {
 describe("ouvrirMigration — classeur corrompu", () => {
   it("annonce, en anglais, que le classeur est illisible plutôt qu'une feuille Flux absente", async () => {
     document.body.innerHTML = "";
-    ouvrirMigration();
+    openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
     const complet = writeTemplate(donneesVides);
@@ -45,7 +45,7 @@ describe("ouvrirMigration — classeur corrompu", () => {
 describe("ouvrirMigration — bouton de relance", () => {
   it("porte un libellé en anglais", async () => {
     document.body.innerHTML = "";
-    ouvrirMigration();
+    openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
     const buffer = writeTemplate(donneesVides);

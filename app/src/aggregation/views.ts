@@ -25,7 +25,7 @@ import { isTechnicalActor } from "./nature";
 import { radius, type Neighbourhood } from "./impact";
 import { orderBy, type OrderContext, type MatrixOrder } from "./seriation";
 
-// L'opacité d'un nœud selon sa distance au point d'intérêt.
+// A node's opacity by its distance from the point of interest.
 function attenuationDeDistance(hop: number): number | undefined {
   if (hop <= 1) return undefined;
   return hop === 2 ? 0.7 : 0.45;
@@ -42,7 +42,7 @@ function tronquer(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 1).trimEnd() + "…" : text;
 }
 
-// Style C4 : « Type », description et statut externe sous le nom d'un acteur réel.
+// C4 style: "Type", description and external status under a real actor's name.
 function actorDetails(
   model: ParsedModel,
   name: string
@@ -54,16 +54,16 @@ function actorDetails(
     icon: iconForActorType(model, actor.actorType),
     description: actor.description.trim() ? tronquer(actor.description.trim(), LONGUEUR_DESCRIPTION_MAX) : undefined,
     external: groupIsExternal(model, actor.group) || undefined,
-    // La nature se décide ICI, où le modèle est connu : le rendu applique une
-    // forme, il ne va pas la chercher.
+    // The nature is decided HERE, where the model is known: the rendering
+    // applies a shape, it does not go looking for one.
     technique: isTechnicalActor(model, name) || undefined,
   };
 }
 
-// Un nœud « groupe » agrège plusieurs acteurs : pas de type/description
-// unique, mais le nombre d'acteurs qu'il représente est une donnée réelle.
-// `acteurs` est déjà la lecture au (rang, mode) courant -- ni la plomberie ni
-// un acteur retiré n'y figurent, donc pas à re-juger ici.
+// A "group" node aggregates several actors: no single type or description, but
+// the number of actors it stands for is real data. `actors` is already the
+// reading at the current (rank, mode) -- neither the plumbing nor a retired
+// actor appears in it, so nothing to judge again here.
 function groupDetails(
   model: ParsedModel,
   group: string,
@@ -74,22 +74,22 @@ function groupDetails(
   return {
     subtitle: `${membres.length} actor${membres.length > 1 ? "s" : ""}`,
     agrégat: membres.length,
-    // Le périmètre du groupe, et lui seul : c'est ce qui fait fonctionner le
-    // code couleur sur les vues agrégées, où les nœuds ne sont pas des acteurs.
+    // The group's perimeter, and it alone: this is what makes the colour code
+    // work on aggregated views, where the nodes are not actors.
     external: groupIsExternal(model, group) || undefined,
   };
 }
 
-// Frontière de la plateforme, au sens C4 : un conteneur en pointillés autour
-// des composants du produit, pour les distinguer d'un coup d'œil des systèmes
-// tiers qui les entourent.
+// The platform boundary, in the C4 sense: a dashed container around the
+// product's components, to tell them apart at a glance from the third-party
+// systems around them.
 const ID_FRONTIERE = "__frontiere__";
 
-// Un acteur métier devenu isolé -- dont les échanges passaient tous par des
-// chaînes coupées -- reste affiché, seul (§5.2) : le faire disparaître
-// retirerait de l'information sans le dire. `nodeKey` est la même résolution
-// que celle qui a construit les arêtes de la vue, pour que l'acteur
-// réapparaisse à la même échelle (son groupe, ou lui-même) que le reste.
+// A business actor left isolated -- whose exchanges all went through broken
+// chains -- stays displayed, alone (§5.2): making it vanish would remove
+// information silently. `nodeKey` is the same resolution that built the view's
+// edges, so the actor reappears at the same scale (its group, or itself) as
+// the rest.
 function nodesIsoles(
   candidates: Actor[],
   nodeKey: NodeKeyFn,
@@ -100,8 +100,8 @@ function nodesIsoles(
   const ids = new Set<NodeId>();
   for (const actor of candidates) {
     const id = nodeKey(actor.name);
-    // Sentinel « pas de nœud » (§7.4) : un acteur sans groupe n'a rien à
-    // rejoindre dans une vue repliée sur les groupes.
+    // "No node" sentinel (§7.4): an actor with no group has nothing to join in
+    // a view folded onto groups.
     if (id && !présents.has(id)) ids.add(id);
   }
   return [...ids].map((id) => ({ id, label: id, kind: kindFor(id), ...detailsFor(id) }));
@@ -129,8 +129,8 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, op
   const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   const nodesTotal = [...nodes, ...isolated];
 
-  // Les composants de la plateforme entrent dans la frontière ; tout le reste
-  // gravite autour. Sans au moins deux composants, un cadre n'apporte rien.
+  // The platform's components go inside the boundary; everything else orbits
+  // around it. Without at least two components, a frame adds nothing.
   const dedans = nodesTotal.filter((n) => plateformeIds.has(n.id));
   if (dedans.length < 2) return { nodes: nodesTotal, edges };
   for (const n of dedans) n.parent = ID_FRONTIERE;
@@ -140,10 +140,9 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, op
   };
 }
 
-// Le produit seul, sans ce qui l'entoure : on ne garde que les flux dont les
-// DEUX extrémités sont dans un groupe « Plateforme ». Pas de frontière ici --
-// tout ce qui est dessiné est la plateforme, un cadre autour de tout n'apprend
-// rien.
+// The product alone, without its surroundings: only flows whose BOTH ends are
+// in a "Platform" group are kept. No boundary here -- everything drawn is the
+// platform, and a frame around all of it teaches nothing.
 export function buildPlatformOnlyView(model: ParsedModel, reading: Lecture, options: AggregationOptions): ViewResult {
   const acteursPlateforme = reading.actors.filter((a) => actorIsPlatform(model, a));
   const interne = (name: string) => acteursPlateforme.some((a) => a.name.trim() === name.trim());
@@ -161,9 +160,9 @@ export interface OptionsVueTechnologie extends AggregationOptions {
   hiddenActors?: readonly string[];
 }
 
-// Les acteurs décochables pour une technologie donnée. La liste suit
-// l'interrupteur « externes » : quand il masque, ses acteurs quittent la liste
-// -- et l'interrupteur seul suffit à les faire revenir, donc rien n'est perdu.
+// The actors that can be unticked for a given technology. The list follows the
+// "externals" switch: when it hides, its actors leave the list -- and the
+// switch alone brings them back, so nothing is lost.
 export function optionsFiltreTechnologie(
   model: ParsedModel,
   flows: FlowInstance[],
@@ -191,8 +190,8 @@ export function buildByTechnologyView(
   options: OptionsVueTechnologie
 ): ViewResult {
   const hiddenIds = new Set(options.hiddenActors ?? []);
-  // Un flux tombe dès qu'UNE de ses deux extrémités est masquée : un trait vers
-  // une boîte absente ne veut rien dire.
+  // A flow falls as soon as ONE of its two ends is hidden: a line to an absent
+  // box means nothing.
   const isHidden = (name: string) => hiddenIds.has(name) || (options.masquerExternes === true && nomEstExterne(model, name));
   const flows = flowsOfTechnology(allFlows, flowType).filter(
     (f) => !isHidden(f.provider) && !isHidden(f.consumer)
@@ -202,21 +201,21 @@ export function buildByTechnologyView(
   return { nodes, edges };
 }
 
-// Ce qu'on peut décocher dans la vue par acteur : la liste COMPLÈTE, calculée
-// avant tout filtrage. Sinon, masquer une technologie ferait disparaître sa
-// propre case à cocher et il n'y aurait plus moyen de la rétablir.
-export interface FiltresActeur {
+// What can be unticked in the by-actor view: the COMPLETE list, computed
+// before any filtering. Otherwise, hiding a technology would make its own
+// checkbox vanish and there would be no way to bring it back.
+export interface ActorFilters {
   technologies: string[];
   actors: string[];
 }
 
-export function optionsFiltreActeur(allFlows: FlowInstance[], actorName: string): FiltresActeur {
+export function actorFilterOptions(allFlows: FlowInstance[], actorName: string): ActorFilters {
   const technologies = new Set<string>();
   const actors = new Set<string>();
   for (const flow of flowsTouchingActor(allFlows, actorName)) {
-    // Une technologie vide n'en est pas une : en mode fonctionnel, toutes les
-    // arêtes la portent vide (§5.2), et la proposer donnerait une case à
-    // cocher sans étiquette qui vide tout le schéma en un clic muet.
+    // An empty technology is not one: in functional mode every edge carries it
+    // empty (§5.2), and offering it would give an unlabelled checkbox that
+    // empties the whole diagram in one silent click.
     if (flow.flowType.trim() !== "") technologies.add(flow.flowType);
     const autre = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
     if (autre.trim() !== actorName.trim()) actors.add(autre);
@@ -231,20 +230,20 @@ function flowsTouchingActor(flows: FlowInstance[], actorName: string) {
   );
 }
 
-export interface OptionsVueActeur {
+export interface ActorViewOptions {
   hiddenTechnologies?: readonly string[];
   hiddenActors?: readonly string[];
-  // Jusqu'où porte le regard : les voisins immédiats, ce dont l'acteur dépend,
-  // ou ce qui dépend de lui -- c'est-à-dire ce que sa chute toucherait.
+  // How far the eye reaches: the immediate neighbours, what the actor depends
+  // on, or what depends on it -- that is, what its fall would touch.
   neighbourhood?: Neighbourhood;
 }
 
-export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], actorName: string, options: OptionsVueActeur): ViewResult {
+export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], actorName: string, options: ActorViewOptions): ViewResult {
   const neighbourhood = options.neighbourhood ?? "direct";
   const distances = radius(allFlows, actorName, neighbourhood);
-  // En direct, le comportement historique : les flux qui TOUCHENT l'acteur.
-  // Au-delà, tout flux dont les deux bouts sont dans le rayon -- sinon la
-  // planche montrerait des boîtes sans les liens qui les y ont amenées.
+  // At direct range, the historical behaviour: the flows that TOUCH the actor.
+  // Beyond that, every flow whose two ends are within the radius -- otherwise
+  // the board would show boxes without the links that brought them there.
   const flows =
     neighbourhood === "direct"
       ? flowsTouchingActor(allFlows, actorName)
@@ -256,21 +255,21 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
   const nodeIds = new Set<string>([actorName]);
 
   for (const flow of flows) {
-    // Masquer une technologie retire ses flux, donc les acteurs qui n'étaient
-    // reliés que par elle ; masquer un acteur retire les flux qui y menaient.
-    // Les deux sens tombent de la même règle : les nœuds suivent les arêtes.
+    // Hiding a technology removes its flows, hence the actors that were linked
+    // only by it; hiding an actor removes the flows that led to it. Both
+    // directions fall out of the same rule: nodes follow edges.
     if (hiddenTechnologies.has(flow.flowType)) continue;
     const autre = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
     if (hiddenActors.has(autre)) continue;
-    // La même règle que partout ailleurs : le trait suit la DONNÉE, du
-    // fournisseur vers le consommateur, et la pointe dit qui appelle. Cette vue
-    // construit ses arêtes elle-même plutôt que par groupFlows, et elle avait
-    // gardé l'ancienne convention : elle inversait le trait sur un flux tiré.
-    // Un même fichier draw.io racontait donc deux architectures selon l'onglet.
+    // The same rule as everywhere else: the line follows the DATA, from
+    // provider to consumer, and the arrowhead says who calls. This view builds
+    // its edges itself rather than through groupFlows, and it had kept the old
+    // convention: it reversed the line on a pulled flow. One draw.io file thus
+    // told two different architectures depending on the tab.
     //
-    // Cette vue nomme DÉJÀ l'échange plutôt que le tuyau : un trait y porte un
-    // seul flux, donc la technologie n'a rien à agréger et se lit en
-    // sous-ligne. Le réglage « Label » ne la concerne pas.
+    // This view ALREADY names the exchange rather than the pipe: a line here
+    // carries a single flow, so the technology has nothing to aggregate and
+    // reads as a sub-line. The "Label" setting does not concern it.
     const from = flow.provider;
     const to = flow.consumer;
     nodeIds.add(from);
@@ -280,7 +279,7 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
       to,
       technology: flow.flowType,
       count: 1,
-      criticality: flow.conso.criticality.trim() || undefined,
+      criticality: flow.consumption.criticality.trim() || undefined,
       pulled: flow.direction === "consumer-to-provider",
       label: interfaceLabel(flow.interfaceName, flow.version),
       attenuated: flow.attenuated,
@@ -292,9 +291,9 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
     label: id,
     kind: id === actorName ? "focus-actor" : "actor",
     ...actorDetails(model, id),
-    // Atténué selon la distance : un saut à plein, deux à 70 %, au-delà à
-    // 45 %. C'est le degree-of-interest -- ce qui est loin reste visible mais
-    // cesse de disputer l'attention au point de départ.
+    // Dimmed by distance: one hop at full, two at 70%, beyond at 45%. This is
+    // degree-of-interest -- what is far stays visible but stops competing for
+    // attention with the starting point.
     ...(neighbourhood === "direct" ? {} : { attenuation: attenuationDeDistance(distances.get(id) ?? 0) }),
   }));
 
@@ -313,45 +312,44 @@ export interface MatrixRow {
   cellules: Map<string, MatrixCell[]>;
 }
 
-// Les deux axes sont jugés chacun de son côté : une ligne par émetteur réel,
-// une colonne par destinataire réel. Ce qui n'émet rien n'a pas de ligne, ce
-// qui ne reçoit rien n'a pas de colonne -- une bande entièrement vide occupe
-// de la place sans rien apprendre. Le tableau qui sort d'ici est définitif :
-// ni l'affichage ni l'export ne le retaillent.
+// The two axes are each judged on their own: one row per real sender, one
+// column per real receiver. What sends nothing has no row, what receives
+// nothing has no column -- an entirely empty band takes up space and teaches
+// nothing. The table that comes out of here is final: neither the display nor
+// the export trims it again.
 export interface MatrixResult {
   columns: string[];
   rows: MatrixRow[];
-  // Les marges du tableau : degré sortant par ligne, entrant par colonne. Une
-  // matrix sans totaux oblige à compter des cases à l'œil pour savoir qui est
-  // le moyeu.
+  // The table's margins: out-degree per row, in-degree per column. A matrix
+  // without totals forces the eye to count cells to find out which is the hub.
   totauxLigne: Map<string, number>;
   totauxColonne: Map<string, number>;
 }
 
-// La matrix se lit aux mêmes trois échelles que les vues graphiques : acteur
-// par acteur, tout replié sur les groupes, ou les composants de la plateforme
-// détaillés face aux groupes qui les entourent.
-export type GranulariteMatrice = "actor" | "group" | "platform";
+// The matrix reads at the same three scales as the graphical views: actor by
+// actor, everything folded onto groups, or the platform's components detailed
+// against the groups around them.
+export type MatrixGrain = "actor" | "group" | "platform";
 
 export interface OptionsVueMatrice {
   mode: Mode;
-  granularite?: GranulariteMatrice;
+  grain?: MatrixGrain;
   order?: MatrixOrder;
   masquerExternes?: boolean;
   hiddenActors?: readonly string[];
 }
 
-// À chaque granularité son repli et sa lecture du périmètre : un id de ligne
-// est un nom d'acteur en « acteur », un nom de groupe en « groupe », et l'un ou
-// l'autre en « plateforme ».
+// Each grain has its own folding and its own reading of the perimeter: a row
+// id is an actor name at "actor", a group name at "group", and either one at
+// "platform".
 function matrixFolding(
   model: ParsedModel,
-  granularite: GranulariteMatrice
+  grain: MatrixGrain
 ): { key: NodeKeyFn; external: (id: string) => boolean } {
-  if (granularite === "group") {
+  if (grain === "group") {
     return { key: groupNodeKey(model), external: (id) => groupIsExternal(model, id) };
   }
-  if (granularite === "platform") {
+  if (grain === "platform") {
     const plateforme = new Set(
       model.actors.filter((a) => actorIsPlatform(model, a)).map((a) => a.name.trim())
     );
@@ -363,20 +361,20 @@ function matrixFolding(
   return { key: identityNodeKey, external: (id) => nomEstExterne(model, id) };
 }
 
-// Les lignes décochables de la matrix : tout ce qui porte au moins un flux à
-// la granularité courante, sous réserve de l'interrupteur « externes ».
+// The matrix rows that can be unticked: everything carrying at least one flow
+// at the current grain, subject to the "externals" switch.
 export function optionsFiltreMatrice(
   model: ParsedModel,
   flows: FlowInstance[],
-  options: { granularite?: GranulariteMatrice; masquerExternes?: boolean }
+  options: { grain?: MatrixGrain; masquerExternes?: boolean }
 ): string[] {
-  const { key, external } = matrixFolding(model, options.granularite ?? "actor");
+  const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const ids = new Set<string>();
   for (const flow of flows) {
     for (const name of [flow.provider, flow.consumer]) {
       const id = key(name);
-      // Sentinel « pas de nœud » : un acteur sans groupe est absent des vues
-      // repliées, il n'a donc pas de case à cocher.
+      // "No node" sentinel: an actor with no group is absent from the folded
+      // views, so it has no checkbox.
       if (!id) continue;
       if (options.masquerExternes && external(id)) continue;
       ids.add(id);
@@ -386,12 +384,12 @@ export function optionsFiltreMatrice(
 }
 
 export function buildMatrixView(model: ParsedModel, reading: Lecture, options: OptionsVueMatrice): MatrixResult {
-  const { key, external } = matrixFolding(model, options.granularite ?? "actor");
+  const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const hiddenIds = new Set(options.hiddenActors ?? []);
   const isHidden = (id: string) => hiddenIds.has(id) || (options.masquerExternes === true && external(id));
-  // Un lien tombe dès qu'une de ses deux extrémités est masquée : une ligne ou
-  // une colonne vers un acteur absent ne veut rien dire. Le masquage porte sur
-  // l'id replié, donc décocher un groupe emporte tous ses acteurs.
+  // A link falls as soon as one of its two ends is hidden: a row or a column
+  // to an absent actor means nothing. Hiding applies to the folded id, so
+  // unticking a group carries all its actors with it.
   const flows = reading.flows.filter((f) => !isHidden(key(f.provider)) && !isHidden(key(f.consumer)));
   const groups = groupFlows(flows, key, false);
 
@@ -410,9 +408,9 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
     else row.cellules.set(g.to, [cell]);
   }
 
-  // Un acteur métier devenu isolé (§5.2) garde sa ligne, vide plutôt
-  // qu'absente : disparaître de la matrix retirerait de l'information sans
-  // le dire, comme dans les vues graphiques.
+  // A business actor left isolated (§5.2) keeps its row, empty rather than
+  // absent: vanishing from the matrix would remove information silently, as in
+  // the graphical views.
   if (options.mode === "functional") {
     for (const actor of reading.actors) {
       const id = key(actor.name);
@@ -421,8 +419,8 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
     }
   }
 
-  // L'ordre se décide ICI, une fois, et l'affichage comme l'export le suivent :
-  // « ce qui est à l'écran est ce qui s'exporte ».
+  // The order is decided HERE, once, and both display and export follow it:
+  // "what is on screen is what is exported".
   const neighbourhood = new Map<string, Set<string>>();
   const ajouterVoisin = (a: string, b: string) => {
     const v = neighbourhood.get(a) ?? new Set<string>();
@@ -448,8 +446,8 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
     }
   }
 
-  // Les marges : combien de flux partent de chaque ligne, combien arrivent sur
-  // chaque colonne. C'est ce qui NOMME le moyeu sans compter les cases à l'œil.
+  // The margins: how many flows leave each row, how many arrive on each
+  // column. This is what NAMES the hub without counting cells by eye.
   const totauxLigne = new Map(rows.map((l) => [l.actor, [...l.cellules.values()].flat().reduce((n, c) => n + c.count, 0)]));
   const totauxColonne = new Map(
     columns.map((c) => [c, rows.reduce((n, l) => n + (l.cellules.get(c) ?? []).reduce((m, x) => m + x.count, 0), 0)])

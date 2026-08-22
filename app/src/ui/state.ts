@@ -1,11 +1,11 @@
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
-import type { GranulariteMatrice } from "../aggregation/views";
+import type { MatrixGrain } from "../aggregation/views";
 import type { MatrixOrder } from "../aggregation/seriation";
 import type { Neighbourhood } from "../aggregation/impact";
 import type { RoadmapSubject } from "../aggregation/roadmap";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import { currentMilestone, rankOfMilestone } from "../aggregation/milestones";
 import { actorsForReading } from "../aggregation/reading";
 
@@ -51,7 +51,7 @@ export const LIBELLE_VUE: Record<Vue, string> = {
   "upgrade": "Upgrade",
 };
 
-export interface FichierCharge {
+export interface LoadedFile {
   name: string;
   model: ParsedModel;
   report: IntegrityReport;
@@ -78,7 +78,7 @@ export interface AppOptions {
 // change d'acteur : un masquage n'a de sens que relativement à celui qu'on
 // regarde, et le traîner d'un acteur à l'autre cacherait des flux sans raison
 // visible.
-export interface FiltresVueActeur {
+export interface ActorViewFilters {
   hiddenTechnologies: string[];
   hiddenActors: string[];
   // Jusqu'où la planche porte : les voisins immédiats, l'amont, ou l'aval --
@@ -96,7 +96,7 @@ export interface FiltresVueTechnologie {
 // La matrix se filtre comme la vue par technologie, plus l'échelle de lecture
 // : acteur par acteur, replié sur les groupes, ou plateforme détaillée.
 export interface FiltresVueMatrice extends FiltresVueTechnologie {
-  granularite: GranulariteMatrice;
+  grain: MatrixGrain;
   // L'ordre des lignes et des colonnes. Alphabétique par défaut : une
   // seriation ne doit jamais être le défaut silencieux -- la revue de
   // référence prévient que RCM produit volontiers une bande diagonale qui
@@ -105,7 +105,7 @@ export interface FiltresVueMatrice extends FiltresVueTechnologie {
 }
 
 export interface AppState {
-  fichier: FichierCharge | null;
+  file: LoadedFile | null;
   view: Vue;
   mode: Mode;
   // Le palier regardé, par son nom. Ce n'est pas une option d'affichage mais
@@ -116,10 +116,10 @@ export interface AppState {
   // regarde ; le premier est la référence dont on mesure l'écart.
   comparedMilestone: string | null;
   options: AppOptions;
-  filtresActeur: FiltresVueActeur;
+  actorFilters: ActorViewFilters;
   filtresTechnologie: FiltresVueTechnologie;
   filtresMatrice: FiltresVueMatrice;
-  selectionActeur: string | null;
+  actorSelection: string | null;
   selectionTechnologie: string | null;
   // La chaîne suivie, par son libellé. Une chaîne n'existe qu'en lecture
   // fonctionnelle, où la plomberie est justement ce qu'on traverse.
@@ -131,16 +131,16 @@ export interface AppState {
 
 export function initialState(): AppState {
   return {
-    fichier: null,
+    file: null,
     view: "group-to-group",
     mode: "architecture",
     shownMilestone: null,
     comparedMilestone: null,
     options: { counters: true, edgeLabelMode: "technology", echellePng: 2, graisseParCriticite: false },
-    filtresActeur: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
+    actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
-    filtresMatrice: { masquerExternes: false, hiddenActors: [], granularite: "actor", order: "alphabetical" },
-    selectionActeur: null,
+    filtresMatrice: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
+    actorSelection: null,
     selectionTechnologie: null,
     selectionChaine: null,
     sujetFrise: "interfaces",
@@ -160,30 +160,30 @@ export function initialState(): AppState {
 // en avance, l'outil ignore celles qu'il ne connaît pas encore et dessinerait
 // une image amputée sans le dire -- le cas du jour où une nouvelle version
 // circule pendant qu'une ancienne page reste ouverte.
-export function vueAuChargement(fichier: FichierCharge): Vue {
-  if (fichier.model.schemaVersion !== VERSION_MODELE) return "upgrade";
-  return fichier.report.totalAnomalies > 0 ? "checks" : "group-to-group";
+export function viewOnLoad(file: LoadedFile): Vue {
+  if (file.model.schemaVersion !== SCHEMA_VERSION) return "upgrade";
+  return file.report.totalAnomalies > 0 ? "checks" : "group-to-group";
 }
 
-export function withFichierCharge(state: AppState, fichier: FichierCharge): AppState {
+export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
   // On ouvre sur le dernier palier livré, et on compare par défaut au
   // précédent : c'est l'écart qu'on vient de franchir, celui dont on parle.
-  const current = currentMilestone(fichier.model);
-  const previous = [...fichier.model.milestones]
+  const current = currentMilestone(file.model);
+  const previous = [...file.model.milestones]
     .filter((p) => current !== undefined && p.rank < current.rank)
     .sort((a, b) => b.rank - a.rank)[0];
 
   return {
     ...state,
-    fichier,
-    view: vueAuChargement(fichier),
+    file,
+    view: viewOnLoad(file),
     mode: "architecture",
     shownMilestone: current?.name ?? null,
     comparedMilestone: previous?.name ?? null,
-    filtresActeur: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
+    actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
-    filtresMatrice: { masquerExternes: false, hiddenActors: [], granularite: "actor", order: "alphabetical" },
-    selectionActeur: null,
+    filtresMatrice: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
+    actorSelection: null,
     selectionTechnologie: null,
     selectionChaine: null,
     sujetFrise: "interfaces",
@@ -198,15 +198,15 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
 // pour dire pourquoi. Mode et palier partagent la même règle : les séparer,
 // c'est n'en corriger qu'une moitié.
 function selectionRetenue(state: AppState, mode: Mode, milestone: string | null): string | null {
-  if (!state.fichier || !state.selectionActeur) return state.selectionActeur;
-  const model = state.fichier.model;
+  if (!state.file || !state.actorSelection) return state.actorSelection;
+  const model = state.file.model;
   const rank = milestone === null ? null : rankOfMilestone(model, milestone) ?? null;
   const offered = new Set(actorsForReading(model, rank, mode).map((a) => a.name));
-  return offered.has(state.selectionActeur) ? state.selectionActeur : null;
+  return offered.has(state.actorSelection) ? state.actorSelection : null;
 }
 
-export function withPalierAffiche(state: AppState, milestone: string | null): AppState {
-  return { ...state, shownMilestone: milestone, selectionActeur: selectionRetenue(state, state.mode, milestone) };
+export function withDisplayedMilestone(state: AppState, milestone: string | null): AppState {
+  return { ...state, shownMilestone: milestone, actorSelection: selectionRetenue(state, state.mode, milestone) };
 }
 
 export function withPalierCompare(state: AppState, milestone: string | null): AppState {
@@ -233,16 +233,16 @@ export function withMode(state: AppState, mode: Mode): AppState {
     mode === "functional" && VUES_SANS_OBJET_EN_FONCTIONNEL.includes(state.view)
       ? "platform-detail"
       : state.view;
-  return { ...state, mode, view, selectionActeur: selectionRetenue(state, mode, state.shownMilestone) };
+  return { ...state, mode, view, actorSelection: selectionRetenue(state, mode, state.shownMilestone) };
 }
 
 export function withOptions(state: AppState, patch: Partial<AppOptions>): AppState {
   return { ...state, options: { ...state.options, ...patch } };
 }
 
-export function withSelectionActeur(state: AppState, actor: string | null): AppState {
-  if (actor === state.selectionActeur) return { ...state, selectionActeur: actor };
-  return { ...state, selectionActeur: actor, filtresActeur: { ...state.filtresActeur, hiddenTechnologies: [], hiddenActors: [] } };
+export function withActorSelection(state: AppState, actor: string | null): AppState {
+  if (actor === state.actorSelection) return { ...state, actorSelection: actor };
+  return { ...state, actorSelection: actor, actorFilters: { ...state.actorFilters, hiddenTechnologies: [], hiddenActors: [] } };
 }
 
 function basculer(list: string[], value: string, hidden: boolean): string[] {
@@ -253,14 +253,14 @@ function basculer(list: string[], value: string, hidden: boolean): string[] {
 export function withTechnoMasquee(state: AppState, techno: string, hidden: boolean): AppState {
   return {
     ...state,
-    filtresActeur: { ...state.filtresActeur, hiddenTechnologies: basculer(state.filtresActeur.hiddenTechnologies, techno, hidden) },
+    actorFilters: { ...state.actorFilters, hiddenTechnologies: basculer(state.actorFilters.hiddenTechnologies, techno, hidden) },
   };
 }
 
 export function withActeurMasque(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
-    filtresActeur: { ...state.filtresActeur, hiddenActors: basculer(state.filtresActeur.hiddenActors, actor, hidden) },
+    actorFilters: { ...state.actorFilters, hiddenActors: basculer(state.actorFilters.hiddenActors, actor, hidden) },
   };
 }
 
@@ -271,7 +271,7 @@ export function withSujetFrise(state: AppState, subject: RoadmapSubject): AppSta
 }
 
 export function withVoisinage(state: AppState, neighbourhood: Neighbourhood): AppState {
-  return { ...state, filtresActeur: { ...state.filtresActeur, neighbourhood } };
+  return { ...state, actorFilters: { ...state.actorFilters, neighbourhood } };
 }
 
 export function withSelectionChaine(state: AppState, chain: string | null): AppState {
@@ -297,9 +297,9 @@ export function withMasquerExternesMatrice(state: AppState, masquer: boolean): A
 
 // Changer d'échelle change la nature des lignes : garder les anciens noms
 // masquerait des lignes sans laisser de case pour les rétablir.
-export function withGranulariteMatrice(state: AppState, granularite: GranulariteMatrice): AppState {
-  if (granularite === state.filtresMatrice.granularite) return state;
-  return { ...state, filtresMatrice: { ...state.filtresMatrice, granularite, hiddenActors: [] } };
+export function withMatrixGrain(state: AppState, grain: MatrixGrain): AppState {
+  if (grain === state.filtresMatrice.grain) return state;
+  return { ...state, filtresMatrice: { ...state.filtresMatrice, grain, hiddenActors: [] } };
 }
 
 // L'ordre ne touche pas aux filtres : changer d'ordre ne cache ni ne révèle
@@ -308,7 +308,7 @@ export function withOrdreMatrice(state: AppState, order: MatrixOrder): AppState 
   return { ...state, filtresMatrice: { ...state.filtresMatrice, order } };
 }
 
-export function withActeurMasqueMatrice(state: AppState, actor: string, hidden: boolean): AppState {
+export function withActorHiddenInMatrix(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
     filtresMatrice: {

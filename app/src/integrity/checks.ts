@@ -1071,7 +1071,7 @@ function groupesUtilises(model: ParsedModel): InfoBlock {
 // Sans cette distinction, l'axe se saborde : un acteur retiré au palier 2 n'a
 // évidemment plus de flux au palier 3, et le rapport se remplirait d'anomalies
 // fausses dès la première ligne retirée.
-function modeleAuPalier(model: ParsedModel, rank: number | null): ParsedModel {
+function modelAtMilestone(model: ParsedModel, rank: number | null): ParsedModel {
   if (rank === null || model.milestones.length === 0) return model;
   const live = (v: { introducedAt: string; retiredAt: string }) =>
     isLiveAt(lifespanOf(model, v), rank);
@@ -1103,7 +1103,7 @@ function modeleAuPalier(model: ParsedModel, rank: number | null): ParsedModel {
 }
 
 export function runIntegrityChecks(model: ParsedModel, rank: number | null = null): IntegrityReport {
-  const auPalier = modeleAuPalier(model, rank);
+  const auPalier = modelAtMilestone(model, rank);
   const families = [
     checkStructure(model),
     checkReferences(model),

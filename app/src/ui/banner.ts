@@ -27,22 +27,22 @@ export interface FormatExport {
 }
 
 const onADiagram = (state: AppState, dessinDisponible: boolean) =>
-  state.fichier !== null && state.view !== "matrix" && state.view !== "checks" && dessinDisponible;
+  state.file !== null && state.view !== "matrix" && state.view !== "checks" && dessinDisponible;
 
 // Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
 // les DSL une vue par planche -- donc aucun ne dépend de la vue ouverte.
-const surTout = (state: AppState) => state.fichier !== null && state.view !== "upgrade";
+const surTout = (state: AppState) => state.file !== null && state.view !== "upgrade";
 
 export const EXPORTS: FormatExport[] = [
   { label: "SVG", rappel: "onExportSvg", actif: onADiagram },
   { label: "PNG", rappel: "onExportPng", actif: onADiagram },
   // La matrix n'est pas un dessin : ce qu'on veut en emporter, c'est le
   // tableau, dans l'outil où on le trie et le filtre.
-  { label: "Excel", rappel: "onExportXlsx", actif: (s) => s.fichier !== null && s.view === "matrix" },
+  { label: "Excel", rappel: "onExportXlsx", actif: (s) => s.file !== null && s.view === "matrix" },
   // Le rapport n'est ni un dessin ni un tableau : c'est une liste de lignes à
   // corriger, chacune avec son adresse. Emportée en Markdown, elle se colle
   // dans un ticket et se traite sans rouvrir l'outil.
-  { label: "Markdown", rappel: "onExportMarkdown", actif: (s) => s.fichier !== null && s.view === "checks" },
+  { label: "Markdown", rappel: "onExportMarkdown", actif: (s) => s.file !== null && s.view === "checks" },
   // draw.io est un dessin : il suit le mode de lecture.
   { label: "draw.io", rappel: "onExportDrawio", actif: surTout },
   // Ces deux-là étaient fermés en lecture fonctionnelle, au motif qu'un schéma
@@ -70,16 +70,16 @@ export function renderBanner(
   if (state.messageBandeau) {
     legacyState.classList.add("banner-error");
     legacyState.textContent = state.messageBandeau;
-  } else if (state.fichier) {
+  } else if (state.file) {
     // Un classeur fraîchement produit n'a pas encore de date d'enregistrement :
     // le dire plutôt que d'afficher « saved » suivi d'un vide.
-    const date = state.fichier.dateModification
-      ? `saved ${state.fichier.dateModification.toLocaleString("en-GB")}`
+    const date = state.file.dateModification
+      ? `saved ${state.file.dateModification.toLocaleString("en-GB")}`
       : "save date unknown";
-    legacyState.appendChild(el("strong", {}, [state.fichier.name]));
+    legacyState.appendChild(el("strong", {}, [state.file.name]));
     legacyState.appendChild(
       document.createTextNode(
-        ` — ${state.fichier.model.actors.length} actors, ${state.fichier.model.interfaces.length} interfaces, ${state.fichier.model.consumptions.length} consumptions — ${date}`
+        ` — ${state.file.model.actors.length} actors, ${state.file.model.interfaces.length} interfaces, ${state.file.model.consumptions.length} consumptions — ${date}`
       )
     );
   } else {

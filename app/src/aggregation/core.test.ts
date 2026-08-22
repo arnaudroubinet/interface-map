@@ -9,7 +9,7 @@ import {
   identityNodeKey,
   groupNodeKey,
 } from "./core";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Les fabriques partagées, avec les seuls défauts propres à ce fichier : deux
@@ -18,8 +18,8 @@ function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
 const iface = base.iface;
-function conso(o: Partial<Consumption> = {}): Consumption {
-  return base.conso({ legacyStatus: "Actif", decision: "Keep", ...o });
+function consumption(o: Partial<Consumption> = {}): Consumption {
+  return base.consumption({ legacyStatus: "Actif", decision: "Keep", ...o });
 }
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
@@ -28,7 +28,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     actorTypes: [base.actorType()],
     flowTypes: [base.typeFlux()],
     interfaces: [iface()],
-    consumptions: [conso()],
+    consumptions: [consumption()],
     fxSheetNames: ["FX_A_HTTP"],
     ...o,
   });
@@ -42,7 +42,7 @@ describe("buildFlowInstances", () => {
   });
 
   it("skips a consumption whose flow name has no matching interface", () => {
-    const flows = buildFlowInstances(model({ consumptions: [conso({ flowName: "Fantome" })] }));
+    const flows = buildFlowInstances(model({ consumptions: [consumption({ flowName: "Fantome" })] }));
     expect(flows).toHaveLength(0);
   });
 
@@ -56,7 +56,7 @@ describe("buildFlowInstances", () => {
     const flows = buildFlowInstances(
       model({
         interfaces: [iface({ version: "1.0" }), iface({ version: "2.0", legacyState: "Retiré" })],
-        consumptions: [conso({ version: "1.0" })],
+        consumptions: [consumption({ version: "1.0" })],
       })
     );
     expect(flows).toHaveLength(1);
@@ -64,7 +64,7 @@ describe("buildFlowInstances", () => {
   });
 
   it("marks a flow attenuated when Décision=À transformer", () => {
-    const flows = buildFlowInstances(model({ consumptions: [conso({ decision: "Transform" })] }));
+    const flows = buildFlowInstances(model({ consumptions: [consumption({ decision: "Transform" })] }));
     expect(flows[0].attenuated).toBe(true);
   });
 
@@ -87,7 +87,7 @@ describe("buildFlowInstances", () => {
           iface({ flowName: "F", providerName: "C", flowType: "Kafka", expectedSheet: "FX_C_Kafka" }),
         ],
         actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
-        consumptions: [conso({ flowName: "F", sheet: "FX_A_HTTP", consumerName: "B" })],
+        consumptions: [consumption({ flowName: "F", sheet: "FX_A_HTTP", consumerName: "B" })],
       })
     );
     expect(flows).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("groupFlows", () => {
     const flows = buildFlowInstances(
       model({
         interfaces: [iface({ flowName: "F1" }), iface({ flowName: "F2" })],
-        consumptions: [conso({ flowName: "F1" }), conso({ flowName: "F2" })],
+        consumptions: [consumption({ flowName: "F1" }), consumption({ flowName: "F2" })],
       })
     );
     const groups = groupFlows(flows, identityNodeKey, true);
@@ -109,12 +109,12 @@ describe("groupFlows", () => {
   });
 
   it("masks self-loops when maskLoops is true", () => {
-    const flows = buildFlowInstances(model({ consumptions: [conso({ consumerName: "A" })] }));
+    const flows = buildFlowInstances(model({ consumptions: [consumption({ consumerName: "A" })] }));
     expect(groupFlows(flows, identityNodeKey, true)).toHaveLength(0);
   });
 
   it("keeps self-loops when maskLoops is false", () => {
-    const flows = buildFlowInstances(model({ consumptions: [conso({ consumerName: "A" })] }));
+    const flows = buildFlowInstances(model({ consumptions: [consumption({ consumerName: "A" })] }));
     expect(groupFlows(flows, identityNodeKey, false)).toHaveLength(1);
   });
 
@@ -123,7 +123,7 @@ describe("groupFlows", () => {
     const flows = buildFlowInstances(
       model({
         interfaces: [iface({ flowName: "F1" }), iface({ flowName: "F2" })],
-        consumptions: [conso({ flowName: "F1", decision: "Transform" }), conso({ flowName: "F2", decision: "Keep" })],
+        consumptions: [consumption({ flowName: "F1", decision: "Transform" }), consumption({ flowName: "F2", decision: "Keep" })],
       })
     );
     expect(groupFlows(flows, identityNodeKey, true)[0].attenuated).toBe(false);
@@ -133,7 +133,7 @@ describe("groupFlows", () => {
     const flows = buildFlowInstances(
       model({
         interfaces: [iface({ flowName: "F1", providerName: "A" }), iface({ flowName: "F2", providerName: "B" })],
-        consumptions: [conso({ flowName: "F1", consumerName: "B" }), conso({ flowName: "F2", consumerName: "A" })],
+        consumptions: [consumption({ flowName: "F1", consumerName: "B" }), consumption({ flowName: "F2", consumerName: "A" })],
       })
     );
     const groups = groupFlows(flows, identityNodeKey, true);
@@ -148,7 +148,7 @@ describe("aggregateEdges", () => {
     const flows = buildFlowInstances(
       model({
         interfaces: [iface({ flowName: "F1" }), iface({ flowName: "F2" })],
-        consumptions: [conso({ flowName: "F1" }), conso({ flowName: "F2" })],
+        consumptions: [consumption({ flowName: "F1" }), consumption({ flowName: "F2" })],
       })
     );
     const withCounter = aggregateEdges(flows, identityNodeKey, { counters: true }, true);
@@ -171,7 +171,7 @@ describe("aggregateEdges", () => {
       direction: "provider-to-consumer",
       attenuated: false,
       iface: iface({ flowName }),
-      conso: conso({ flowName }),
+      consumption: consumption({ flowName }),
     });
     const edges = aggregateEdges([flow("F1"), flow("F2")], identityNodeKey, { counters: true }, true);
     expect(edges[0].label).toBe("F1, F2");
@@ -222,7 +222,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
     const m = model({
       milestones,
       interfaces: [iface({ introducedAt: "v1" })],
-      consumptions: [conso({ introducedAt: "v1" })],
+      consumptions: [consumption({ introducedAt: "v1" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(1);
   });
@@ -231,7 +231,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
     const m = model({
       milestones,
       interfaces: [iface({ introducedAt: "v3" })],
-      consumptions: [conso({ introducedAt: "v3" })],
+      consumptions: [consumption({ introducedAt: "v3" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
   });
@@ -241,7 +241,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
     const m = model({
       milestones,
       interfaces: [iface({ introducedAt: "v1", retiredAt: "v2" })],
-      consumptions: [conso({ introducedAt: "v1" })],
+      consumptions: [consumption({ introducedAt: "v1" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
     expect(buildFlowInstances(m, 1)).toHaveLength(1);
@@ -252,7 +252,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
       milestones,
       actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1", retiredAt: "v2" })],
       interfaces: [iface({ introducedAt: "v1" })],
-      consumptions: [conso({ introducedAt: "v1" })],
+      consumptions: [consumption({ introducedAt: "v1" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
   });
@@ -262,7 +262,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
       milestones,
       actors: [actor({ name: "A", introducedAt: "v1", retiredAt: "v2" }), actor({ name: "B", introducedAt: "v1" })],
       interfaces: [iface({ introducedAt: "v1" })],
-      consumptions: [conso({ introducedAt: "v1" })],
+      consumptions: [consumption({ introducedAt: "v1" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
   });
@@ -286,7 +286,7 @@ describe("résolution d'une consommation — le nom seul ne tranche pas entre de
         iface({ flowName: "Kashyyyk", providerName: "A", expectedSheet: "FX_A_HTTP" }),
         iface({ flowName: "Kashyyyk", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ],
-      consumptions: [conso({ flowName: "Kashyyyk", consumerName: "C", sheet: feuilleConso })],
+      consumptions: [consumption({ flowName: "Kashyyyk", consumerName: "C", sheet: feuilleConso })],
     });
 
   it("résout sans hésiter quand l'onglet désigne l'exposant", () => {
@@ -334,8 +334,8 @@ describe("groupFlows — les noms d'échange suivent le trait fusionné", () => 
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       interfaces: [iface({ flowName: "F1" }), iface({ flowName: "F2", row: 1 })],
       consumptions: [
-        conso({ flowName: "F1", consumerName: "B" }),
-        conso({ flowName: "F2", consumerName: "B" }),
+        consumption({ flowName: "F1", consumerName: "B" }),
+        consumption({ flowName: "F2", consumerName: "B" }),
       ],
     });
     const groups = groupFlows(buildFlowInstances(m), identityNodeKey, true);
@@ -355,7 +355,7 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       flowTypes: [base.typeFlux({ direction, rawDirection: "" })],
       interfaces: [iface({ providerName: "A" })],
-      consumptions: [conso({ consumerName: "B" })],
+      consumptions: [consumption({ consumerName: "B" })],
     });
 
   it("va du fournisseur au consommateur, qu'il soit poussé ou tiré", () => {
@@ -446,7 +446,7 @@ describe("groupFlows — la criticité portée par le trait", () => {
           base.iface({ flowName: `F${i}`, providerName: "A", expectedSheet: "FX_A_HTTP" })
         ),
         consumptions: criticites.map((criticality, i) =>
-          base.conso({ flowName: `F${i}`, consumerName: "B", sheet: "FX_A_HTTP", criticality })
+          base.consumption({ flowName: `F${i}`, consumerName: "B", sheet: "FX_A_HTTP", criticality })
         ),
       })
     );

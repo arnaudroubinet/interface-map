@@ -24,9 +24,9 @@ function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
       base.iface({ flowName: "Policy feed", providerName: "ESB", flowType: "HTTP", expectedSheet: "FX_ESB_HTTP" }),
     ],
     consumptions: [
-      base.conso({ flowName: "Policy events", consumerName: "Kafka", sheet: "FX_Boreal_Kafka", republishedAs: "Policy stream" }),
-      base.conso({ flowName: "Policy stream", consumerName: "ESB", sheet: "FX_Kafka_Kafka", republishedAs: "Policy feed" }),
-      base.conso({ flowName: "Policy feed", consumerName: "Onderon", sheet: "FX_ESB_HTTP" }),
+      base.consumption({ flowName: "Policy events", consumerName: "Kafka", sheet: "FX_Boreal_Kafka", republishedAs: "Policy stream" }),
+      base.consumption({ flowName: "Policy stream", consumerName: "ESB", sheet: "FX_Kafka_Kafka", republishedAs: "Policy feed" }),
+      base.consumption({ flowName: "Policy feed", consumerName: "Onderon", sheet: "FX_ESB_HTTP" }),
     ],
     ...overrides,
   });
@@ -63,7 +63,7 @@ describe("chainesDisponibles", () => {
       fxSheetNames: ["FX_A_HTTP"],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],
-      consumptions: [base.conso({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP" })],
+      consumptions: [base.consumption({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP" })],
     });
     expect(availableChains(direct, null)[0].hops).toHaveLength(1);
   });

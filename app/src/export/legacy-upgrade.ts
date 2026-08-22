@@ -1,7 +1,7 @@
 import * as XLSX from "xlsx";
 import { normalizeText } from "../shared/text";
-import { TYPES_FLUX, LISTES, type DonneesClasseur } from "./template-export";
-import { PALIER_ORIGINE } from "./schema-upgrade";
+import { TYPES_FLUX, LISTES, type WorkbookData } from "./template-export";
+import { MILESTONE_ORIGIN } from "./schema-upgrade";
 import { expectedFxSheet } from "../parsing/build-model";
 
 // Convertit un classeur au format d'origine vers le format actuel.
@@ -40,8 +40,8 @@ function currentDecision(value: string): string {
 }
 
 export interface RapportMigration {
-  donnees: DonneesClasseur;
-  acteursCrees: string[];
+  data: WorkbookData;
+  actorsCreated: string[];
   typesInconnus: string[];
 }
 
@@ -57,7 +57,7 @@ function sensConnu(type: string): string {
   return TYPES_FLUX.find((t) => normalizeText(t[0]) === normalizeText(type))?.[1] ?? "";
 }
 
-export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = new Date()): RapportMigration {
+export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): RapportMigration {
   const wb = XLSX.read(new Uint8Array(paquet), { type: "array", cellDates: true });
   const liens = sheet(wb, FEUILLE_FLUX);
   if (liens.length === 0) throw new Error(`aucune sheet "${FEUILLE_FLUX}" exploitable`);
@@ -79,16 +79,16 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
     const name = text(c["Nom"]);
     if (!name || connus.has(normalizeText(name))) continue;
     connus.add(normalizeText(name));
-    actors.push([name, text(c["Groupe"]), "", "", text(c["Description"]), text(c["Commentaires"]), PALIER_ORIGINE, ""]);
+    actors.push([name, text(c["Groupe"]), "", "", text(c["Description"]), text(c["Commentaires"]), MILESTONE_ORIGIN, ""]);
   }
 
-  const acteursCrees: string[] = [];
+  const actorsCreated: string[] = [];
   for (const lien of liens) {
     for (const name of [text(lien["Composant source"]), text(lien["Composant cible"])]) {
       if (!name || connus.has(normalizeText(name))) continue;
       connus.add(normalizeText(name));
-      actors.push([name, "", "", "", "", "", PALIER_ORIGINE, ""]);
-      acteursCrees.push(name);
+      actors.push([name, "", "", "", "", "", MILESTONE_ORIGIN, ""]);
+      actorsCreated.push(name);
     }
   }
 
@@ -130,7 +130,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
       contrat,
       text(lien["Commentaires"]),
       "No",
-      PALIER_ORIGINE,
+      MILESTONE_ORIGIN,
       "",
     ]);
 
@@ -152,7 +152,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
       // la colonne existe, elle reste vide, et la complétude la réclamera si
       // l'équipe adopte la distinction.
       "",
-      PALIER_ORIGINE,
+      MILESTONE_ORIGIN,
       // Le format d'origine ne date aucun départ : même « À supprimer » ne dit
       // que l'intention, et c'est une décision, pas un palier de retrait.
       "",
@@ -170,7 +170,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
   }
 
   return {
-    donnees: {
+    data: {
       // Le format d'origine ne déclare ni types de flux ni types d'acteur :
       // l'amorce fait foi, et les contrôles diront ce qui manque.
       flowTypes: [],
@@ -179,7 +179,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
       // existait à la bascule, et il n'annonce aucune suite -- un seul palier
       // suffit donc à le porter.
       milestones: [
-        [PALIER_ORIGINE, "1", "Initial state", "Delivered", dateMigration.toISOString().slice(0, 10), "Taken from the original workbook."],
+        [MILESTONE_ORIGIN, "1", "Initial state", "Delivered", dateMigration.toISOString().slice(0, 10), "Taken from the original workbook."],
       ],
       groups,
       actors,
@@ -188,7 +188,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
         .sort(([a], [b]) => a.localeCompare(b, "fr"))
         .map(([name, rows]) => ({ name, rows })),
     },
-    acteursCrees,
+    actorsCreated,
     typesInconnus,
   };
 }

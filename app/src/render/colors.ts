@@ -42,7 +42,7 @@ function declaredColourOf(brut: string): string | undefined {
   return ratioDeContraste(brute, "#ffffff") >= SEUIL_TRAIT ? brute : assombrirJusquA(brute, SEUIL_TRAIT);
 }
 
-export function couleursDuModele(model: {
+export function coloursOfModel(model: {
   interfaces: readonly { flowType: string }[];
   flowTypes: readonly { type: string; colour: string }[];
 }): Map<string, string> {

@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { colorForTechnologies, couleursDuModele, PALETTE } from "./colors";
+import { colorForTechnologies, coloursOfModel, PALETTE } from "./colors";
 import { ratioDeContraste } from "./contrast";
 import type { ParsedModel, InterfaceCatalogue, FlowType } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 function typeFlux(type: string): FlowType {
   return base.typeFlux({ type });
@@ -24,21 +24,21 @@ describe("couleursDuModele", () => {
     flowTypes: types.map(typeFlux),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
-    schemaVersion: VERSION_MODELE, savedAt: null,
+    schemaVersion: SCHEMA_VERSION, savedAt: null,
   });
 
   const SEIZE = ["Kafka", "SFTP", "HTTP", "File", "SMTP", "JMS", "LDAP", "NTP",
     "Manual", "SQL", "Syslog", "gRPC", "Proprietary", "Screen entry", "Screen lookup", "Object storage (S3)"];
 
   it("donne une couleur distincte à chaque technologie réellement dessinée", () => {
-    const colours = couleursDuModele(model(SEIZE, ["HTTP", "Kafka", "File", "SFTP", "SMTP"]));
+    const colours = coloursOfModel(model(SEIZE, ["HTTP", "Kafka", "File", "SFTP", "SMTP"]));
     const distinctes = new Set([...colours.values()]);
     expect(distinctes.size).toBe(5);
   });
 
   it("ne boucle sur la palette qu'au-delà de ses huit teintes", () => {
     const neuf = SEIZE.slice(0, 9);
-    const colours = couleursDuModele(model(SEIZE, neuf));
+    const colours = coloursOfModel(model(SEIZE, neuf));
     expect(new Set([...colours.values()]).size).toBe(8);
   });
 
@@ -46,7 +46,7 @@ describe("couleursDuModele", () => {
     // Le classeur, pas la planche : une vue qui n'en montre qu'une partie ne
     // doit pas redistribuer les teintes.
     const m = model(SEIZE, ["HTTP", "Kafka", "File", "SFTP", "SMTP"]);
-    expect(couleursDuModele(m).get("SFTP")).toBe(couleursDuModele(m).get("SFTP"));
+    expect(coloursOfModel(m).get("SFTP")).toBe(coloursOfModel(m).get("SFTP"));
   });
 });
 
@@ -69,22 +69,22 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
     flowTypes: types.map(([type, colour]) => ({ ...typeFlux(type), colour })),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
-    schemaVersion: VERSION_MODELE, savedAt: null,
+    schemaVersion: SCHEMA_VERSION, savedAt: null,
   });
 
   it("respecte la couleur déclarée", () => {
-    const c = couleursDuModele(estate([["HTTP", "#123456"], ["Kafka", ""]], ["HTTP", "Kafka"]));
+    const c = coloursOfModel(estate([["HTTP", "#123456"], ["Kafka", ""]], ["HTTP", "Kafka"]));
     expect(c.get("HTTP")).toBe("#123456");
   });
 
   // Teinte assez foncée pour traverser le garde-fou de contraste intacte :
   // ce test porte sur l'ÉCRITURE acceptée, pas sur la correction de clarté.
   it("accepte l'hexadécimal sans dièse et le normalise", () => {
-    expect(couleursDuModele(estate([["HTTP", "1F5FAE"]], ["HTTP"])).get("HTTP")).toBe("#1f5fae");
+    expect(coloursOfModel(estate([["HTTP", "1F5FAE"]], ["HTTP"])).get("HTTP")).toBe("#1f5fae");
   });
 
   it("ignore une valeur qui n'est pas une couleur", () => {
-    const c = couleursDuModele(estate([["HTTP", "bleu ciel"]], ["HTTP"]));
+    const c = coloursOfModel(estate([["HTTP", "bleu ciel"]], ["HTTP"]));
     expect(c.get("HTTP")).toMatch(/^#[0-9a-f]{6}$/);
     expect(c.get("HTTP")).not.toBe("bleu ciel");
   });
@@ -93,16 +93,16 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
   // qu'on ajoute autour, alors que le rang alphabétique la décalait.
   it("ne bouge plus quand une technologie s'ajoute avant elle dans l'alphabet", () => {
     const types: [string, string][] = [["HTTP", "#123456"], ["Kafka", "#654321"]];
-    const avant = couleursDuModele(estate(types, ["HTTP", "Kafka"]));
-    const after = couleursDuModele(estate([...types, ["Batch", "#0f0f0f"]], ["HTTP", "Kafka", "Batch"]));
-    expect(after.get("HTTP")).toBe(avant.get("HTTP"));
-    expect(after.get("Kafka")).toBe(avant.get("Kafka"));
+    const before = coloursOfModel(estate(types, ["HTTP", "Kafka"]));
+    const after = coloursOfModel(estate([...types, ["Batch", "#0f0f0f"]], ["HTTP", "Kafka", "Batch"]));
+    expect(after.get("HTTP")).toBe(before.get("HTTP"));
+    expect(after.get("Kafka")).toBe(before.get("Kafka"));
   });
 
   // Une teinte déjà prise par une déclaration ne doit pas être redistribuée à
   // une voisine : deux traits identiques resteraient indiscernables.
   it("n'attribue pas à une autre une teinte déjà déclarée", () => {
-    const c = couleursDuModele(estate([["HTTP", "#2a78d6"], ["Kafka", ""], ["File", ""]], ["HTTP", "Kafka", "File"]));
+    const c = coloursOfModel(estate([["HTTP", "#2a78d6"], ["Kafka", ""], ["File", ""]], ["HTTP", "Kafka", "File"]));
     expect(new Set([...c.values()]).size).toBe(3);
   });
 });
@@ -119,17 +119,17 @@ describe("couleursDuModele — une technologie non déclarée ne prend pas de te
     flowTypes: declared.map((t) => typeFlux(t)),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
-    schemaVersion: VERSION_MODELE, savedAt: null,
+    schemaVersion: SCHEMA_VERSION, savedAt: null,
   });
 
   it("ignore une technologie absente du référentiel", () => {
-    const c = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Inconnue"]));
+    const c = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Inconnue"]));
     expect([...c.keys()].sort()).toEqual(["HTTP", "Kafka"]);
   });
 
   it("ne laisse pas une inconnue décaler les teintes des autres", () => {
-    const sans = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
-    const avec = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
+    const sans = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
+    const avec = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
     expect(avec.get("HTTP")).toBe(sans.get("HTTP"));
     expect(avec.get("Kafka")).toBe(sans.get("Kafka"));
   });
@@ -159,10 +159,10 @@ describe("couleursDuModele — garde-fou de contraste", () => {
   });
 
   it("assombrit une couleur déclarée illisible plutôt que de la dessiner telle quelle", () => {
-    expect(ratioDeContraste(couleursDuModele(estate("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
+    expect(ratioDeContraste(coloursOfModel(estate("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
   });
 
   it("respecte telle quelle une couleur déclarée qui passe le seuil", () => {
-    expect(couleursDuModele(estate("#1f5fae")).get("HTTP")).toBe("#1f5fae");
+    expect(coloursOfModel(estate("#1f5fae")).get("HTTP")).toBe("#1f5fae");
   });
 });

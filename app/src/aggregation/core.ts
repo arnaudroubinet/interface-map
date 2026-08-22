@@ -10,29 +10,28 @@ export interface GraphNode {
   id: NodeId;
   label: string;
   kind: NodeKind;
-  // Style C4 : « Type » et description courte affichés sous le nom, quand
-  // le nœud correspond à un acteur réel (pas un groupe agrégé).
+  // C4 style: "Type" and short description shown under the name, when the node
+  // matches a real actor (not an aggregated group).
   subtitle?: string;
   description?: string;
   external?: boolean;
-  // Ce que la FORME doit redire, faute de quoi la couleur reste seule à le
-  // porter -- donc rien du tout à l'impression et pour un daltonien (WCAG
-  // 1.4.1). Deux variantes, pas plus : au-delà on tombe dans le zoo UML.
+  // What the SHAPE must restate, failing which colour alone carries it -- so
+  // nothing at all in print and for a colour-blind reader (WCAG 1.4.1). Two
+  // variants, no more: beyond that lies the UML zoo.
   //
-  // `technique` : l'acteur est de la plomberie (nature Technical).
-  // `agrégat` : le nœud replie plusieurs acteurs, et combien.
+  // `technical`: the actor is plumbing (Technical nature).
+  // `aggregate`: the node folds several actors, and how many.
   technique?: boolean;
   agrégat?: number;
-  // Opacité du nœud, quand la vue veut mettre en retrait sans faire
-  // disparaître : ce qui est loin du point d'intérêt reste visible mais cesse
-  // de lui disputer l'attention.
+  // The node's opacity, when the view wants to push back without making it
+  // vanish: what is far from the point of interest stays visible but stops
+  // competing with it for attention.
   attenuation?: number;
-  // Nom d'icône, résolu depuis l'onglet TypesActeur du classeur. Le rendu ne
-  // décide plus quelle icône va à quel type : il l'applique.
+  // Icon name, resolved from the workbook's ActorTypes sheet. The rendering no
+  // longer decides which icon goes with which type: it applies it.
   icon?: string;
-  // Nœud conteneur (style C4 : la frontière de la plateforme). Les enfants
-  // sont placés à l'intérieur par le moteur, et la frontière est dessinée
-  // autour d'eux.
+  // Container node (C4 style: the platform boundary). The children are placed
+  // inside by the engine, and the boundary is drawn around them.
   parent?: string;
 }
 
@@ -41,70 +40,68 @@ export interface GraphEdge {
   to: NodeId;
   technology: string;
   count: number;
-  // La criticité la plus forte portée par ce trait, quand la vue veut la
-  // dessiner. Saisie, contrôlée et exportée depuis toujours, elle n'était
-  // jamais dessinée -- c'est pourtant la donnée la plus décisionnelle du
-  // classeur.
+  // The strongest criticality carried by this line, when the view wants to
+  // draw it. Entered, checked and exported since day one, it was never drawn
+  // -- and yet it is the workbook's most decision-bearing field.
   criticality?: string;
   label: string;
   attenuated: boolean;
-  // La pointe va au départ du trait plutôt qu'à son arrivée : le consommateur
-  // interroge le fournisseur, mais la donnée descend toujours dans l'autre sens.
+  // The arrowhead goes at the line's start rather than its end: the consumer
+  // queries the provider, but the data always travels the other way.
   pulled?: boolean;
-  // Les échanges que ce trait rassemble. L'étiquette n'en nomme que les
-  // premiers ; la liste entière se lit au hover, sans quoi la vue métier
-  // cacherait ce qu'elle est censée montrer.
+  // The exchanges this line gathers. The label names only the first few; the
+  // whole list reads on hover, without which the business view would hide what
+  // it is meant to show.
   names?: string[];
-  // Marque de la vue Écarts : ce trait apparaît ou disparaît entre les deux
-  // paliers comparés. Absent partout ailleurs -- ce n'est pas une propriété du
-  // flux, c'est le résultat d'une comparaison.
-  ecart?: "added" | "removed";
+  // Changes-view mark: this line appears or disappears between the two
+  // milestones compared. Absent everywhere else -- it is not a property of the
+  // flow, it is the result of a comparison.
+  change?: "added" | "removed";
 }
 
 export interface FlowInstance {
   interfaceName: string;
-  // La version du contrat exposé, telle qu'elle figure au catalogue -- pas
-  // celle saisie côté consommation : c'est l'interface qu'on nomme.
+  // The published contract's version, as it appears in the catalogue -- not the
+  // one entered on the consumption side: it is the interface being named.
   version: string;
   flowType: string;
   provider: string;
   consumer: string;
   direction: "provider-to-consumer" | "consumer-to-provider";
   attenuated: boolean;
-  // Les deux lignes du classeur d'où ce flux vient. Les schémas n'en ont pas
-  // besoin -- ils ne dessinent qu'un trait -- mais les exports vers un outil
-  // d'architecture, eux, y trouvent tout ce que le trait ne montre pas :
-  // contrat, usage, criticité, décision, paliers.
+  // The two workbook rows this flow comes from. The diagrams do not need them
+  // -- they draw only a line -- but exports to an architecture tool find in
+  // them everything the line does not show: contract, usage, criticality,
+  // decision, milestones.
   iface: InterfaceCatalogue;
-  conso: Consumption;
+  consumption: Consumption;
 }
 
-// Comment on nomme une interface, partout : « Authent 1.0 », ou « Authent »
-// tout court si elle n'est pas versionnée. Une seule définition, pour que le
-// schéma et le rapport ne désignent pas la même interface de deux façons.
+// How an interface is named, everywhere: "Authent 1.0", or plain "Authent" if
+// it is not versioned. One single definition, so that the diagram and the
+// report never name the same interface in two different ways.
 export function interfaceLabel(flowName: string, version: string): string {
   const name = flowName.trim();
   const v = version.trim();
   return v ? `${name} ${v}` : name;
 }
 
-// Combien d'échanges se nomment sur un trait fusionné avant qu'on ne compte le
-// reste. Deux tiennent dans la largeur d'une boîte ; au-delà, l'étiquette
-// mangerait le dessin -- l'infobulle du trait porte alors la liste entière.
+// How many exchanges are named on a merged line before the rest is merely
+// counted. Two fit within a box's width; beyond that the label would eat the
+// drawing -- the line's tooltip then carries the whole list.
 const ECHANGES_NOMMES = 2;
 
-// Le libellé d'un trait fusionné, partagé par la matrix (écran et export) et
-// les schémas.
+// The label of a merged line, shared by the matrix (screen and export) and the
+// diagrams.
 //
-// Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
-// traits d'une même paire fusionnent -- le compteur restait seul. Or « 2 »
-// n'apprend ni ce qui circule ni pourquoi : ce sont les échanges eux-mêmes qui
-// portent le sens dès lors que le medium a disparu.
+// With no technology -- the functional-mode case, which empties it so that the
+// lines of one pair merge -- the counter stood alone. But "2" teaches neither
+// what travels nor why: once the medium is gone, the exchanges themselves are
+// what carries the meaning.
 //
-// Ce que le trait NOMME est un choix de lecture : le tuyau (« Kafka ×2 »), ce
-// qui y circule (« Policy events 1.0, Claims 2.0 »), ou les deux. Nommer le
-// seul protocole faisait une carte des tuyaux là où on attend une carte des
-// échanges.
+// What the line NAMES is a reading choice: the pipe ("Kafka ×2"), what travels
+// through it ("Policy events 1.0, Claims 2.0"), or both. Naming the protocol
+// alone made a map of pipes where a map of exchanges is expected.
 export type EdgeLabelMode = "technology" | "exchanges" | "both";
 
 function namedExchanges(names: readonly string[]): string {
@@ -120,9 +117,9 @@ export function cellLabel(
   what: EdgeLabelMode = "technology"
 ): string {
   const tuyau = technology ? (count > 1 ? `${technology} ×${count}` : technology) : "";
-  // Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
-  // traits d'une même paire fusionnent -- « technology » retomberait sur un
-  // compteur seul. Or « 2 » n'apprend ni ce qui circule ni pourquoi.
+  // With no technology -- the functional-mode case, which empties it so that
+  // the lines of one pair merge -- "technology" would fall back to a bare
+  // counter. But "2" teaches neither what travels nor why.
   if (what === "technology" && tuyau) return tuyau;
   if (names.length === 0) return tuyau || String(count);
   const exchanges = namedExchanges(names);
@@ -140,10 +137,10 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
   return map;
 }
 
-// Le périmètre se lit sur le GROUPE, jamais sur l'acteur : « Socle » est la
-// plateforme, donc chacun de ses composants en fait partie. Lu acteur par
-// acteur, un groupe mixte se peignait aux couleurs de la plateforme tout en
-// n'affichant qu'une partie de ses membres.
+// The perimeter is read on the GROUP, never on the actor: "Core" is the
+// platform, so every one of its components belongs to it. Read actor by actor,
+// a mixed group painted itself in the platform's colours while showing only
+// part of its members.
 function perimetreDuGroupe(model: ParsedModel, group: string): string {
   const name = normalizeText(group);
   return model.groups.find((g) => normalizeText(g.name) === name)?.perimeter ?? "";
@@ -161,8 +158,8 @@ export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
   return groupIsPlatform(model, actor.group);
 }
 
-// Icône déclarée pour un type d'acteur. Le classeur fait foi ; sans
-// déclaration, le rendu retombe sur le jeton neutre.
+// The icon declared for an actor type. The workbook is authoritative; with no
+// declaration, the rendering falls back to the neutral token.
 export function iconForActorType(model: ParsedModel, actorType: string): string | undefined {
   const sought = normalizeText(actorType);
   if (!sought) return undefined;
@@ -174,28 +171,28 @@ export function nomEstExterne(model: ParsedModel, name: string): boolean {
   return actor ? groupIsExternal(model, actor.group) : false;
 }
 
-// Rattachement (feuille, nom du flux) plutôt que nom seul (§3.3) : deux
-// interfaces homonymes dans des onglets différents ne doivent jamais se
-// résoudre à la mauvaise (un cas déjà signalé comme anomalie par ailleurs,
-// mais qui ne doit pas en plus fausser le diagramme). byKey est la
-// correspondance exacte ; byName est un repli best-effort uniquement pour
-// une consommation rangée dans le mauvais onglet.
-// Trois entrées parce qu'il y a trois questions distinctes à poser, et que
-// les confondre ferait dire au rapport le contraire du diagramme :
-//   byKey        -- la correspondance exacte (feuille, nom, version) ;
-//   byNomVersion -- repli pour une consommation rangée dans le mauvais onglet ;
-//   byNom        -- sert seulement à distinguer « nom absent du catalogue »
-//                   de « ce nom existe, mais pas dans cette version ».
-// Le repli ne descend jamais jusqu'à byNom : à version inconnue, on ne devine
-// pas laquelle était visée -- ce serait rattacher un consommateur à un contrat
-// qu'il n'a pas signé.
+// Matching on (sheet, flow name) rather than name alone (§3.3): two interfaces
+// sharing a name across different tabs must never resolve to the wrong one (a
+// case already reported as an anomaly elsewhere, but which must not distort
+// the diagram on top of that). byKey is the exact match; byName is a
+// best-effort fallback, only for a consumption filed in the wrong tab.
+
+// Three indexes because there are three distinct questions to ask, and
+// conflating them would make the report contradict the diagram:
+//   byKey         -- the exact match (sheet, name, version);
+//   byNameVersion -- fallback for a consumption filed in the wrong tab;
+//   byName        -- serves only to tell "name absent from the catalogue" apart
+//                    from "that name exists, but not in that version".
+// The fallback never goes down to byName: with an unknown version, there is no
+// guessing which one was meant -- that would bind a consumer to a contract it
+// never signed.
 export interface InterfaceLookup {
   byKey: Map<string, InterfaceCatalogue>;
   byNomVersion: Map<string, InterfaceCatalogue>;
   byNom: Map<string, InterfaceCatalogue>;
-  // Les (nom, version) que PLUSIEURS exposants publient. Deux acteurs peuvent
-  // nommer pareil sans s'être concertés : ce sont deux interfaces distinctes,
-  // et le nom seul ne tranche donc plus entre elles.
+  // The (name, version) pairs SEVERAL publishers expose. Two actors may name
+  // alike without having agreed on it: these are two distinct interfaces, so
+  // the name alone no longer decides between them.
   nomVersionAmbigu: Set<string>;
 }
 
@@ -211,10 +208,10 @@ export function nomVersionKey(flowName: string, version: string): string {
   return key(flowName, version);
 }
 
-// Le nom seul, normalisé comme les deux autres clés. Il l'était par un simple
-// trim, quand le rattachement, lui, normalise : un « Order status » écrit
-// « ORDER STATUS » dans une consommation était bel et bien dessiné, et le
-// rapport le déclarait pourtant absent du catalogue.
+// The bare name, normalised like the other two keys. It used to be normalised
+// by a plain trim, while matching normalises: an "Order status" written
+// "ORDER STATUS" in a consumption was indeed drawn, and yet the report
+// declared it absent from the catalogue.
 export function nomKey(flowName: string): string {
   return key(flowName);
 }
@@ -238,22 +235,22 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
 export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consumption): InterfaceCatalogue | undefined {
   const parOnglet = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
   if (parOnglet) return parOnglet;
-  // Le repli par le nom ne joue que si ce nom ne désigne qu'un seul exposant.
-  // Plusieurs, et le rattacher au premier ferait signer ce consommateur chez
-  // quelqu'un qu'il n'a pas choisi : on ne résout pas, et le contrôle de
-  // référence le dit clairement.
+  // The name fallback only applies if that name designates a single publisher.
+  // With several, binding it to the first would have this consumer sign with
+  // someone it did not choose: nothing is resolved, and the reference check
+  // says so plainly.
   const kNomVersion = nomVersionKey(c.flowName, c.version);
   if (lookup.nomVersionAmbigu.has(kNomVersion)) return undefined;
   return lookup.byNomVersion.get(kNomVersion);
 }
 
-// Un flux orphelin (nom absent du catalogue) ou de type inconnu (sens
-// indéterminable) ne peut pas être dessiné — ces cas sont déjà signalés par
-// integrity/checks.ts (7.2), on les ignore simplement ici.
-// Le rang affiché filtre : ne sont retenus que les flux dont TOUTE la chaîne
-// -- exposant, interface, consommation, consommateur -- est vivante à ce rang.
-// `null` veut dire « aucun palier affiché » : rien n'est filtré, et un classeur
-// qui ne déclare aucun palier se comporte donc exactement comme avant.
+// An orphan flow (name absent from the catalogue) or one of unknown type
+// (undeterminable direction) cannot be drawn — these cases are already reported
+// by integrity/checks.ts (7.2), so they are simply ignored here.
+// The displayed rank filters: only flows whose WHOLE chain -- publisher,
+// interface, consumption, consumer -- is alive at that rank are kept.
+// `null` means "no milestone displayed": nothing is filtered, so a workbook
+// declaring no milestone behaves exactly as before.
 export function buildFlowInstances(model: ParsedModel, rank: number | null = null): FlowInstance[] {
   const actors = actorByName(model);
   const sensParType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.direction]));
@@ -267,13 +264,13 @@ export function buildFlowInstances(model: ParsedModel, rank: number | null = nul
     const direction = sensParType.get(iface.flowType.trim());
     if (!direction) continue;
 
-    const exposantActeur = actors.get(iface.providerName.trim());
-    const consommateurActeur = actors.get(consumption.consumerName.trim());
+    const publisherActor = actors.get(iface.providerName.trim());
+    const consumerActor = actors.get(consumption.consumerName.trim());
 
     if (rank !== null) {
       const live = (v: Validity | undefined) =>
         v === undefined || isLiveAt(lifespanOf(model, v), rank);
-      if (!live(iface) || !live(consumption) || !live(exposantActeur) || !live(consommateurActeur)) {
+      if (!live(iface) || !live(consumption) || !live(publisherActor) || !live(consumerActor)) {
         continue;
       }
     }
@@ -287,7 +284,7 @@ export function buildFlowInstances(model: ParsedModel, rank: number | null = nul
       direction,
       attenuated: isATransformer(consumption.decision),
       iface,
-      conso: consumption,
+      consumption: consumption,
     });
   }
 
@@ -300,9 +297,9 @@ export function identityNodeKey(actorName: string): NodeId {
   return actorName;
 }
 
-// Une chaîne vide est le sentinel "pas de nœud" : un acteur connu mais sans
-// Groupe renseigné est absent des vues agrégées (§7.4), pas replié sur son
-// propre nom — groupFlows() élimine les flux dont une extrémité y résout.
+// An empty string is the "no node" sentinel: an actor that is known but has no
+// Group filled in is absent from the aggregated views (§7.4), not folded onto
+// its own name — groupFlows() drops the flows with an end resolving to it.
 export function groupNodeKey(model: ParsedModel): NodeKeyFn {
   const actors = actorByName(model);
   return (name: string) => {
@@ -317,29 +314,29 @@ export function platformDetailNodeKey(model: ParsedModel): NodeKeyFn {
   return (name: string) => {
     const actor = actors.get(name.trim());
     if (!actor) return name;
-    // Un acteur d'un groupe « Plateforme » est détaillé sous son propre nom ;
-    // tout le reste est replié sur son groupe.
+    // An actor from a "Platform" group is detailed under its own name;
+    // everything else is folded onto its group.
     return actorIsPlatform(model, actor) ? actor.name : actor.group.trim();
   };
 }
 
-// Le tracé suit la DONNÉE : du fournisseur vers le consommateur, toujours.
+// The line follows the DATA: from provider to consumer, always.
 //
-// Il portait autrefois le sens de l'APPEL, celui que déclare la technologie. Un
-// flux tiré -- HTTP, « consumer → provider » -- voyait donc son tracé inversé
-// en même temps que sa pointe : la donnée semblait remonter le tuyau, et un
-// fournisseur interrogé n'avait rien qui sorte de lui. Sur une chaîne de
-// relais, un maillon paraissait ne rien produire.
+// It used to carry the direction of the CALL, the one the technology declares.
+// A pulled flow -- HTTP, "consumer → provider" -- therefore had its line
+// reversed along with its arrowhead: the data seemed to climb back up the
+// pipe, and a queried provider had nothing coming out of it. On a relay chain,
+// one hop appeared to produce nothing.
 //
-// L'initiative n'est pas perdue pour autant : elle passe sur la pointe, posée
-// au départ du trait quand c'est le consommateur qui appelle. Deux
-// informations, deux supports.
+// The initiative is not lost for all that: it moves onto the arrowhead, placed
+// at the line's start when it is the consumer that calls. Two pieces of
+// information, two carriers.
 function directedEndpoints(flow: FlowInstance, nodeKey: NodeKeyFn): { from: NodeId; to: NodeId } {
   return { from: nodeKey(flow.provider), to: nodeKey(flow.consumer) };
 }
 
-// Le consommateur prend l'initiative : la pointe se pose à l'autre bout du
-// trait, sur le fournisseur qu'il interroge.
+// The consumer takes the initiative: the arrowhead sits at the other end of
+// the line, on the provider it queries.
 const estTire = (flow: FlowInstance) => flow.direction === "consumer-to-provider";
 
 export interface EdgeGroup {
@@ -348,19 +345,19 @@ export interface EdgeGroup {
   technology: string;
   count: number;
   attenuated: boolean;
-  // La pointe se pose au DÉPART du trait : c'est le consommateur qui appelle.
+  // The arrowhead sits at the line's START: the consumer is the caller.
   pulled: boolean;
-  // Les échanges rassemblés sous ce trait, dans l'ordre où ils se présentent et
-  // sans doublon : c'est d'eux que le libellé tire son sens quand la
-  // technologie n'est plus là pour le porter.
+  // The exchanges gathered under this line, in the order they appear and
+  // without duplicates: they are where the label draws its meaning from once
+  // the technology is no longer there to carry it.
   names: string[];
-  // La criticité la PLUS FORTE des consommations rassemblées sous ce trait :
-  // un trait qui porte un flux vital et deux flux ordinaires est vital.
+  // The STRONGEST criticality of the consumptions gathered under this line: a
+  // line carrying one vital flow and two ordinary ones is vital.
   criticality?: string;
 }
 
-// L'ordre du vocabulaire, du plus critique au moins. On le lit dans la liste
-// elle-même plutôt que d'en tenir une seconde : les deux divergeraient.
+// The vocabulary's order, from most critical to least. It is read from the
+// list itself rather than kept a second time: the two would drift apart.
 function rangDeCriticite(value: string): number {
   const i = VOCABULARY_CRITICALITY.findIndex((v) => normalizeText(v) === normalizeText(value));
   return i < 0 ? VOCABULARY_CRITICALITY.length : i;
@@ -380,19 +377,19 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
     if (!from || !to) continue;
     if (maskLoops && from === to) continue;
 
-    // Clé directionnelle : (from, to) n'est jamais normalisée en paire non
-    // ordonnée, pour que deux sens opposés restent deux traits distincts (§4.5).
-    // JSON.stringify plutôt qu'une concaténation avec séparateur : un nœud ou
-    // une techno peut contenir un espace ("Ryloth") ou même un saut de
-    // ligne (Excel autorise Alt+Entrée dans une cellule) ; JSON.stringify évite
-    // toute ambiguïté sans introduire de caractère de contrôle dans le code source.
+    // Directional key: (from, to) is never normalised into an unordered pair,
+    // so that two opposite directions stay two distinct lines (§4.5).
+    // JSON.stringify rather than a separator-joined string: a node or a
+    // technology may contain a space ("Ryloth") or even a line break (Excel
+    // allows Alt+Enter inside a cell); JSON.stringify avoids all ambiguity
+    // without putting a control character in the source.
     const key = JSON.stringify([from, to, flow.flowType]);
     const name = interfaceLabel(flow.interfaceName, flow.version);
     const existing = groups.get(key);
     if (existing) {
       existing.count += 1;
       existing.attenuated = existing.attenuated && flow.attenuated;
-      existing.criticality = laPlusForte(existing.criticality, flow.conso.criticality);
+      existing.criticality = laPlusForte(existing.criticality, flow.consumption.criticality);
       if (!existing.names.includes(name)) existing.names.push(name);
     } else {
       groups.set(key, {
@@ -403,7 +400,7 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
         attenuated: flow.attenuated,
         pulled: estTire(flow),
         names: [name],
-        criticality: flow.conso.criticality.trim() || undefined,
+        criticality: flow.consumption.criticality.trim() || undefined,
       });
     }
   }
@@ -411,12 +408,12 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
   return [...groups.values()];
 }
 
-// Les deux lectures du parc. L'architecture répond à « par quoi ça passe », le
-// fonctionnel à « qui alimente qui » : mêmes données, deux questions.
+// The two readings of the estate. Architecture answers "what does it go
+// through", functional answers "who feeds whom": same data, two questions.
 export type Mode = "architecture" | "functional";
 
-// Le mode ne s'y lit plus (§ Lecture, fonctionnel.ts) : une vue qui agrège
-// des flux déjà résolus au bon (rang, mode) n'a plus besoin de la redemander.
+// The mode is no longer read here (§ Reading, reading.ts): a view aggregating
+// flows already resolved at the right (rank, mode) need not ask again.
 export interface AggregationOptions {
   counters: boolean;
   edgeLabelMode?: EdgeLabelMode;
@@ -434,8 +431,8 @@ export function aggregateEdges(
     technology: g.technology,
     count: g.count,
     criticality: g.criticality,
-    // Sans compteur on ne nomme que le tuyau, sauf si l'utilisateur a demandé
-    // autre chose : « counters » décide du ×N, pas de ce qui est nommé.
+    // With no counter only the pipe is named, unless the user asked for
+    // something else: "counters" decides the ×N, not what gets named.
     label:
       options.counters || (options.edgeLabelMode ?? "technology") !== "technology"
         ? cellLabel(g.technology, g.count, g.names, options.edgeLabelMode ?? "technology")
@@ -457,11 +454,11 @@ export function nodesFromEdges(
     ids.add(e.from);
     ids.add(e.to);
   }
-  // L'ordre de parcours des arêtes, et non l'ordre alphabétique. Trier a été
-  // essayé et MESURÉ, comme prérequis de stabilité entre paliers : il coûtait
-  // 16 % de surface sur la vue détaillée (1 573k contre 1 356k) et dégradait
-  // le rapport de forme de 3,63 à 4,04. La stabilité vient d'ailleurs -- le
-  // placement se fait une fois sur l'union des paliers (lectureUnion) -- donc
-  // le tri ne payait plus que son coût.
+  // Edge traversal order, not alphabetical order. Sorting was tried and
+  // MEASURED, as a prerequisite for milestone-to-milestone stability: it cost
+  // 16% more area on the detailed view (1,573k against 1,356k) and degraded the
+  // aspect ratio from 3.63 to 4.04. Stability comes from elsewhere -- placement
+  // happens once over the union of milestones (unionReading) -- so sorting was
+  // left paying nothing but its own cost.
   return [...ids].map((id) => ({ id, label: labelFor(id), kind: kindFor(id), ...detailsFor(id) }));
 }

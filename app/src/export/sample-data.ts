@@ -1,4 +1,4 @@
-import type { DonneesClasseur } from "./template-export";
+import type { WorkbookData } from "./template-export";
 
 // Un référentiel fictif complet, pour montrer l'outil rempli plutôt que vide.
 // Le domaine et TOUS les noms -- groupes, composants, flux -- sont étrangers à
@@ -16,7 +16,7 @@ import type { DonneesClasseur } from "./template-export";
 // n'apparaît pas sur un schéma fonctionnel, les flux qui le traversent sont
 // raboutés bout à bout. Sans elle, les deux modes rendent le même dessin et
 // l'exemple ne montrerait pas ce qu'il est censé montrer.
-const TYPES_ACTEUR = [
+const ACTOR_TYPES = [
   ["Application", "app-window", "Business"],
   ["Service", "cog", "Business"],
   ["Packaged product", "package", "Business"],
@@ -34,14 +34,14 @@ const GROUPES = [
 ];
 
 // Palier | Rang | Libellé | Statut | Date | Description
-const PALIERS = [
+const MILESTONES = [
   ["v1", "1", "Initial platform", "Delivered", "2026-01-15", "Platform and policies go live"],
   ["v2", "2", "Opening to partners", "Delivered", "2026-06-01", "Care statements and outsourced payroll"],
   ["v3", "3", "Real time", "Planned", "2026-12-01", "Lookups move to version 2"],
 ];
 
 // Nom | Groupe | Type d'acteur | Responsable | Description | Commentaires | Intro | Retrait
-const ACTEURS = [
+const ACTORS = [
   ["Chandrila", "Core", "Application", "Policy team", "Policy management", "", "v1", ""],
   ["Sullust", "Core", "Service", "Actuarial team", "Pricing engine", "", "v1", ""],
   ["Takodana", "Core", "Service", "Data team", "Member repository", "", "v1", ""],
@@ -100,7 +100,7 @@ const INTERFACES = [
 ];
 
 // Nom du flux | Version | Consommateur | Usage | Criticité | Décision | Commentaires | Intro | Retrait
-const conso = (
+const consumption = (
   flows: string,
   consumer: string,
   usage: string,
@@ -117,97 +117,97 @@ const FX = [
   {
     name: "FX_Takodana_HTTP",
     rows: [
-      conso("Member lookup", "Chandrila", "Checking entitlement before subscribing", "1 - Critical", "Keep", "2.0", "v2"),
-      conso("Member lookup", "Rodia", "Displaying the member account", "1 - Critical", "Keep", "2.0", "v2"),
-      conso("Member lookup", "Zeffo", "Pre-filling the journey", "2 - Important"),
-      conso("Member lookup", "Crait", "Lookup during a call", "2 - Important"),
+      consumption("Member lookup", "Chandrila", "Checking entitlement before subscribing", "1 - Critical", "Keep", "2.0", "v2"),
+      consumption("Member lookup", "Rodia", "Displaying the member account", "1 - Critical", "Keep", "2.0", "v2"),
+      consumption("Member lookup", "Zeffo", "Pre-filling the journey", "2 - Important"),
+      consumption("Member lookup", "Crait", "Lookup during a call", "2 - Important"),
     ],
   },
   {
     name: "FX_Sullust_HTTP",
     rows: [
-      conso("Premium calculation", "Chandrila", "Premium carried onto the policy", "1 - Critical"),
-      conso("Premium calculation", "Zeffo", "Online quote", "2 - Important"),
-      conso("Premium calculation", "Bracca", "Quote shown to the client", "2 - Important"),
+      consumption("Premium calculation", "Chandrila", "Premium carried onto the policy", "1 - Critical"),
+      consumption("Premium calculation", "Zeffo", "Online quote", "2 - Important"),
+      consumption("Premium calculation", "Bracca", "Quote shown to the client", "2 - Important"),
     ],
   },
   {
     name: "FX_Chandrila_HTTP",
     rows: [
-      conso("Subscription", "Zeffo", "Subscribing from the website", "1 - Critical"),
-      conso("Subscription", "Bracca", "Subscribing through the network", "1 - Critical"),
+      consumption("Subscription", "Zeffo", "Subscribing from the website", "1 - Critical"),
+      consumption("Subscription", "Bracca", "Subscribing through the network", "1 - Critical"),
     ],
   },
   {
     name: "FX_Chandrila_Kafka",
     rows: [
-      conso("Policy events", "Malastare", "Broadcast to internal applications", "1 - Critical", "Keep", "1.0", "v1", "Policy stream 1.0"),
-      conso("Policy events", "Onderon", "Archiving amendments", "3 - Standard"),
-      conso("Policy notice", "Kafka", "Publishing on the broker", "2 - Important", "Keep", "1.0", "v1", "notice.stream 1.0"),
-      conso("Policy events", "Kafka", "Republishing for the platform", "2 - Important", "Keep", "1.0", "v1", "events.core 1.0"),
-      conso("Policy events", "Rodia", "Refreshing the portal", "2 - Important"),
+      consumption("Policy events", "Malastare", "Broadcast to internal applications", "1 - Critical", "Keep", "1.0", "v1", "Policy stream 1.0"),
+      consumption("Policy events", "Onderon", "Archiving amendments", "3 - Standard"),
+      consumption("Policy notice", "Kafka", "Publishing on the broker", "2 - Important", "Keep", "1.0", "v1", "notice.stream 1.0"),
+      consumption("Policy events", "Kafka", "Republishing for the platform", "2 - Important", "Keep", "1.0", "v1", "events.core 1.0"),
+      consumption("Policy events", "Rodia", "Refreshing the portal", "2 - Important"),
     ],
   },
   {
     name: "FX_Malastare_File",
-    rows: [conso("Care statement", "Chandrila", "Reimbursing members", "1 - Critical")],
+    rows: [consumption("Care statement", "Chandrila", "Reimbursing members", "1 - Critical")],
   },
   {
     name: "FX_Ilum_File",
-    rows: [conso("Raw statement", "Malastare", "Picking up the partner drop", "2 - Important", "Keep", "1.0", "v1", "Care statement 1.0")],
+    rows: [consumption("Raw statement", "Malastare", "Picking up the partner drop", "2 - Important", "Keep", "1.0", "v1", "Care statement 1.0")],
   },
   {
     name: "FX_Malastare_Kafka",
-    rows: [conso("Policy stream", "Ilum", "Following the policies it handles", "2 - Important")],
+    rows: [consumption("Policy stream", "Ilum", "Following the policies it handles", "2 - Important")],
   },
   {
     name: "FX_Onderon_SFTP",
     rows: [
-      conso("Supporting documents", "Chandrila", "Dropping subscription documents", "2 - Important"),
-      conso("Supporting documents", "Rodia", "Dropping documents filed online", "2 - Important"),
+      consumption("Supporting documents", "Chandrila", "Dropping subscription documents", "2 - Important"),
+      consumption("Supporting documents", "Rodia", "Dropping documents filed online", "2 - Important"),
       // Un flux en cours de bascule : atténué sur les schémas.
-      conso("Supporting documents", "Crait", "Manual drop, replaced by the portal", "3 - Standard", "Transform"),
+      consumption("Supporting documents", "Crait", "Manual drop, replaced by the portal", "3 - Standard", "Transform"),
     ],
   },
   {
     name: "FX_Rodia_SMTP",
-    rows: [conso("Member mail", "Crait", "Copy of the mail sent", "3 - Standard")],
+    rows: [consumption("Member mail", "Crait", "Copy of the mail sent", "3 - Standard")],
   },
   {
     name: "FX_Onderon_File",
-    rows: [conso("Regulatory return", "Serenno", "Quarterly regulatory filing", "1 - Critical")],
+    rows: [consumption("Regulatory return", "Serenno", "Quarterly regulatory filing", "1 - Critical")],
   },
   {
     // Le premier maillon partage l'onglet de Chandrila : même exposant, même
     // technologie que « Policy events ».
     name: "FX_Kafka_Kafka",
     rows: [
-      conso("notice.stream", "Dagobah", "Routing to the contract gateway", "2 - Important", "Keep", "1.0", "v1", "notice.norm 1.0"),
-      conso("events.core", "Takodana", "Refreshing the member record on a policy change", "2 - Important"),
+      consumption("notice.stream", "Dagobah", "Routing to the contract gateway", "2 - Important", "Keep", "1.0", "v1", "notice.norm 1.0"),
+      consumption("events.core", "Takodana", "Refreshing the member record on a policy change", "2 - Important"),
     ],
   },
   {
     name: "FX_Dagobah_HTTP",
-    rows: [conso("notice.norm", "ESB", "Handing over to the shared bus", "2 - Important", "Keep", "1.0", "v1", "notice.out 1.0")],
+    rows: [consumption("notice.norm", "ESB", "Handing over to the shared bus", "2 - Important", "Keep", "1.0", "v1", "notice.out 1.0")],
   },
   {
     name: "FX_ESB_SFTP",
-    rows: [conso("notice.out", "Bracca", "Receiving policy notices", "2 - Important")],
+    rows: [consumption("notice.out", "Bracca", "Receiving policy notices", "2 - Important")],
   },
   {
     name: "FX_Vjun_SFTP",
-    rows: [conso("Payslips", "Onderon", "Archiving payslips", "3 - Standard", "Keep", "1.0", "v2")],
+    rows: [consumption("Payslips", "Onderon", "Archiving payslips", "3 - Standard", "Keep", "1.0", "v2")],
   },
 ];
 
-export const DONNEES_EXEMPLE: DonneesClasseur = {
+export const SAMPLE_DATA: WorkbookData = {
   // Le référentiel des technologies se contente de l'amorce ; celui des types
   // d'acteur, non : il doit porter la nature.
   flowTypes: [],
-  actorTypes: TYPES_ACTEUR,
-  milestones: PALIERS,
+  actorTypes: ACTOR_TYPES,
+  milestones: MILESTONES,
   groups: GROUPES,
-  actors: ACTEURS,
+  actors: ACTORS,
   interfaces: INTERFACES,
   fx: FX,
 };

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { isTechnicalActor, businessActors } from "./nature";
 import type { ParsedModel, Actor, ActorType } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 function actor(name: string, actorType: string): Actor {
   return base.actor({ name, actorType });

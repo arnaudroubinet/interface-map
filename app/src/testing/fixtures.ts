@@ -9,7 +9,7 @@ import type {
   ActorType,
   FlowType,
 } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 // Les fabriques des tests, en un seul endroit.
 //
@@ -100,7 +100,7 @@ export function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   };
 }
 
-export function conso(o: Partial<Consumption> = {}): Consumption {
+export function consumption(o: Partial<Consumption> = {}): Consumption {
   return {
     flowName: "F",
     version: "",
@@ -134,7 +134,7 @@ export function template(o: Partial<ParsedModel> = {}): ParsedModel {
     consumptions: [],
     fxSheetNames: [],
     missingOptionalColumns: [],
-    schemaVersion: VERSION_MODELE,
+    schemaVersion: SCHEMA_VERSION,
     savedAt: null,
     ...o,
   };

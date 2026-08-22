@@ -7,7 +7,7 @@ import { reading, chainesCoupees } from "../src/aggregation/reading";
 import { isTechnicalActor } from "../src/aggregation/nature";
 import { actorIsPlatform } from "../src/aggregation/core";
 import { writeTemplate } from "../src/export/template-export";
-import { DONNEES_EXEMPLE } from "../src/export/sample-data";
+import { SAMPLE_DATA } from "../src/export/sample-data";
 
 // Le classeur d'exemple, écrit par l'outil puis relu par lui : c'est le seul
 // test qui fait tourner toute la chaîne d'un bout à l'autre. Il portait
@@ -17,7 +17,7 @@ import { DONNEES_EXEMPLE } from "../src/export/sample-data";
 // surnuméraires -- et rien ne le compense ici.
 describe("chaîne complète sur le classeur d'exemple", () => {
   it("parses end to end without throwing and yields plausible counts", async () => {
-    const workbook = parseWorkbook(writeTemplate(DONNEES_EXEMPLE));
+    const workbook = parseWorkbook(writeTemplate(SAMPLE_DATA));
     const built = buildModel(workbook);
 
     expect(built.ok).toBe(true);
@@ -56,7 +56,7 @@ describe("chaîne complète sur le classeur d'exemple", () => {
 // régression -- et rien ne le disait, tout était vert.
 describe("le classeur d'exemple exerce la lecture métier", () => {
   const template = () => {
-    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
@@ -88,7 +88,7 @@ describe("le classeur d'exemple exerce la lecture métier", () => {
 // se perdre, ou franchir la frontière de la plateforme sans le dire.
 describe("le classeur d'exemple porte une chaîne à trois relais", () => {
   const template = () => {
-    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
@@ -142,7 +142,7 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
 // son départ -- dit que c'est le bus qui interroge la passerelle.
 describe("la chaîne à trois relais se lit dans un seul sens", () => {
   it("enchaîne les quatre segments de bout en bout", () => {
-    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     const m = built.model;
     const view = buildPlatformDetailView(m, reading(m, null, "architecture"), { counters: true });

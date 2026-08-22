@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { toutesLesPlanches } from "./boards";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 // Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
 // donc les champs qu'ils lisent doivent être remplis.
@@ -14,8 +14,8 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ description: "d", ...o });
 }
 
-function conso(o: Partial<Consumption> = {}): Consumption {
-  return base.conso({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
+function consumption(o: Partial<Consumption> = {}): Consumption {
+  return base.consumption({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
@@ -33,10 +33,10 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
       base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
     ],
     interfaces: [iface({})],
-    consumptions: [conso({})],
+    consumptions: [consumption({})],
     fxSheetNames: ["FX_A_HTTP"],
     missingOptionalColumns: [],
-    schemaVersion: VERSION_MODELE,
+    schemaVersion: SCHEMA_VERSION,
     savedAt: null,
     ...o,
   };
@@ -48,7 +48,7 @@ const titles = (m: ParsedModel, rank: number | null = null) =>
 // Bus relaie un flux d'Tatooine vers Naboo : Tatooine expose F1, Bus relaie
 // via F2 (relais: F1), Naboo consomme F2. En fonctionnel, la chaîne se
 // résout en un flux direct Tatooine → Naboo, Bus disparaît.
-function modeleAvecTechnique(): ParsedModel {
+function modelWithTechnical(): ParsedModel {
   return model({
     actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", actorType: "Middleware" }), actor({ name: "Naboo" })],
     actorTypes: [
@@ -56,7 +56,7 @@ function modeleAvecTechnique(): ParsedModel {
       { type: "Middleware", icon: "app-window", nature: "Technical", sheet: "ActorTypes", row: 0 },
     ],
     interfaces: [iface({ flowName: "F1", providerName: "Tatooine" }), iface({ flowName: "F2", providerName: "Bus", legacyRelays: "F1" })],
-    consumptions: [conso({ flowName: "F2", consumerName: "Naboo" })],
+    consumptions: [consumption({ flowName: "F2", consumerName: "Naboo" })],
   });
 }
 
@@ -120,7 +120,7 @@ describe("toutesLesPlanches", () => {
     const m = model({
       milestones,
       interfaces: [iface({ introducedAt: "v1", retiredAt: "v2" })],
-      consumptions: [conso({ introducedAt: "v1" })],
+      consumptions: [consumption({ introducedAt: "v1" })],
       actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", group: "Partenaire", introducedAt: "v1" })],
     });
     expect(titles(m, 1)).toContain("HTTP (technology)");
@@ -130,17 +130,17 @@ describe("toutesLesPlanches", () => {
 
 describe("planches selon le mode", () => {
   it("n'inclut aucune planche par technologie en fonctionnel", () => {
-    const titles = toutesLesPlanches(modeleAvecTechnique(), null, "functional").map((p) => p.title);
+    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("HTTP (technology)");
   });
 
   it("n'inclut aucune planche pour un acteur technique", () => {
-    const titles = toutesLesPlanches(modeleAvecTechnique(), null, "functional").map((p) => p.title);
+    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("Bus (actor)");
   });
 
   it("garde les trois vues fixes", () => {
-    const titles = toutesLesPlanches(modeleAvecTechnique(), null, "functional").map((p) => p.title);
+    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles.slice(0, 3)).toEqual(["Group to group", "Platform detail", "Platform only"]);
   });
 
@@ -148,7 +148,7 @@ describe("planches selon le mode", () => {
   // par des chaînes coupées -- reste affiché, seul. Le fichier draw.io promet
   // toutes les planches ; un onglet manquant romprait cette promesse.
   it("porte sa propre planche pour un acteur métier devenu isolé", () => {
-    const m = modeleAvecTechnique();
+    const m = modelWithTechnical();
     m.actors.push(actor({ name: "Isolé", group: "Socle" }));
     const titles = toutesLesPlanches(m, null, "functional").map((p) => p.title);
     expect(titles).toContain("Isolé (actor)");
@@ -161,7 +161,7 @@ describe("planches selon le mode", () => {
       { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
       { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
-    const m = modeleAvecTechnique();
+    const m = modelWithTechnical();
     m.milestones = milestones;
     m.actors.push(actor({ name: "Isolé", group: "Socle", introducedAt: "v1", retiredAt: "v2" }));
     const titlesAt = (rank: number) => toutesLesPlanches(m, rank, "functional").map((p) => p.title);

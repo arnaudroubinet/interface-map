@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { mountApp } from "./app";
-import { writeTemplate, type DonneesClasseur } from "../export/template-export";
+import { writeTemplate, type WorkbookData } from "../export/template-export";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
@@ -9,7 +9,7 @@ vi.mock("../export/download", async (importOriginal) => {
 
 import { downloadText } from "../export/download";
 
-const donnees: DonneesClasseur = {
+const data: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [],
   milestones: [],
@@ -25,7 +25,7 @@ const donnees: DonneesClasseur = {
 // jsdom's File n'implémente pas arrayBuffer() : on ne construit pas un vrai
 // File, juste ce que handleFile lui demande (name, arrayBuffer()).
 function dropFile(root: HTMLElement): void {
-  const buffer = writeTemplate(donnees);
+  const buffer = writeTemplate(data);
   const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
   const event = new Event("drop", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -72,7 +72,7 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
 // Ghost expose GhostFeed, que Bus (Middleware, Technical) consomme sans le
 // relayer : la chaîne fonctionnelle s'arrête là, Ghost n'a plus aucun flux en
 // fonctionnel. §5.2 : il doit rester affiché, seul.
-const donneesAvecActeurIsole: DonneesClasseur = {
+const donneesAvecActeurIsole: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [
     ["Application", "", "Business"],
@@ -138,7 +138,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
 // affiché est donc sain. La vue d'atterrissage doit refléter CE rapport, pas
 // celui — non filtré — qui a servi à choisir la vue avant le calage sur le
 // palier courant.
-const donneesAvecAnomalieRetiree: DonneesClasseur = {
+const donneesAvecAnomalieRetiree: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [["Application", "box", "Business"]],
   milestones: [
@@ -175,7 +175,7 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
 // Un seul palier déclaré n'est pas « aucun palier » : comparer réclame deux
 // bornes, la seconde manque, mais le classeur n'est pas silencieux sur son
 // axe du temps -- le dire autrement le contredirait.
-const donneesAvecUnSeulPalier: DonneesClasseur = {
+const donneesAvecUnSeulPalier: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [],
   milestones: [["V1", "1", "", "Delivered", "", ""]],
@@ -213,7 +213,7 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   // Deux chaînes DISJOINTES : aucun acteur commun. C'est ce qui rend le défaut
   // détectable -- avec une plomberie partagée, le dessin resterait plausible
   // même en réutilisant le placement de l'autre chaîne.
-  const deuxChaines: DonneesClasseur = {
+  const deuxChaines: WorkbookData = {
     flowTypes: [["Kafka", "provider → consumer", ""]],
     actorTypes: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
     milestones: [],

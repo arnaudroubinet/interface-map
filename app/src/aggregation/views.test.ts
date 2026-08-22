@@ -12,11 +12,11 @@ import {
   buildByActorView,
   buildMatrixView,
   optionsFiltreMatrice,
-  optionsFiltreActeur,
+  actorFilterOptions,
 } from "./views";
 import { flowsForReading, reading as lectureDuMode } from "./reading";
 import type { Mode } from "./core";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Les fabriques partagées ; ce fichier ne leur ajoute que ses deux groupes et
@@ -25,8 +25,8 @@ function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
 const iface = base.iface;
-function conso(o: Partial<Consumption> = {}): Consumption {
-  return base.conso({ legacyStatus: "Actif", decision: "Keep", ...o });
+function consumption(o: Partial<Consumption> = {}): Consumption {
+  return base.consumption({ legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 const baseModel: ParsedModel = base.template({
@@ -35,7 +35,7 @@ const baseModel: ParsedModel = base.template({
   actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
   interfaces: [iface()],
-  consumptions: [conso()],
+  consumptions: [consumption()],
   fxSheetNames: ["FX_A_HTTP"],
 });
 
@@ -46,7 +46,7 @@ const modelDeuxParGroupe: ParsedModel = {
   ...baseModel,
   actors: [actor({ name: "A", group: "G1" }), actor({ name: "A2", group: "G1" }), actor({ name: "B", group: "G2" })],
   interfaces: [iface({}), iface({ flowName: "F2", providerName: "A2", expectedSheet: "FX_A2_HTTP" })],
-  consumptions: [conso({}), conso({ flowName: "F2", sheet: "FX_A2_HTTP" })],
+  consumptions: [consumption({}), consumption({ flowName: "F2", sheet: "FX_A2_HTTP" })],
   fxSheetNames: ["FX_A_HTTP", "FX_A2_HTTP"],
 };
 
@@ -116,7 +116,7 @@ describe("buildByActorView", () => {
   });
 
   it("keeps self-loops visible", () => {
-    const model = { ...baseModel, consumptions: [conso({ consumerName: "A" })] };
+    const model = { ...baseModel, consumptions: [consumption({ consumerName: "A" })] };
     const view = buildByActorView(model, flows(model), "A", {});
     expect(view.edges).toHaveLength(1);
   });
@@ -139,7 +139,7 @@ describe("buildMatrixView", () => {
       ...modelDeuxParGroupe,
       // A expose F (donc reçoit de B) et consomme F2 (donc émet vers B).
       interfaces: [iface({}), iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_A2_HTTP" })],
-      consumptions: [conso({}), conso({ flowName: "F2", sheet: "FX_A2_HTTP", consumerName: "A" })],
+      consumptions: [consumption({}), consumption({ flowName: "F2", sheet: "FX_A2_HTTP", consumerName: "A" })],
     };
     const matrix = buildMatrixView(model, lect(model), { mode: "architecture" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "B"]);
@@ -147,14 +147,14 @@ describe("buildMatrixView", () => {
   });
 
   it("keeps self-loop cells (unlike graphical views)", () => {
-    const model = { ...baseModel, consumptions: [conso({ consumerName: "A" })] };
+    const model = { ...baseModel, consumptions: [consumption({ consumerName: "A" })] };
     const matrix = buildMatrixView(model, lect(model), { mode: "architecture" });
     const ligneA = matrix.rows.find((l) => l.actor === "A")!;
     expect(ligneA.cellules.get("A")).toBeDefined();
   });
 
   it("collapses actors onto their groupe when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", granularite: "group" });
+    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", grain: "group" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["G1"]);
     expect(matrix.columns).toEqual(["G2"]);
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
@@ -162,7 +162,7 @@ describe("buildMatrixView", () => {
   });
 
   it("details plateforme actors and collapses the rest when granularité is 'platform'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", granularite: "platform" });
+    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", grain: "platform" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "A2"]);
     expect(matrix.columns).toEqual(["G2"]);
     expect(matrix.rows.find((l) => l.actor === "A")!.cellules.get("G2")).toHaveLength(1);
@@ -172,9 +172,9 @@ describe("buildMatrixView", () => {
   it("puts an intra-groupe flow on the diagonal when granularité is 'group'", () => {
     const model: ParsedModel = {
       ...modelDeuxParGroupe,
-      consumptions: [conso({ flowName: "F", consumerName: "A2" })],
+      consumptions: [consumption({ flowName: "F", consumerName: "A2" })],
     };
-    const matrix = buildMatrixView(model, lect(model), { mode: "architecture", granularite: "group" });
+    const matrix = buildMatrixView(model, lect(model), { mode: "architecture", grain: "group" });
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
     expect(ligneG1.cellules.get("G1")).toBeDefined();
   });
@@ -182,7 +182,7 @@ describe("buildMatrixView", () => {
   it("hides an externe groupe wholesale when granularité is 'group'", () => {
     const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), {
       mode: "architecture",
-      granularite: "group",
+      grain: "group",
       masquerExternes: true,
     });
     expect(matrix.columns).toEqual([]);
@@ -192,7 +192,7 @@ describe("buildMatrixView", () => {
   it("masks a whole groupe by its own name when granularité is 'group'", () => {
     const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), {
       mode: "architecture",
-      granularite: "group",
+      grain: "group",
       hiddenActors: ["G1"],
     });
     expect(matrix.columns).toEqual([]);
@@ -202,16 +202,16 @@ describe("buildMatrixView", () => {
 
 describe("optionsFiltreMatrice", () => {
   it("lists actors when granularité is 'actor'", () => {
-    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { granularite: "actor" })).toEqual(["A", "A2", "B"]);
+    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "actor" })).toEqual(["A", "A2", "B"]);
   });
 
   it("lists groupes when granularité is 'group'", () => {
-    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { granularite: "group" })).toEqual(["G1", "G2"]);
+    expect(optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "group" })).toEqual(["G1", "G2"]);
   });
 
   it("drops externe groupes when the switch is on", () => {
     expect(
-      optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { granularite: "group", masquerExternes: true })
+      optionsFiltreMatrice(modelDeuxParGroupe, flows(modelDeuxParGroupe), { grain: "group", masquerExternes: true })
     ).toEqual(["G1"]);
   });
 });
@@ -220,7 +220,7 @@ describe("buildByActorView — version au libellé", () => {
   const modelVersionne: ParsedModel = {
     ...baseModel,
     interfaces: [iface({ version: "1.0" })],
-    consumptions: [conso({ version: "1.0" })],
+    consumptions: [consumption({ version: "1.0" })],
   };
 
   it("nomme le contrat exposé avec sa version", () => {
@@ -242,7 +242,7 @@ describe("buildByActorView — version au libellé", () => {
     const model: ParsedModel = {
       ...baseModel,
       interfaces: [iface({ version: "V2 " })],
-      consumptions: [conso({ version: "v2" })],
+      consumptions: [consumption({ version: "v2" })],
     };
     const view = buildByActorView(model, flows(model), "A", {});
     expect(view.edges[0].label).toBe("F V2");
@@ -278,12 +278,12 @@ describe("mode fonctionnel", () => {
         iface({ flowName: "trx.norm", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" }),
       ],
       consumptions: [
-        conso({ flowName: "Transactions", consumerName: "Bus", sheet: "FX_Tatooine_HTTP", republishedAs: "trx.norm" }),
-        conso({ flowName: "trx.norm", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
+        consumption({ flowName: "Transactions", consumerName: "Bus", sheet: "FX_Tatooine_HTTP", republishedAs: "trx.norm" }),
+        consumption({ flowName: "trx.norm", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
       ],
       fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
       missingOptionalColumns: [],
-      schemaVersion: VERSION_MODELE,
+      schemaVersion: SCHEMA_VERSION,
       savedAt: null,
     };
   }
@@ -314,7 +314,7 @@ describe("mode fonctionnel", () => {
   it("fusionne les traits sans distinguer les technologies", () => {
     const m = estate();
     m.interfaces.push(iface({ flowName: "Autre", providerName: "Tatooine", flowType: "Kafka", expectedSheet: "FX_Tatooine_Kafka" }));
-    m.consumptions.push(conso({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
+    m.consumptions.push(consumption({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
     m.flowTypes.push(base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }));
     m.fxSheetNames.push("FX_Tatooine_Kafka");
     const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
@@ -344,7 +344,7 @@ describe("mode fonctionnel", () => {
   // expliquer.
   it("ne propose aucune technologie à filtrer en mode fonctionnel", () => {
     const m = estate();
-    const options = optionsFiltreActeur(flows(m, "functional"), "Tatooine");
+    const options = actorFilterOptions(flows(m, "functional"), "Tatooine");
     expect(options.technologies).toEqual([]);
   });
 
@@ -463,7 +463,7 @@ const pulledEstate = () =>
     // HTTP est tiré : « consumer → provider ».
     flowTypes: [base.typeFlux({ type: "HTTP", direction: "consumer-to-provider" })],
     interfaces: [base.iface({ flowName: "F", providerName: "Fournisseur" })],
-    consumptions: [base.conso({ flowName: "F", consumerName: "Consommateur" })],
+    consumptions: [base.consumption({ flowName: "F", consumerName: "Consommateur" })],
   });
 
 describe("le trait va du fournisseur au consommateur, partout", () => {
@@ -514,7 +514,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
       actors: [base.actor({ name: "A", group: "Socle" }), base.actor({ name: "B", group: "Socle" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],
       consumptions: [
-        base.conso({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP", criticality: "1 - Critical" }),
+        base.consumption({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP", criticality: "1 - Critical" }),
       ],
     });
 

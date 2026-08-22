@@ -434,7 +434,7 @@ export function restreindreLayout(union: LayoutResult, view: { nodes: GraphNode[
       .filter((e) => liveEdges.has(edgeKey(e)))
       .map((e) => {
         const live = liveEdges.get(edgeKey(e))!;
-        return { ...e, label: live.label, count: live.count, names: live.names, attenuated: live.attenuated, ecart: live.ecart };
+        return { ...e, label: live.label, count: live.count, names: live.names, attenuated: live.attenuated, change: live.change };
       }),
   };
 }
@@ -634,9 +634,9 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   if (retours.size > 0) {
     const oriented = await apply(retours);
     const orientedIds = aplatirEn(oriented);
-    const avant = croisements(traces(libre, idsLibre));
+    const before = croisements(traces(libre, idsLibre));
     const after = croisements(traces(oriented, orientedIds));
-    if (after <= avant + BUDGET_PAR_ARETE * retours.size) {
+    if (after <= before + BUDGET_PAR_ARETE * retours.size) {
       result = oriented;
       parId = orientedIds;
     }

@@ -4,7 +4,7 @@ import { ENCRE } from "./node-styles";
 // diagramme collé dans un dossier, un ticket ou une présentation ne disait ni
 // de quel classeur il vient, ni à quel palier il se lit, ni selon quelle
 // lecture -- et ces trois informations changent tout son sens.
-export interface ContexteSchema {
+export interface DiagramContext {
   title: string;
   reading: string;
   milestone: string | null;
@@ -20,7 +20,7 @@ export interface ContexteSchema {
 
 const pluriel = (n: number, mot: string, pluriels = `${mot}s`) => `${n} ${n > 1 ? pluriels : mot}`;
 
-export function titleBlockText(c: ContexteSchema): { title: string; subtitle: string } {
+export function titleBlockText(c: DiagramContext): { title: string; subtitle: string } {
   const milestone = c.milestone ? `, milestone ${c.milestone}` : "";
   return {
     title: `${c.title} — ${c.reading} reading${milestone}`,
@@ -31,7 +31,7 @@ export function titleBlockText(c: ContexteSchema): { title: string; subtitle: st
 // La convention de lecture ne figure NULLE PART dans le texte du schéma : un
 // lecteur d'écran ne peut pas la déduire du dessin. Elle appartient donc à la
 // description, avec les comptes.
-export function descriptionAccessible(c: ContexteSchema): string {
+export function descriptionAccessible(c: DiagramContext): string {
   return (
     `${c.source} · ${c.detail ?? `${pluriel(c.composants, "component")}, ${pluriel(c.flows, "flow")}, ${pluriel(c.technologies, "technology", "technologies")}`}. ` +
     "Line = data, provider to consumer. Arrowhead = who calls."
@@ -46,7 +46,7 @@ export const HAUTEUR_CARTOUCHE = 44;
 // par la pâleur.
 const GRIS_SOUS_TITRE = "#39424f";
 
-export function buildTitleBlock(c: ContexteSchema, x: number, y: number): SVGGElement {
+export function buildTitleBlock(c: DiagramContext, x: number, y: number): SVGGElement {
   const ns = "http://www.w3.org/2000/svg";
   const { title, subtitle } = titleBlockText(c);
   const g = document.createElementNS(ns, "g");

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { buildFunctionalFlows, chainesCoupees, lectureUnion } from "./reading";
 import type { ParsedModel, Actor, ActorType, InterfaceCatalogue, Consumption, Milestone } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 // Fabriques positionnelles : dans ce fichier ce sont les CHAÎNES qu'on lit, et
 // une chaîne se raconte mieux en « qui expose quoi vers qui » qu'en surcharges.
@@ -19,8 +19,8 @@ function iface(flowName: string, providerName: string, legacyRelays = ""): Inter
 // remplace la case Relais, et ce qu'une liste déroulante peut guider.
 // Le quatrième argument est la nouveauté de la v4 : la consommation dit sous
 // laquelle des interfaces de son consommateur elle est republiée.
-function conso(flowName: string, consumerName: string, provider: string, republishedAs = ""): Consumption {
-  return base.conso({ flowName, consumerName, republishedAs, sheet: `FX_${provider}_HTTP` });
+function consumption(flowName: string, consumerName: string, provider: string, republishedAs = ""): Consumption {
+  return base.consumption({ flowName, consumerName, republishedAs, sheet: `FX_${provider}_HTTP` });
 }
 
 const TYPES: ActorType[] = [
@@ -37,11 +37,11 @@ function unRelais(): ParsedModel {
   return model({
     actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Naboo", "Application")],
     interfaces: [iface("Transactions", "Tatooine"), iface("trx.norm", "Bus")],
-    consumptions: [conso("Transactions", "Bus", "Tatooine", "trx.norm"), conso("trx.norm", "Naboo", "Bus")],
+    consumptions: [consumption("Transactions", "Bus", "Tatooine", "trx.norm"), consumption("trx.norm", "Naboo", "Bus")],
   });
 }
 
-const PALIERS: Milestone[] = [
+const MILESTONES: Milestone[] = [
   { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
   { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
 ];
@@ -51,8 +51,8 @@ function unRelaisAvecSegmentRetire(): ParsedModel {
   const m = model({
     actors: [actor("Alderaan", "Application"), actor("Bus", "Middleware"), actor("ETL", "Middleware"), actor("Coruscant", "Application")],
     interfaces: [iface("Commandes", "Alderaan"), iface("cmd.raw", "Bus"), iface("CMD_D", "ETL")],
-    consumptions: [conso("Commandes", "Bus", "Alderaan", "cmd.raw"), conso("cmd.raw", "ETL", "Bus", "CMD_D"), conso("CMD_D", "Coruscant", "ETL")],
-    milestones: PALIERS,
+    consumptions: [consumption("Commandes", "Bus", "Alderaan", "cmd.raw"), consumption("cmd.raw", "ETL", "Bus", "CMD_D"), consumption("CMD_D", "Coruscant", "ETL")],
+    milestones: MILESTONES,
   });
   m.interfaces[1].retiredAt = "v2";
   return m;
@@ -84,7 +84,7 @@ describe("buildFunctionalFlows", () => {
     const m = model({
       actors: [actor("Alderaan", "Application"), actor("Bus", "Middleware"), actor("ETL", "Middleware"), actor("Coruscant", "Application")],
       interfaces: [iface("Commandes", "Alderaan"), iface("cmd.raw", "Bus"), iface("CMD_D", "ETL")],
-      consumptions: [conso("Commandes", "Bus", "Alderaan", "cmd.raw"), conso("cmd.raw", "ETL", "Bus", "CMD_D"), conso("CMD_D", "Coruscant", "ETL")],
+      consumptions: [consumption("Commandes", "Bus", "Alderaan", "cmd.raw"), consumption("cmd.raw", "ETL", "Bus", "CMD_D"), consumption("CMD_D", "Coruscant", "ETL")],
     });
     const flows = buildFunctionalFlows(m, null);
     expect(flows).toHaveLength(1);
@@ -101,8 +101,8 @@ describe("buildFunctionalFlows", () => {
         iface("trx.norm", "Bus"), iface("ref.norm", "Bus"),
       ],
       consumptions: [
-        conso("Transactions", "Bus", "Tatooine", "trx.norm"), conso("Référentiel", "Bus", "Alderaan", "ref.norm"),
-        conso("trx.norm", "Naboo", "Bus"), conso("ref.norm", "Coruscant", "Bus"),
+        consumption("Transactions", "Bus", "Tatooine", "trx.norm"), consumption("Référentiel", "Bus", "Alderaan", "ref.norm"),
+        consumption("trx.norm", "Naboo", "Bus"), consumption("ref.norm", "Coruscant", "Bus"),
       ],
     });
     const liens = buildFunctionalFlows(m, null).map((f) => `${f.provider}→${f.consumer}`).sort();
@@ -113,7 +113,7 @@ describe("buildFunctionalFlows", () => {
     const m = model({
       actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Coruscant", "Application"), actor("Hoth", "Application")],
       interfaces: [iface("Transactions", "Tatooine"), iface("trx.norm", "Bus")],
-      consumptions: [conso("Transactions", "Bus", "Tatooine", "trx.norm"), conso("trx.norm", "Coruscant", "Bus"), conso("trx.norm", "Hoth", "Bus")],
+      consumptions: [consumption("Transactions", "Bus", "Tatooine", "trx.norm"), consumption("trx.norm", "Coruscant", "Bus"), consumption("trx.norm", "Hoth", "Bus")],
     });
     expect(buildFunctionalFlows(m, null).map((f) => f.consumer).sort()).toEqual(["Coruscant", "Hoth"]);
   });
@@ -122,7 +122,7 @@ describe("buildFunctionalFlows", () => {
     const m = model({
       actors: [actor("Tatooine", "Application"), actor("Mygeeto", "Application")],
       interfaces: [iface("Authent", "Tatooine")],
-      consumptions: [conso("Authent", "Mygeeto", "Tatooine")],
+      consumptions: [consumption("Authent", "Mygeeto", "Tatooine")],
     });
     const flows = buildFunctionalFlows(m, null);
     expect([flows[0].provider, flows[0].consumer]).toEqual(["Tatooine", "Mygeeto"]);
@@ -145,7 +145,7 @@ describe("buildFunctionalFlows", () => {
     const m = model({
       actors: [actor("Bus", "Middleware"), actor("ETL", "Middleware"), actor("Coruscant", "Application")],
       interfaces: [iface("a", "Bus"), iface("b", "ETL")],
-      consumptions: [conso("a", "Coruscant", "Bus"), conso("b", "Bus", "ETL", "a"), conso("a", "ETL", "Bus", "b")],
+      consumptions: [consumption("a", "Coruscant", "Bus"), consumption("b", "Bus", "ETL", "a"), consumption("a", "ETL", "Bus", "b")],
     });
     expect(buildFunctionalFlows(m, null)).toHaveLength(0);
   });
@@ -166,7 +166,7 @@ describe("buildFunctionalFlows", () => {
     const m = model({
       actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
       interfaces: [iface("Transactions", "Tatooine"), iface("trx.norm", "Bus")],
-      consumptions: [conso("Transactions", "Bus", "Tatooine", "trx.norm"), conso("trx.norm", "Tatooine", "Bus")],
+      consumptions: [consumption("Transactions", "Bus", "Tatooine", "trx.norm"), consumption("trx.norm", "Tatooine", "Bus")],
     });
     expect(buildFunctionalFlows(m, null)).toHaveLength(0);
   });
@@ -220,7 +220,7 @@ describe("remontée — l'acteur source doit vivre au palier, pas seulement son 
     const m = unRelais();
     return {
       ...m,
-      milestones: PALIERS,
+      milestones: MILESTONES,
       actors: m.actors.map((a) => (a.name === "Tatooine" ? { ...a, retiredAt: "v1" } : a)),
     };
   };
@@ -257,7 +257,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
   it("suit l'exposant de la consommation, pas un homonyme du catalogue", () => {
     const m = estate({
       interfaces: [iface("f0", "A"), iface("f0", "B"), iface("f1", "X")],
-      consumptions: [conso("f0", "X", "B", "f1"), conso("f1", "C", "X")],
+      consumptions: [consumption("f0", "X", "B", "f1"), consumption("f1", "C", "X")],
     });
     expect(buildFunctionalFlows(m, null).map((f) => f.provider)).toEqual(["B"]);
   });
@@ -269,7 +269,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
         { ...iface("f0", "A"), version: "2.0" },
         iface("f1", "X"),
       ],
-      consumptions: [{ ...conso("f0", "X", "A", "f1"), version: "2.0" }, conso("f1", "C", "X")],
+      consumptions: [{ ...consumption("f0", "X", "A", "f1"), version: "2.0" }, consumption("f1", "C", "X")],
     });
     expect(buildFunctionalFlows(m, null).map((f) => f.version)).toEqual(["2.0"]);
   });
@@ -278,7 +278,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
     const m = model({
       actors: [actor("A", "Application"), actor("X", "Middleware"), actor("Y", "Middleware"), actor("C", "Application")],
       interfaces: [iface("f0", "A"), iface("f1", "X"), iface("f2", "Y")],
-      consumptions: [conso("f0", "X", "A", "f1"), conso("f1", "Y", "X", "f2"), conso("f2", "C", "Y")],
+      consumptions: [consumption("f0", "X", "A", "f1"), consumption("f1", "Y", "X", "f2"), consumption("f2", "C", "Y")],
     });
     expect(buildFunctionalFlows(m, null).map((f) => `${f.provider}→${f.consumer}`)).toEqual(["A→C"]);
   });
@@ -293,9 +293,9 @@ describe("remontée — un relayeur qui agrège plusieurs sources", () => {
       actors: [actor("A", "Application"), actor("B", "Application"), actor("X", "Middleware"), actor("C", "Application")],
       interfaces: [iface("f0", "A"), iface("g0", "B"), iface("f1", "X")],
       consumptions: [
-        conso("f0", "X", "A", republications[0][1]),
-        conso("g0", "X", "B", republications[1][1]),
-        conso("f1", "C", "X"),
+        consumption("f0", "X", "A", republications[0][1]),
+        consumption("g0", "X", "B", republications[1][1]),
+        consumption("f1", "C", "X"),
       ],
     });
 
@@ -315,9 +315,9 @@ describe("remontée — un relayeur qui agrège plusieurs sources", () => {
       actors: [actor("A", "Application"), actor("X", "Middleware"), actor("Y", "Middleware"), actor("Z", "Middleware"), actor("C", "Application")],
       interfaces: [iface("f0", "A"), iface("f1", "X"), iface("f2", "Y"), iface("f3", "Z")],
       consumptions: [
-        conso("f0", "X", "A", "f1"), conso("f0", "Y", "A", "f2"),
-        conso("f1", "Z", "X", "f3"), conso("f2", "Z", "Y", "f3"),
-        conso("f3", "C", "Z"),
+        consumption("f0", "X", "A", "f1"), consumption("f0", "Y", "A", "f2"),
+        consumption("f1", "Z", "X", "f3"), consumption("f2", "Z", "Y", "f3"),
+        consumption("f3", "C", "Z"),
       ],
     });
     expect(buildFunctionalFlows(m, null)).toHaveLength(1);
@@ -343,8 +343,8 @@ describe("lectureUnion", () => {
       ],
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],
       consumptions: [
-        base.conso({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP", introducedAt: "v1", retiredAt: "v2" }),
-        base.conso({ flowName: "F", consumerName: "Tardif", sheet: "FX_A_HTTP", introducedAt: "v2" }),
+        base.consumption({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP", introducedAt: "v1", retiredAt: "v2" }),
+        base.consumption({ flowName: "F", consumerName: "Tardif", sheet: "FX_A_HTTP", introducedAt: "v2" }),
       ],
     });
 

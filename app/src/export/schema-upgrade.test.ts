@@ -1,15 +1,15 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { ETAPES_MISE_A_NIVEAU, donneesDepuisModele, mettreANiveau } from "./schema-upgrade";
+import { UPGRADE_STEPS, dataFromModel, upgrade } from "./schema-upgrade";
 import { writeTemplate, LISTES } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
-import { buildModel, VERSION_MODELE, COLONNES_INTERFACES, expectedFxSheet } from "../parsing/build-model";
+import { buildModel, SCHEMA_VERSION, INTERFACE_COLUMNS, expectedFxSheet } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
 import type { ParsedModel } from "../parsing/model";
 
 // Un classeur d'avant le versionnement : les colonnes Version et État n'y
 // existent pas, le parseur les a donc lues vides.
-function modeleOrigine(): ParsedModel {
+function originalModel(): ParsedModel {
   return base.template({
     actors: [
       base.actor({ name: "Tatooine", group: "Socle", owner: "Yavin", description: "d", comments: "c" }),
@@ -26,7 +26,7 @@ function modeleOrigine(): ParsedModel {
       }),
     ],
     consumptions: [
-      base.conso({
+      base.consumption({
         flowName: "Authent", consumerName: "Mygeeto", usage: "Ouverture",
         criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP",
       }),
@@ -39,24 +39,24 @@ function modeleOrigine(): ParsedModel {
 describe("chaîne de mise à niveau", () => {
   it("enchaîne les étapes sans trou ni recouvrement, jusqu'à la version courante", () => {
     let attendu = 0;
-    for (const step of ETAPES_MISE_A_NIVEAU) {
+    for (const step of UPGRADE_STEPS) {
       expect(step.de).toBe(attendu);
       expect(step.vers).toBe(attendu + 1);
       attendu = step.vers;
     }
-    expect(attendu).toBe(VERSION_MODELE);
+    expect(attendu).toBe(SCHEMA_VERSION);
   });
 });
 
 describe("mise à niveau d'un classeur d'origine", () => {
   it("produit un classeur à la version courante", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleOrigine()))));
+    const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
-    expect(result.model.schemaVersion).toBe(VERSION_MODELE);
+    expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it("conserve acteurs, groupes, interfaces et consommations", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleOrigine()))));
+    const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
     const m = result.model;
     expect(m.actors.map((a) => a.name).sort()).toEqual(["Mygeeto", "Tatooine"]);
@@ -74,7 +74,7 @@ describe("mise à niveau d'un classeur d'origine", () => {
   // Les deux colonnes arrivent vides : la v0 ne sait rien en dire, et inventer
   // un état « Actif » ferait passer pour décidé ce qui ne l'a jamais été.
   it("laisse les nouvelles colonnes vides", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleOrigine()))));
+    const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
     expect(result.model.interfaces[0].version).toBe("");
     expect(result.model.interfaces[0].legacyState).toBe("");
@@ -82,35 +82,35 @@ describe("mise à niveau d'un classeur d'origine", () => {
   });
 
   it("range chaque consommation dans l'onglet dont elle vient", () => {
-    const donnees = donneesDepuisModele(modeleOrigine());
-    expect(donnees.fx.map((o) => o.name)).toEqual(["FX_Tatooine_HTTP"]);
-    expect(donnees.fx[0].rows).toHaveLength(1);
+    const data = dataFromModel(originalModel());
+    expect(data.fx.map((o) => o.name)).toEqual(["FX_Tatooine_HTTP"]);
+    expect(data.fx[0].rows).toHaveLength(1);
   });
 });
 
 // Le même, avec ce qu'il disait du temps par ses colonnes État et Statut.
-function modeleDate(): ParsedModel {
+function templateDate(): ParsedModel {
   return {
-    ...modeleOrigine(),
+    ...originalModel(),
     interfaces: [
-      { ...modeleOrigine().interfaces[0], legacyState: "À décommissionner" },
-      { ...modeleOrigine().interfaces[0], flowName: "Autre", legacyState: "Retiré" },
-      { ...modeleOrigine().interfaces[0], flowName: "Vivant", legacyState: "Actif" },
+      { ...originalModel().interfaces[0], legacyState: "À décommissionner" },
+      { ...originalModel().interfaces[0], flowName: "Autre", legacyState: "Retiré" },
+      { ...originalModel().interfaces[0], flowName: "Vivant", legacyState: "Actif" },
     ],
     consumptions: [
-      { ...modeleOrigine().consumptions[0], legacyStatus: "Actif" },
-      { ...modeleOrigine().consumptions[0], flowName: "Autre", legacyStatus: "En projet" },
-      { ...modeleOrigine().consumptions[0], flowName: "Vivant", decision: "À supprimer" },
+      { ...originalModel().consumptions[0], legacyStatus: "Actif" },
+      { ...originalModel().consumptions[0], flowName: "Autre", legacyStatus: "En projet" },
+      { ...originalModel().consumptions[0], flowName: "Vivant", decision: "À supprimer" },
     ],
   };
 }
 
-const LE_JOUR = new Date("2026-08-17T10:00:00Z");
+const THE_DAY = new Date("2026-08-17T10:00:00Z");
 
 describe("mise à niveau — l'axe des paliers remplace État et Statut", () => {
   it("crée un palier Origin, livré, portant la date de la migration", () => {
-    const donnees = mettreANiveau(modeleDate(), LE_JOUR);
-    const origin = donnees.milestones.find((p) => p[0] === "Origin")!;
+    const data = upgrade(templateDate(), THE_DAY);
+    const origin = data.milestones.find((p) => p[0] === "Origin")!;
     expect(origin).toBeDefined();
     expect(origin[3]).toBe("Delivered");
     expect(origin[4]).toBe("2026-08-17");
@@ -119,7 +119,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   // Sans ce point d'ancrage, l'arrivée étant obligatoire, le classeur converti
   // s'ouvrirait sur une anomalie de complétude par ligne.
   it("pose Origin comme palier d'arrivée sur chaque ligne existante", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.actors.every((a) => a.introducedAt === "Origin")).toBe(true);
     expect(r.model.interfaces.filter((i) => i.flowName !== "Autre").every((i) => i.introducedAt === "Origin")).toBe(true);
@@ -129,7 +129,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   });
 
   it("convertit ce qui est retiré ou en retrait en palier de retrait", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     // Retiré : déjà parti, son retrait est le palier d'origine lui-même.
     expect(r.model.interfaces.find((i) => i.flowName === "Autre")!.retiredAt).toBe("Origin");
@@ -145,7 +145,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   // dépréciation. En faire une date inventerait un départ que personne n'a
   // décidé -- la conversion le traduit, elle ne l'avale pas.
   it("garde À supprimer comme décision, sans inventer de retrait", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     const toDelete = r.model.consumptions.find((c) => c.flowName === "Vivant")!;
     expect(toDelete.decision).toBe("Remove");
@@ -153,7 +153,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   });
 
   it("convertit un statut En projet en arrivée au palier planifié", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     const enProjet = r.model.consumptions.find((c) => c.flowName === "Autre")!;
     expect(enProjet.introducedAt).not.toBe("Origin");
@@ -162,7 +162,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
   // Le classeur converti ne doit se plaindre ni de l'axe qu'on vient de lui
   // poser, ni des colonnes qu'on vient de lui retirer.
   it("ne se plaint ni des paliers ni des colonnes retirées", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     const messages = runIntegrityChecks(r.model).families.flatMap((f) => f.anomalies.map((a) => a.message)).join(" | ");
     expect(messages).not.toContain("palier");
@@ -175,7 +175,7 @@ describe("mise à niveau — l'axe des paliers remplace État et Statut", () => 
 // et une numérotation qui commence à 2 laisserait croire à un palier perdu.
 describe("mise à niveau — numérotation des paliers créés", () => {
   it("numérote sans trou à partir de 1", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleDate(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.milestones.map((p) => p.rank)).toEqual(r.model.milestones.map((_, i) => i + 1));
   });
@@ -186,15 +186,15 @@ describe("classeur produit — onglets attendus", () => {
   // ressort un fichier où tout onglet attendu existe, fût-il vide.
   it("crée un onglet pour une interface qui n'a encore aucune consommation", () => {
     const template: ParsedModel = {
-      ...modeleDate(),
+      ...templateDate(),
       interfaces: [
-        { ...modeleDate().interfaces[0], flowName: "Sans conso", expectedSheet: "FX_Tatooine_Kafka", legacyState: "" },
+        { ...templateDate().interfaces[0], flowName: "Sans conso", expectedSheet: "FX_Tatooine_Kafka", legacyState: "" },
       ],
       consumptions: [],
     };
-    const donnees = mettreANiveau(template, LE_JOUR);
-    expect(donnees.fx.map((o) => o.name)).toContain("FX_Tatooine_Kafka");
-    expect(donnees.fx.find((o) => o.name === "FX_Tatooine_Kafka")!.rows).toEqual([]);
+    const data = upgrade(template, THE_DAY);
+    expect(data.fx.map((o) => o.name)).toContain("FX_Tatooine_Kafka");
+    expect(data.fx.find((o) => o.name === "FX_Tatooine_Kafka")!.rows).toEqual([]);
   });
 
   // On ne fabrique jamais un classeur qu'Excel refuserait. On y renonçait
@@ -204,7 +204,7 @@ describe("classeur produit — onglets attendus", () => {
     // Un exposant réellement long : le nom d'onglet est DÉRIVÉ de lui, il ne
     // se pose pas à la main -- c'est bien par là que le problème arrive.
     const long = "Plateforme de règlement-livraison interbancaire";
-    const base = modeleDate();
+    const base = templateDate();
     const template: ParsedModel = {
       ...base,
       actors: [...base.actors, { ...base.actors[0], name: long }],
@@ -219,16 +219,16 @@ describe("classeur produit — onglets attendus", () => {
     };
     // Au niveau du classeur produit, le seul qui compte : l'onglet existe, son
     // nom tient dans la limite, et la relecture retombe exactement dessus.
-    const octets = writeTemplate(mettreANiveau(template, LE_JOUR));
-    const relu = buildModel(parseWorkbook(octets));
-    if (!relu.ok) throw new Error("classeur illisible");
-    expect(relu.model.fxSheetNames.every((n) => n.length <= 31)).toBe(true);
-    expect(relu.model.fxSheetNames).toContain(relu.model.interfaces[0].expectedSheet);
+    const octets = writeTemplate(upgrade(template, THE_DAY));
+    const reread = buildModel(parseWorkbook(octets));
+    if (!reread.ok) throw new Error("classeur illisible");
+    expect(reread.model.fxSheetNames.every((n) => n.length <= 31)).toBe(true);
+    expect(reread.model.fxSheetNames).toContain(reread.model.interfaces[0].expectedSheet);
   });
 
   it("ne double pas un onglet qui porte déjà des consommations", () => {
-    const donnees = mettreANiveau(modeleDate(), LE_JOUR);
-    const names = donnees.fx.map((o) => o.name);
+    const data = upgrade(templateDate(), THE_DAY);
+    const names = data.fx.map((o) => o.name);
     expect(new Set(names).size).toBe(names.length);
   });
 });
@@ -236,16 +236,16 @@ describe("classeur produit — onglets attendus", () => {
 describe("mise à niveau — le classeur passe en anglais", () => {
   function frenchModel(): ParsedModel {
     return {
-      ...modeleDate(),
+      ...templateDate(),
       groups: [{ name: "Socle", perimeter: "Plateforme", sheet: "Groups", row: 0 }, { name: "Lothal", perimeter: "Externe", sheet: "Groups", row: 0 }],
       flowTypes: [base.typeFlux({ type: "HTTP", rawDirection: "consommateur → exposant" })],
-      consumptions: [{ ...modeleDate().consumptions[0], criticality: "1 - Vitale", decision: "À transformer" }],
-      interfaces: [{ ...modeleDate().interfaces[0], legacyState: "" }],
+      consumptions: [{ ...templateDate().consumptions[0], criticality: "1 - Vitale", decision: "À transformer" }],
+      interfaces: [{ ...templateDate().interfaces[0], legacyState: "" }],
     };
   }
 
   it("translates the values already entered", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(frenchModel(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(frenchModel(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.groups.map((g) => g.perimeter)).toEqual(["Platform", "External"]);
     expect(r.model.flowTypes[0].rawDirection).toBe("consumer → provider");
@@ -258,7 +258,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
   // pas, et le contrôle de vocabulaire le signalera s'il n'a rien à faire là.
   it("leaves a value it does not recognise alone", () => {
     const template = { ...frenchModel(), groups: [{ name: "Socle", perimeter: "Zone grise", sheet: "Groups", row: 0 }] };
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(template, LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(template, THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.groups[0].perimeter).toBe("Zone grise");
   });
@@ -270,7 +270,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
       ...frenchModel(),
       flowTypes: [base.typeFlux({ type: "Saleucami", rawDirection: "consommateur → exposant", description: "Protocole interne" })],
     };
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(template, LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(template, THE_DAY))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.flowTypes.map((t) => t.type)).toContain("Saleucami");
   });
@@ -280,53 +280,53 @@ describe("mise à niveau — le classeur passe en anglais", () => {
 // chaîne doit donc le reconnaître comme périmé et le refaire écrire -- sans
 // quoi les classeurs déjà distribués gardent leurs liaisons fantômes.
 describe("mise à niveau — le v1 déjà distribué", () => {
-  function modeleV1(): ParsedModel {
-    return { ...modeleOrigine(), schemaVersion: 1, milestones: [
+  function modelV1(): ParsedModel {
+    return { ...originalModel(), schemaVersion: 1, milestones: [
       { name: "Origin", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 2 },
     ] };
   }
 
   it("est reconnu comme périmé par la version courante", () => {
-    expect(modeleV1().schemaVersion).toBeLessThan(VERSION_MODELE);
+    expect(modelV1().schemaVersion).toBeLessThan(SCHEMA_VERSION);
   });
 
   it("ressort au format courant, son contenu intact", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleV1(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(modelV1(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
-    expect(r.model.schemaVersion).toBe(VERSION_MODELE);
-    expect(r.model.actors.map((a) => a.name)).toEqual(modeleV1().actors.map((a) => a.name));
+    expect(r.model.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(r.model.actors.map((a) => a.name)).toEqual(modelV1().actors.map((a) => a.name));
     expect(r.model.milestones.map((p) => p.name)).toEqual(["Origin"]);
   });
 
   // L'étape v1 → v2 ne touche pas au modèle : tout le bénéfice est dans la
   // réécriture. Le vérifier empêche d'y glisser une transformation par erreur.
   it("ne transforme rien dans le modèle lui-même", () => {
-    const avant = modeleV1();
-    const step = ETAPES_MISE_A_NIVEAU.find((e) => e.de === 1)!;
-    expect(step.appliquer(avant, { dateMigration: LE_JOUR })).toBe(avant);
+    const before = modelV1();
+    const step = UPGRADE_STEPS.find((e) => e.de === 1)!;
+    expect(step.appliquer(before, { dateMigration: THE_DAY })).toBe(before);
   });
 });
 
 describe("mise à niveau — le v2 déjà distribué", () => {
-  function modeleV2(): ParsedModel {
-    return { ...modeleOrigine(), schemaVersion: 2 };
+  function modelV2(): ParsedModel {
+    return { ...originalModel(), schemaVersion: 2 };
   }
 
   it("est reconnu comme périmé", () => {
-    expect(modeleV2().schemaVersion).toBeLessThan(VERSION_MODELE);
+    expect(modelV2().schemaVersion).toBeLessThan(SCHEMA_VERSION);
   });
 
   it("ressort au format courant, son contenu intact", () => {
-    const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleV2(), LE_JOUR))));
+    const r = buildModel(parseWorkbook(writeTemplate(upgrade(modelV2(), THE_DAY))));
     if (!r.ok) throw new Error("illisible");
-    expect(r.model.schemaVersion).toBe(VERSION_MODELE);
-    expect(r.model.actors.map((a) => a.name)).toEqual(modeleV2().actors.map((a) => a.name));
+    expect(r.model.schemaVersion).toBe(SCHEMA_VERSION);
+    expect(r.model.actors.map((a) => a.name)).toEqual(modelV2().actors.map((a) => a.name));
   });
 
   it("ne transforme rien dans le modèle lui-même", () => {
-    const avant = modeleV2();
-    const step = ETAPES_MISE_A_NIVEAU.find((e) => e.de === 2)!;
-    expect(step.appliquer(avant, { dateMigration: LE_JOUR })).toBe(avant);
+    const before = modelV2();
+    const step = UPGRADE_STEPS.find((e) => e.de === 2)!;
+    expect(step.appliquer(before, { dateMigration: THE_DAY })).toBe(before);
   });
 });
 
@@ -336,8 +336,8 @@ describe("mise à niveau — le v2 déjà distribué", () => {
 // reconstruit et les consommations sous le nom d'origine. Un seul onglet en
 // ressortait en deux : un neuf et vide, et l'ancien devenu orphelin.
 describe("mise à niveau — onglet nommé autrement que reconstruit", () => {
-  function modeleOngletDifferent(): ParsedModel {
-    const base = modeleOrigine();
+  function modelOtherTab(): ParsedModel {
+    const base = originalModel();
     return {
       ...base,
       // L'onglet réel s'écrit FX_TATOOINE_HTTP, le nom reconstruit FX_Tatooine_HTTP.
@@ -347,21 +347,21 @@ describe("mise à niveau — onglet nommé autrement que reconstruit", () => {
   }
 
   it("ne produit qu'un onglet, portant les consommations", () => {
-    const donnees = donneesDepuisModele(modeleOngletDifferent());
-    expect(donnees.fx.map((o) => o.name)).toEqual(["FX_Tatooine_HTTP"]);
-    expect(donnees.fx[0].rows).toHaveLength(1);
+    const data = dataFromModel(modelOtherTab());
+    expect(data.fx.map((o) => o.name)).toEqual(["FX_Tatooine_HTTP"]);
+    expect(data.fx[0].rows).toHaveLength(1);
   });
 
   // Une consommation qui ne se rattache à aucune interface n'a pas d'onglet
   // canonique où aller : la déplacer d'autorité la perdrait.
   it("laisse dans son onglet une consommation rattachée à rien", () => {
-    const base = modeleOrigine();
-    const donnees = donneesDepuisModele({
+    const base = originalModel();
+    const data = dataFromModel({
       ...base,
       consumptions: [{ ...base.consumptions[0], flowName: "Inconnu", sheet: "FX_Ailleurs_HTTP" }],
       fxSheetNames: ["FX_Ailleurs_HTTP"],
     });
-    const ailleurs = donnees.fx.find((o) => o.name === "FX_Ailleurs_HTTP")!;
+    const ailleurs = data.fx.find((o) => o.name === "FX_Ailleurs_HTTP")!;
     expect(ailleurs.rows).toHaveLength(1);
   });
 });
@@ -371,9 +371,9 @@ describe("mise à niveau — onglet nommé autrement que reconstruit", () => {
 // donc pas à la liste déroulante que le même classeur pose sur cette colonne.
 describe("mise à niveau — vocabulaire de la colonne To confirm", () => {
   it("écrit la valeur du vocabulaire courant, pas son ancienne écriture française", () => {
-    const donnees = donneesDepuisModele(modeleOrigine());
-    const column = COLONNES_INTERFACES.indexOf("To confirm");
-    expect(LISTES.Confirmation).toContain(donnees.interfaces[0][column]);
+    const data = dataFromModel(originalModel());
+    const column = INTERFACE_COLUMNS.indexOf("To confirm");
+    expect(LISTES.Confirmation).toContain(data.interfaces[0][column]);
   });
 });
 
@@ -384,13 +384,13 @@ describe("mise à niveau — vocabulaire de la colonne To confirm", () => {
 // attendre l'onglet reconstruit (« FX_Tatooine_HTTP »).
 describe("mise à niveau — onglets homonymes à la casse près", () => {
   it("ne produit pas deux onglets qui ne diffèrent que par la casse", () => {
-    const base = modeleOrigine();
-    const donnees = donneesDepuisModele({
+    const base = originalModel();
+    const data = dataFromModel({
       ...base,
       consumptions: [{ ...base.consumptions[0], flowName: "Inconnu", sheet: "FX_TATOOINE_HTTP" }],
       fxSheetNames: ["FX_TATOOINE_HTTP"],
     });
-    const names = donnees.fx.map((o) => o.name.toLowerCase());
+    const names = data.fx.map((o) => o.name.toLowerCase());
     expect(new Set(names).size).toBe(names.length);
   });
 });
@@ -402,12 +402,12 @@ describe("mise à niveau — onglets homonymes à la casse près", () => {
 // tout ce que le parseur d'alors ne sait pas lire.
 describe("mise à niveau — classeur plus récent que l'outil", () => {
   it("refuse de rétrograder plutôt que de réécrire en silence", () => {
-    const futur = { ...modeleOrigine(), schemaVersion: VERSION_MODELE + 1 };
-    expect(() => mettreANiveau(futur)).toThrow(/newer|récent/i);
+    const futur = { ...originalModel(), schemaVersion: SCHEMA_VERSION + 1 };
+    expect(() => upgrade(futur)).toThrow(/newer|récent/i);
   });
 
   it("laisse passer un classeur à la version de l'outil", () => {
-    expect(() => mettreANiveau({ ...modeleOrigine(), schemaVersion: VERSION_MODELE })).not.toThrow();
+    expect(() => upgrade({ ...originalModel(), schemaVersion: SCHEMA_VERSION })).not.toThrow();
   });
 });
 
@@ -418,7 +418,7 @@ describe("mise à niveau — classeur plus récent que l'outil", () => {
 // d'acteurs renvoyant à un groupe qui n'existe plus.
 describe("mise à niveau — classeur sans onglet de groupes", () => {
   const sansOnglet = () => {
-    const base = modeleOrigine();
+    const base = originalModel();
     return {
       ...base,
       groups: [],
@@ -428,19 +428,19 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
   };
 
   it("reconstruit les groupes que portent les acteurs", () => {
-    const donnees = mettreANiveau(sansOnglet());
-    expect(donnees.groups.map((g) => g[0]).sort()).toEqual(["Partenaires", "Socle"]);
+    const data = upgrade(sansOnglet());
+    expect(data.groups.map((g) => g[0]).sort()).toEqual(["Partenaires", "Socle"]);
   });
 
   // Le périmètre ne se devine pas : il reste vide, et la complétude le réclame.
   // Inventer « Platform » rendrait un classeur d'apparence complète et faux.
   it("laisse le périmètre vide plutôt que de l'inventer", () => {
-    expect(mettreANiveau(sansOnglet()).groups.every((g) => g[1] === "")).toBe(true);
+    expect(upgrade(sansOnglet()).groups.every((g) => g[1] === "")).toBe(true);
   });
 
   it("ne touche à rien quand l'onglet existe", () => {
-    const donnees = mettreANiveau(modeleOrigine());
-    expect(donnees.groups.map((g) => g[0])).toEqual(modeleOrigine().groups.map((g) => g.name));
+    const data = upgrade(originalModel());
+    expect(data.groups.map((g) => g[0])).toEqual(originalModel().groups.map((g) => g.name));
   });
 });
 
@@ -451,7 +451,7 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
 // converti ne disait plus nulle part qu'un relais avait été déclaré.
 describe("mise à niveau — les relais de la v3", () => {
   const modeleV3 = (legacyRelays: string): ParsedModel => {
-    const b = modeleOrigine();
+    const b = originalModel();
     return {
       ...b,
       schemaVersion: 3,
@@ -466,16 +466,16 @@ describe("mise à niveau — les relais de la v3", () => {
       ],
       consumptions: [
         ...b.consumptions,
-        base.conso({ flowName: "Authent", consumerName: "Bus", sheet: "FX_Tatooine_HTTP" }),
+        base.consumption({ flowName: "Authent", consumerName: "Bus", sheet: "FX_Tatooine_HTTP" }),
       ],
       fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
     };
   };
 
   const relire = (m: ParsedModel) => {
-    const relu = buildModel(parseWorkbook(writeTemplate(mettreANiveau(m, LE_JOUR))));
-    if (!relu.ok) throw new Error("classeur illisible");
-    return relu.model;
+    const reread = buildModel(parseWorkbook(writeTemplate(upgrade(m, THE_DAY))));
+    if (!reread.ok) throw new Error("classeur illisible");
+    return reread.model;
   };
 
   it("porte le relais sur la consommation qu'il désignait", () => {

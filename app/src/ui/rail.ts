@@ -1,6 +1,6 @@
 import { el, clear } from "../shared/dom";
-import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
-import type { GranulariteMatrice } from "../aggregation/views";
+import { actorFilterOptions, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
+import type { MatrixGrain } from "../aggregation/views";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import type { MatrixOrder } from "../aggregation/seriation";
 import { availableChains } from "../aggregation/chain";
@@ -39,7 +39,7 @@ export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ 
 
 // Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
-const GRANULARITES_MATRICE: { id: GranulariteMatrice; label: string; titreFiltre: string }[] = [
+const GRANULARITES_MATRICE: { id: MatrixGrain; label: string; titreFiltre: string }[] = [
   { id: "actor", label: "Actor to actor", titreFiltre: "Actors" },
   { id: "group", label: "Group to group", titreFiltre: "Groups" },
   { id: "platform", label: "Platform to group", titreFiltre: "Actors and groups" },
@@ -63,25 +63,25 @@ const VOISINAGES: { id: Neighbourhood; label: string }[] = [
 export interface RailCallbacks {
   onMode: (mode: Mode) => void;
   onVue: (view: Vue) => void;
-  onSelectionActeur: (name: string) => void;
+  onActorSelection: (name: string) => void;
   onSelectionTechnologie: (type: string) => void;
   onSelectionChaine: (chain: string) => void;
   onVoisinage: (value: Neighbourhood) => void;
   onSujetFrise: (value: RoadmapSubject) => void;
   onGraisseParCriticite: (value: boolean) => void;
-  onPalierAffiche: (milestone: string) => void;
+  onDisplayedMilestone: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
   onOptionCompteurs: (value: boolean) => void;
   onLibelléArête: (value: EdgeLabelMode) => void;
   onOrdreMatrice: (value: MatrixOrder) => void;
   onEchellePng: (value: 1 | 2 | 4) => void;
   onTechnoMasquee: (techno: string, hidden: boolean) => void;
-  onActeurMasque: (actor: string, hidden: boolean) => void;
+  onActorHidden: (actor: string, hidden: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
-  onActeurMasqueTechnologie: (actor: string, hidden: boolean) => void;
+  onActorHiddenForTechnology: (actor: string, hidden: boolean) => void;
   onMasquerExternesMatrice: (value: boolean) => void;
-  onActeurMasqueMatrice: (actor: string, hidden: boolean) => void;
-  onGranulariteMatrice: (granularite: GranulariteMatrice) => void;
+  onActorHiddenInMatrix: (actor: string, hidden: boolean) => void;
+  onMatrixGrain: (grain: MatrixGrain) => void;
   onTelechargerModele: () => void;
   onTelechargerExemple: () => void;
   onMigrationLegacy: () => void;
@@ -205,7 +205,7 @@ export function renderRail(
 ): void {
   const flows = reading.flows;
   clear(root);
-  if (!state.fichier) {
+  if (!state.file) {
     renderPiedDeRail(root, callbacks);
     return;
   }
@@ -230,7 +230,7 @@ export function renderRail(
     // (§ vueAuChargement) : ses comptes ne veulent rien dire, les montrer
     // laisserait croire à un diagnostic qu'on n'a pas.
     if (v.id === "checks" && !blocked) {
-      const { totalAnomalies, totalActions, totalAvertissements } = state.fichier.report;
+      const { totalAnomalies, totalActions, totalAvertissements } = state.file.report;
       if (totalAnomalies > 0) {
         bouton.appendChild(
           el("span", { class: "count-anomalies", title: "Blocking anomalies" }, [String(totalAnomalies)])
@@ -255,10 +255,10 @@ export function renderRail(
   // Le sélecteur de palier passe avant tout le reste : il vaut pour l'outil
   // entier, pas pour la vue courante. Absent quand le classeur ne déclare
   // aucun palier -- proposer un axe vide n'apprendrait rien.
-  const milestones = state.fichier.model.milestones;
+  const milestones = state.file.model.milestones;
   if (milestones.length > 0 && !blocked) {
     const block = el("div", { class: "rail-milestones" });
-    block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onPalierAffiche));
+    block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onDisplayedMilestone));
     if (state.view === "changes") {
       block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onPalierCompare));
     }
@@ -273,10 +273,10 @@ export function renderRail(
     const availableActors = reading.actors;
     for (const actor of [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
       const option = el("option", { value: actor.name }, [actor.name]);
-      if (actor.name === state.selectionActeur) option.selected = true;
+      if (actor.name === state.actorSelection) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onSelectionActeur(select.value));
+    select.addEventListener("change", () => callbacks.onActorSelection(select.value));
     root.appendChild(select);
 
     // Jusqu'où porter le regard. « Ce qui dépend de lui » répond à la question
@@ -285,7 +285,7 @@ export function renderRail(
     const neighbourhood = el("select", { class: "rail-select rail-neighbourhood" });
     for (const v of VOISINAGES) {
       const option = el("option", { value: v.id }, [v.label]);
-      if (v.id === state.filtresActeur.neighbourhood) option.selected = true;
+      if (v.id === state.actorFilters.neighbourhood) option.selected = true;
       neighbourhood.appendChild(option);
     }
     neighbourhood.addEventListener("change", () => callbacks.onVoisinage(neighbourhood.value as Neighbourhood));
@@ -294,7 +294,7 @@ export function renderRail(
 
   if (state.view === "by-technology") {
     const select = el("select", { class: "rail-select" });
-    for (const type of [...state.fichier.model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
+    for (const type of [...state.file.model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
       const option = el("option", { value: type.type }, [type.type]);
       if (type.type === state.selectionTechnologie) option.selected = true;
       select.appendChild(option);
@@ -305,21 +305,21 @@ export function renderRail(
 
   // Filtres de la vue par acteur : l'acteur regardé n'est pas décochable, sans
   // quoi la vue perdrait son sujet.
-  if (state.view === "by-actor" && state.selectionActeur) {
-    const dispo = optionsFiltreActeur(flows, state.selectionActeur);
-    const technos = blocFiltre("Technologies", dispo.technologies, state.filtresActeur.hiddenTechnologies, callbacks.onTechnoMasquee);
+  if (state.view === "by-actor" && state.actorSelection) {
+    const dispo = actorFilterOptions(flows, state.actorSelection);
+    const technos = blocFiltre("Technologies", dispo.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnoMasquee);
     if (technos) root.appendChild(technos);
-    const actors = blocFiltre("Related actors", dispo.actors, state.filtresActeur.hiddenActors, callbacks.onActeurMasque);
+    const actors = blocFiltre("Related actors", dispo.actors, state.actorFilters.hiddenActors, callbacks.onActorHidden);
     if (actors) root.appendChild(actors);
   }
 
   if (state.view === "by-technology" && state.selectionTechnologie) {
     root.appendChild(basculeExternes(state.filtresTechnologie.masquerExternes, callbacks.onMasquerExternes));
 
-    const dispo = optionsFiltreTechnologie(state.fichier.model, flows, state.selectionTechnologie, {
+    const dispo = optionsFiltreTechnologie(state.file.model, flows, state.selectionTechnologie, {
       masquerExternes: state.filtresTechnologie.masquerExternes,
     });
-    const actors = blocFiltre("Actors", dispo, state.filtresTechnologie.hiddenActors, callbacks.onActeurMasqueTechnologie);
+    const actors = blocFiltre("Actors", dispo, state.filtresTechnologie.hiddenActors, callbacks.onActorHiddenForTechnology);
     if (actors) root.appendChild(actors);
   }
 
@@ -327,7 +327,7 @@ export function renderRail(
     // Le sélecteur de chaîne. Une chaîne n'a de sens qu'en lecture
     // fonctionnelle : c'est là que la plomberie est traversée, et la vue montre
     // justement ce que cette traversée efface.
-    const chains = availableChains(state.fichier.model, rankOfMilestone(state.fichier.model, state.shownMilestone ?? "") ?? null);
+    const chains = availableChains(state.file.model, rankOfMilestone(state.file.model, state.shownMilestone ?? "") ?? null);
     const select = el("select", { class: "rail-select rail-chain" });
     for (const c of chains) {
       const option = el("option", { value: c.id }, [c.label]);
@@ -353,14 +353,14 @@ export function renderRail(
   }
 
   if (state.view === "matrix") {
-    const granularite = state.filtresMatrice.granularite;
+    const grain = state.filtresMatrice.grain;
     const select = el("select", { class: "rail-select" });
     for (const g of GRANULARITES_MATRICE) {
       const option = el("option", { value: g.id }, [g.label]);
-      if (g.id === granularite) option.selected = true;
+      if (g.id === grain) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onGranulariteMatrice(select.value as GranulariteMatrice));
+    select.addEventListener("change", () => callbacks.onMatrixGrain(select.value as MatrixGrain));
     root.appendChild(select);
 
     // L'ordre : c'est le levier de lecture le plus fort de la matrix, et il
@@ -376,12 +376,12 @@ export function renderRail(
     root.appendChild(order);
 
     root.appendChild(basculeExternes(state.filtresMatrice.masquerExternes, callbacks.onMasquerExternesMatrice));
-    const dispo = optionsFiltreMatrice(state.fichier.model, flows, {
-      granularite,
+    const dispo = optionsFiltreMatrice(state.file.model, flows, {
+      grain,
       masquerExternes: state.filtresMatrice.masquerExternes,
     });
-    const title = GRANULARITES_MATRICE.find((g) => g.id === granularite)!.titreFiltre;
-    const actors = blocFiltre(title, dispo, state.filtresMatrice.hiddenActors, callbacks.onActeurMasqueMatrice);
+    const title = GRANULARITES_MATRICE.find((g) => g.id === grain)!.titreFiltre;
+    const actors = blocFiltre(title, dispo, state.filtresMatrice.hiddenActors, callbacks.onActorHiddenInMatrix);
     if (actors) root.appendChild(actors);
   }
 

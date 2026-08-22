@@ -23,9 +23,9 @@ import {
   type Point,
   type Rect,
 } from "./geometry";
-import { PAPIER, ENCRE, STROKE_WIDTH, COULEUR_ECART, styleDuNoeud } from "./node-styles";
+import { PAPIER, ENCRE, STROKE_WIDTH, CHANGE_COLOUR, styleDuNoeud } from "./node-styles";
 import { entreesDeLegende, type EntreeLegende, type LegendSample } from "./legend";
-import { buildTitleBlock, descriptionAccessible, titleBlockText, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
+import { buildTitleBlock, descriptionAccessible, titleBlockText, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 // La même pile que la page (index.html) : les constantes de largeur des
@@ -75,7 +75,7 @@ interface RenderEdge {
   // Les échanges que ce trait rassemble, pour l'infobulle.
   names?: string[];
   attenuated: boolean;
-  ecart?: "added" | "removed";
+  change?: "added" | "removed";
   label?: string;
   arrow: boolean;
   // Le tronc d'un groupe fusionné part d'un point de confluence, pas d'un
@@ -120,7 +120,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
 
   // Un flux dessiné tel quel, avec sa propre pointe.
   const seul = (edge: LayoutEdge) => {
-      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
   for (const group of groups.values()) {
@@ -136,7 +136,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
       // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
       // le libellé plutôt du côté le moins encombré.
-      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
       continue;
     }
 
@@ -148,24 +148,24 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
     // boîtes. On ne fusionne que lorsque l'approche est effectivement commune.
     const reference = group[0].points;
     const target = reference[reference.length - 1];
-    const avant = reference[reference.length - 2];
+    const before = reference[reference.length - 2];
     const sameApproach = group.every((e) => {
       const a = e.points[e.points.length - 2];
       const c = e.points[e.points.length - 1];
-      return a && c && Math.abs(a.x - avant.x) < 0.5 && Math.abs(a.y - avant.y) < 0.5 && Math.abs(c.x - target.x) < 0.5 && Math.abs(c.y - target.y) < 0.5;
+      return a && c && Math.abs(a.x - before.x) < 0.5 && Math.abs(a.y - before.y) < 0.5 && Math.abs(c.x - target.x) < 0.5 && Math.abs(c.y - target.y) < 0.5;
     });
     if (!sameApproach) {
       for (const edge of group) seul(edge);
       continue;
     }
-    const longueur = Math.hypot(target.x - avant.x, target.y - avant.y) || 1;
+    const longueur = Math.hypot(target.x - before.x, target.y - before.y) || 1;
     // Jamais au-delà de la moitié du dernier segment : sinon la confluence
     // passerait derrière le coude précédent et la branche repartirait en
     // arrière juste avant le tronc.
     const recul = Math.min(DISTANCE_CONFLUENCE, longueur / 2);
     const confluence = {
-      x: target.x - ((target.x - avant.x) / longueur) * recul,
-      y: target.y - ((target.y - avant.y) / longueur) * recul,
+      x: target.x - ((target.x - before.x) / longueur) * recul,
+      y: target.y - ((target.y - before.y) / longueur) * recul,
     };
 
     for (const edge of group) {
@@ -315,7 +315,7 @@ function buildEdgeLabel(
 // à « none » et le schéma Écarts sortait SANS AUCUN TRAIT.
 
 function edgeColour(edge: RenderEdge, colorFor: (tech: string) => string): string {
-  return edge.ecart ? COULEUR_ECART[edge.ecart] : colorFor(edge.technology);
+  return edge.change ? CHANGE_COLOUR[edge.change] : colorFor(edge.technology);
 }
 
 // La graisse du trait est la variable de Bertin faite pour l'ORDRE. Elle est
@@ -380,7 +380,7 @@ function buildEdgeElement(
     // Un retrait n'était que ROUGE, un ajout que vert : à l'impression, les
     // deux devenaient le même gris. Le tiret long dit « ce trait s'en va »
     // sans dépendre de la couleur.
-    if (edge.ecart === "removed") path.setAttribute("stroke-dasharray", "10 5");
+    if (edge.change === "removed") path.setAttribute("stroke-dasharray", "10 5");
     g.appendChild(path);
   });
 
@@ -801,7 +801,7 @@ export function buildGraphSvg(
   colorFor: (tech: string) => string,
   // Ce que le schéma dit de lui-même. `null` pour les appels qui n'ont rien à
   // en dire -- un test de rendu, un fragment -- plutôt qu'un cartouche vide.
-  contexte: ContexteSchema | null = null,
+  context: DiagramContext | null = null,
   options?: { graisseParCriticite?: boolean }
 ): SVGSVGElement {
   // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
@@ -830,7 +830,7 @@ export function buildGraphSvg(
 
   // Le cartouche occupe une bande réservée au-dessus du dessin, comme la
   // légende occupe la sienne au-dessous.
-  if (contexte) bounds.y0 -= MARGE_CADRE + HAUTEUR_CARTOUCHE;
+  if (context) bounds.y0 -= MARGE_CADRE + HAUTEUR_CARTOUCHE;
 
   const width = bounds.x1 - bounds.x0;
   const height = bounds.y1 - bounds.y0;
@@ -854,16 +854,16 @@ export function buildGraphSvg(
   // <title> et <desc> doivent être ENFANTS DIRECTS de <svg> -- SVG-AAM ne
   // remonte pas plus profond -- et aria-labelledby prime sur <title> seul,
   // notoirement peu fiable en NVDA + Firefox.
-  if (contexte) {
+  if (context) {
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-labelledby", `${ID_TITRE} ${ID_DESC}`);
     const title = el("title");
     title.setAttribute("id", ID_TITRE);
-    title.textContent = titleBlockText(contexte).title;
+    title.textContent = titleBlockText(context).title;
     svg.appendChild(title);
     const desc = el("desc");
     desc.setAttribute("id", ID_DESC);
-    desc.textContent = descriptionAccessible(contexte);
+    desc.textContent = descriptionAccessible(context);
     svg.appendChild(desc);
   }
 
@@ -890,7 +890,7 @@ export function buildGraphSvg(
   const background = rect(bounds.x0, bounds.y0, width, height, PAPIER, "none", 0);
   svg.appendChild(background);
 
-  if (contexte) svg.appendChild(buildTitleBlock(contexte, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
+  if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
 
   // Rectangle occupé par chaque libellé : c'est là que son trait s'interrompt.
   const labelRect = (e: RenderEdge): Rect | null => {
@@ -940,7 +940,7 @@ export function buildGraphSvg(
         sousLibelléDe(edge.label, edge.technology),
         edgeColour(edge, colorFor),
         edge.attenuated,
-        !edge.ecart && edge.technology.trim() !== ""
+        !edge.change && edge.technology.trim() !== ""
       )
     );
   }

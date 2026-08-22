@@ -3,42 +3,42 @@ import * as XLSX from "xlsx";
 import {
   buildTemplateWorkbook,
   writeTemplate,
-  tableauxDuModele,
-  listesDuModele,
-  validationsDuModele,
+  tablesOfTemplate,
+  listsOfTemplate,
+  validationsOfTemplate,
   INVITES,
   columnOf,
-  COLONNE_APPOINT,
+  EXTRA_COLUMN,
   CELLULE_ONGLET,
   LISTES,
-  type DonneesClasseur,
+  type WorkbookData,
 } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
 import {
   buildModel,
-  VERSION_MODELE,
-  COLONNES_INTERFACES,
-  COLONNES_FX,
-  COLONNES_PALIERS,
-  COLONNES_ACTEURS,
-  COLONNES_GROUPES,
-  COLONNES_TYPESACTEUR,
-  COLONNES_TYPESFLUX,
+  SCHEMA_VERSION,
+  INTERFACE_COLUMNS,
+  FX_COLUMNS,
+  MILESTONE_COLUMNS,
+  ACTOR_COLUMNS,
+  GROUP_COLUMNS,
+  ACTOR_TYPE_COLUMNS,
+  FLOW_TYPE_COLUMNS,
 } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
-import { DONNEES_EXEMPLE } from "./sample-data";
+import { SAMPLE_DATA } from "./sample-data";
 
 // On relit le fichier écrit, pas l'objet en mémoire : c'est celui-là que
 // l'utilisateur ouvrira, et c'est lui qui doit repasser dans notre parseur.
 // écrireModele inclut le complément OOXML (tableaux structurés).
-function modeleRelu(): ArrayBuffer {
+function rereadTemplate(): ArrayBuffer {
   return writeTemplate();
 }
 
 // Le contenu brut d'une partie du paquet, pour vérifier ce que SheetJS ne sait
 // ni écrire ni relire.
-function partie(path: string, paquet: ArrayBuffer = modeleRelu()): string {
+function partie(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
   const input = XLSX.CFB.find(cfb, path);
   if (!input || !input.content) throw new Error(`partie absente : ${path}`);
@@ -51,7 +51,7 @@ function partie(path: string, paquet: ArrayBuffer = modeleRelu()): string {
 // Même raison pour les parties « table » : leur numéro suit l'ordre du
 // classeur, donc il bouge dès qu'un tableau s'insère avant. On les retrouve
 // par le nom qu'elles portent.
-function tableXml(nomTable: string, paquet: ArrayBuffer = modeleRelu()): string {
+function tableXml(nomTable: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
   for (const path of cfb.FullPaths) {
     if (!/\/xl\/tables\/table\d+\.xml$/.test(path)) continue;
@@ -61,7 +61,7 @@ function tableXml(nomTable: string, paquet: ArrayBuffer = modeleRelu()): string 
   throw new Error(`table absente : ${nomTable}`);
 }
 
-function feuilleXml(name: string, paquet: ArrayBuffer = modeleRelu()): string {
+function feuilleXml(name: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
   const index = wb.SheetNames.indexOf(name);
   if (index < 0) throw new Error(`tab absent : ${name}`);
@@ -70,7 +70,7 @@ function feuilleXml(name: string, paquet: ArrayBuffer = modeleRelu()): string {
 
 describe("modèle de classeur", () => {
   it("porte tous les onglets que le parseur attend", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     expect(wb.SheetNames).toEqual([
       "Instructions",
       "Actors",
@@ -87,7 +87,7 @@ describe("modèle de classeur", () => {
   // Le contrat central : un modèle qui ne se relit pas serait pire qu'aucun
   // modèle, l'utilisateur ne saurait pas si le tort vient de lui ou de l'outil.
   it("se relit sans erreur bloquante ni colonne manquante", () => {
-    const parsed = parseWorkbook(modeleRelu());
+    const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
 
     expect(result.ok).toBe(true);
@@ -96,7 +96,7 @@ describe("modèle de classeur", () => {
   });
 
   it("déclare le périmètre au niveau du groupe, pas déduit des acteurs", () => {
-    const parsed = parseWorkbook(modeleRelu());
+    const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
     // L'onglet existe et fait foi, même vide de lignes.
@@ -104,7 +104,7 @@ describe("modèle de classeur", () => {
   });
 
   it("pré-remplit TypesActeur avec des icônes qui existent dans le catalogue", () => {
-    const parsed = parseWorkbook(modeleRelu());
+    const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
 
@@ -117,7 +117,7 @@ describe("modèle de classeur", () => {
   // Un modèle qui s'ouvre sur des erreurs ferait douter de l'outil avant même
   // la première saisie : un classeur vierge est vide, pas incohérent.
   it("ne déclenche aucune anomalie bloquante à l'ouverture", () => {
-    const result = buildModel(parseWorkbook(modeleRelu()));
+    const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     const report = runIntegrityChecks(result.model);
     const messages = report.families.flatMap((f) => f.anomalies.map((a) => a.message));
@@ -143,7 +143,7 @@ describe("modèle de classeur", () => {
   });
 
   it("liste les noms d'icône acceptés dans l'onglet Listes, chacun avec son aperçu", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const lists = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Lists, { defval: "" });
     const offered = lists.map((l) => l.Icon).filter(Boolean);
     expect(offered).toEqual(ICONES_DISPONIBLES);
@@ -157,7 +157,7 @@ describe("modèle de classeur", () => {
   // Les types d'acteur sont énumérés par l'onglet TypesActeur : les répéter
   // dans Listes aurait créé deux vérités concurrentes.
   it("n'énumère pas les types d'acteur dans Listes", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const entetes = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Lists, { header: 1 })[0];
     expect(entetes).not.toContain("ActorType");
   });
@@ -167,7 +167,7 @@ describe("modèle de classeur", () => {
   // Le préfixe « Tbl » est le contrat de la macro : elle cherche
   // « TblInterfaces » et s'arrête si elle ne le trouve pas.
   it("pose un vrai tableau Excel sur chaque feuille de saisie", () => {
-    for (let i = 1; i <= tableauxDuModele().length; i++) {
+    for (let i = 1; i <= tablesOfTemplate().length; i++) {
       const table = partie(`/xl/tables/table${i}.xml`);
       expect(table).toContain('displayName="Tbl');
       expect(table).toContain('showRowStripes="1"');
@@ -177,7 +177,7 @@ describe("modèle de classeur", () => {
   });
 
   it("nomme les colonnes du tableau comme la ligne d'en-tête", () => {
-    const actors = tableauxDuModele().find((t) => t.sheet === "Actors")!;
+    const actors = tablesOfTemplate().find((t) => t.sheet === "Actors")!;
     const table = partie("/xl/tables/table1.xml");
     for (const column of actors.columns) {
       // Excel refuse un tableau dont une colonne déclarée ne correspond pas.
@@ -190,10 +190,10 @@ describe("modèle de classeur", () => {
   // Le périmètre se déclare sur le groupe : la colonne du même nom a disparu de
   // l'onglet Acteurs, et avec elle sa liste déroulante.
   it("ne demande plus de périmètre sur les acteurs", () => {
-    const result = buildModel(parseWorkbook(modeleRelu()));
+    const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     expect(result.model.missingOptionalColumns).toEqual([]);
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 })[0];
     expect(headers).not.toContain("Perimeter");
     expect(XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Groups, { header: 1 })[0]).toContain("Perimeter");
@@ -203,7 +203,7 @@ describe("modèle de classeur", () => {
     const actors = feuilleXml("Actors");
     // Le compte se lit sur ce qui est déclaré, pas sur un littéral : une
     // colonne contrainte de plus ne doit pas casser ce test pour rien.
-    const attendues = validationsDuModele().filter((v) => v.sheet === "Actors").length;
+    const attendues = validationsOfTemplate().filter((v) => v.sheet === "Actors").length;
     expect(attendues).toBeGreaterThan(1);
     expect(actors).toContain(`<dataValidations count="${attendues}">`);
     expect(actors).toContain('type="list"');
@@ -235,7 +235,7 @@ describe("modèle de classeur", () => {
       ["L_TypeFlux", "TblFlowTypes[Flow type]"],
       ["L_Palier", "TblMilestones[Milestone]"],
     ];
-    expect(listesDuModele().map((l) => l.name).sort()).toEqual(attendues.map(([name]) => name).sort());
+    expect(listsOfTemplate().map((l) => l.name).sort()).toEqual(attendues.map(([name]) => name).sort());
     for (const [name, reference] of attendues) {
       expect(workbook).toContain(`<definedName name="${name}">${reference}</definedName>`);
     }
@@ -264,8 +264,8 @@ describe("modèle de classeur", () => {
   // le nom défini invalide, et Excel le signale en proposant de réparer le
   // classeur.
   it("chaque liste vise une feuille et un intitulé réellement présents dans son tableau", () => {
-    const tables = tableauxDuModele();
-    for (const list of listesDuModele()) {
+    const tables = tablesOfTemplate();
+    for (const list of listsOfTemplate()) {
       // Listes porte un tableau PAR vocabulaire : chercher par feuille seule
       // retomberait sur le premier d'entre eux, pas forcément celui qui porte
       // l'intitulé visé.
@@ -277,8 +277,8 @@ describe("modèle de classeur", () => {
   it("ne référence que des listes réellement définies", () => {
     // Les listes dépendantes des onglets FX_ calculent leur plage : ce sont des
     // formules, pas des noms. La règle ne vaut donc que pour les secondes.
-    const defined = new Set(listesDuModele().map((l) => l.name));
-    const byName = validationsDuModele().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
+    const defined = new Set(listsOfTemplate().map((l) => l.name));
+    const byName = validationsOfTemplate().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
     expect(byName.length).toBeGreaterThan(0);
     for (const validation of byName) {
       expect(defined).toContain(validation.formule!);
@@ -291,19 +291,19 @@ describe("modèle de classeur", () => {
     const workbook = partie("/xl/workbook.xml");
     expect(workbook).not.toContain("_FilterDatabase");
     const names = [...workbook.matchAll(/<definedName name="([^"]*)"/g)].map((m) => m[1]);
-    expect(names.sort()).toEqual(listesDuModele().map((l) => l.name).sort());
+    expect(names.sort()).toEqual(listsOfTemplate().map((l) => l.name).sort());
   });
 
   // Ni le patron ni le dictionnaire ne se remplissent à la main.
   it("masque Listes et Version, visibles sur les feuilles de saisie", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const etats = wb.Workbook!.Sheets!;
     const hidden = wb.SheetNames.filter((_, i) => etats[i].Hidden);
     expect(hidden).toEqual(["Lists", "Version"]);
   });
 
   it("livre les types de flux courants, prêts à l'emploi", () => {
-    const result = buildModel(parseWorkbook(modeleRelu()));
+    const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     const types = result.model.flowTypes;
     expect(types.map((t) => t.type)).toContain("HTTP");
@@ -325,7 +325,7 @@ describe("modèle de classeur", () => {
   // table fautive en proposant de réparer le classeur. Son journal nous l'a
   // appris ; ce test empêche d'y revenir.
   it("n'utilise aucune référence structurée vers une autre table", () => {
-    for (let i = 1; i <= tableauxDuModele().length; i++) {
+    for (let i = 1; i <= tablesOfTemplate().length; i++) {
       const table = partie(`/xl/tables/table${i}.xml`);
       const formules = [...table.matchAll(/<calculatedColumnFormula>(.*?)<\/calculatedColumnFormula>/g)];
       for (const [, formule] of formules) {
@@ -355,12 +355,12 @@ describe("modèle de classeur — dimension déclarée", () => {
   });
 
   it("couvre la cellule d'appoint qui nomme l'onglet, sur chaque feuille FX_", () => {
-    const paquet = writeTemplate(DONNEES_EXEMPLE);
-    for (const tab of DONNEES_EXEMPLE.fx) {
+    const paquet = writeTemplate(SAMPLE_DATA);
+    for (const tab of SAMPLE_DATA.fx) {
       const sheet = feuilleXml(tab.name, paquet);
       const m = sheet.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
       expect(m, `pas de dimension sur ${tab.name}`).not.toBeNull();
-      expect(XLSX.utils.decode_col(m![1])).toBeGreaterThanOrEqual(XLSX.utils.decode_col(COLONNE_APPOINT));
+      expect(XLSX.utils.decode_col(m![1])).toBeGreaterThanOrEqual(XLSX.utils.decode_col(EXTRA_COLUMN));
     }
   });
 });
@@ -376,17 +376,17 @@ describe("modèle de classeur — dimension déclarée", () => {
 
 describe("modèle de classeur — numéro de schéma", () => {
   it("écrit le numéro courant dans l'onglet Version", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const rows = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Version, { defval: "" });
-    expect(String(rows[0]["Model version"])).toBe(String(VERSION_MODELE));
+    expect(String(rows[0]["Model version"])).toBe(String(SCHEMA_VERSION));
   });
 
   // Le classeur qu'on vient de produire ne doit jamais réclamer sa propre mise
   // à niveau : c'est le test qui attrape un oubli d'incrément des deux côtés.
   it("se relit à la version que l'outil attend", () => {
-    const result = buildModel(parseWorkbook(modeleRelu()));
+    const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
-    expect(result.model.schemaVersion).toBe(VERSION_MODELE);
+    expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
 
@@ -397,8 +397,8 @@ describe("modèle de classeur — version d'interface", () => {
   // dans une seule. Elle porte quand même son infobulle -- expliquer n'est pas
   // contraindre.
   it("laisse la colonne Version en saisie libre, mais expliquée", () => {
-    const surVersion = validationsDuModele().filter(
-      (v) => v.sheet === "Interfaces" && v.column === columnOf(COLONNES_INTERFACES, "Version")
+    const surVersion = validationsOfTemplate().filter(
+      (v) => v.sheet === "Interfaces" && v.column === columnOf(INTERFACE_COLUMNS, "Version")
     );
     expect(surVersion).toHaveLength(1);
     expect(surVersion[0].formule).toBeUndefined();
@@ -408,8 +408,8 @@ describe("modèle de classeur — version d'interface", () => {
   // Le même intitulé sur un onglet FX_ désigne une liste dépendante : la même
   // infobulle y serait fausse.
   it("n'y met pas l'invite des onglets FX_", () => {
-    const surVersion = validationsDuModele().find(
-      (v) => v.sheet === "Interfaces" && v.column === columnOf(COLONNES_INTERFACES, "Version")
+    const surVersion = validationsOfTemplate().find(
+      (v) => v.sheet === "Interfaces" && v.column === columnOf(INTERFACE_COLUMNS, "Version")
     );
     expect(surVersion?.prompt?.text).not.toContain("Fill in Flow name first");
   });
@@ -421,30 +421,30 @@ describe("modèle de classeur — version d'interface", () => {
 // porte quoi. Ces deux tests sont là pour que ça ne puisse plus passer.
 describe("fichier d'exemple — alignement sur les colonnes", () => {
   it("donne à chaque ligne autant de cellules que la feuille a de colonnes", () => {
-    for (const row of DONNEES_EXEMPLE.interfaces) {
-      expect(row).toHaveLength(COLONNES_INTERFACES.length);
+    for (const row of SAMPLE_DATA.interfaces) {
+      expect(row).toHaveLength(INTERFACE_COLUMNS.length);
     }
-    for (const tab of DONNEES_EXEMPLE.fx) {
+    for (const tab of SAMPLE_DATA.fx) {
       for (const row of tab.rows) {
-        expect(row).toHaveLength(COLONNES_FX.length);
+        expect(row).toHaveLength(FX_COLUMNS.length);
       }
     }
   });
 
   it("se relit avec chaque valeur dans sa colonne", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const iface = result.model.interfaces.find((i) => i.flowName === "Member lookup")!;
     expect(iface.providerName).toBe("Takodana");
     expect(iface.flowType).toBe("HTTP");
-    const conso = result.model.consumptions.find((c) => c.consumerName === "Chandrila")!;
-    expect(conso.decision).toBe("Keep");
+    const consumption = result.model.consumptions.find((c) => c.consumerName === "Chandrila")!;
+    expect(consumption.decision).toBe("Keep");
   });
 
   // Le fichier d'exemple sert à montrer l'outil à l'œuvre : le rapport de
   // migration en fait partie, il lui faut donc un cas à montrer.
   it("porte un décommissionnement en cours, pour que le rapport ait quelque chose à dire", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const report = runIntegrityChecks(result.model);
     const block = report.infoBlocks.find((b) => b.id === "migrations")!;
@@ -473,49 +473,49 @@ describe("listes dépendantes des onglets FX_", () => {
   });
 
   it("donne à chaque onglet FX_ une cellule qui nomme son propre onglet", () => {
-    const wb = XLSX.read(new Uint8Array(writeTemplate(DONNEES_EXEMPLE)), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(writeTemplate(SAMPLE_DATA)), { type: "array" });
     const cellule = wb.Sheets["FX_Takodana_HTTP"][CELLULE_ONGLET];
     expect(cellule?.f).toContain('CELL("filename"');
   });
 
   it("masque la colonne qui porte cette cellule, hors du tableau de saisie", () => {
-    const gabarit = feuilleXml("FX_Takodana_HTTP", writeTemplate(DONNEES_EXEMPLE));
+    const gabarit = feuilleXml("FX_Takodana_HTTP", writeTemplate(SAMPLE_DATA));
     expect(gabarit).toMatch(/<col[^>]*hidden="(1|true)"/);
     // Le tableau de saisie s'arrête avant : la cellule ne doit pas y entrer.
-    expect(COLONNE_APPOINT > columnOf(COLONNES_FX, COLONNES_FX[COLONNES_FX.length - 1])).toBe(true);
+    expect(EXTRA_COLUMN > columnOf(FX_COLUMNS, FX_COLUMNS[FX_COLUMNS.length - 1])).toBe(true);
   });
 
   it("filtre les flux sur l'onglet et les versions sur le flux de la ligne", () => {
-    const validations = validationsDuModele(DONNEES_EXEMPLE);
+    const validations = validationsOfTemplate(SAMPLE_DATA);
     const surFlux = validations.find(
-      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(COLONNES_FX, "Flow name")
+      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(FX_COLUMNS, "Flow name")
     )!;
     const surVersion = validations.find(
-      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(COLONNES_FX, "Version")
+      (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(FX_COLUMNS, "Version")
     )!;
     // La liste des flux se cale sur le nom de l'onglet, porté par la cellule.
-    expect(surFlux.formule).toContain(`$${COLONNE_APPOINT}$1`);
+    expect(surFlux.formule).toContain(`$${EXTRA_COLUMN}$1`);
     expect(surFlux.formule).toContain("MATCH(");
     // Celle des versions y ajoute le flux de la LIGNE : référence relative en
     // ligne, pour qu'Excel décale la formule d'une ligne à l'autre.
-    expect(surVersion.formule).toContain(`$${columnOf(COLONNES_FX, "Flow name")}2`);
+    expect(surVersion.formule).toContain(`$${columnOf(FX_COLUMNS, "Flow name")}2`);
     expect(surVersion.formule).toContain("MATCH(");
   });
 
   it("pose ces deux validations sur chaque onglet FX_", () => {
-    const validations = validationsDuModele(DONNEES_EXEMPLE);
-    for (const tab of DONNEES_EXEMPLE.fx) {
+    const validations = validationsOfTemplate(SAMPLE_DATA);
+    for (const tab of SAMPLE_DATA.fx) {
       const columns = validations.filter((v) => v.sheet === tab.name).map((v) => v.column);
-      expect(columns).toContain(columnOf(COLONNES_FX, "Flow name"));
-      expect(columns).toContain(columnOf(COLONNES_FX, "Version"));
+      expect(columns).toContain(columnOf(FX_COLUMNS, "Flow name"));
+      expect(columns).toContain(columnOf(FX_COLUMNS, "Version"));
     }
   });
 
   // La liste globale des flux n'a plus d'emploi : la garder laisserait deux
   // façons de proposer un flux, dont une fausse.
   it("n'expose plus de liste globale des flux", () => {
-    expect(listesDuModele().map((l) => l.name)).not.toContain("L_Flux");
-    expect(validationsDuModele(DONNEES_EXEMPLE).map((v) => v.formule)).not.toContain("L_Flux");
+    expect(listsOfTemplate().map((l) => l.name)).not.toContain("L_Flux");
+    expect(validationsOfTemplate(SAMPLE_DATA).map((v) => v.formule)).not.toContain("L_Flux");
   });
 });
 
@@ -549,10 +549,10 @@ describe("formules d'appoint — noms stockés", () => {
 
 describe("modèle de classeur — paliers", () => {
   it("porte un onglet Paliers, visible, avec ses colonnes", () => {
-    const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     expect(wb.SheetNames).toContain("Milestones");
     const entetes = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Milestones, { header: 1 })[0];
-    expect(entetes).toEqual([...COLONNES_PALIERS]);
+    expect(entetes).toEqual([...MILESTONE_COLUMNS]);
     const etats = wb.Workbook!.Sheets!;
     expect(etats[wb.SheetNames.indexOf("Milestones")].Hidden).toBeFalsy();
   });
@@ -560,11 +560,11 @@ describe("modèle de classeur — paliers", () => {
   // Les bornes de validité se choisissent, elles ne se tapent pas : une faute
   // de frappe créerait un palier fantôme, invisible de l'onglet Paliers.
   it("contraint les deux bornes de validité par la liste des paliers", () => {
-    const surPalier = validationsDuModele(DONNEES_EXEMPLE).filter((v) => v.formule === "L_Palier");
+    const surPalier = validationsOfTemplate(SAMPLE_DATA).filter((v) => v.formule === "L_Palier");
     const sheets = new Set(surPalier.map((v) => v.sheet));
     expect(sheets).toContain("Actors");
     expect(sheets).toContain("Interfaces");
-    for (const tab of DONNEES_EXEMPLE.fx) expect(sheets).toContain(tab.name);
+    for (const tab of SAMPLE_DATA.fx) expect(sheets).toContain(tab.name);
     for (const sheet of sheets) {
       const columns = surPalier.filter((v) => v.sheet === sheet).map((v) => v.column);
       expect(columns).toHaveLength(2);
@@ -572,13 +572,13 @@ describe("modèle de classeur — paliers", () => {
   });
 
   it("alimente cette liste depuis l'onglet Paliers lui-même", () => {
-    const plage = listesDuModele().find((l) => l.name === "L_Palier")!;
+    const plage = listsOfTemplate().find((l) => l.name === "L_Palier")!;
     expect(plage.sheet).toBe("Milestones");
     expect(plage.heading).toBe("Milestone");
   });
 
   it("se relit sans colonne manquante, paliers compris", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("modèle illisible");
     expect(result.model.missingOptionalColumns).toEqual([]);
   });
@@ -588,7 +588,7 @@ describe("modèle de classeur — paliers", () => {
 // exemplaire, et notamment ne se signaler aucune anomalie à lui-même.
 describe("fichier d'exemple — axe des paliers", () => {
   it("renseigne un palier d'arrivée sur chaque ligne, sans anomalie", () => {
-    const result = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
+    const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const messages = runIntegrityChecks(result.model).families.flatMap((f) => f.anomalies.map((a) => a.message));
     expect(messages).toEqual([]);
@@ -637,7 +637,7 @@ describe("modèle de classeur — tous les onglets de saisie sont des tableaux",
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     // Ni la prose, ni les deux onglets masqués qui ne se saisissent pas.
     const saisie = wb.SheetNames.filter((n) => !["Instructions", "Lists", "Version"].includes(n));
-    const avecTableau = new Set(tableauxDuModele(DONNEES_EXEMPLE).map((t) => t.sheet));
+    const avecTableau = new Set(tablesOfTemplate(SAMPLE_DATA).map((t) => t.sheet));
 
     expect(saisie.filter((n) => !avecTableau.has(n))).toEqual([]);
   });
@@ -659,7 +659,7 @@ describe("modèle de classeur — tous les onglets de saisie sont des tableaux",
 describe("modèle de classeur — onglet FX_ au nom impossible", () => {
   const nomTropLong = `FX_${"A".repeat(30)}_HTTP`; // 38 caractères
 
-  const donnees: DonneesClasseur = {
+  const data: WorkbookData = {
     flowTypes: [],
     actorTypes: [],
     milestones: [],
@@ -675,25 +675,25 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
   const sanitised = nomTropLong.slice(0, 31);
 
   it("n'échoue pas quand un onglet FX_ dépasse 31 caractères", () => {
-    expect(() => writeTemplate(donnees)).not.toThrow();
+    expect(() => writeTemplate(data)).not.toThrow();
   });
 
   it("crée l'onglet sous un nom qu'Excel accepte, sans toucher aux autres", () => {
-    const wb = XLSX.read(new Uint8Array(writeTemplate(donnees)), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(writeTemplate(data)), { type: "array" });
     expect(wb.SheetNames).toContain(sanitised);
     expect(wb.SheetNames).toContain("FX_Takodana_HTTP");
     expect(wb.SheetNames.every((n) => n.length <= 31)).toBe(true);
   });
 
   it("lui pose son tableau et ses validations, comme aux autres", () => {
-    expect(tableauxDuModele(donnees).map((t) => t.sheet)).toContain(sanitised);
-    expect(validationsDuModele(donnees).map((v) => v.sheet)).toContain(sanitised);
+    expect(tablesOfTemplate(data).map((t) => t.sheet)).toContain(sanitised);
+    expect(validationsOfTemplate(data).map((v) => v.sheet)).toContain(sanitised);
   });
 });
 
 describe("modèle de classeur — nature et relais", () => {
   it("propose la nature en liste fermée sur ActorTypes", () => {
-    const lists = listesDuModele();
+    const lists = listsOfTemplate();
     expect(lists.find((l) => l.name === "L_Nature")).toBeDefined();
   });
 
@@ -702,7 +702,7 @@ describe("modèle de classeur — nature et relais", () => {
   // ligne de consommation, qui seule sait de quel fournisseur et de quelle
   // version vient l'entrée -- et qu'une liste déroulante peut guider.
   it("écrit les deux colonnes qui portent la lecture fonctionnelle", () => {
-    const paquet = writeTemplate(DONNEES_EXEMPLE);
+    const paquet = writeTemplate(SAMPLE_DATA);
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const types = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1 })[0];
     const interfaces = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["Interfaces"], { header: 1 })[0];
@@ -720,7 +720,7 @@ describe("modèle de classeur — nature et relais", () => {
 // la liste déroulante qui le vise se remplit donc de lignes vides quand
 // l'équipe en a retiré, et perd des valeurs quand elle en a ajouté.
 describe("modèle de classeur — tableaux des référentiels dimensionnés sur les données", () => {
-  const donnees: DonneesClasseur = {
+  const data: WorkbookData = {
     flowTypes: [
       ["HTTP", "consumer → provider", "REST"],
       ["Kafka", "provider → consumer", "événements"],
@@ -744,18 +744,18 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
     fx: [],
   };
 
-  const table = (sheet: string) => tableauxDuModele(donnees).find((t) => t.sheet === sheet)!;
+  const table = (sheet: string) => tablesOfTemplate(data).find((t) => t.sheet === sheet)!;
 
   it("borne le tableau FlowTypes aux types réellement écrits", () => {
-    expect(table("FlowTypes").rows).toBe(donnees.flowTypes.length);
+    expect(table("FlowTypes").rows).toBe(data.flowTypes.length);
   });
 
   it("étend le tableau ActorTypes à tous les types réellement écrits", () => {
-    expect(table("ActorTypes").rows).toBe(donnees.actorTypes.length);
+    expect(table("ActorTypes").rows).toBe(data.actorTypes.length);
   });
 
   it("ne laisse aucun type d'acteur hors du tableau qui alimente L_TypeActeur", () => {
-    const wb = XLSX.read(new Uint8Array(writeTemplate(donnees)), { type: "array" });
+    const wb = XLSX.read(new Uint8Array(writeTemplate(data)), { type: "array" });
     const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1, defval: "" });
     expect(rows.length - 1).toBe(table("ActorTypes").rows);
   });
@@ -766,7 +766,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
 // listes dépendantes cessent de voir les flux -- sans que rien ne le dise.
 describe("modèle de classeur — grands classeurs", () => {
   const NB = 1200;
-  const grand: DonneesClasseur = {
+  const grand: WorkbookData = {
     flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], fx: [],
     interfaces: Array.from({ length: NB }, (_, i) => [
       `Flux ${i}`, "1.0", "Tatooine", "HTTP", "", "", "", "No", "", "", "",
@@ -793,7 +793,7 @@ describe("modèle de classeur — grands classeurs", () => {
 // liste morte. Excel sait afficher une bulle à la sélection de la cellule ; le
 // drapeau était posé, le texte manquait.
 describe("modèle de classeur — invites de saisie", () => {
-  const validations = () => validationsDuModele(DONNEES_EXEMPLE);
+  const validations = () => validationsOfTemplate(SAMPLE_DATA);
 
   it("explique l'ordre de saisie sur la colonne Version d'un onglet FX_", () => {
     const version = validations().find((v) => v.sheet.startsWith("FX_") && v.prompt?.text.includes("Flow name"));
@@ -801,7 +801,7 @@ describe("modèle de classeur — invites de saisie", () => {
   });
 
   it("écrit l'invite dans le XML de la feuille", () => {
-    const paquet = writeTemplate(DONNEES_EXEMPLE);
+    const paquet = writeTemplate(SAMPLE_DATA);
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const nomFx = wb.SheetNames.find((n) => n.startsWith("FX_") && n !== "FX_Modèle")!;
     const xml = feuilleXml(nomFx, paquet);
@@ -835,7 +835,7 @@ describe("modèle de classeur — invites de saisie", () => {
 describe("modèle de classeur — la formule Excel assainit comme l'outil", () => {
   // On n'extrait que la formule : comparer le XML entier noierait l'échec.
   const formuleAppoint = () => {
-    const xml = feuilleXml("Lists", writeTemplate(DONNEES_EXEMPLE));
+    const xml = feuilleXml("Lists", writeTemplate(SAMPLE_DATA));
     const m = xml.match(/<f t="array"[^>]*>([^<]*)<\/f>/);
     if (!m) throw new Error("aucune formule à résultat étalé dans l'onglet Lists");
     return m[1];
@@ -870,10 +870,10 @@ describe("modèle de classeur — le plancher des validations", () => {
 // de chaque schéma annonçait « save date unknown » sur des données fraîches --
 // ce qui donne à l'outil l'air de mal lire les fichiers Excel.
 describe("écrireModele — les propriétés du document", () => {
-  const LE_JOUR = new Date("2026-08-22T09:00:00Z");
+  const THE_DAY = new Date("2026-08-22T09:00:00Z");
 
   it("écrit la date de sauvegarde, et la relecture la retrouve", () => {
-    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, LE_JOUR)).savedAt?.toISOString()).toBe(
+    expect(parseWorkbook(writeTemplate(SAMPLE_DATA, THE_DAY)).savedAt?.toISOString()).toBe(
       "2026-08-22T09:00:00.000Z"
     );
   });
@@ -882,16 +882,16 @@ describe("écrireModele — les propriétés du document", () => {
   // reproductible, comme la mise à niveau le fait déjà.
   it("prend la date qu'on lui donne plutôt que l'heure courante", () => {
     const autre = new Date("2020-01-02T03:04:05Z");
-    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, autre)).savedAt?.toISOString()).toBe(autre.toISOString());
+    expect(parseWorkbook(writeTemplate(SAMPLE_DATA, autre)).savedAt?.toISOString()).toBe(autre.toISOString());
   });
 
   // Les tableaux structurés, les listes et les validations sont posés APRÈS
   // l'écriture SheetJS, en réécrivant le zip : ils ne doivent pas emporter
   // docProps/core.xml au passage.
   it("garde la date malgré la réécriture du classeur", () => {
-    const relu = parseWorkbook(writeTemplate(DONNEES_EXEMPLE, LE_JOUR));
-    expect(relu.savedAt).not.toBeNull();
-    expect(relu.sheets.some((f) => f.name === "Interfaces")).toBe(true);
+    const reread = parseWorkbook(writeTemplate(SAMPLE_DATA, THE_DAY));
+    expect(reread.savedAt).not.toBeNull();
+    expect(reread.sheets.some((f) => f.name === "Interfaces")).toBe(true);
   });
 });
 
@@ -902,18 +902,18 @@ describe("modèle de classeur — les aides à la saisie", () => {
   const feuillesDeSaisie = ["Actors", "Groups", "Milestones", "ActorTypes", "FlowTypes", "Interfaces"];
 
   it("pose une infobulle sur chaque colonne de chaque feuille de saisie", () => {
-    const validations = validationsDuModele();
-    const colonnesDe: Record<string, readonly string[]> = {
-      Actors: COLONNES_ACTEURS,
-      Groups: COLONNES_GROUPES,
-      Milestones: COLONNES_PALIERS,
-      ActorTypes: COLONNES_TYPESACTEUR,
-      FlowTypes: COLONNES_TYPESFLUX,
-      Interfaces: COLONNES_INTERFACES,
+    const validations = validationsOfTemplate();
+    const columnsOf: Record<string, readonly string[]> = {
+      Actors: ACTOR_COLUMNS,
+      Groups: GROUP_COLUMNS,
+      Milestones: MILESTONE_COLUMNS,
+      ActorTypes: ACTOR_TYPE_COLUMNS,
+      FlowTypes: FLOW_TYPE_COLUMNS,
+      Interfaces: INTERFACE_COLUMNS,
     };
     for (const sheet of feuillesDeSaisie) {
       const applied = new Set(validations.filter((v) => v.sheet === sheet).map((v) => v.column));
-      for (const [i] of colonnesDe[sheet].entries()) {
+      for (const [i] of columnsOf[sheet].entries()) {
         expect(applied, `${sheet} : column ${i + 1} sans infobulle`).toContain(XLSX.utils.encode_col(i));
       }
     }
@@ -923,8 +923,8 @@ describe("modèle de classeur — les aides à la saisie", () => {
   // et donne l'illusion d'une couverture.
   it("ne déclare aucune infobulle pour une colonne inexistante", () => {
     const toutes = [
-      ...COLONNES_ACTEURS, ...COLONNES_GROUPES, ...COLONNES_PALIERS,
-      ...COLONNES_TYPESACTEUR, ...COLONNES_TYPESFLUX, ...COLONNES_INTERFACES, ...COLONNES_FX,
+      ...ACTOR_COLUMNS, ...GROUP_COLUMNS, ...MILESTONE_COLUMNS,
+      ...ACTOR_TYPE_COLUMNS, ...FLOW_TYPE_COLUMNS, ...INTERFACE_COLUMNS, ...FX_COLUMNS,
     ];
     for (const key of Object.keys(INVITES)) {
       const heading = key.includes(".") ? key.split(".")[1] : key;

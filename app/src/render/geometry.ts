@@ -121,17 +121,17 @@ export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
     const previous = points[i - 1];
     const coude = points[i];
     const suivant = points[i + 1];
-    const avant = Math.hypot(coude.x - previous.x, coude.y - previous.y);
+    const before = Math.hypot(coude.x - previous.x, coude.y - previous.y);
     const after = Math.hypot(suivant.x - coude.x, suivant.y - coude.y);
     const aligned = Math.abs((coude.x - previous.x) * (suivant.y - coude.y) - (coude.y - previous.y) * (suivant.x - coude.x)) < 0.01;
 
-    if (aligned || avant < 0.01 || after < 0.01) {
+    if (aligned || before < 0.01 || after < 0.01) {
       d += ` L ${coude.x},${coude.y}`;
       continue;
     }
-    const ra = Math.min(radius, avant / 2);
+    const ra = Math.min(radius, before / 2);
     const rb = Math.min(radius, after / 2);
-    const input = { x: coude.x + ((previous.x - coude.x) / avant) * ra, y: coude.y + ((previous.y - coude.y) / avant) * ra };
+    const input = { x: coude.x + ((previous.x - coude.x) / before) * ra, y: coude.y + ((previous.y - coude.y) / before) * ra };
     const output = { x: coude.x + ((suivant.x - coude.x) / after) * rb, y: coude.y + ((suivant.y - coude.y) / after) * rb };
     d += ` L ${input.x},${input.y} Q ${coude.x},${coude.y} ${output.x},${output.y}`;
   }

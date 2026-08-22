@@ -1,7 +1,7 @@
 import { el, clear } from "../shared/dom";
 import { wireDropZone, MESSAGE_CLASSEUR_ILLISIBLE } from "./drop-zone";
 import { type RapportMigration } from "../export/legacy-upgrade";
-import { reparerClasseur } from "../export/repair";
+import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
@@ -15,9 +15,9 @@ import { runIntegrityChecks } from "../integrity/checks";
 
 function row(report: RapportMigration): string[] {
   const points: string[] = [];
-  if (report.acteursCrees.length > 0) {
+  if (report.actorsCreated.length > 0) {
     points.push(
-      `${report.acteursCrees.length} component${report.acteursCrees.length > 1 ? "s" : ""} inferred from the flows, with no group or type: ${report.acteursCrees.join(", ")}`
+      `${report.actorsCreated.length} component${report.actorsCreated.length > 1 ? "s" : ""} inferred from the flows, with no group or type: ${report.actorsCreated.join(", ")}`
     );
   }
   if (report.typesInconnus.length > 0) {
@@ -32,7 +32,7 @@ function row(report: RapportMigration): string[] {
   return points;
 }
 
-export function ouvrirMigration(): void {
+export function openMigration(): void {
   const previous = document.querySelector(".migration-overlay");
   if (previous) previous.remove();
 
@@ -56,31 +56,31 @@ export function ouvrirMigration(): void {
     zone.appendChild(message);
   };
 
-  const convertir = (fichier: File) => {
+  const convertir = (file: File) => {
     message.className = "drop-target-text";
     message.textContent = "Converting…";
-    fichier
+    file
       .arrayBuffer()
       .then((octets) => {
-        const repair = reparerClasseur(octets);
-        const base = fichier.name.replace(/\.(xlsx|xlsm)$/i, "");
-        const workbook = writeTemplate(repair.donnees);
+        const repair = repairWorkbook(octets);
+        const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
+        const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
 
         // On fait passer les contrôles sur ce qu'on vient d'écrire : annoncer
         // « il restera des choses à saisir » sans les compter laisserait croire
         // à une formule de style. Ce sont les mêmes contrôles que ceux de
         // l'outil, sur le même fichier.
-        const relu = buildModel(parseWorkbook(workbook));
-        const bilan = relu.ok ? runIntegrityChecks(relu.model) : null;
+        const reread = buildModel(parseWorkbook(workbook));
+        const bilan = reread.ok ? runIntegrityChecks(reread.model) : null;
 
         clear(zone);
         zone.appendChild(el("p", { class: "drop-target-title" }, ["Workbook repaired"]));
         zone.appendChild(
           el("p", { class: "drop-target-text" }, [
-            `${repair.donnees.actors.length} components, ${repair.donnees.interfaces.length} interfaces, ` +
-              `${repair.donnees.fx.reduce((n, o) => n + o.rows.length, 0)} consumptions, ` +
-              `${repair.donnees.fx.length} flow sheets.`,
+            `${repair.data.actors.length} components, ${repair.data.interfaces.length} interfaces, ` +
+              `${repair.data.fx.reduce((n, o) => n + o.rows.length, 0)} consumptions, ` +
+              `${repair.data.fx.length} flow sheets.`,
           ])
         );
         if (bilan) {
@@ -123,8 +123,8 @@ export function ouvrirMigration(): void {
   const choisir = el("input", { type: "file", accept: ".xlsx,.xlsm" }) as HTMLInputElement;
   choisir.className = "file-field";
   choisir.addEventListener("change", () => {
-    const fichier = choisir.files?.[0];
-    if (fichier) convertir(fichier);
+    const file = choisir.files?.[0];
+    if (file) convertir(file);
   });
 
   box.appendChild(fermer);

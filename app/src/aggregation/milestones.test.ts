@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { rankOfMilestone, lifespanOf, isLiveAt, currentMilestone, ALWAYS } from "./milestones";
 import type { ParsedModel, Milestone } from "../parsing/model";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 
 // L'axe du temps n'avait aucun test à lui : il n'était éprouvé qu'à travers
 // ses appelants, qui ne visitent pas ses cas limites.
@@ -14,7 +14,7 @@ function model(milestones: Milestone[]): ParsedModel {
   return {
     actors: [], actorTypes: [], groups: [], groupsSheetMissing: false, milestones,
     flowTypes: [], interfaces: [], consumptions: [], fxSheetNames: [],
-    missingOptionalColumns: [], schemaVersion: VERSION_MODELE, savedAt: null,
+    missingOptionalColumns: [], schemaVersion: SCHEMA_VERSION, savedAt: null,
   };
 }
 

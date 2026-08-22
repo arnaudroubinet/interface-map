@@ -14,7 +14,7 @@ export const STROKE_WIDTH = 2;
 // Un écart ne porte pas la couleur de sa technologie : il porte celle de son
 // sens. C'est aussi ce que dit PAPIER/ENCRE -- un export ne suit pas le thème
 // de qui l'affiche.
-export const COULEUR_ECART: Record<"added" | "removed", string> = {
+export const CHANGE_COLOUR: Record<"added" | "removed", string> = {
   added: "#1a7f43",
   removed: "#d03b3b",
 };

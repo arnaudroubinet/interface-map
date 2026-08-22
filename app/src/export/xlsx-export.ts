@@ -66,6 +66,6 @@ export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
 
 export function downloadMatrixXlsx(matrix: MatrixResult, filename: string): void {
   const wb = buildMatrixWorkbook(matrix);
-  const donnees = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  downloadWorkbook(donnees, filename);
+  const data = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  downloadWorkbook(data, filename);
 }

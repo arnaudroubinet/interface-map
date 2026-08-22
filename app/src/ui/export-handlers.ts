@@ -3,12 +3,12 @@ import { LIBELLE_VUE, withMessageBandeau } from "./state";
 import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
 import { rankOfMilestone } from "../aggregation/milestones";
-import { couleursDuModele } from "../render/colors";
+import { coloursOfModel } from "../render/colors";
 import { toutesLesPlanches } from "../aggregation/boards";
 import { computeLayout } from "../layout/graph-layout";
 import { buildDrawio } from "../export/drawio-export";
-import { modeleEnStructurizr } from "../export/c4-dsl";
-import { modeleEnLikeC4 } from "../export/likec4-dsl";
+import { modelToStructurizr } from "../export/c4-dsl";
+import { modelToLikeC4 } from "../export/likec4-dsl";
 import { rapportEnMarkdown } from "../export/rapport-markdown";
 import { buildExportFilename } from "../export/filename";
 import { downloadSvg } from "../export/svg-export";
@@ -27,7 +27,7 @@ import { downloadText } from "../export/download";
 // Les fonctions sont demandées plutôt que les valeurs : l'état change à chaque
 // rendu, et un gestionnaire câblé une fois doit lire l'état du moment où on
 // clique, pas celui d'où on l'a construit.
-export interface ContexteExport {
+export interface ExportContext {
   legacyState: () => AppState;
   setState: (state: AppState) => void;
   // Le schéma à l'écran. Absent sur la matrix, le rapport et l'aide.
@@ -41,7 +41,7 @@ export interface ContexteExport {
 // il y en a une, sans quoi deux lectures différentes se téléchargent sous le
 // même nom.
 function selectionDuNom(state: AppState): string | null {
-  if (state.view === "by-actor") return state.selectionActeur;
+  if (state.view === "by-actor") return state.actorSelection;
   if (state.view === "by-technology") return state.selectionTechnologie;
   // Un écart se lit ENTRE deux paliers : le nom doit porter les deux. Le palier
   // d'arrivée est déjà ajouté par ailleurs.
@@ -52,12 +52,12 @@ function selectionDuNom(state: AppState): string | null {
 // Le palier affiché vaut pour tout ce qui décrit le MODÈLE plutôt qu'une
 // planche : ces exports ne portent ni nom de vue ni sélection.
 function shownRank(state: AppState): number | null {
-  if (!state.fichier || state.shownMilestone === null) return null;
-  return rankOfMilestone(state.fichier.model, state.shownMilestone) ?? null;
+  if (!state.file || state.shownMilestone === null) return null;
+  return rankOfMilestone(state.file.model, state.shownMilestone) ?? null;
 }
 
-export function handlersExport(ctx: ContexteExport): BannerCallbacks {
-  const nomDeFichier = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
+export function handlersExport(ctx: ExportContext): BannerCallbacks {
+  const fileName = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
     const state = ctx.legacyState();
     return buildExportFilename(
       LIBELLE_VUE[state.view],
@@ -71,13 +71,13 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
   return {
     onExportSvg() {
       const svg = ctx.svgCourant();
-      if (!svg || !ctx.legacyState().fichier) return;
-      downloadSvg(svg, nomDeFichier("svg"), "#ffffff");
+      if (!svg || !ctx.legacyState().file) return;
+      downloadSvg(svg, fileName("svg"), "#ffffff");
     },
 
     async onExportPng() {
       const svg = ctx.svgCourant();
-      if (!svg || !ctx.legacyState().fichier) return;
+      if (!svg || !ctx.legacyState().file) return;
       const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.echellePng);
       if (!result.ok) {
         // Le message vient de l'export : il en distingue deux, et le recopier
@@ -85,24 +85,24 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
         ctx.setState(withMessageBandeau(ctx.legacyState(), result.error));
         return;
       }
-      downloadPngBlob(result.blob, nomDeFichier("png"));
+      downloadPngBlob(result.blob, fileName("png"));
     },
 
     onExportXlsx() {
       const matrix = ctx.matriceCourante();
-      if (!matrix || !ctx.legacyState().fichier) return;
-      downloadMatrixXlsx(matrix, nomDeFichier("xlsx"));
+      if (!matrix || !ctx.legacyState().file) return;
+      downloadMatrixXlsx(matrix, fileName("xlsx"));
     },
 
     onExportMarkdown() {
       const state = ctx.legacyState();
-      if (!state.fichier) return;
+      if (!state.file) return;
       // Pas de mode ici : le rapport juge le CLASSEUR, pas une lecture du
       // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
       // ne doit donc pas bouger non plus.
       downloadText(
-        rapportEnMarkdown(state.fichier.report, state.fichier.name, state.shownMilestone),
-        nomDeFichier("md", false)
+        rapportEnMarkdown(state.file.report, state.file.name, state.shownMilestone),
+        fileName("md", false)
       );
     },
 
@@ -112,9 +112,9 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     // au chaud obligerait à les refaire à chaque changement de palier.
     async onExportDrawio() {
       const state = ctx.legacyState();
-      if (!state.fichier) return;
-      const model = state.fichier.model;
-      const colours = couleursDuModele(model);
+      if (!state.file) return;
+      const model = state.file.model;
+      const colours = coloursOfModel(model);
       const placed = [];
       for (const board of toutesLesPlanches(model, shownRank(state), state.mode)) {
         const layout = await computeLayout(board.nodes, board.edges);
@@ -124,13 +124,13 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
           layout,
           // Chaque page se décrit, comme chaque SVG : draw.io est le format
           // destiné à CIRCULER, et ses pages partaient sans titre ni légende.
-          contexte: {
+          context: {
             title: board.title,
             reading: state.mode === "functional" ? "functional" : "architecture",
             milestone: state.shownMilestone,
-            source: state.fichier.name,
-            date: state.fichier.dateModification
-              ? state.fichier.dateModification.toISOString().slice(0, 10)
+            source: state.file.name,
+            date: state.file.dateModification
+              ? state.file.dateModification.toISOString().slice(0, 10)
               : "save date unknown",
             composants: board.nodes.filter((n) => n.kind !== "boundary").length,
             flows: board.edges.length,
@@ -146,18 +146,18 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
 
     onExportStructurizr() {
       const state = ctx.legacyState();
-      if (!state.fichier) return;
+      if (!state.file) return;
       downloadText(
-        modeleEnStructurizr(state.fichier.model, shownRank(state), state.fichier.name, state.shownMilestone, state.mode),
+        modelToStructurizr(state.file.model, shownRank(state), state.file.name, state.shownMilestone, state.mode),
         buildExportFilename("model", null, state.shownMilestone, "dsl")
       );
     },
 
     onExportLikeC4() {
       const state = ctx.legacyState();
-      if (!state.fichier) return;
+      if (!state.file) return;
       downloadText(
-        modeleEnLikeC4(state.fichier.model, shownRank(state), state.mode),
+        modelToLikeC4(state.file.model, shownRank(state), state.mode),
         buildExportFilename("model", null, state.shownMilestone, "c4")
       );
     },

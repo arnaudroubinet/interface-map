@@ -4,10 +4,10 @@ import { flowsForReading, reading as lectureDuMode } from "./reading";
 import { buildPlatformDetailView, type ViewResult } from "./views";
 import { lifespanOf, isLiveAt } from "./milestones";
 
-// L'écart entre deux paliers, entièrement CALCULÉ : rien de tout ceci n'est
-// saisi quelque part, donc rien ne peut se contredire. C'est la différence
-// entre deux photos que le classeur sait déjà produire.
-export interface Ecarts {
+// The change between two milestones, entirely COMPUTED: none of this is
+// entered anywhere, so nothing can contradict anything. It is the difference
+// between two snapshots the workbook already knows how to produce.
+export interface Changes {
   actors: Difference;
   interfaces: Difference;
   consumptions: Difference;
@@ -18,11 +18,11 @@ export interface Difference {
   retires: string[];
 }
 
-function difference(avant: Set<string>, after: Set<string>): Difference {
+function difference(before: Set<string>, after: Set<string>): Difference {
   const byName = (a: string, b: string) => a.localeCompare(b, "fr");
   return {
-    ajoutes: [...after].filter((x) => !avant.has(x)).sort(byName),
-    retires: [...avant].filter((x) => !after.has(x)).sort(byName),
+    ajoutes: [...after].filter((x) => !before.has(x)).sort(byName),
+    retires: [...before].filter((x) => !after.has(x)).sort(byName),
   };
 }
 
@@ -40,8 +40,8 @@ function interfacesVivantes(model: ParsedModel, rank: number): Set<string> {
   );
 }
 
-// Une consommation se nomme par le couple qu'elle crée : c'est ce qu'on lit
-// sur le schéma, et c'est ce qui parle en réunion.
+// A consumption is named by the pair it creates: that is what one reads on the
+// diagram, and what speaks in a meeting.
 function consommationsVivantes(model: ParsedModel, rank: number, mode: Mode): Set<string> {
   return new Set(
     flowsForReading(model, rank, mode).map(
@@ -50,69 +50,69 @@ function consommationsVivantes(model: ParsedModel, rank: number, mode: Mode): Se
   );
 }
 
-export function calculerEcarts(model: ParsedModel, rangAvant: number, rangApres: number, mode: Mode): Ecarts {
+export function computeChanges(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): Changes {
   return {
-    actors: difference(liveActors(model, rangAvant), liveActors(model, rangApres)),
-    interfaces: difference(interfacesVivantes(model, rangAvant), interfacesVivantes(model, rangApres)),
-    consumptions: difference(consommationsVivantes(model, rangAvant, mode), consommationsVivantes(model, rangApres, mode)),
+    actors: difference(liveActors(model, rankBefore), liveActors(model, rankAfter)),
+    interfaces: difference(interfacesVivantes(model, rankBefore), interfacesVivantes(model, rankAfter)),
+    consumptions: difference(consommationsVivantes(model, rankBefore, mode), consommationsVivantes(model, rankAfter, mode)),
   };
 }
 
-// Le schéma de l'écart : le paysage du palier d'arrivée, plus ce qui vient
-// d'en disparaître. Un trait présent des deux côtés se dessine normalement ;
-// les autres portent leur marque, et le rendu les distingue.
+// The change diagram: the landscape of the arrival milestone, plus what has
+// just left it. A line present on both sides is drawn normally; the others
+// carry their mark, and the rendering tells them apart.
 //
-// Base « plateforme détaillée », sans choix de granularité : on veut savoir
-// QUEL composant a gagné ou perdu un flux, pas seulement quel groupe, tout en
-// gardant l'extérieur replié. Un sélecteur de plus sur une vue de comparaison
-// rendrait la lecture plus lourde qu'utile.
-export function buildEcartsView(model: ParsedModel, rangAvant: number, rangApres: number, mode: Mode): ViewResult {
+// Built on "platform detail", with no grain selector: one wants to know WHICH
+// component gained or lost a flow, not merely which group, while keeping the
+// outside folded. One more selector on a comparison view would make it heavier
+// to read than it is worth.
+export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): ViewResult {
   const options = { counters: true };
-  const avant = buildPlatformDetailView(model, lectureDuMode(model, rangAvant, mode), options);
-  const apres = buildPlatformDetailView(model, lectureDuMode(model, rangApres, mode), options);
+  const before = buildPlatformDetailView(model, lectureDuMode(model, rankBefore, mode), options);
+  const after = buildPlatformDetailView(model, lectureDuMode(model, rankAfter, mode), options);
 
-  // Un lien porte le DELTA de son volume, pas son volume : c'est ce qui a
-  // changé qui est le sujet. Sans ça, un lien passant de six à quatre flux
-  // restait un trait ordinaire, et le seul cas que le schéma devait rendre
-  // visible ne l'était pas.
+  // A link carries the DELTA of its volume, not the volume: what changed is
+  // the subject. Without this, a link going from six flows to four stayed an
+  // ordinary line, and the one case the diagram existed to make visible was
+  // not.
   const key = (e: GraphEdge) => JSON.stringify([e.from, e.to, e.technology]);
   const parCle = (r: ViewResult) => new Map(r.edges.map((e) => [key(e), e]));
-  const avantParCle = parCle(avant);
-  const apresParCle = parCle(apres);
+  const beforeByKey = parCle(before);
+  const afterByKey = parCle(after);
 
   const edges: GraphEdge[] = [];
-  for (const k of new Set([...apresParCle.keys(), ...avantParCle.keys()])) {
-    const a = avantParCle.get(k);
-    const b = apresParCle.get(k);
+  for (const k of new Set([...afterByKey.keys(), ...beforeByKey.keys()])) {
+    const a = beforeByKey.get(k);
+    const b = afterByKey.get(k);
     const delta = (b?.count ?? 0) - (a?.count ?? 0);
-    // Le lien se dessine tel qu'il est à l'arrivée quand il y survit, sinon
-    // tel qu'il était : dans les deux cas il faut bien un trait à colorier.
+    // The link is drawn as it stands at arrival when it survives there,
+    // otherwise as it was: either way a line is needed to colour.
     const base = b ?? a!;
-    // Un lien inchangé n'a rien à faire ici : le schéma ne montre QUE l'écart.
-    // Mêler le décor aux quelques traits qui portent l'information les noierait.
+    // An unchanged link has no place here: the diagram shows ONLY the change.
+    // Mixing the scenery in with the few lines that carry information would drown them.
     if (delta === 0) continue;
     edges.push({
       ...base,
-      ecart: delta > 0 ? "added" : "removed",
-      // Le signe et le nombre seuls : la technologie s'affiche d'elle-même en
-      // sous-libellé, puisque le libellé ne la nomme pas (sousLibellé).
+      change: delta > 0 ? "added" : "removed",
+      // The sign and the number alone: the technology shows itself on the
+      // sub-label, since the label does not name it (subLabel).
       label: `${delta > 0 ? "+" : "−"}${Math.abs(delta)}`,
     });
   }
 
-  // Seulement les nœuds que les traits restants accostent, pris des deux côtés
-  // -- un lien retiré a besoin de boîtes qui n'existent peut-être plus après.
-  const connus = [...apres.nodes, ...avant.nodes].filter(
+  // Only the nodes the remaining lines touch, taken from both sides -- a
+  // removed link needs boxes that may no longer exist afterwards.
+  const connus = [...after.nodes, ...before.nodes].filter(
     (n, i, tous) => tous.findIndex((autre) => autre.id === n.id) === i
   );
   const requis = new Set(edges.flatMap((e) => [e.from, e.to]));
   const retenus = connus.filter((n) => requis.has(n.id));
 
-  // La frontière de la plateforme est un nœud PARENT : aucun trait ne
-  // l'accoste, donc l'élagage l'emporterait en laissant ses enfants pointer
-  // vers un conteneur absent. On la rétablit quand elle contient encore de
-  // quoi cadrer, et on coupe le lien de parenté sinon -- même règle qu'ailleurs
-  // : sous deux composants, un cadre n'apporte rien.
+  // The platform boundary is a PARENT node: no line touches it, so pruning
+  // would carry it off and leave its children pointing at a container that no
+  // longer exists. It is restored when it still holds enough to frame, and the
+  // parent link is cut otherwise -- the same rule as elsewhere: under two
+  // components, a frame adds nothing.
   const dedans = retenus.filter((n) => n.parent !== undefined);
   if (dedans.length < 2) {
     return { nodes: retenus.map((n) => ({ ...n, parent: undefined })), edges };

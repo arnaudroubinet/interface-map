@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { handlersExport, type ContexteExport } from "./export-handlers";
-import { initialState, withFichierCharge, withVue, withMode, withSelectionActeur, type AppState } from "./state";
+import { handlersExport, type ExportContext } from "./export-handlers";
+import { initialState, withLoadedFile, withVue, withMode, withActorSelection, type AppState } from "./state";
 import type { IntegrityReport } from "../integrity/checks";
 import * as base from "../testing/fixtures";
 
@@ -42,13 +42,13 @@ const template = base.template({
   actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
   interfaces: [base.iface({ providerName: "Tatooine" })],
-  consumptions: [base.conso()],
+  consumptions: [base.consumption()],
   fxSheetNames: ["FX_A_HTTP"],
 });
 
-function contexte(state: AppState, svg: SVGSVGElement | null = document.createElementNS("http://www.w3.org/2000/svg", "svg")) {
+function context(state: AppState, svg: SVGSVGElement | null = document.createElementNS("http://www.w3.org/2000/svg", "svg")) {
   let current = state;
-  const ctx: ContexteExport = {
+  const ctx: ExportContext = {
     legacyState: () => current,
     setState: (s) => void (current = s),
     svgCourant: () => svg,
@@ -58,7 +58,7 @@ function contexte(state: AppState, svg: SVGSVGElement | null = document.createEl
 }
 
 const loaded = () =>
-  withFichierCharge(initialState(), { name: "carto.xlsx", model: template, report: report, dateModification: null });
+  withLoadedFile(initialState(), { name: "carto.xlsx", model: template, report: report, dateModification: null });
 
 beforeEach(() => {
   downloads.length = 0;
@@ -68,7 +68,7 @@ beforeEach(() => {
 
 describe("handlersExport", () => {
   it("ne fait rien tant qu'aucun classeur n'est chargé", async () => {
-    const { handlers } = contexte(initialState());
+    const { handlers } = context(initialState());
     handlers.onExportSvg();
     await handlers.onExportPng();
     handlers.onExportMarkdown();
@@ -77,7 +77,7 @@ describe("handlersExport", () => {
   });
 
   it("ne fait rien quand aucun schéma n'est à l'écran", () => {
-    const { handlers } = contexte(withVue(loaded(), "platform-detail"), null);
+    const { handlers } = context(withVue(loaded(), "platform-detail"), null);
     handlers.onExportSvg();
     expect(downloads).toHaveLength(0);
   });
@@ -85,8 +85,8 @@ describe("handlersExport", () => {
   // Le nom porte la vue, le palier et la sélection : sans elle, deux lectures
   // différentes se téléchargeraient sous le même nom.
   it("met la sélection dans le nom de la vue par acteur", () => {
-    const s = withSelectionActeur(withVue(loaded(), "by-actor"), "Tatooine");
-    contexte(s).handlers.onExportSvg();
+    const s = withActorSelection(withVue(loaded(), "by-actor"), "Tatooine");
+    context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("tatooine");
     expect(downloads[0].name).toMatch(/\.svg$/);
   });
@@ -95,14 +95,14 @@ describe("handlersExport", () => {
   // bouge pas d'un mode à l'autre, son nom ne doit donc pas bouger non plus.
   it("ne met pas le mode dans le nom du rapport Markdown", () => {
     const s = withMode(withVue(loaded(), "checks"), "functional");
-    contexte(s).handlers.onExportMarkdown();
+    context(s).handlers.onExportMarkdown();
     expect(downloads[0].name).not.toContain("functional");
     expect(downloads[0].content).toContain("Integrity report");
   });
 
   it("met le mode dans le nom d'un schéma, lui", () => {
     const s = withMode(withVue(loaded(), "platform-detail"), "functional");
-    contexte(s).handlers.onExportSvg();
+    context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("functional");
   });
 
@@ -112,27 +112,27 @@ describe("handlersExport", () => {
   // troisième.
   it("prévient dans le banner quand le PNG échoue, et ne télécharge rien", async () => {
     pngRendu.ok = false;
-    const { handlers, state } = contexte(withVue(loaded(), "platform-detail"));
+    const { handlers, state } = context(withVue(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads).toHaveLength(0);
     expect(state().messageBandeau).toBe("No PNG here.");
   });
 
   it("télécharge le PNG quand la conversion passe", async () => {
-    const { handlers } = contexte(withVue(loaded(), "platform-detail"));
+    const { handlers } = context(withVue(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads[0].name).toMatch(/\.png$/);
   });
 
   it("exporte la matrix affichée, sous le nom de la vue matrix", () => {
-    contexte(withVue(loaded(), "matrix")).handlers.onExportXlsx();
+    context(withVue(loaded(), "matrix")).handlers.onExportXlsx();
     expect(downloads[0].name).toMatch(/matrix.*\.xlsx$/);
   });
 
   // Les deux DSL décrivent le MODÈLE : ni nom de vue, ni sélection, ni mode.
   it("nomme les deux DSL d'après le modèle, pas d'après la vue", () => {
     const s = withMode(withVue(loaded(), "by-actor"), "functional");
-    const { handlers } = contexte(s);
+    const { handlers } = context(s);
     handlers.onExportStructurizr();
     handlers.onExportLikeC4();
     expect(downloads.map((t) => t.name)).toEqual(["carto-model.dsl", "carto-model.c4"]);
@@ -141,7 +141,7 @@ describe("handlersExport", () => {
   });
 
   it("emporte toutes les planches dans le draw.io, quelle que soit la vue ouverte", async () => {
-    await contexte(withVue(loaded(), "checks")).handlers.onExportDrawio();
+    await context(withVue(loaded(), "checks")).handlers.onExportDrawio();
     expect(downloads[0].name).toMatch(/boards.*\.drawio$/);
     expect(downloads[0].content).toContain("<mxfile");
   });
@@ -154,14 +154,14 @@ const dernierScalePng = () => pngRendu.scale;
 
 describe("onExportPng — l'échelle est choisie", () => {
   it("garde 2 comme échelle par défaut", async () => {
-    const { handlers } = contexte(loaded());
+    const { handlers } = context(loaded());
     await handlers.onExportPng();
     expect(dernierScalePng()).toBe(2);
   });
 
   it("exporte à l'échelle retenue", async () => {
     const s = loaded();
-    const { handlers } = contexte({ ...s, options: { ...s.options, echellePng: 4 } });
+    const { handlers } = context({ ...s, options: { ...s.options, echellePng: 4 } });
     await handlers.onExportPng();
     expect(dernierScalePng()).toBe(4);
   });

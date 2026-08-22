@@ -671,8 +671,8 @@ describe("légende — ce qu'elle annonce est ce que le dessin utilise", () => {
   it("names the écart colours and drops the technologies when every edge is marked", async () => {
     const svg = buildGraphSvg(
       await computeLayout(noeuds, [
-        { from: "A", to: "B", technology: "HTTP", count: 1, label: "+1", attenuated: false, ecart: "added" },
-        { from: "B", to: "A", technology: "SFTP", count: 1, label: "−1", attenuated: false, ecart: "removed" },
+        { from: "A", to: "B", technology: "HTTP", count: 1, label: "+1", attenuated: false, change: "added" },
+        { from: "B", to: "A", technology: "SFTP", count: 1, label: "−1", attenuated: false, change: "removed" },
       ]),
       () => "#2a78d6"
     );
@@ -707,7 +707,7 @@ describe("buildGraphSvg — le fichier se suffit à lui-même", () => {
       { id: "B", label: "B", kind: "group" },
     ];
     const edges: GraphEdge[] = [
-      { from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, ecart: direction },
+      { from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, change: direction },
     ];
     return buildGraphSvg(await computeLayout(nodes, edges), () => "#2a78d6");
   };
@@ -796,7 +796,7 @@ describe("buildGraphSvg — la pointe d'un trait tiré", () => {
 // --- Un schéma doit se décrire lui-même (C4, règle n°1). Collé dans un
 // ticket, un PNG ne disait ni son classeur, ni son palier, ni sa lecture.
 describe("buildGraphSvg — le cartouche", () => {
-  const contexte = {
+  const context = {
     title: "Platform detail", reading: "architecture", milestone: "v2",
     source: "carto.xlsx", date: "2026-08-22", composants: 2, flows: 1, technologies: 1,
   };
@@ -807,7 +807,7 @@ describe("buildGraphSvg — le cartouche", () => {
     );
 
   it("pose titre et description en enfants DIRECTS de <svg>, référencés par aria-labelledby", async () => {
-    const svg = buildGraphSvg(await estate(), () => "#111", contexte);
+    const svg = buildGraphSvg(await estate(), () => "#111", context);
     expect(svg.getAttribute("role")).toBe("img");
     const ids = (svg.getAttribute("aria-labelledby") ?? "").split(" ");
     expect(ids).toHaveLength(2);
@@ -819,7 +819,7 @@ describe("buildGraphSvg — le cartouche", () => {
   });
 
   it("écrit le cartouche sur le dessin, au-dessus du contenu", async () => {
-    const svg = buildGraphSvg(await estate(), () => "#111", contexte);
+    const svg = buildGraphSvg(await estate(), () => "#111", context);
     const texts = [...svg.querySelectorAll(".fx-titleblock text")].map((t) => t.textContent);
     expect(texts[0]).toContain("milestone v2");
     expect(texts[1]).toContain("carto.xlsx");
@@ -838,7 +838,7 @@ describe("buildGraphSvg — le cartouche", () => {
   it("réserve sa bande dans le viewBox plutôt que de se poser par-dessus", async () => {
     const layout = await estate();
     const sans = buildGraphSvg(layout, () => "#111");
-    const avec = buildGraphSvg(layout, () => "#111", contexte);
+    const avec = buildGraphSvg(layout, () => "#111", context);
     const haut = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
     expect(haut(avec)).toBeLessThan(haut(sans));
   });
@@ -937,12 +937,12 @@ describe("buildGraphSvg — la forme redit ce que la couleur dit", () => {
   });
 
   it("met en pointillé le trait d'un retrait", async () => {
-    const svg = buildGraphSvg(await estate({}, {}, { ecart: "removed" }), () => "#111");
+    const svg = buildGraphSvg(await estate({}, {}, { change: "removed" }), () => "#111");
     expect(svg.querySelector(".fx-edges path")?.getAttribute("stroke-dasharray")).not.toBeNull();
   });
 
   it("laisse le trait d'un ajout plein", async () => {
-    const svg = buildGraphSvg(await estate({}, {}, { ecart: "added" }), () => "#111");
+    const svg = buildGraphSvg(await estate({}, {}, { change: "added" }), () => "#111");
     expect(svg.querySelector(".fx-edges path")?.getAttribute("stroke-dasharray")).toBeNull();
   });
 });

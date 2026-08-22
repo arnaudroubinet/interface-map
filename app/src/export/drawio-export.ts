@@ -1,6 +1,6 @@
 import type { LayoutResult, LayoutNode, LayoutEdge } from "../layout/graph-layout";
 import { entreesDeLegende } from "../render/legend";
-import { titleBlockText, type ContexteSchema } from "../render/title-block";
+import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { subLabel } from "../layout/graph-layout";
 
 // Toutes les planches, dans un fichier qu'on peut rouvrir et retoucher : une
@@ -57,7 +57,7 @@ export interface PlacedBoard {
   title: string;
   // Ce que la page dit d'elle-même : le même bloc que le cartouche du SVG.
   // draw.io est le format DESTINÉ À CIRCULER, et ses pages partaient sans.
-  contexte?: ContexteSchema;
+  context?: DiagramContext;
   // L'acteur que la planche détaille, quand elle en détaille un : c'est vers
   // elle que pointe la boîte de cet acteur, où qu'elle apparaisse.
   actor?: string;
@@ -75,13 +75,13 @@ export function buildDrawio(
   // depuis n'importe quelle boîte, d'ouvrir la page qui détaille cet acteur.
   // Chercher par le titre viserait aussi bien l'onglet du type de flux
   // homonyme -- « HTTP » nomme aussi bien une technologie qu'un acteur.
-  const pageParActeur = new Map(
+  const byActorPage = new Map(
     boards.flatMap((p, i) => (p.actor ? [[p.actor, `page_${i}`] as [string, string]] : []))
   );
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<mxfile host="carte-des-interfaces">',
-    ...boards.flatMap((p, i) => diagramme(p, i, couleurTechnologie, pageParActeur)),
+    ...boards.flatMap((p, i) => diagramme(p, i, couleurTechnologie, byActorPage)),
     "</mxfile>",
     "",
   ].join("\n");
@@ -91,7 +91,7 @@ export function buildDrawio(
 // même fonction que celles du SVG : deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
 function blocsExplicatifs(
-  { title, contexte, layout }: PlacedBoard,
+  { title, context, layout }: PlacedBoard,
   cellule: (id: string) => string,
   couleurTechnologie: (technology: string) => string
 ): string[] {
@@ -110,7 +110,7 @@ function blocsExplicatifs(
     );
 
   const yCartouche = Math.min(...ys) - 64;
-  const header = contexte ? titleBlockText(contexte) : { title, subtitle: "" };
+  const header = context ? titleBlockText(context) : { title, subtitle: "" };
   text("cartouche_t", header.title, gauche, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
   if (header.subtitle) {
     text("cartouche_s", header.subtitle, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
@@ -154,7 +154,7 @@ function diagramme(
   board: PlacedBoard,
   index: number,
   couleurTechnologie: (technology: string) => string,
-  pageParActeur: Map<string, string>
+  byActorPage: Map<string, string>
 ): string[] {
   const { title, layout } = board;
   const parId = new Map(layout.nodes.map((n) => [n.id, n]));
@@ -178,7 +178,7 @@ function diagramme(
     // Un UserObject plutôt qu'un mxCell nu : c'est lui qui porte l'infobulle,
     // le lien et les données de forme, que draw.io montre dans « Modifier les
     // données ». Un mxCell ne sait porter qu'un libellé.
-    const page = pageParActeur.get(n.label);
+    const page = byActorPage.get(n.label);
     const attributs = [
       `id="${cellule(n.id)}"`,
       `label="${escapeXml(content(n))}"`,

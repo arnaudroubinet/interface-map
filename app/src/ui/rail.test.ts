@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
-import { initialState, withFichierCharge, withMode, withVue, withSelectionActeur, type AppState } from "./state";
+import { initialState, withLoadedFile, withMode, withVue, withActorSelection, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
-import { VERSION_MODELE } from "../parsing/build-model";
+import { SCHEMA_VERSION } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
@@ -12,7 +12,7 @@ import type { IntegrityReport } from "../integrity/checks";
 // passerait un tableau vide masquerait une dépendance réelle du rail au
 // contenu des flux (§ filtre Technologies).
 function flows(state: AppState): ReturnType<typeof reading> {
-  return state.fichier ? reading(state.fichier.model, null, state.mode) : { flows: [], actors: [] };
+  return state.file ? reading(state.file.model, null, state.mode) : { flows: [], actors: [] };
 }
 
 function actor(name: string, actorType: string): Actor {
@@ -23,8 +23,8 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ providerName: "Tatooine", expectedSheet: "FX_Tatooine_HTTP", ...o });
 }
 
-function conso(o: Partial<Consumption> = {}): Consumption {
-  return base.conso({ consumerName: "Bus", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
+function consumption(o: Partial<Consumption> = {}): Consumption {
+  return base.consumption({ consumerName: "Bus", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
 }
 
 // Tatooine expose F vers Bus (Middleware, Technical), qui la relaie sous F2 vers
@@ -47,12 +47,12 @@ const modelAvecFlux: ParsedModel = {
     // le terrain portait encore la colonne « Relays » de la v3, que plus rien
     // ne lit -- la chaîne fonctionnelle n'existait donc pas, et le test du
     // filtre passait faute de flux plutôt que faute de technologie.
-    conso({ republishedAs: "F2" }),
-    conso({ flowName: "F2", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
+    consumption({ republishedAs: "F2" }),
+    consumption({ flowName: "F2", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
   ],
   fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
   missingOptionalColumns: [],
-  schemaVersion: VERSION_MODELE,
+  schemaVersion: SCHEMA_VERSION,
   savedAt: null,
 };
 
@@ -70,7 +70,7 @@ const model: ParsedModel = {
   consumptions: [],
   fxSheetNames: [],
   missingOptionalColumns: [],
-  schemaVersion: VERSION_MODELE,
+  schemaVersion: SCHEMA_VERSION,
   savedAt: null,
 };
 
@@ -81,25 +81,25 @@ function noop(): void {}
 const callbacks: RailCallbacks = {
   onMode: noop,
   onVue: noop,
-  onSelectionActeur: noop,
+  onActorSelection: noop,
   onSelectionTechnologie: noop,
   onSelectionChaine: noop,
   onVoisinage: noop,
   onSujetFrise: noop,
   onGraisseParCriticite: noop,
-  onPalierAffiche: noop,
+  onDisplayedMilestone: noop,
   onPalierCompare: noop,
   onOptionCompteurs: noop,
   onLibelléArête: noop,
   onOrdreMatrice: noop,
   onEchellePng: noop,
   onTechnoMasquee: noop,
-  onActeurMasque: noop,
+  onActorHidden: noop,
   onMasquerExternes: noop,
-  onActeurMasqueTechnologie: noop,
+  onActorHiddenForTechnology: noop,
   onMasquerExternesMatrice: noop,
-  onActeurMasqueMatrice: noop,
-  onGranulariteMatrice: noop,
+  onActorHiddenInMatrix: noop,
+  onMatrixGrain: noop,
   onTelechargerModele: noop,
   onTelechargerExemple: noop,
   onMigrationLegacy: noop,
@@ -111,7 +111,7 @@ function optionsActeur(root: HTMLElement): string[] {
 
 describe("renderRail — sélecteur « par acteur »", () => {
   it("liste tous les acteurs en architecture", () => {
-    const state = withVue(withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
+    const state = withVue(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
     expect(optionsActeur(root)).toContain("Bus");
@@ -120,7 +120,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
   // §5.2 : le sélecteur ne liste que les acteurs métier en fonctionnel.
   it("ne liste que les acteurs métier en fonctionnel", () => {
     const state = withVue(
-      withMode(withFichierCharge(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "functional"),
+      withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "functional"),
       "by-actor"
     );
     const root = document.createElement("div");
@@ -136,7 +136,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
 // pas les afficher tant que le classeur n'est pas à niveau.
 describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () => {
   it("n'affiche pas le compteur d'anomalies quand le classeur est bloqué en mise à niveau", () => {
-    const modelAncien: ParsedModel = { ...model, schemaVersion: VERSION_MODELE - 1 };
+    const modelAncien: ParsedModel = { ...model, schemaVersion: SCHEMA_VERSION - 1 };
     const reportAvecAnomalies: IntegrityReport = {
       families: [],
       infoBlocks: [],
@@ -145,7 +145,7 @@ describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () =
       totalAvertissements: 0,
     };
     const state = withVue(
-      withFichierCharge(initialState(), { name: "c.xlsx", model: modelAncien, report: reportAvecAnomalies, dateModification: null }),
+      withLoadedFile(initialState(), { name: "c.xlsx", model: modelAncien, report: reportAvecAnomalies, dateModification: null }),
       "upgrade"
     );
     const root = document.createElement("div");
@@ -159,8 +159,8 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
   // technologies) : la proposer produirait une case à cocher sans étiquette,
   // qui vide tout le schéma en un clic sans rien expliquer.
   it("n'affiche pas le bloc Technologies en mode fonctionnel", () => {
-    const state = withSelectionActeur(
-      withVue(withMode(withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "functional"), "by-actor"),
+    const state = withActorSelection(
+      withVue(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "functional"), "by-actor"),
       "Tatooine"
     );
     // Le terrain porte bien un lien fonctionnel : sans cette ligne, le test
@@ -173,8 +173,8 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
   });
 
   it("affiche le bloc Technologies en architecture", () => {
-    const state = withSelectionActeur(
-      withVue(withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "by-actor"),
+    const state = withActorSelection(
+      withVue(withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null }), "by-actor"),
       "Tatooine"
     );
     const root = document.createElement("div");
@@ -203,12 +203,12 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
     flowTypes: [base.typeFlux()],
     milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
     interfaces: [base.iface({ flowName: "F", providerName: "Bbb", expectedSheet: "FX_Bbb_HTTP" })],
-    consumptions: [base.conso({ flowName: "F", consumerName: "Aaa", sheet: "FX_Bbb_HTTP" })],
+    consumptions: [base.consumption({ flowName: "F", consumerName: "Aaa", sheet: "FX_Bbb_HTTP" })],
   });
 
   it("n'offre pas un acteur absent de la lecture courante", () => {
     const state: AppState = withVue(
-      withFichierCharge(initialState(), {
+      withLoadedFile(initialState(), {
         name: "c.xlsx",
         model: estate,
         report: runIntegrityChecks(estate),
@@ -230,7 +230,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
 // choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
 // qui est nommé.
 describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
-  const loaded = () => withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
   const rendu = (s: AppState) => {
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
