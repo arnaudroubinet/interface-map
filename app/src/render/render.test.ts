@@ -139,10 +139,10 @@ describe("buildIntegrityReport — état visuel des sections", () => {
     const el = buildIntegrityReport(report);
     const saine = parTitre(el, "Structure");
     const enAlerte = parTitre(el, "Cohérence");
-    const tracés = (d: Element) => [...d.querySelectorAll("summary svg path")].length;
+    const traces = (d: Element) => [...d.querySelectorAll("summary svg path")].length;
 
-    expect(tracés(saine)).toBe(1); // coche : un seul tracé
-    expect(tracés(enAlerte)).toBe(3); // octogone + les deux barres de la croix
+    expect(traces(saine)).toBe(1); // coche : un seul tracé
+    expect(traces(enAlerte)).toBe(3); // octogone + les deux barres de la croix
   });
 });
 
@@ -174,10 +174,10 @@ describe("buildIntegrityReport — avertissements", () => {
     expect([erreur.open, avert.open, info.open]).toEqual([true, true, true]);
 
     // Les trois icônes diffèrent par leur forme, pas seulement par leur couleur.
-    const tracés = (d: Element) => d.querySelectorAll("summary svg path").length;
-    expect(tracés(erreur)).toBe(3); // octogone + croix
-    expect(tracés(avert)).toBe(3); // triangle + barre + point
-    expect(tracés(info)).toBe(2); // barre + point, dans un cercle
+    const traces = (d: Element) => d.querySelectorAll("summary svg path").length;
+    expect(traces(erreur)).toBe(3); // octogone + croix
+    expect(traces(avert)).toBe(3); // triangle + barre + point
+    expect(traces(info)).toBe(2); // barre + point, dans un cercle
     expect(avert.querySelector("summary svg path")!.getAttribute("d")).not.toBe(
       erreur.querySelector("summary svg path")!.getAttribute("d")
     );
@@ -347,7 +347,7 @@ describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
 // --- §2.10 : 143 cases, aucun total, aucun titre, et rien qui dise à un
 // lecteur d'écran de quelle case un en-tête est le titre.
 describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
-  const parc = () =>
+  const estate = () =>
     base.matrix({
       columns: ["A", "B"],
       rows: [
@@ -357,18 +357,18 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
     });
 
   it("porte le titre du tableau dans un caption", () => {
-    const table = buildMatrixTable(parc(), () => "#111", "Matrix — architecture reading, milestone v2");
+    const table = buildMatrixTable(estate(), () => "#111", "Matrix — architecture reading, milestone v2");
     expect(table.querySelector("caption")?.textContent).toContain("milestone v2");
   });
 
   it("n'invente pas de caption quand aucun titre n'est fourni", () => {
-    expect(buildMatrixTable(parc(), () => "#111").querySelector("caption")).toBeNull();
+    expect(buildMatrixTable(estate(), () => "#111").querySelector("caption")).toBeNull();
   });
 
   // Sans `scope`, une matrix de 143 cases se lit comme 143 nombres sans
   // adresse.
   it("dit de quelle case chaque en-tête est le titre", () => {
-    const table = buildMatrixTable(parc(), () => "#111");
+    const table = buildMatrixTable(estate(), () => "#111");
     // Le coin n'est le titre de rien : il annonce le sens de lecture des deux
     // axes, et lui donner une portée le rattacherait à l'un des deux.
     const enTetes = [...table.querySelectorAll("thead th")].filter((th) => !th.classList.contains("matrix-corner"));
@@ -378,7 +378,7 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
   });
 
   it("compte les flux sortants en bout de ligne et les entrants en pied de colonne", () => {
-    const table = buildMatrixTable(parc(), () => "#111");
+    const table = buildMatrixTable(estate(), () => "#111");
     const finDeLigne = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
     expect(finDeLigne).toEqual(["3", "1"]);
     const pied = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
@@ -440,8 +440,8 @@ describe("buildFriseSvg", () => {
   // Le « vous êtes ici » : le palier affiché se distingue des autres.
   it("marque le palier affiché d'une verticale plus forte", () => {
     const svg = buildFriseSvg(timeline, "v2", null);
-    const épaisseurs = [...svg.querySelectorAll("line")].map((l) => l.getAttribute("stroke-width"));
-    expect(new Set(épaisseurs).size).toBe(2);
+    const widths = [...svg.querySelectorAll("line")].map((l) => l.getAttribute("stroke-width"));
+    expect(new Set(widths).size).toBe(2);
   });
 
   // Une barre plus longue à droite qu'à gauche : sans ça, deux versions qui se

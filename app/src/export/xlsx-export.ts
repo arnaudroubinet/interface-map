@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { téléchargerClasseur } from "./download";
+import { downloadWorkbook } from "./download";
 import type { MatrixResult } from "../aggregation/views";
 import { cellLabel } from "../aggregation/core";
 
@@ -41,7 +41,7 @@ function largeurs(grille: string[][]): { wch: number }[] {
 
 // Séparé du téléchargement : c'est la partie qui décide du contenu, donc la
 // seule qui vaille d'être testée. Le reste n'est que du DOM.
-export function construireClasseurMatrice(matrix: MatrixResult): XLSX.WorkBook {
+export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
   const grille = grilleMatrice(matrix);
@@ -65,7 +65,7 @@ export function construireClasseurMatrice(matrix: MatrixResult): XLSX.WorkBook {
 }
 
 export function downloadMatrixXlsx(matrix: MatrixResult, filename: string): void {
-  const wb = construireClasseurMatrice(matrix);
+  const wb = buildMatrixWorkbook(matrix);
   const donnees = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  téléchargerClasseur(donnees, filename);
+  downloadWorkbook(donnees, filename);
 }

@@ -28,9 +28,9 @@ function texteInline(value: string): string {
 }
 
 // Le bilan compte les puces RÉELLEMENT imprimées, section par section. Calculé
-// à côté, sur les counters du report, il annonçait « 2 pending decisions »
+// at side, sur les counters du report, il annonçait « 2 pending decisions »
 // au-dessus de dix-neuf puces -- les blocks informatifs n'y entraient pas -- et
-// se réduisait à un point solitaire quand aucun compteur n'était renseigné.
+// se réduisait at un point solitaire quand aucun compteur n'était renseigné.
 const LIBELLE_GRAVITE: Record<string, [string, string]> = {
   erreur: ["anomaly", "anomalies"],
   action: ["pending decision", "pending decisions"],
@@ -58,7 +58,7 @@ export function rapportEnMarkdown(
     );
   }
 
-  // Une section vide rassure à l'écran ; collée dans un ticket, elle encombre.
+  // Une section vide rassure at l'écran ; collée dans un ticket, elle encombre.
   const sections = sectionsDuRapport(report).filter((s) => s.items.length > 0);
 
   if (sections.length === 0) {
@@ -66,10 +66,10 @@ export function rapportEnMarkdown(
     return rows.join("\n");
   }
 
-  const parGravité = new Map<string, number>();
-  for (const s of sections) parGravité.set(s.severity, (parGravité.get(s.severity) ?? 0) + s.items.length);
+  const bySeverity = new Map<string, number>();
+  for (const s of sections) bySeverity.set(s.severity, (bySeverity.get(s.severity) ?? 0) + s.items.length);
   const bilan = Object.entries(LIBELLE_GRAVITE)
-    .map(([severity, [singulier, pluriel]]) => compte(parGravité.get(severity) ?? 0, singulier, pluriel))
+    .map(([severity, [singulier, pluriel]]) => compte(bySeverity.get(severity) ?? 0, singulier, pluriel))
     .filter(Boolean);
   rows.push(`${bilan.join(", ")}.`, "");
 

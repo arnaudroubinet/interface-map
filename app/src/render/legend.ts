@@ -6,12 +6,12 @@ import { normalizeText } from "../shared/text";
 // en DONNÉES, et non dans le constructeur SVG : le fichier draw.io doit
 // dessiner exactement la même, et deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
-export type ÉchantillonLegende =
+export type LegendSample =
   | { shape: "line"; colour: string; dashed?: boolean; head?: "start" | "end"; thickness?: number }
   | { shape: "box"; fill: string; stroke: string; dashed?: boolean; coinCoupé?: boolean; pile?: boolean };
 
 export interface EntreeLegende {
-  sample: ÉchantillonLegende;
+  sample: LegendSample;
   text: string;
 }
 
@@ -24,7 +24,7 @@ export interface NoeudLegendable {
   agrégat?: number;
 }
 
-export interface ArêteLegendable {
+export interface LegendableEdge {
   technology: string;
   criticality?: string;
   ecart?: "added" | "removed";
@@ -44,7 +44,7 @@ const LIBELLE_ECART: Record<"added" | "removed", string> = {
 };
 
 export function entreesDeLegende(
-  edges: readonly ArêteLegendable[],
+  edges: readonly LegendableEdge[],
   nodes: readonly NoeudLegendable[],
   colorFor: (tech: string) => string,
   graisseParCriticite = false

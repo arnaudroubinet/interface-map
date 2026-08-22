@@ -176,10 +176,10 @@ describe("chainesCoupees", () => {
   it("nomme l'interface republiée que rien n'alimente", () => {
     const m = unRelais();
     m.consumptions[0].republishedAs = "";
-    const coupées = chainesCoupees(m, null);
-    expect(coupées).toHaveLength(1);
-    expect(coupées[0].reason).toBe("no-input");
-    expect(coupées[0].iface.flowName).toBe("trx.norm");
+    const cut = chainesCoupees(m, null);
+    expect(cut).toHaveLength(1);
+    expect(cut[0].reason).toBe("no-input");
+    expect(cut[0].iface.flowName).toBe("trx.norm");
   });
 
   it("nomme aussi celle dont la seule entrée désigne une interface inconnue", () => {
@@ -204,9 +204,9 @@ describe("chainesCoupees", () => {
   // vivante : c'est exactement la même situation qu'une entrée jamais saisie,
   // et aucun appelant ne distingue les deux.
   it("signale un segment retiré au palier comme une interface sans entrée", () => {
-    const coupées = chainesCoupees(unRelaisAvecSegmentRetire(), 2);
-    expect(coupées).toHaveLength(1);
-    expect(coupées[0].reason).toBe("no-input");
+    const cut = chainesCoupees(unRelaisAvecSegmentRetire(), 2);
+    expect(cut).toHaveLength(1);
+    expect(cut[0].reason).toBe("no-input");
   });
 });
 
@@ -246,7 +246,7 @@ describe("remontée — l'acteur source doit vivre au palier, pas seulement son 
 // tout le catalogue : elle prenait le premier venu, donc parfois le mauvais
 // exposant ou la mauvaise version, en silence.
 describe("remontée — l'entrée désigne son fournisseur et sa version", () => {
-  const parc = (o: Partial<ParsedModel>) =>
+  const estate = (o: Partial<ParsedModel>) =>
     model({
       actors: [actor("A", "Application"), actor("B", "Application"), actor("X", "Middleware"), actor("C", "Application")],
       ...o,
@@ -255,7 +255,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
   // Deux acteurs publient un flux du même nom -- c'est légitime. Le bus n'en
   // consomme qu'un : c'est celui-là, et pas l'autre, qui alimente C.
   it("suit l'exposant de la consommation, pas un homonyme du catalogue", () => {
-    const m = parc({
+    const m = estate({
       interfaces: [iface("f0", "A"), iface("f0", "B"), iface("f1", "X")],
       consumptions: [conso("f0", "X", "B", "f1"), conso("f1", "C", "X")],
     });
@@ -263,7 +263,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
   });
 
   it("suit la version réellement consommée", () => {
-    const m = parc({
+    const m = estate({
       interfaces: [
         { ...iface("f0", "A"), version: "1.0" },
         { ...iface("f0", "A"), version: "2.0" },
@@ -288,7 +288,7 @@ describe("remontée — l'entrée désigne son fournisseur et sa version", () =>
 // seul. Porté par la consommation, ce cas ne demande aucune syntaxe : ce sont
 // simplement plusieurs lignes qui désignent la même interface.
 describe("remontée — un relayeur qui agrège plusieurs sources", () => {
-  const parc = (republications: [string, string][]) =>
+  const estate = (republications: [string, string][]) =>
     model({
       actors: [actor("A", "Application"), actor("B", "Application"), actor("X", "Middleware"), actor("C", "Application")],
       interfaces: [iface("f0", "A"), iface("g0", "B"), iface("f1", "X")],
@@ -300,12 +300,12 @@ describe("remontée — un relayeur qui agrège plusieurs sources", () => {
     });
 
   it("suit toutes les entrées republiées sous la même interface", () => {
-    const flows = buildFunctionalFlows(parc([["f0", "f1"], ["g0", "f1"]]), null);
+    const flows = buildFunctionalFlows(estate([["f0", "f1"], ["g0", "f1"]]), null);
     expect(flows.map((f) => `${f.provider}→${f.consumer}`).sort()).toEqual(["A→C", "B→C"]);
   });
 
   it("n'en suit qu'une quand une seule est republiée", () => {
-    expect(buildFunctionalFlows(parc([["f0", "f1"], ["g0", ""]]), null).map((f) => f.provider)).toEqual(["A"]);
+    expect(buildFunctionalFlows(estate([["f0", "f1"], ["g0", ""]]), null).map((f) => f.provider)).toEqual(["A"]);
   });
 
   // Deux branches qui remontent à la même source ne font qu'un lien : sans
@@ -329,7 +329,7 @@ describe("remontée — un relayeur qui agrège plusieurs sources", () => {
 // palier n'en montre que son sous-ensemble. Sans cela, trois arêtes de plus
 // suffisaient à déplacer les treize mêmes boîtes de 400 px en médiane.
 describe("lectureUnion", () => {
-  const parc = () =>
+  const estate = () =>
     base.template({
       milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
       groups: [base.group({ name: "G" })],
@@ -349,18 +349,18 @@ describe("lectureUnion", () => {
     });
 
   it("réunit les acteurs de tous les paliers, y compris ceux qui arrivent plus tard", () => {
-    expect(lectureUnion(parc(), "architecture").actors.map((a) => a.name).sort()).toEqual(["A", "B", "Tardif"]);
+    expect(lectureUnion(estate(), "architecture").actors.map((a) => a.name).sort()).toEqual(["A", "B", "Tardif"]);
   });
 
   it("réunit les flux de tous les paliers, y compris ceux qui disparaissent", () => {
-    const consommateurs = lectureUnion(parc(), "architecture").flows.map((f) => f.consumer).sort();
+    const consommateurs = lectureUnion(estate(), "architecture").flows.map((f) => f.consumer).sort();
     expect(consommateurs).toEqual(["B", "Tardif"]);
   });
 
   // Un même flux vivant à deux paliers ne doit pas compter deux fois : la
   // planche placerait deux traits superposés.
   it("ne double pas un flux vivant à plusieurs paliers", () => {
-    const m = parc();
+    const m = estate();
     m.consumptions[0].retiredAt = "";
     expect(lectureUnion(m, "architecture").flows).toHaveLength(2);
   });
@@ -368,7 +368,7 @@ describe("lectureUnion", () => {
   // Un classeur sans palier n'a rien à réunir : la lecture ordinaire suffit,
   // et fabriquer une union vide effacerait tout le parc.
   it("retombe sur la lecture ordinaire quand le classeur ne déclare aucun palier", () => {
-    const m = base.template({ ...parc(), milestones: [] });
+    const m = base.template({ ...estate(), milestones: [] });
     expect(lectureUnion(m, "architecture").actors).toHaveLength(3);
   });
 });

@@ -35,8 +35,8 @@ describe("assombrirJusquA", () => {
 
   // On assombrit, on ne redéfinit pas : un jaune reste un jaune.
   it("garde la teinte en ne touchant qu'à la clarté", () => {
-    const corrigée = assombrirJusquA("#ffee00", 3);
-    const [r, v, b] = [1, 3, 5].map((i) => parseInt(corrigée.slice(i, i + 2), 16));
+    const corrected = assombrirJusquA("#ffee00", 3);
+    const [r, v, b] = [1, 3, 5].map((i) => parseInt(corrected.slice(i, i + 2), 16));
     expect(r).toBeGreaterThan(b);
     expect(v).toBeGreaterThan(b);
   });

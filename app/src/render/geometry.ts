@@ -81,14 +81,14 @@ export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][
       if (end > start) cuts.push([start, end]);
     }
     cuts.sort((x, y) => x[0] - y[0]);
-    const fusionnées: [number, number][] = [];
+    const merged: [number, number][] = [];
     for (const c of cuts) {
-      const dernier = fusionnées[fusionnées.length - 1];
+      const dernier = merged[merged.length - 1];
       if (dernier && c[0] <= dernier[1]) dernier[1] = Math.max(dernier[1], c[1]);
-      else fusionnées.push([...c]);
+      else merged.push([...c]);
     }
 
-    for (const [start, end] of fusionnées) {
+    for (const [start, end] of merged) {
       if (start > 0) courant.push(surSegment(a, b, start));
       if (courant.length > 1) morceaux.push(courant);
       courant = end < 1 ? [surSegment(a, b, end)] : [];
@@ -118,21 +118,21 @@ export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
 
   let d = `M ${points[0].x},${points[0].y}`;
   for (let i = 1; i < points.length - 1; i++) {
-    const précédent = points[i - 1];
+    const previous = points[i - 1];
     const coude = points[i];
     const suivant = points[i + 1];
-    const avant = Math.hypot(coude.x - précédent.x, coude.y - précédent.y);
-    const après = Math.hypot(suivant.x - coude.x, suivant.y - coude.y);
-    const alignés = Math.abs((coude.x - précédent.x) * (suivant.y - coude.y) - (coude.y - précédent.y) * (suivant.x - coude.x)) < 0.01;
+    const avant = Math.hypot(coude.x - previous.x, coude.y - previous.y);
+    const after = Math.hypot(suivant.x - coude.x, suivant.y - coude.y);
+    const aligned = Math.abs((coude.x - previous.x) * (suivant.y - coude.y) - (coude.y - previous.y) * (suivant.x - coude.x)) < 0.01;
 
-    if (alignés || avant < 0.01 || après < 0.01) {
+    if (aligned || avant < 0.01 || after < 0.01) {
       d += ` L ${coude.x},${coude.y}`;
       continue;
     }
     const ra = Math.min(radius, avant / 2);
-    const rb = Math.min(radius, après / 2);
-    const input = { x: coude.x + ((précédent.x - coude.x) / avant) * ra, y: coude.y + ((précédent.y - coude.y) / avant) * ra };
-    const output = { x: coude.x + ((suivant.x - coude.x) / après) * rb, y: coude.y + ((suivant.y - coude.y) / après) * rb };
+    const rb = Math.min(radius, after / 2);
+    const input = { x: coude.x + ((previous.x - coude.x) / avant) * ra, y: coude.y + ((previous.y - coude.y) / avant) * ra };
+    const output = { x: coude.x + ((suivant.x - coude.x) / after) * rb, y: coude.y + ((suivant.y - coude.y) / after) * rb };
     d += ` L ${input.x},${input.y} Q ${coude.x},${coude.y} ${output.x},${output.y}`;
   }
   const dernier = points[points.length - 1];

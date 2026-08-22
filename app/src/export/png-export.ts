@@ -1,5 +1,5 @@
 import { serializeSvg } from "./svg-export";
-import { téléchargerBlob } from "./download";
+import { downloadBlob } from "./download";
 
 export type PngResult = { ok: true; blob: Blob } | { ok: false; error: string };
 
@@ -53,5 +53,5 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
 }
 
 export function downloadPngBlob(blob: Blob, filename: string): void {
-  téléchargerBlob(blob, filename);
+  downloadBlob(blob, filename);
 }

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { reparerClasseur } from "./repair";
-import { écrireModele } from "./template-export";
+import { writeTemplate } from "./template-export";
 import { DONNEES_EXEMPLE } from "./sample-data";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, VERSION_MODELE } from "../parsing/build-model";
@@ -99,9 +99,9 @@ describe("reparerClasseur", () => {
   // Un classeur de notre famille n'est pas une conversion : c'est une remise en
   // état, et il n'y a rien à signaler d'inféré.
   it("upgrades one of our own workbooks without a legacy report", () => {
-    const r = reparerClasseur(écrireModele(DONNEES_EXEMPLE), LE_JOUR);
+    const r = reparerClasseur(writeTemplate(DONNEES_EXEMPLE), LE_JOUR);
     expect(r.rapportLegacy).toBeNull();
-    const relu = buildModel(parseWorkbook(écrireModele(r.donnees)));
+    const relu = buildModel(parseWorkbook(writeTemplate(r.donnees)));
     if (!relu.ok) throw new Error("illisible");
     expect(relu.model.versionModele).toBe(VERSION_MODELE);
   });
@@ -109,8 +109,8 @@ describe("reparerClasseur", () => {
   // C'est ce qui remplace la macro : rendre un fichier où il ne manque aucun
   // onglet, même pour une interface qui n'a pas encore de consommation.
   it("returns a workbook where every expected sheet exists", () => {
-    const r = reparerClasseur(écrireModele(DONNEES_EXEMPLE), LE_JOUR);
-    const relu = buildModel(parseWorkbook(écrireModele(r.donnees)));
+    const r = reparerClasseur(writeTemplate(DONNEES_EXEMPLE), LE_JOUR);
+    const relu = buildModel(parseWorkbook(writeTemplate(r.donnees)));
     if (!relu.ok) throw new Error("illisible");
     const attendus = new Set(relu.model.interfaces.map((i) => i.expectedSheet));
     for (const attendu of attendus) expect(relu.model.fxSheetNames).toContain(attendu);
@@ -163,12 +163,12 @@ function classeurFrancais(): ArrayBuffer {
 
 describe("classeur au modèle actuel nommé en français", () => {
   it("se lit comme un classeur de la famille, sans passer par la conversion d'origine", () => {
-    const réparation = reparerClasseur(classeurFrancais(), LE_JOUR);
-    expect(réparation.rapportLegacy).toBeNull();
+    const repair = reparerClasseur(classeurFrancais(), LE_JOUR);
+    expect(repair.rapportLegacy).toBeNull();
   });
 
   it("garde les acteurs, leur responsable et l'interface", () => {
-    const relu = buildModel(parseWorkbook(écrireModele(reparerClasseur(classeurFrancais(), LE_JOUR).donnees)));
+    const relu = buildModel(parseWorkbook(writeTemplate(reparerClasseur(classeurFrancais(), LE_JOUR).donnees)));
     expect(relu.ok).toBe(true);
     if (!relu.ok) return;
     expect(relu.model.actors.map((a) => a.name).sort()).toEqual(["Chandrila", "Endor"]);
@@ -178,7 +178,7 @@ describe("classeur au modèle actuel nommé en français", () => {
   });
 
   it("traduit les valeurs françaises au passage", () => {
-    const relu = buildModel(parseWorkbook(écrireModele(reparerClasseur(classeurFrancais(), LE_JOUR).donnees)));
+    const relu = buildModel(parseWorkbook(writeTemplate(reparerClasseur(classeurFrancais(), LE_JOUR).donnees)));
     if (!relu.ok) return;
     expect(relu.model.consumptions[0].decision).toBe("Keep");
     expect(relu.model.consumptions[0].criticality).toBe("1 - Critical");

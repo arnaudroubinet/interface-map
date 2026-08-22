@@ -9,25 +9,25 @@ const lien = (provider: string, consumer: string): FlowInstance =>
   ({ provider, consumer, interfaceName: "F", version: "", flowType: "HTTP", direction: "provider-to-consumer",
      attenuated: false, iface: base.iface(), conso: base.conso() }) as FlowInstance;
 
-const parc = [lien("A", "B"), lien("B", "C"), lien("D", "A")];
+const estate = [lien("A", "B"), lien("B", "C"), lien("D", "A")];
 
 describe("rayon", () => {
   it("compte le départ à zéro saut", () => {
-    expect(radius(parc, "A", "downstream").get("A")).toBe(0);
+    expect(radius(estate, "A", "downstream").get("A")).toBe(0);
   });
 
   // « Si A tombe, qui est touché ? » B en dépend, et C dépend de B.
   it("suit l'aval transitivement, en comptant les sauts", () => {
-    expect([...radius(parc, "A", "downstream").entries()].sort()).toEqual([["A", 0], ["B", 1], ["C", 2]]);
+    expect([...radius(estate, "A", "downstream").entries()].sort()).toEqual([["A", 0], ["B", 1], ["C", 2]]);
   });
 
   // « De quoi A dépend-il ? » De D, et de rien d'autre.
   it("suit l'amont dans l'autre sens", () => {
-    expect([...radius(parc, "A", "upstream").entries()].sort()).toEqual([["A", 0], ["D", 1]]);
+    expect([...radius(estate, "A", "upstream").entries()].sort()).toEqual([["A", 0], ["D", 1]]);
   });
 
   it("ne garde que les voisins immédiats en direct, des deux côtés", () => {
-    expect([...radius(parc, "A", "direct").keys()].sort()).toEqual(["A", "B", "D"]);
+    expect([...radius(estate, "A", "direct").keys()].sort()).toEqual(["A", "B", "D"]);
   });
 
   // Un cycle ne doit pas boucler : le classeur d'exemple en contient un, à
@@ -48,6 +48,6 @@ describe("rayon", () => {
 
   // Un acteur qui ne touche rien n'a que lui-même dans son rayon.
   it("rend le seul départ pour un acteur isolé", () => {
-    expect([...radius(parc, "Isolé", "downstream").keys()]).toEqual(["Isolé"]);
+    expect([...radius(estate, "Isolé", "downstream").keys()]).toEqual(["Isolé"]);
   });
 });

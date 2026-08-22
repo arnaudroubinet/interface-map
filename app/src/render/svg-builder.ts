@@ -10,7 +10,7 @@ import {
   HAUTEUR_LIGNE_DESC,
   HAUTEUR_PASTILLE,
   largeurPastille,
-  sousLibellé as sousLibelléDe,
+  subLabel as sousLibelléDe,
   taillePastille,
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
@@ -23,9 +23,9 @@ import {
   type Point,
   type Rect,
 } from "./geometry";
-import { PAPIER, ENCRE, ÉPAISSEUR_TRAIT, COULEUR_ECART, styleDuNoeud } from "./node-styles";
-import { entreesDeLegende, type EntreeLegende, type ÉchantillonLegende } from "./legend";
-import { construireCartouche, descriptionAccessible, libelléCartouche, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
+import { PAPIER, ENCRE, STROKE_WIDTH, COULEUR_ECART, styleDuNoeud } from "./node-styles";
+import { entreesDeLegende, type EntreeLegende, type LegendSample } from "./legend";
+import { buildTitleBlock, descriptionAccessible, titleBlockText, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 // La même pile que la page (index.html) : les constantes de largeur des
@@ -85,7 +85,7 @@ interface RenderEdge {
 
 // Jeu conservé entre la pointe de la flèche et la boîte visée : la flèche
 // pointe le nœud, elle ne s'y superpose pas.
-const ÉCART_POINTE = 4;
+const ARROW_GAP = 4;
 
 
 
@@ -116,11 +116,11 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
     groups.set(key, group);
   }
 
-  const résultat: RenderEdge[] = [];
+  const result: RenderEdge[] = [];
 
   // Un flux dessiné tel quel, avec sa propre pointe.
   const seul = (edge: LayoutEdge) => {
-      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
   for (const group of groups.values()) {
@@ -136,7 +136,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
       // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
       // le libellé plutôt du côté le moins encombré.
-      résultat.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, ecart: edge.ecart, label: edge.label, criticality: edge.criticality, arrow: true });
       continue;
     }
 
@@ -146,15 +146,15 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
     // des segments différents : remplacer alors leur extrémité par une
     // confluence commune fabriquerait un raccourci qui coupe à travers les
     // boîtes. On ne fusionne que lorsque l'approche est effectivement commune.
-    const référence = group[0].points;
-    const target = référence[référence.length - 1];
-    const avant = référence[référence.length - 2];
-    const mêmeApproche = group.every((e) => {
+    const reference = group[0].points;
+    const target = reference[reference.length - 1];
+    const avant = reference[reference.length - 2];
+    const sameApproach = group.every((e) => {
       const a = e.points[e.points.length - 2];
       const c = e.points[e.points.length - 1];
       return a && c && Math.abs(a.x - avant.x) < 0.5 && Math.abs(a.y - avant.y) < 0.5 && Math.abs(c.x - target.x) < 0.5 && Math.abs(c.y - target.y) < 0.5;
     });
-    if (!mêmeApproche) {
+    if (!sameApproach) {
       for (const edge of group) seul(edge);
       continue;
     }
@@ -176,10 +176,10 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Toutes les branches convergent vers la même confluence encombrée :
       // le libellé se place près de sa propre source, là où les branches sont
       // encore écartées les unes des autres (à leurs ports de sortie).
-      résultat.push({ points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
+      result.push({ points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
     }
 
-    résultat.push({
+    result.push({
       points: [confluence, target],
       to: group[0].to,
       technology: group[0].technology,
@@ -193,7 +193,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       estTronc: true,
     });
   }
-  return résultat;
+  return result;
 }
 
 // La pointe doit TENIR dans le segment qui la porte. ELK sort d'une boîte par
@@ -208,12 +208,12 @@ const TAILLES_POINTE = [12, 8, 5, 3] as const;
 
 // L'écart avant contact suit la pointe : gardé à 4 px sous une pointe de 3, il
 // mangerait plus que la pointe elle-même.
-function écartDePointe(size: number): number {
-  return Math.min(ÉCART_POINTE, size / 3);
+function arrowGapFor(size: number): number {
+  return Math.min(ARROW_GAP, size / 3);
 }
 
 function tailleDePointe(longueurApproche: number): number {
-  return TAILLES_POINTE.find((t) => longueurApproche >= t + écartDePointe(t)) ?? TAILLES_POINTE[TAILLES_POINTE.length - 1];
+  return TAILLES_POINTE.find((t) => longueurApproche >= t + arrowGapFor(t)) ?? TAILLES_POINTE[TAILLES_POINTE.length - 1];
 }
 
 // La longueur DROITE réellement disponible au bout du trait pour y poser la
@@ -228,7 +228,7 @@ function longueurDApproche(edge: RenderEdge): number {
   return brute - Math.min(RAYON_ANGLE, brute / 2);
 }
 
-function idMarqueurFlèche(colour: string, hollow = false, size = TAILLE_POINTE): string {
+function arrowMarkerId(colour: string, hollow = false, size = TAILLE_POINTE): string {
   return `${hollow ? "arrow-hollow" : "arrow"}-${size}-${colour.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
@@ -237,7 +237,7 @@ function idMarqueurFlèche(colour: string, hollow = false, size = TAILLE_POINTE)
 // milieu du plus long segment, puis dégagement des boîtes, puis écartement
 // mutuel -- finissait par éloigner la pastille de sa propre flèche, au point
 // qu'on ne savait plus laquelle allait avec laquelle.
-function placerLesLibellés(edges: RenderEdge[]): Map<RenderEdge, Point> {
+function placeLabels(edges: RenderEdge[]): Map<RenderEdge, Point> {
   const placements = new Map<RenderEdge, Point>();
   for (const e of edges) {
     if (e.label && e.centreLibellé) placements.set(e, e.centreLibellé);
@@ -254,7 +254,7 @@ function placerLesLibellés(edges: RenderEdge[]): Map<RenderEdge, Point> {
 // couleur rendait le schéma illisible en niveaux de gris. C'est exactement ce
 // que la matrix fait déjà. Une couleur d'écart, elle, reste l'encre : là, la
 // teinte EST le message, et les deux passent le seuil (5,05 et 4,80).
-function construireLibelléArête(
+function buildEdgeLabel(
   cx: number,
   cy: number,
   text: string,
@@ -268,7 +268,7 @@ function construireLibelléArête(
   const yTexte = sousTexte ? cy - height / 2 + 9 : cy + 3.5;
   const offset = pastilleCouleur ? LARGEUR_DISQUE : 0;
 
-  const poser = (content: string, y: number, size: string, remplissage: string, gras: boolean) => {
+  const apply = (content: string, y: number, size: string, remplissage: string, gras: boolean) => {
     const t = el("text");
     t.setAttribute("x", String(cx + offset / 2));
     t.setAttribute("y", String(y));
@@ -297,10 +297,10 @@ function construireLibelléArête(
     g.appendChild(disque);
   }
 
-  poser(text, yTexte, "11", pastilleCouleur ? ENCRE : colour, true);
+  apply(text, yTexte, "11", pastilleCouleur ? ENCRE : colour, true);
   // 8,5 px en gris pâle : le plus petit texte du schéma était aussi le moins
   // contrasté. 10 px et un ardoise franc (10,16:1 contre 4,74:1).
-  if (sousTexte) poser(sousTexte, yTexte + 11, "10", GRIS_SECONDAIRE, false);
+  if (sousTexte) apply(sousTexte, yTexte + 11, "10", GRIS_SECONDAIRE, false);
   return g;
 }
 
@@ -314,7 +314,7 @@ function construireLibelléArête(
 // Hors d'elle -- un .svg ouvert seul, un PNG rastérisé -- le trait se résolvait
 // à « none » et le schéma Écarts sortait SANS AUCUN TRAIT.
 
-function couleurArête(edge: RenderEdge, colorFor: (tech: string) => string): string {
+function edgeColour(edge: RenderEdge, colorFor: (tech: string) => string): string {
   return edge.ecart ? COULEUR_ECART[edge.ecart] : colorFor(edge.technology);
 }
 
@@ -323,15 +323,15 @@ function couleurArête(edge: RenderEdge, colorFor: (tech: string) => string): st
 // de flux agrégés écrasait visuellement les voisins, et le volume se lit dans
 // le « ×N ». Ce raisonnement valait pour un volume ; il ne vaut pas pour un
 // ordre, et la criticité en est un.
-const ÉPAISSEUR_PAR_CRITICITE: Record<string, number> = {
+const WIDTH_BY_CRITICALITY: Record<string, number> = {
   "1 - critical": 3.5,
   "2 - important": 2,
   "3 - standard": 1,
 };
 
-function épaisseurDuTrait(edge: RenderEdge, parCriticite: boolean): number {
-  if (!parCriticite || !edge.criticality) return ÉPAISSEUR_TRAIT;
-  return ÉPAISSEUR_PAR_CRITICITE[normalizeText(edge.criticality)] ?? ÉPAISSEUR_TRAIT;
+function strokeWidthOf(edge: RenderEdge, parCriticite: boolean): number {
+  if (!parCriticite || !edge.criticality) return STROKE_WIDTH;
+  return WIDTH_BY_CRITICALITY[normalizeText(edge.criticality)] ?? STROKE_WIDTH;
 }
 
 function buildEdgeElement(
@@ -341,7 +341,7 @@ function buildEdgeElement(
   parCriticite: boolean
 ): SVGGElement {
   const g = el("g");
-  const colour = couleurArête(edge, colorFor);
+  const colour = edgeColour(edge, colorFor);
 
   // Le nom de l'échange se lit ici, au hover, dans le navigateur comme dans
   // un .svg ouvert seul. La condition « au moins deux noms » en privait toute
@@ -354,24 +354,24 @@ function buildEdgeElement(
   }
 
   const taillePointe = tailleDePointe(longueurDApproche(edge));
-  const pointsTracé = edge.arrow
-    ? reculerPourLaPointe(edge.points, taillePointe + écartDePointe(taillePointe), edge.pulled === true)
+  const drawnPoints = edge.arrow
+    ? reculerPourLaPointe(edge.points, taillePointe + arrowGapFor(taillePointe), edge.pulled === true)
     : edge.points;
-  const morceaux = interrompreLeTrace(pointsTracé, rectLibellé ? [rectLibellé] : []);
+  const morceaux = interrompreLeTrace(drawnPoints, rectLibellé ? [rectLibellé] : []);
 
   morceaux.forEach((morceau, i) => {
     const path = el("path");
     path.setAttribute("d", cheminArrondi(morceau));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", colour);
-    path.setAttribute("stroke-width", String(épaisseurDuTrait(edge, parCriticite)));
+    path.setAttribute("stroke-width", String(strokeWidthOf(edge, parCriticite)));
     // La pointe ne va que sur le morceau qui aborde celui qu'elle désigne : le
     // dernier quand le fournisseur pousse, le premier quand le consommateur
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
     // définition sert les deux.
     if (edge.arrow) {
-      if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${idMarqueurFlèche(colour, true, taillePointe)})`);
-      if (!edge.pulled && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${idMarqueurFlèche(colour, false, taillePointe)})`);
+      if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${arrowMarkerId(colour, true, taillePointe)})`);
+      if (!edge.pulled && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, taillePointe)})`);
     }
     if (edge.attenuated) {
       path.setAttribute("stroke-dasharray", "6 4");
@@ -397,10 +397,10 @@ function buildEdgeElement(
 
 
 
-function construireIcône(name: string, x: number, y: number, size: number, colour: string): SVGGElement {
+function buildIcon(name: string, x: number, y: number, size: number, colour: string): SVGGElement {
   const g = el("g");
-  const échelle = size / 24;
-  g.setAttribute("transform", `translate(${x},${y}) scale(${échelle})`);
+  const scale = size / 24;
+  g.setAttribute("transform", `translate(${x},${y}) scale(${scale})`);
   g.setAttribute("fill", "none");
   g.setAttribute("stroke", colour);
   g.setAttribute("stroke-width", "2");
@@ -409,9 +409,9 @@ function construireIcône(name: string, x: number, y: number, size: number, colo
   // Un nom inconnu retombe sur le jeton neutre plutôt que de ne rien dessiner :
   // une boîte sans icône se lirait comme un oubli, pas comme une erreur de
   // saisie -- que les contrôles d'intégrité signalent par ailleurs.
-  for (const élément of ICONES[name] ?? ICONES[ICONE_PAR_DEFAUT]) {
-    const e = el(élément.tag);
-    for (const [attr, val] of Object.entries(élément.attrs)) e.setAttribute(attr, val);
+  for (const element of ICONES[name] ?? ICONES[ICONE_PAR_DEFAUT]) {
+    const e = el(element.tag);
+    for (const [attr, val] of Object.entries(element.attrs)) e.setAttribute(attr, val);
     g.appendChild(e);
   }
   return g;
@@ -419,7 +419,7 @@ function construireIcône(name: string, x: number, y: number, size: number, colo
 
 // Chip arrondi (style C4 « type » / « externe ») : fond teinté à faible
 // opacité, texte de la même couleur que la bordure du nœud.
-function construireChip(x: number, y: number, contenu: string, colour: string): { élément: SVGGElement; width: number } {
+function buildChip(x: number, y: number, contenu: string, colour: string): { element: SVGGElement; width: number } {
   const width = contenu.length * 5.3 + 14;
   const height = 15;
   const g = el("g");
@@ -441,7 +441,7 @@ function construireChip(x: number, y: number, contenu: string, colour: string): 
   text.setAttribute("fill", colour);
   text.textContent = contenu;
   g.appendChild(text);
-  return { élément: g, width };
+  return { element: g, width };
 }
 
 // Frontière au sens C4 : un cadre en pointillés autour des composants du
@@ -485,10 +485,10 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     const pile = el("g");
     pile.setAttribute("class", "fx-stack");
     for (const offset of [8, 4]) {
-      const derrière = rect(x + offset, y - offset, node.width, node.height, style.fill, style.stroke, style.épaisseurBord);
-      derrière.setAttribute("rx", "10");
-      derrière.setAttribute("opacity", "0.55");
-      pile.appendChild(derrière);
+      const behind = rect(x + offset, y - offset, node.width, node.height, style.fill, style.stroke, style.épaisseurBord);
+      behind.setAttribute("rx", "10");
+      behind.setAttribute("opacity", "0.55");
+      pile.appendChild(behind);
     }
     g.appendChild(pile);
   }
@@ -535,24 +535,24 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const rows = lignesDescription(node.description);
   let curseur = node.y - hauteurTexteNoeud(node) / 2;
 
-  const tailleIcône = 16;
-  const nomAffiché = nomTronque(node.label);
-  const largeurNom = nomAffiché.length * 8.2;
-  g.appendChild(construireIcône(node.icone ?? ICONE_PAR_DEFAUT, cx - largeurNom / 2 - tailleIcône - 6, curseur + 1, tailleIcône, blanc));
+  const iconSize = 16;
+  const shownName = nomTronque(node.label);
+  const largeurNom = shownName.length * 8.2;
+  g.appendChild(buildIcon(node.icone ?? ICONE_PAR_DEFAUT, cx - largeurNom / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
 
   const texteNom = el("text");
-  texteNom.setAttribute("x", String(cx + tailleIcône / 2 + 3));
+  texteNom.setAttribute("x", String(cx + iconSize / 2 + 3));
   texteNom.setAttribute("y", String(curseur + 14));
   texteNom.setAttribute("text-anchor", "middle");
   texteNom.setAttribute("font-size", "16");
   texteNom.setAttribute("font-weight", "700");
   texteNom.setAttribute("fill", blanc);
-  texteNom.textContent = nomAffiché;
+  texteNom.textContent = shownName;
   g.appendChild(texteNom);
   // Tronqué, le nom reste lisible au hover de la boîte entière -- dans le
   // navigateur comme dans un .svg ouvert seul. Posé sur le groupe et non sur
   // l'élément texte : là, il s'ajouterait au textContent du nom.
-  if (nomAffiché !== node.label) {
+  if (shownName !== node.label) {
     const infobulle = el("title");
     infobulle.textContent = node.label;
     g.appendChild(infobulle);
@@ -612,9 +612,9 @@ const TAILLE_POINTE = 12;
 // qu'UML emploie sur ses messages -- triangle plein pour un appel synchrone, V
 // ouvert pour un message asynchrone -- et les deux DSL cibles savent l'écrire
 // (normal / vee en LikeC4).
-function ajouterMarqueurFlèche(defs: SVGDefsElement, colour: string, hollow = false, size = TAILLE_POINTE): void {
+function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, size = TAILLE_POINTE): void {
   const marker = el("marker");
-  marker.setAttribute("id", idMarqueurFlèche(colour, hollow, size));
+  marker.setAttribute("id", arrowMarkerId(colour, hollow, size));
   marker.setAttribute("viewBox", "0 0 10 10");
   marker.setAttribute("refX", "0");
   marker.setAttribute("refY", "5");
@@ -667,35 +667,35 @@ function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Re
   let y0 = Infinity;
   let x1 = -Infinity;
   let y1 = -Infinity;
-  const étendre = (x: number, y: number) => {
+  const expand = (x: number, y: number) => {
     x0 = Math.min(x0, x);
     x1 = Math.max(x1, x);
     y0 = Math.min(y0, y);
     y1 = Math.max(y1, y);
   };
   for (const n of nodes) {
-    étendre(n.x - n.width / 2, n.y - n.height / 2);
-    étendre(n.x + n.width / 2, n.y + n.height / 2);
+    expand(n.x - n.width / 2, n.y - n.height / 2);
+    expand(n.x + n.width / 2, n.y + n.height / 2);
   }
   for (const e of edges) {
     // Le tracé suit exactement ses points de passage (polyligne orthogonale,
     // arrondis compris puisqu'ils restent dans le coude) : plus de débordement
     // à anticiper comme avec une spline.
-    for (const p of e.points) étendre(p.x, p.y);
+    for (const p of e.points) expand(p.x, p.y);
     if (e.arrow) {
       // La pointe s'étale autour de l'extrémité du tracé, dans une direction
       // qui dépend de l'orientation du trait : on réserve son gabarit entier.
       const bout = e.points[e.points.length - 1];
-      étendre(bout.x - TAILLE_POINTE, bout.y - TAILLE_POINTE);
-      étendre(bout.x + TAILLE_POINTE, bout.y + TAILLE_POINTE);
+      expand(bout.x - TAILLE_POINTE, bout.y - TAILLE_POINTE);
+      expand(bout.x + TAILLE_POINTE, bout.y + TAILLE_POINTE);
     }
     // La pastille d'un libellé déborde largement de son seul point d'ancrage
     // (ex. "Fichier + ETL (dépôt)") -- compter sa vraie largeur, pas juste ce point.
     const pos = labels.get(e);
     if (pos) {
       const size = taillePastille(e.label, e.technology);
-      étendre(pos.x - size.width / 2, pos.y - size.height / 2);
-      étendre(pos.x + size.width / 2, pos.y + size.height / 2);
+      expand(pos.x - size.width / 2, pos.y - size.height / 2);
+      expand(pos.x + size.width / 2, pos.y + size.height / 2);
     }
   }
 
@@ -725,59 +725,59 @@ function largeurLegende(inputs: string[]): number {
   return LEGENDE_PAD * 2 + LEGENDE_ECHANTILLON + 10 + text;
 }
 
-function construireLegende(inputs: readonly EntreeLegende[], x: number, y: number, width: number, height: number): SVGGElement {
+function buildLegend(inputs: readonly EntreeLegende[], x: number, y: number, width: number, height: number): SVGGElement {
   const g = el("g");
   g.setAttribute("class", "fx-legend");
   g.appendChild(rect(x, y, width, height, PAPIER, "#c8cdd5", 1));
 
   let row = y + LEGENDE_PAD + LEGENDE_LIGNE / 2;
 
-  const line = (é: Extract<ÉchantillonLegende, { shape: "line" }>): SVGElement => {
+  const line = (e: Extract<LegendSample, { shape: "line" }>): SVGElement => {
     const l = el("line");
     // La pointe DÉBORDE du bout du trait, de TAILLE_POINTE. Sans ce
     // raccourcissement elle empiétait sur le texte de l'entrée -- une légende
     // qui se chevauche elle-même.
-    const margin = é.head ? TAILLE_POINTE : 0;
-    l.setAttribute("x1", String(x + LEGENDE_PAD + (é.head === "start" ? margin : 0)));
+    const margin = e.head ? TAILLE_POINTE : 0;
+    l.setAttribute("x1", String(x + LEGENDE_PAD + (e.head === "start" ? margin : 0)));
     l.setAttribute("y1", String(row));
-    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON - (é.head === "end" ? margin : 0)));
+    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON - (e.head === "end" ? margin : 0)));
     l.setAttribute("y2", String(row));
-    l.setAttribute("stroke", é.colour);
-    l.setAttribute("stroke-width", String(é.thickness ?? ÉPAISSEUR_TRAIT));
-    if (é.dashed) l.setAttribute("stroke-dasharray", "6 4");
-    if (é.head === "end") l.setAttribute("marker-end", `url(#${idMarqueurFlèche(é.colour)})`);
-    if (é.head === "start") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.colour, true)})`);
+    l.setAttribute("stroke", e.colour);
+    l.setAttribute("stroke-width", String(e.thickness ?? STROKE_WIDTH));
+    if (e.dashed) l.setAttribute("stroke-dasharray", "6 4");
+    if (e.head === "end") l.setAttribute("marker-end", `url(#${arrowMarkerId(e.colour)})`);
+    if (e.head === "start") l.setAttribute("marker-start", `url(#${arrowMarkerId(e.colour, true)})`);
     return l;
   };
 
   // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous
   // « cut corner » serait une entrée de légende aussi muette que le signe
   // qu'elle prétend expliquer.
-  const boite = (é: Extract<ÉchantillonLegende, { shape: "box" }>): SVGElement => {
+  const boite = (e: Extract<LegendSample, { shape: "box" }>): SVGElement => {
     const x0 = x + LEGENDE_PAD;
     const y0 = row - 5;
     const l = LEGENDE_ECHANTILLON;
     const h = 10;
-    if (é.pile) {
+    if (e.pile) {
       const g2 = el("g");
       for (const [dx, dy, op] of [[4, -3, "0.55"], [0, 0, "1"]] as [number, number, string][]) {
-        const r = rect(x0 + dx, y0 + dy, l - 4, h, é.fill, é.stroke, 1);
+        const r = rect(x0 + dx, y0 + dy, l - 4, h, e.fill, e.stroke, 1);
         r.setAttribute("opacity", op);
         g2.appendChild(r);
       }
       return g2;
     }
-    if (é.coinCoupé) {
+    if (e.coinCoupé) {
       const coupe = 4;
       const p2 = el("path");
       p2.setAttribute("d", `M${x0} ${y0} H${x0 + l - coupe} L${x0 + l} ${y0 + coupe} V${y0 + h} H${x0} Z`);
-      p2.setAttribute("fill", é.fill);
-      p2.setAttribute("stroke", é.stroke);
+      p2.setAttribute("fill", e.fill);
+      p2.setAttribute("stroke", e.stroke);
       p2.setAttribute("stroke-width", "1");
       return p2;
     }
-    const r = rect(x0, y0, l, h, é.fill, é.stroke, 1);
-    if (é.dashed) r.setAttribute("stroke-dasharray", "3 2");
+    const r = rect(x0, y0, l, h, e.fill, e.stroke, 1);
+    if (e.dashed) r.setAttribute("stroke-dasharray", "3 2");
     return r;
   };
 
@@ -808,7 +808,7 @@ export function buildGraphSvg(
   // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
   // les flux de même technologie vers une même cible.
   const renderEdges = fusionnerParTechnologieVersCible(layout.edges);
-  const labels = placerLesLibellés(renderEdges);
+  const labels = placeLabels(renderEdges);
 
   const bounds = calculerBornes(layout.nodes, renderEdges, labels);
 
@@ -820,12 +820,12 @@ export function buildGraphSvg(
   // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
   // qu'un code couleur introuvable sur le dessin.
   const inputs = entreesDeLegende(renderEdges, layout.nodes, colorFor, options?.graisseParCriticite === true);
-  const légendeL = inputs.length ? largeurLegende(inputs.map((e) => e.text)) : 0;
-  const légendeH = inputs.length ? LEGENDE_PAD * 2 + inputs.length * LEGENDE_LIGNE : 0;
+  const legendWidth = inputs.length ? largeurLegende(inputs.map((e) => e.text)) : 0;
+  const legendHeight = inputs.length ? LEGENDE_PAD * 2 + inputs.length * LEGENDE_LIGNE : 0;
 
   if (inputs.length) {
-    bounds.y1 += MARGE_CADRE + légendeH;
-    bounds.x0 = Math.min(bounds.x0, bounds.x1 - légendeL);
+    bounds.y1 += MARGE_CADRE + legendHeight;
+    bounds.x0 = Math.min(bounds.x0, bounds.x1 - legendWidth);
   }
 
   // Le cartouche occupe une bande réservée au-dessus du dessin, comme la
@@ -859,7 +859,7 @@ export function buildGraphSvg(
     svg.setAttribute("aria-labelledby", `${ID_TITRE} ${ID_DESC}`);
     const title = el("title");
     title.setAttribute("id", ID_TITRE);
-    title.textContent = libelléCartouche(contexte).title;
+    title.textContent = titleBlockText(contexte).title;
     svg.appendChild(title);
     const desc = el("desc");
     desc.setAttribute("id", ID_DESC);
@@ -870,11 +870,11 @@ export function buildGraphSvg(
   const defs = el("defs");
   // Une définition par (couleur, forme, taille) réellement employée.
   const marqueurs = new Map<string, { colour: string; hollow: boolean; size: number }>();
-  const déclarer = (colour: string, hollow: boolean, size: number) =>
-    marqueurs.set(idMarqueurFlèche(colour, hollow, size), { colour, hollow, size });
+  const declare = (colour: string, hollow: boolean, size: number) =>
+    marqueurs.set(arrowMarkerId(colour, hollow, size), { colour, hollow, size });
   for (const e of renderEdges) {
     if (!e.arrow) continue;
-    déclarer(couleurArête(e, colorFor), e.pulled === true, tailleDePointe(longueurDApproche(e)));
+    declare(edgeColour(e, colorFor), e.pulled === true, tailleDePointe(longueurDApproche(e)));
   }
   // La légende dessine ses propres échantillons fléchés : leur marqueur doit
   // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
@@ -882,30 +882,30 @@ export function buildGraphSvg(
   // assez long pour la taille pleine.
   for (const e of inputs) {
     if (e.sample.shape !== "line" || !e.sample.head) continue;
-    déclarer(e.sample.colour, e.sample.head === "start", TAILLE_POINTE);
+    declare(e.sample.colour, e.sample.head === "start", TAILLE_POINTE);
   }
-  for (const m of marqueurs.values()) ajouterMarqueurFlèche(defs, m.colour, m.hollow, m.size);
+  for (const m of marqueurs.values()) addArrowMarker(defs, m.colour, m.hollow, m.size);
   svg.appendChild(defs);
 
   const background = rect(bounds.x0, bounds.y0, width, height, PAPIER, "none", 0);
   svg.appendChild(background);
 
-  if (contexte) svg.appendChild(construireCartouche(contexte, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
+  if (contexte) svg.appendChild(buildTitleBlock(contexte, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
 
   // Rectangle occupé par chaque libellé : c'est là que son trait s'interrompt.
-  const rectDuLibellé = (e: RenderEdge): Rect | null => {
+  const labelRect = (e: RenderEdge): Rect | null => {
     const centre = labels.get(e);
     if (!centre || !e.label) return null;
     const t = taillePastille(e.label, e.technology);
     return { x0: centre.x - t.width / 2, y0: centre.y - t.height / 2, x1: centre.x + t.width / 2, y1: centre.y + t.height / 2 };
   };
 
-  const coucheArêtes = el("g");
-  coucheArêtes.setAttribute("class", "fx-edges");
+  const edgeLayer = el("g");
+  edgeLayer.setAttribute("class", "fx-edges");
   for (const edge of renderEdges) {
-    coucheArêtes.appendChild(buildEdgeElement(edge, colorFor, rectDuLibellé(edge), options?.graisseParCriticite === true));
+    edgeLayer.appendChild(buildEdgeElement(edge, colorFor, labelRect(edge), options?.graisseParCriticite === true));
   }
-  svg.appendChild(coucheArêtes);
+  svg.appendChild(edgeLayer);
 
   // Les frontières passent sous les arêtes : ce sont des repères de fond, pas
   // des objets à survoler.
@@ -914,7 +914,7 @@ export function buildGraphSvg(
   for (const node of layout.nodes.filter((n) => n.kind === "boundary")) {
     coucheFrontieres.appendChild(buildFrontiereElement(node));
   }
-  svg.insertBefore(coucheFrontieres, coucheArêtes);
+  svg.insertBefore(coucheFrontieres, edgeLayer);
 
   const coucheNoeuds = el("g");
   coucheNoeuds.setAttribute("class", "fx-nodes");
@@ -927,27 +927,27 @@ export function buildGraphSvg(
   // passent en dernier pour qu'aucun trait ni aucune boîte ne les recouvre --
   // tant qu'ils vivaient dans le groupe de leur arête, une boîte posée après
   // pouvait les masquer.
-  const coucheLibellés = el("g");
-  coucheLibellés.setAttribute("class", "fx-labels");
+  const labelLayer = el("g");
+  labelLayer.setAttribute("class", "fx-labels");
   for (const edge of renderEdges) {
     const ancre = labels.get(edge);
     if (!edge.label || !ancre) continue;
-    coucheLibellés.appendChild(
-      construireLibelléArête(
+    labelLayer.appendChild(
+      buildEdgeLabel(
         ancre.x,
         ancre.y,
         edge.label,
         sousLibelléDe(edge.label, edge.technology),
-        couleurArête(edge, colorFor),
+        edgeColour(edge, colorFor),
         edge.attenuated,
         !edge.ecart && edge.technology.trim() !== ""
       )
     );
   }
-  svg.appendChild(coucheLibellés);
+  svg.appendChild(labelLayer);
 
   if (inputs.length) {
-    svg.appendChild(construireLegende(inputs, bounds.x1 - légendeL, bounds.y1 - légendeH, légendeL, légendeH));
+    svg.appendChild(buildLegend(inputs, bounds.x1 - legendWidth, bounds.y1 - legendHeight, legendWidth, legendHeight));
   }
 
   return svg;

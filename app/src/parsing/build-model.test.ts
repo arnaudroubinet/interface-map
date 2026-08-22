@@ -237,12 +237,12 @@ describe("buildModel — onglet Paliers", () => {
   // L'ordre vient du rang, pas de l'ordre des lignes : un tri dans Excel
   // détruirait un ordre implicite sans rien dire.
   it("orders by rank, not by row order", () => {
-    const désordre: RawSheet = sheet("Milestones", [
+    const shuffled: RawSheet = sheet("Milestones", [
       { Milestone: "v3", Rank: "3", Status: "Planned" },
       { Milestone: "v1", Rank: "1", Status: "Delivered" },
       { Milestone: "v2", Rank: "2", Status: "Delivered" },
     ]);
-    const result = buildModel(wb([acteursOk, typesFluxOk, interfacesOk, désordre]));
+    const result = buildModel(wb([acteursOk, typesFluxOk, interfacesOk, shuffled]));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.model.milestones.map((p) => p.name)).toEqual(["v1", "v2", "v3"]);

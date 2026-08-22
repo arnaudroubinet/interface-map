@@ -45,7 +45,7 @@ function segment(
   };
 }
 
-export function construireFrise(model: ParsedModel, what: SujetDeFrise): Frise {
+export function buildRoadmap(model: ParsedModel, what: SujetDeFrise): Frise {
   const milestones = [...model.milestones].sort((a, b) => a.rank - b.rank);
   if (milestones.length === 0) return { milestones, segments: [] };
   const bounds = { min: milestones[0].rank, max: milestones[milestones.length - 1].rank };

@@ -41,20 +41,20 @@ export const NOMS_ORIGINE: Record<string, string | string[]> = {
 // celles qui ont circulé avant le versionnement -- il y en a parfois plusieurs
 // pour la même chose. Les feuilles et colonnes nées avec le versionnement ne
 // figurent pas ici : aucun classeur ne les a jamais portées en français.
-function écritures(attendu: string): string[] {
+function spellings(attendu: string): string[] {
   const origin = NOMS_ORIGINE[attendu];
   if (!origin) return [attendu];
   return [attendu, ...(Array.isArray(origin) ? origin : [origin])];
 }
 
 export function findHeader(actualHeaders: string[], expected: string): string | undefined {
-  const cibles = écritures(expected).map(normalizeText);
+  const cibles = spellings(expected).map(normalizeText);
   return actualHeaders.find((h) => cibles.includes(normalizeText(h)));
 }
 
 export function matchesSheetName(actualName: string, expected: string): boolean {
   const name = normalizeText(actualName);
-  return écritures(expected).some((e) => normalizeText(e) === name);
+  return spellings(expected).some((e) => normalizeText(e) === name);
 }
 
 export function hasPrefix(actualName: string, prefix: string): boolean {

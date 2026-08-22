@@ -6,7 +6,7 @@ import type { ParsedModel } from "../parsing/model";
 // Boreal publie sur Kafka, l'ESB relaie, un consommateur métier reçoit. Trois
 // maillons, deux technologies, et trois NOMS différents : c'est exactement ce
 // que la lecture fonctionnelle efface et que la vue Chaîne est venue montrer.
-function parcTroisMaillons(overrides: Partial<ParsedModel> = {}): ParsedModel {
+function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     groups: [base.group({ name: "G" })],
     typesActeur: [base.typeActeur({ nature: "Business" }), base.typeActeur({ type: "Infra", nature: "Technical" })],
@@ -34,7 +34,7 @@ function parcTroisMaillons(overrides: Partial<ParsedModel> = {}): ParsedModel {
 
 describe("chainesDisponibles", () => {
   it("rend un maillon par segment, dans l'ordre du parcours", () => {
-    const [chain] = chainesDisponibles(parcTroisMaillons(), null);
+    const [chain] = chainesDisponibles(threeHopEstate(), null);
     expect(chain.hops.map((m) => [m.provider, m.consumer])).toEqual([
       ["Boreal", "Kafka"],
       ["Kafka", "ESB"],
@@ -45,13 +45,13 @@ describe("chainesDisponibles", () => {
   // Le nom sous lequel l'échange circule CHANGE en route : c'est ce qu'on vient
   // voir, et ce que le lien fonctionnel rabattu ne dit pas.
   it("porte sur chaque maillon le nom et la technologie de CE segment", () => {
-    const [chain] = chainesDisponibles(parcTroisMaillons(), null);
+    const [chain] = chainesDisponibles(threeHopEstate(), null);
     expect(chain.hops.map((m) => m.interfaceName)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
     expect(chain.hops.map((m) => m.technology)).toEqual(["Kafka", "Kafka", "HTTP"]);
   });
 
   it("se nomme par ses deux bouts et l'échange reçu", () => {
-    expect(chainesDisponibles(parcTroisMaillons(), null)[0].label).toBe("Boreal → Onderon : Policy feed");
+    expect(chainesDisponibles(threeHopEstate(), null)[0].label).toBe("Boreal → Onderon : Policy feed");
   });
 
   // Un lien direct est une chaîne d'UN maillon : pas un cas particulier.
@@ -72,24 +72,24 @@ describe("chainesDisponibles", () => {
   // toute la valeur de la vue face au lien rabattu, qui ne dit que « quelque
   // part sur le trajet ».
   it("marque le maillon qui transforme, et lui seul", () => {
-    const parc = parcTroisMaillons();
-    parc.consumptions[1].decision = "Transform";
-    const [chain] = chainesDisponibles(parc, null);
+    const estate = threeHopEstate();
+    estate.consumptions[1].decision = "Transform";
+    const [chain] = chainesDisponibles(estate, null);
     expect(chain.hops.map((m) => m.attenuated)).toEqual([false, true, false]);
   });
 
   // Une chaîne coupée ne produit aucun lien fonctionnel : elle n'a donc pas de
   // trajet à proposer, et le rapport d'intégrité la signale par ailleurs.
   it("ne propose rien quand la chaîne est coupée", () => {
-    const parc = parcTroisMaillons();
-    parc.consumptions[0].republishedAs = "";
-    expect(chainesDisponibles(parc, null)).toEqual([]);
+    const estate = threeHopEstate();
+    estate.consumptions[0].republishedAs = "";
+    expect(chainesDisponibles(estate, null)).toEqual([]);
   });
 });
 
 describe("buildChainView", () => {
   it("dessine un nœud par acteur traversé et un trait par maillon", () => {
-    const view = buildChainView(parcTroisMaillons(), chainesDisponibles(parcTroisMaillons(), null)[0]);
+    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.id)).toEqual(["Boreal", "Kafka", "ESB", "Onderon"]);
     expect(view.edges).toHaveLength(3);
   });
@@ -97,13 +97,13 @@ describe("buildChainView", () => {
   // Les deux bouts sont ce qu'on est venu voir ; ce qu'il y a entre eux est la
   // plomberie qu'on traverse.
   it("met en avant les deux bouts et marque la plomberie du milieu", () => {
-    const view = buildChainView(parcTroisMaillons(), chainesDisponibles(parcTroisMaillons(), null)[0]);
+    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.kind)).toEqual(["focus-actor", "actor", "actor", "focus-actor"]);
     expect(view.nodes.map((n) => n.technique)).toEqual([undefined, true, true, undefined]);
   });
 
   it("écrit sur chaque trait le nom porté à cet endroit", () => {
-    const view = buildChainView(parcTroisMaillons(), chainesDisponibles(parcTroisMaillons(), null)[0]);
+    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
     expect(view.edges.map((e) => e.label)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
   });
 });

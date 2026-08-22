@@ -31,12 +31,12 @@ const DECISION_LEGACY: [string, string][] = [
   ["À supprimer", "Remove"],
 ];
 
-function décisionActuelle(value: string): string {
-  const cherché = normalizeText(value);
-  if (!cherché) return "";
-  const trouvée = DECISION_LEGACY.find(([fr]) => normalizeText(fr) === cherché)?.[1];
+function currentDecision(value: string): string {
+  const sought = normalizeText(value);
+  if (!sought) return "";
+  const found = DECISION_LEGACY.find(([fr]) => normalizeText(fr) === sought)?.[1];
   // Une valeur déjà écrite dans le vocabulaire courant passe aussi.
-  return trouvée ?? LISTES.Decision.find((d) => normalizeText(d) === cherché) ?? "";
+  return found ?? LISTES.Decision.find((d) => normalizeText(d) === sought) ?? "";
 }
 
 export interface RapportMigration {
@@ -46,9 +46,9 @@ export interface RapportMigration {
 }
 
 function sheet(wb: XLSX.WorkBook, name: string): Record<string, string>[] {
-  const trouvée = wb.SheetNames.find((n) => normalizeText(n) === normalizeText(name));
-  if (!trouvée) return [];
-  return XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets[trouvée], { defval: "", raw: false });
+  const found = wb.SheetNames.find((n) => normalizeText(n) === normalizeText(name));
+  if (!found) return [];
+  return XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets[found], { defval: "", raw: false });
 }
 
 const text = (v: unknown) => (v ?? "").toString().trim();
@@ -64,10 +64,10 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
 
   // Les types réellement employés, et non la liste d'origine : celle-ci empile
   // technologies et décisions dans la même colonne.
-  const typesUtilisés = [...new Set(liens.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
+  const usedTypes = [...new Set(liens.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
-  const typesInconnus = typesUtilisés.filter((t) => !sensConnu(t));
+  const typesInconnus = usedTypes.filter((t) => !sensConnu(t));
 
   // Les composants déclarés, puis ceux que seuls les flux citent. Dans les
   // fichiers réels, l'onglet Composants n'est pas tenu à jour : on ne perd pas
@@ -146,7 +146,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
       // L'usage et la criticité n'existent pas dans le format d'origine.
       "",
       "",
-      décisionActuelle(text(lien["Statut"])),
+      currentDecision(text(lien["Statut"])),
       "",
       // Le format d'origine ne connaît ni acteur technique ni republication :
       // la colonne existe, elle reste vide, et la complétude la réclamera si

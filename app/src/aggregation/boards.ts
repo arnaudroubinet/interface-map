@@ -49,13 +49,13 @@ export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode:
     boards.push({ title: `${techno} (technology)`, ...buildByTechnologyView(model, reading.flows, techno, options) });
   }
 
-  const touchés = new Set(reading.flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
+  const touched = new Set(reading.flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
   // Un acteur métier devenu isolé en fonctionnel (§5.2) n'est sur aucun flux,
   // mais le fichier draw.io promet TOUTES les planches : sa boîte seule reste
   // une planche, l'omettre romprait cette promesse sans le dire. `lecture.acteurs`
   // porte déjà le rang -- un acteur retiré n'y est plus, donc pas de planche.
-  const isolés = mode === "functional" ? reading.actors.map((a) => a.name.trim()).filter((n) => !touchés.has(n)) : [];
-  const actors = [...touchés, ...isolés].sort(parNom);
+  const isolated = mode === "functional" ? reading.actors.map((a) => a.name.trim()).filter((n) => !touched.has(n)) : [];
+  const actors = [...touched, ...isolated].sort(parNom);
   for (const actor of actors) {
     boards.push({ title: `${actor} (actor)`, actor, ...buildByActorView(model, reading.flows, actor, {}) });
   }

@@ -35,7 +35,7 @@ export const HEXA = /^#?([0-9a-f]{6})$/i;
 // rapport d'intégrité l'annonce désormais.
 export const SEUIL_TRAIT = 3;
 
-function couleurDeclaree(brut: string): string | undefined {
+function declaredColourOf(brut: string): string | undefined {
   const m = HEXA.exec(brut.trim());
   if (!m) return undefined;
   const brute = `#${m[1].toLowerCase()}`;
@@ -52,37 +52,37 @@ export function couleursDuModele(model: {
   // une teinte, et décalait donc celles des technologies réellement dessinées.
   // Sur un classeur réel, trois technologies dessinées se partageaient les 1re,
   // 3e et 4e teintes parce que deux inconnues s'étaient glissées entre elles.
-  const déclarées = new Map(model.flowTypes.map((t) => [normalizeText(t.type), t]));
-  const employées = new Set(model.interfaces.map((i) => i.flowType.trim()).filter(Boolean));
-  const dessinées = [...employées]
-    .filter((t) => déclarées.has(normalizeText(t)))
+  const declaredTypes = new Map(model.flowTypes.map((t) => [normalizeText(t.type), t]));
+  const used = new Set(model.interfaces.map((i) => i.flowType.trim()).filter(Boolean));
+  const drawn = [...used]
+    .filter((t) => declaredTypes.has(normalizeText(t)))
     .sort((a, b) => a.localeCompare(b, "fr"));
 
-  const déclarée = new Map<string, string>();
+  const declaredColour = new Map<string, string>();
   for (const t of model.flowTypes) {
-    const colour = couleurDeclaree(t.colour);
-    if (colour) déclarée.set(t.type.trim(), colour);
+    const colour = declaredColourOf(t.colour);
+    if (colour) declaredColour.set(t.type.trim(), colour);
   }
 
   const colours = new Map<string, string>();
-  const prises = new Set<string>();
-  for (const techno of dessinées) {
-    const colour = déclarée.get(techno);
+  const taken = new Set<string>();
+  for (const techno of drawn) {
+    const colour = declaredColour.get(techno);
     if (!colour) continue;
     colours.set(techno, colour);
-    prises.add(colour);
+    taken.add(colour);
   }
 
   // Les teintes libres d'abord, dans l'ordre de la palette ; une fois épuisées
   // on reboucle sur la palette entière plutôt que d'inventer une teinte non
   // validée -- le nom de la technologie reste écrit partout où sa couleur
   // apparaît, la couleur n'est qu'un rappel.
-  const libres = PALETTE.filter((c) => !prises.has(c));
-  const réserve = libres.length > 0 ? libres : PALETTE;
+  const libres = PALETTE.filter((c) => !taken.has(c));
+  const spare = libres.length > 0 ? libres : PALETTE;
   let i = 0;
-  for (const techno of dessinées) {
+  for (const techno of drawn) {
     if (colours.has(techno)) continue;
-    colours.set(techno, réserve[i % réserve.length]);
+    colours.set(techno, spare[i % spare.length]);
     i += 1;
   }
   return colours;

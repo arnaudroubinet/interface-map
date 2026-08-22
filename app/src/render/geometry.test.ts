@@ -17,8 +17,8 @@ describe("interrompreLeTrace", () => {
 
   it("garde un reste après un libellé qui recouvre l'arrivée", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
-    const libelléSurLArrivée = { x0: 150, y0: -10, x1: 210, y1: 10 };
-    const morceaux = interrompreLeTrace(trace, [libelléSurLArrivée]);
+    const labelOnArrival = { x0: 150, y0: -10, x1: 210, y1: 10 };
+    const morceaux = interrompreLeTrace(trace, [labelOnArrival]);
     expect(morceaux.length).toBeGreaterThan(0);
     expect(dernierPoint(morceaux).x).toBeCloseTo(200, 5);
   });

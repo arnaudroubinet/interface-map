@@ -126,26 +126,26 @@ function entreesDe(
 function walkUp(
   model: ParsedModel,
   lookup: InterfaceLookup,
-  départ: InterfaceCatalogue,
+  start: InterfaceCatalogue,
   rank: number | null,
   path: ReadonlySet<InterfaceCatalogue> = new Set()
 ): Remontee {
-  if (!isTechnicalActor(model, départ.providerName)) {
-    return { sources: [départ], paths: new Map([[départ, []]]), cuts: [] };
+  if (!isTechnicalActor(model, start.providerName)) {
+    return { sources: [start], paths: new Map([[start, []]]), cuts: [] };
   }
-  if (path.has(départ)) return { sources: [], paths: new Map(), cuts: [{ iface: départ, reason: "loop" }] };
+  if (path.has(start)) return { sources: [], paths: new Map(), cuts: [{ iface: start, reason: "loop" }] };
 
-  const inputs = entreesDe(model, lookup, départ, rank);
+  const inputs = entreesDe(model, lookup, start, rank);
   if (inputs.length === 0) {
-    return { sources: [], paths: new Map(), cuts: [{ iface: départ, reason: "no-input" }] };
+    return { sources: [], paths: new Map(), cuts: [{ iface: start, reason: "no-input" }] };
   }
 
-  const parcouru = new Set(path).add(départ);
+  const walked = new Set(path).add(start);
   const sources: InterfaceCatalogue[] = [];
   const paths = new Map<InterfaceCatalogue, Maillon[]>();
   const cuts: ChaineCoupee[] = [];
   for (const input of inputs) {
-    const remontee = walkUp(model, lookup, input.iface, rank, parcouru);
+    const remontee = walkUp(model, lookup, input.iface, rank, walked);
     for (const source of remontee.sources) {
       if (!sources.includes(source)) sources.push(source);
       // Le maillon qui vient d'être franchi s'ajoute EN AVAL de ce que la
@@ -296,9 +296,9 @@ export function chainesCoupees(
   rank: number | null,
 ): ChaineCoupee[] {
   const lookup = buildInterfaceLookup(model);
-  const coupées: ChaineCoupee[] = [];
+  const cut: ChaineCoupee[] = [];
   for (const f of consommationsMetier(model, rank)) {
-    coupées.push(...walkUp(model, lookup, f.iface, rank).cuts);
+    cut.push(...walkUp(model, lookup, f.iface, rank).cuts);
   }
-  return coupées;
+  return cut;
 }

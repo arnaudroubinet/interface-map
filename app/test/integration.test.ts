@@ -6,7 +6,7 @@ import { buildGroupToGroupView, buildPlatformDetailView } from "../src/aggregati
 import { reading, chainesCoupees } from "../src/aggregation/reading";
 import { isTechnicalActor } from "../src/aggregation/nature";
 import { actorIsPlatform } from "../src/aggregation/core";
-import { écrireModele } from "../src/export/template-export";
+import { writeTemplate } from "../src/export/template-export";
 import { DONNEES_EXEMPLE } from "../src/export/sample-data";
 
 // Le classeur d'exemple, écrit par l'outil puis relu par lui : c'est le seul
@@ -17,7 +17,7 @@ import { DONNEES_EXEMPLE } from "../src/export/sample-data";
 // surnuméraires -- et rien ne le compense ici.
 describe("chaîne complète sur le classeur d'exemple", () => {
   it("parses end to end without throwing and yields plausible counts", async () => {
-    const workbook = parseWorkbook(écrireModele(DONNEES_EXEMPLE));
+    const workbook = parseWorkbook(writeTemplate(DONNEES_EXEMPLE));
     const built = buildModel(workbook);
 
     expect(built.ok).toBe(true);
@@ -56,7 +56,7 @@ describe("chaîne complète sur le classeur d'exemple", () => {
 // régression -- et rien ne le disait, tout était vert.
 describe("le classeur d'exemple exerce la lecture métier", () => {
   const template = () => {
-    const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
@@ -64,8 +64,8 @@ describe("le classeur d'exemple exerce la lecture métier", () => {
   it("déclare au moins un acteur technique et le fait disparaître en fonctionnel", () => {
     const m = template();
     const archi = reading(m, null, "architecture").actors.length;
-    const métier = reading(m, null, "functional").actors.length;
-    expect(métier).toBeLessThan(archi);
+    const business = reading(m, null, "functional").actors.length;
+    expect(business).toBeLessThan(archi);
   });
 
   it("raboute une chaîne : deux acteurs métier que seul le mode fonctionnel relie", () => {
@@ -88,7 +88,7 @@ describe("le classeur d'exemple exerce la lecture métier", () => {
 // se perdre, ou franchir la frontière de la plateforme sans le dire.
 describe("le classeur d'exemple porte une chaîne à trois relais", () => {
   const template = () => {
-    const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
@@ -113,9 +113,9 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
   // ligne de consommation qui le dit, une par entrée.
   it("fait servir le même relais à deux chaînes sans les confondre", () => {
     const m = template();
-    const métier = reading(m, null, "functional").flows;
+    const business = reading(m, null, "functional").flows;
     const target = (name: string) =>
-      métier.filter((f) => f.provider === "Chandrila" && f.consumer === name).map((f) => f.interfaceName);
+      business.filter((f) => f.provider === "Chandrila" && f.consumer === name).map((f) => f.interfaceName);
 
     // vers l'extérieur, par trois relais
     expect(target("Bracca")).toContain("Policy notice");
@@ -128,10 +128,10 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
 
   it("les raboute en un seul lien métier, les trois relais retirés", () => {
     const m = template();
-    const métier = reading(m, null, "functional");
-    expect(métier.actors.map((a) => a.name)).not.toContain("Dagobah");
+    const business = reading(m, null, "functional");
+    expect(business.actors.map((a) => a.name)).not.toContain("Dagobah");
     expect(
-      métier.flows.filter((f) => f.provider === "Chandrila" && f.consumer === "Bracca" && f.interfaceName === "Policy notice")
+      business.flows.filter((f) => f.provider === "Chandrila" && f.consumer === "Bracca" && f.interfaceName === "Policy notice")
     ).toHaveLength(1);
   });
 });
@@ -142,20 +142,20 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
 // son départ -- dit que c'est le bus qui interroge la passerelle.
 describe("la chaîne à trois relais se lit dans un seul sens", () => {
   it("enchaîne les quatre segments de bout en bout", () => {
-    const built = buildModel(parseWorkbook(écrireModele(DONNEES_EXEMPLE)));
+    const built = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
     if (!built.ok) throw new Error("exemple illisible");
     const m = built.model;
     const view = buildPlatformDetailView(m, reading(m, null, "architecture"), { counters: true });
 
     // « Support » est le groupe qui porte l'ESB : hors plateforme, il est
     // dessiné replié sur son groupe.
-    const enchaînement: [string, string][] = [
+    const chaining: [string, string][] = [
       ["Chandrila", "Kafka"],
       ["Kafka", "Dagobah"],
       ["Dagobah", "Support"],
       ["Support", "Sales network"],
     ];
-    for (const [de, vers] of enchaînement) {
+    for (const [de, vers] of chaining) {
       expect(view.edges.some((e) => e.from === de && e.to === vers)).toBe(true);
     }
   });

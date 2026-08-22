@@ -207,7 +207,7 @@ describe("buildEcartsView", () => {
 
 // Tatooine expose Transactions, Bus (Middleware, Technical) la relaie sous
 // trx.norm ; le segment vers Naboo n'apparaît qu'au palier v2.
-function parcFonctionnel(): ParsedModel {
+function functionalEstate(): ParsedModel {
   return model({
     actors: [
       actor({ name: "Tatooine" }),
@@ -234,7 +234,7 @@ describe("calculerEcarts — mode fonctionnel", () => {
   it("compare les liens fonctionnels quand le mode le demande", () => {
     // Un lien qui n'existe qu'au second palier apparaît comme un ajout, la
     // plomberie retirée.
-    const changes = calculerEcarts(parcFonctionnel(), 1, 2, "functional");
+    const changes = calculerEcarts(functionalEstate(), 1, 2, "functional");
     expect(changes.consumptions.ajoutes).toEqual(["Naboo → Transactions"]);
   });
 });

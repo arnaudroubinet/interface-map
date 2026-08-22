@@ -102,7 +102,7 @@ export function modeleEnStructurizr(
     "        !identifiers hierarchical",
   ];
 
-  const déclaration = (a: Actor, indent: string) => {
+  const declaration = (a: Actor, indent: string) => {
     // Un humain n'est pas un système : C4 a un mot pour ça, et le classeur le
     // dit déjà dans son type d'acteur.
     const mot = estUnePersonne(a) ? "person" : "softwareSystem";
@@ -113,7 +113,7 @@ export function modeleEnStructurizr(
     // commentaires, paliers. Rangé en propriétés plutôt que perdu -- l'export
     // devient une reprise complète, pas un résumé.
     body.push(
-      ...propriétés(indent + "    ", [
+      ...properties(indent + "    ", [
         ["Owner", a.responsable],
         ["Comments", a.commentaires],
         ["Introduced at", a.introducedAt],
@@ -131,10 +131,10 @@ export function modeleEnStructurizr(
   );
   for (const group of groups) {
     rows.push(`        group "${text(group)}" {`);
-    for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...déclaration(a, "            "));
+    for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...declaration(a, "            "));
     rows.push("        }");
   }
-  for (const a of actors.filter((x) => !x.group.trim())) rows.push(...déclaration(a, "        "));
+  for (const a of actors.filter((x) => !x.group.trim())) rows.push(...declaration(a, "        "));
 
   rows.push("");
   // Deux consommations d'un même contrat par le même acteur ne font qu'un lien.
@@ -156,7 +156,7 @@ export function modeleEnStructurizr(
     // schéma plutôt qu'une recherche dans le classeur.
     if (f.iface.lienContrat.trim()) body.push(`            url ${f.iface.lienContrat.trim()}`);
     body.push(
-      ...propriétés("            ", [
+      ...properties("            ", [
         // Ce que l'échange transporte : la description de la relation, au sens
         // C4. Le seul emplacement de texte qu'un lien Structurizr offre est
         // déjà pris par le libellé -- nom et version du flux, comme sur les
@@ -268,8 +268,8 @@ function views(
   // Une personne n'en a pas non plus : `systemContext` porte sur un système, et
   // Structurizr refuse le fichier entier si on lui en demande une sur un
   // humain. Le prix du mot juste (`person`) est cette vue en moins.
-  const touchés = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
-  for (const a of actors.filter((x) => touchés.has(x.name.trim()) && !estUnePersonne(x))) {
+  const touched = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
+  for (const a of actors.filter((x) => touched.has(x.name.trim()) && !estUnePersonne(x))) {
     const id = ids.get(a.name.trim())!;
     rows.push(
       ...view(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.name.trim()} — inbound and outbound${auPalier}`, "*")
@@ -298,7 +298,7 @@ function estUnePersonne(a: Actor): boolean {
 
 // Un bloc `properties` ne se pose que s'il a quelque chose à dire : un bloc
 // vide passerait la validation mais encombrerait chaque élément.
-function propriétés(indent: string, paires: [string, string][]): string[] {
+function properties(indent: string, paires: [string, string][]): string[] {
   const remplies = paires.filter(([, v]) => v.trim() !== "");
   if (remplies.length === 0) return [];
   return [

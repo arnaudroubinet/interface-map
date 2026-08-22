@@ -5,7 +5,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 // Icônes Lucide (https://lucide.dev, licence ISC) : « check » pour une section
 // saine, « octagon-x » pour une alerte -- l'octogone est le panneau stop, il se
 // distingue de la coche sans dépendre de la seule couleur.
-const TRACÉS: Record<string, string[]> = {
+const PATHS: Record<string, string[]> = {
   check: ["M20 6 9 17l-5-5"],
   stop: [
     "M2.586 16.726A2 2 0 0 1 2 15.312V8.688a2 2 0 0 1 .586-1.414l4.688-4.688A2 2 0 0 1 8.688 2h6.624a2 2 0 0 1 1.414.586l4.688 4.688A2 2 0 0 1 22 8.688v6.624a2 2 0 0 1-.586 1.414l-4.688 4.688a2 2 0 0 1-1.414.586H8.688a2 2 0 0 1-1.414-.586z",
@@ -25,7 +25,7 @@ const TRACÉS: Record<string, string[]> = {
   ],
 };
 
-function icône(name: keyof typeof TRACÉS): SVGSVGElement {
+function icon(name: keyof typeof PATHS): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("width", "16");
@@ -44,7 +44,7 @@ function icône(name: keyof typeof TRACÉS): SVGSVGElement {
     cercle.setAttribute("r", "10");
     svg.appendChild(cercle);
   }
-  for (const d of TRACÉS[name]) {
+  for (const d of PATHS[name]) {
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", d);
     svg.appendChild(path);
@@ -62,7 +62,7 @@ const CLASSE: Record<Severity, string> = {
   warning: "section-warning",
   info: "section-info",
 };
-const ICÔNE: Record<Severity, keyof typeof TRACÉS> = {
+const ICON: Record<Severity, keyof typeof PATHS> = {
   erreur: "stop",
   action: "action",
   warning: "alerte",
@@ -72,7 +72,7 @@ const ICÔNE: Record<Severity, keyof typeof TRACÉS> = {
 // Une section sans rien à signaler est repliée : elle n'appelle aucune action,
 // et la déplier ne montrerait qu'un « Rien à signaler ». Les sections qui
 // portent quelque chose s'ouvrent d'office.
-function construireSection(
+function buildSection(
   classe: string,
   title: string,
   description: string,
@@ -84,12 +84,12 @@ function construireSection(
   section.className = `${classe} ${vide ? "section-ok" : CLASSE[severity]}`;
   if (!vide) section.open = true;
 
-  const résumé = document.createElement("summary");
-  résumé.appendChild(icône(vide ? "check" : ICÔNE[severity]));
+  const summary = document.createElement("summary");
+  summary.appendChild(icon(vide ? "check" : ICON[severity]));
   const label = document.createElement("span");
   label.textContent = `${title} (${items.length})`;
-  résumé.appendChild(label);
-  section.appendChild(résumé);
+  summary.appendChild(label);
+  section.appendChild(summary);
 
   const desc = document.createElement("p");
   desc.textContent = description;
@@ -164,7 +164,7 @@ export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
   container.className = "integrity-report";
 
   for (const s of sectionsDuRapport(report)) {
-    container.appendChild(construireSection(s.classe, s.title, s.description, s.items, s.severity));
+    container.appendChild(buildSection(s.classe, s.title, s.description, s.items, s.severity));
   }
 
   return container;

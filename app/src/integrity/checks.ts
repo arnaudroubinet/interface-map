@@ -49,26 +49,26 @@ export interface Anomaly {
 // L'unique fabrique du sujet d'un message : ce dont on parle, puis où le
 // retrouver. Tout message qui vise une ligne passe par ici, sinon l'adresse
 // s'écrirait de trois façons selon la famille.
-function adresse(e: Emplacement): string {
+function address(e: Emplacement): string {
   return `(${e.sheet}, row ${e.row})`;
 }
 
-function situé(what: string, name: string, e: Emplacement): string {
-  return `${what} "${name}" ${adresse(e)}`;
+function located(what: string, name: string, e: Emplacement): string {
+  return `${what} "${name}" ${address(e)}`;
 }
 
-const nommeActeur = (a: Actor) => situé("Actor", a.name, a);
-const nommeInterface = (i: InterfaceCatalogue) => situé("Interface", interfaceLabel(i.flowName, i.version), i);
-const nommeConso = (c: Consommation) => situé("Consumption", c.flowName, c);
-const nommeGroupe = (g: Groupe) => situé("Group", g.name, g);
-const nommeTypeActeur = (t: TypeActeur) => situé("Actor type", t.type, t);
-const nommeTypeFlux = (t: TypeFlux) => situé("Flow type", t.type, t);
-const nommePalier = (p: Milestone) => situé("Milestone", p.name, p);
+const nameActor = (a: Actor) => located("Actor", a.name, a);
+const nameInterface = (i: InterfaceCatalogue) => located("Interface", interfaceLabel(i.flowName, i.version), i);
+const nameConsumption = (c: Consommation) => located("Consumption", c.flowName, c);
+const nameGroup = (g: Groupe) => located("Group", g.name, g);
+const nameActorType = (t: TypeActeur) => located("Actor type", t.type, t);
+const nameFlowType = (t: TypeFlux) => located("Flow type", t.type, t);
+const nameMilestone = (p: Milestone) => located("Milestone", p.name, p);
 
 // Les éléments d'un bloc suivent le même ordre que les anomalies : la feuille,
 // puis la ligne. Ils portent leur adresse dans le texte, faute d'avoir, comme
 // une anomalie, un champ pour la loger.
-function itemsSitués<T extends Emplacement>(rows: T[], text: (l: T) => string): string[] {
+function locatedItems<T extends Emplacement>(rows: T[], text: (l: T) => string): string[] {
   return [...rows]
     .sort((a, b) => a.sheet.localeCompare(b.sheet, "fr") || a.row - b.row)
     .map(text);
@@ -138,10 +138,10 @@ function consommationsForInterface(lookup: InterfaceLookup, model: ParsedModel, 
   return model.consumptions.filter((c) => findInterfaceForConsommation(lookup, c) === iface);
 }
 
-function bornesCitées(où: string, v: ValiditePalier & Emplacement) {
+function citedBounds(where: string, v: ValiditePalier & Emplacement) {
   return [v.introducedAt, v.retiredAt]
     .filter((value) => value.trim() !== "")
-    .map((value) => ({ où, value, emplacement: v as Emplacement }));
+    .map((value) => ({ where, value, emplacement: v as Emplacement }));
 }
 
 function duplicates(values: string[]): string[] {
@@ -165,19 +165,19 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     // La ligne citée est la seconde : la première est légitime, c'est le doublon
     // qu'on va supprimer.
     const doublon = model.actors.filter((a) => a.name.trim() === name)[1];
-    anomalies.push(anomaly(`${nommeActeur(doublon)} is declared more than once in the repository.`, doublon));
+    anomalies.push(anomaly(`${nameActor(doublon)} is declared more than once in the repository.`, doublon));
   }
 
   // Sur (exposant, nom, version) et non sur le nom seul. Deux versions d'un même
   // contrat sont deux lignes légitimes, c'est tout l'objet de la colonne ; et
   // deux acteurs peuvent publier un contrat de même nom sans s'être concertés,
   // ce qui fait deux interfaces distinctes -- pas un doublon.
-  const identité = (i: InterfaceCatalogue) =>
+  const identity = (i: InterfaceCatalogue) =>
     `${normalizeText(i.providerName)}\u0000${normalizeText(interfaceLabel(i.flowName, i.version))}`;
-  for (const key of duplicates(model.interfaces.map(identité))) {
-    const doublon = model.interfaces.filter((i) => identité(i) === key)[1];
+  for (const key of duplicates(model.interfaces.map(identity))) {
+    const doublon = model.interfaces.filter((i) => identity(i) === key)[1];
     anomalies.push(
-      anomaly(`${nommeInterface(doublon)} is published more than once by "${doublon.providerName}".`, doublon)
+      anomaly(`${nameInterface(doublon)} is published more than once by "${doublon.providerName}".`, doublon)
     );
   }
 
@@ -208,15 +208,15 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   const coupleDeLOnglet = new Map<string, { provider: string; type: string }>();
   for (const i of model.interfaces) {
     const couple = { provider: i.providerName.trim(), type: i.flowType.trim() };
-    const déjà = coupleDeLOnglet.get(normalizeText(i.expectedSheet));
-    if (!déjà) {
+    const already = coupleDeLOnglet.get(normalizeText(i.expectedSheet));
+    if (!already) {
       coupleDeLOnglet.set(normalizeText(i.expectedSheet), couple);
       continue;
     }
-    if (déjà.provider === couple.provider && déjà.type === couple.type) continue;
+    if (already.provider === couple.provider && already.type === couple.type) continue;
     anomalies.push(
       anomaly(
-        `${nommeInterface(i)}: "${couple.provider}" / "${couple.type}" and "${déjà.provider}" / "${déjà.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${LONGUEUR_MAX_ONGLET} characters. Shorten one of the names.`,
+        `${nameInterface(i)}: "${couple.provider}" / "${couple.type}" and "${already.provider}" / "${already.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${LONGUEUR_MAX_ONGLET} characters. Shorten one of the names.`,
         i
       )
     );
@@ -226,7 +226,7 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   for (const iface of model.interfaces) {
     if (!fxNormalises.has(normalizeText(iface.expectedSheet))) {
       anomalies.push(
-        anomaly(`${nommeInterface(iface)}: sheet "${iface.expectedSheet}" missing from the workbook.`, iface)
+        anomaly(`${nameInterface(iface)}: sheet "${iface.expectedSheet}" missing from the workbook.`, iface)
       );
     }
   }
@@ -282,7 +282,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 
   for (const iface of model.interfaces) {
     if (!actors.has(iface.providerName.trim())) {
-      anomalies.push(anomaly(`${nommeInterface(iface)}: provider "${iface.providerName}" unknown to the repository.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" unknown to the repository.`, iface));
     }
     if (!flowTypes.has(iface.flowType.trim())) {
       // La conséquence, et pas seulement la faute : sans type déclaré, le sens
@@ -292,7 +292,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
       // manquaient à tous les dessins pour cette seule raison.
       anomalies.push(
         anomaly(
-          `${nommeInterface(iface)}: flow type "${iface.flowType}" unknown to the repository, so this interface and its consumptions are not drawn.`,
+          `${nameInterface(iface)}: flow type "${iface.flowType}" unknown to the repository, so this interface and its consumptions are not drawn.`,
           iface
         )
       );
@@ -301,22 +301,22 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 
   for (const c of model.consumptions) {
     if (!actors.has(c.consumerName.trim())) {
-      anomalies.push(anomaly(`${nommeConso(c)}: consumer "${c.consumerName}" unknown to the repository.`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: consumer "${c.consumerName}" unknown to the repository.`, c));
     }
     const parNom = lookup.byNom.get(nomKey(c.flowName));
     if (!parNom) {
-      anomalies.push(anomaly(`${nommeConso(c)}: flow name missing from the Interfaces catalogue.`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: flow name missing from the Interfaces catalogue.`, c));
       continue;
     }
     // Le nom existe, la version non : on ne rattache pas au hasard, on le dit.
     const iface = lookup.byNomVersion.get(nomVersionKey(c.flowName, c.version));
     if (!iface) {
-      anomalies.push(anomaly(`${nommeConso(c)}: version "${c.version}" missing from the catalogue for this flow.`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: version "${c.version}" missing from the catalogue for this flow.`, c));
       continue;
     }
     const exact = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
     if (!exact) {
-      anomalies.push(anomaly(`${nommeConso(c)}: filed under "${c.sheet}" instead of "${iface.expectedSheet}".`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: filed under "${c.sheet}" instead of "${iface.expectedSheet}".`, c));
     }
   }
 
@@ -325,13 +325,13 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // n'est pas ce que la saisie voulait dire.
   const declaredMilestones = new Set(model.milestones.map((p) => normalizeText(p.name)));
   const citations = [
-    ...model.actors.flatMap((a) => bornesCitées(nommeActeur(a), a)),
-    ...model.interfaces.flatMap((i) => bornesCitées(nommeInterface(i), i)),
-    ...model.consumptions.flatMap((c) => bornesCitées(nommeConso(c), c)),
+    ...model.actors.flatMap((a) => citedBounds(nameActor(a), a)),
+    ...model.interfaces.flatMap((i) => citedBounds(nameInterface(i), i)),
+    ...model.consumptions.flatMap((c) => citedBounds(nameConsumption(c), c)),
   ];
-  for (const { où, value, emplacement } of citations) {
+  for (const { where, value, emplacement } of citations) {
     if (!declaredMilestones.has(normalizeText(value))) {
-      anomalies.push(anomaly(`${où}: milestone "${value}" missing from the "Milestones" sheet.`, emplacement));
+      anomalies.push(anomaly(`${where}: milestone "${value}" missing from the "Milestones" sheet.`, emplacement));
     }
   }
 
@@ -351,11 +351,11 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     if (parNom.length === 1) continue;
     if (parNom.length === 0) {
       anomalies.push(
-        anomaly(`${nommeConso(c)}: republished as "${target}", which "${c.consumerName}" does not provide.`, c)
+        anomaly(`${nameConsumption(c)}: republished as "${target}", which "${c.consumerName}" does not provide.`, c)
       );
     } else {
       anomalies.push(
-        anomaly(`${nommeConso(c)}: republished as "${target}", which "${c.consumerName}" provides in ${parNom.length} versions — name the version.`, c)
+        anomaly(`${nameConsumption(c)}: republished as "${target}", which "${c.consumerName}" provides in ${parNom.length} versions — name the version.`, c)
       );
     }
   }
@@ -366,7 +366,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   for (const t of model.flowTypes) {
     const brut = t.colour.trim();
     if (brut === "" || COULEUR_HEXA.test(brut)) continue;
-    anomalies.push(anomaly(`${nommeTypeFlux(t)}: colour "${brut}" is not a hex code such as #2a78d6.`, t));
+    anomalies.push(anomaly(`${nameFlowType(t)}: colour "${brut}" is not a hex code such as #2a78d6.`, t));
   }
 
   // Deux technologies de la même couleur donnent deux traits indiscernables,
@@ -377,10 +377,10 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     const brut = t.colour.trim();
     if (!COULEUR_HEXA.test(brut)) continue;
     const key = brut.replace("#", "").toLowerCase();
-    const déjà = parCouleur.get(key);
-    if (déjà) {
+    const already = parCouleur.get(key);
+    if (already) {
       anomalies.push(
-        anomaly(`${nommeTypeFlux(t)}: colour "${brut}" is already carried by "${déjà.type}" — the two would be drawn alike.`, t)
+        anomaly(`${nameFlowType(t)}: colour "${brut}" is already carried by "${already.type}" — the two would be drawn alike.`, t)
       );
     } else {
       parCouleur.set(key, t);
@@ -392,7 +392,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   for (const t of model.typesActeur) {
     if (t.icone && !ICONES_DISPONIBLES.includes(t.icone.trim())) {
       anomalies.push(
-        anomaly(`${nommeTypeActeur(t)}: icon "${t.icone}" unknown. Accepted values: ${ICONES_DISPONIBLES.join(", ")}.`, t)
+        anomaly(`${nameActorType(t)}: icon "${t.icone}" unknown. Accepted values: ${ICONES_DISPONIBLES.join(", ")}.`, t)
       );
     }
   }
@@ -401,37 +401,37 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // une déclaration « inutilisée » ne signale rien. Sans cette garde, le modèle
   // téléchargé s'ouvrait sur six erreurs.
   if (model.typesActeur.length > 0 && model.actors.length > 0) {
-    const déclarésTypes = new Set(model.typesActeur.map((t) => normalizeText(t.type)));
+    const declaredTypes = new Set(model.typesActeur.map((t) => normalizeText(t.type)));
     const vus = new Set<string>();
     for (const a of model.actors) {
       const type = a.typeActeur.trim();
       if (!type) continue;
       vus.add(normalizeText(type));
-      if (!déclarésTypes.has(normalizeText(type))) {
-        anomalies.push(anomaly(`${nommeActeur(a)}: actor type "${type}" missing from the "ActorTypes" sheet.`, a));
+      if (!declaredTypes.has(normalizeText(type))) {
+        anomalies.push(anomaly(`${nameActor(a)}: actor type "${type}" missing from the "ActorTypes" sheet.`, a));
       }
     }
     for (const t of model.typesActeur) {
       if (!vus.has(normalizeText(t.type))) {
-        anomalies.push(anomaly(`${nommeTypeActeur(t)} is declared but no actor carries it.`, t));
+        anomalies.push(anomaly(`${nameActorType(t)} is declared but no actor carries it.`, t));
       }
     }
   }
 
   if (!model.groupesAbsents && model.actors.length > 0) {
-    const déclarés = new Set(model.groups.map((g) => normalizeText(g.name)));
+    const declared = new Set(model.groups.map((g) => normalizeText(g.name)));
     const vus = new Set<string>();
     for (const a of model.actors) {
       const group = a.group.trim();
       if (!group) continue;
       vus.add(normalizeText(group));
-      if (!déclarés.has(normalizeText(group))) {
-        anomalies.push(anomaly(`${nommeActeur(a)}: group "${group}" missing from the "Groups" sheet.`, a));
+      if (!declared.has(normalizeText(group))) {
+        anomalies.push(anomaly(`${nameActor(a)}: group "${group}" missing from the "Groups" sheet.`, a));
       }
     }
     for (const g of model.groups) {
       if (!vus.has(normalizeText(g.name))) {
-        anomalies.push(anomaly(`${nommeGroupe(g)} is declared but no actor belongs to it.`, g));
+        anomalies.push(anomaly(`${nameGroup(g)} is declared but no actor belongs to it.`, g));
       }
     }
   }
@@ -453,13 +453,13 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   for (const c of model.consumptions) {
     const iface = findInterfaceForConsommation(lookup, c);
     if (iface && iface.providerName.trim() === c.consumerName.trim()) {
-      anomalies.push(anomaly(`${nommeConso(c)}: the consumer is also the provider.`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: the consumer is also the provider.`, c));
     }
   }
 
   for (const iface of auPalier.interfaces) {
     if (consommationsForInterface(lookupAuPalier, auPalier, iface).length === 0) {
-      anomalies.push(anomaly(`${nommeInterface(iface)} has no declared consumption.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)} has no declared consumption.`, iface));
     }
   }
 
@@ -481,18 +481,18 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
     const key = JSON.stringify([normalizeText(c.sheet), normalizeText(c.flowName), normalizeText(c.consumerName)]);
     const rows = parFluxEtConsommateur.get(key);
     if (!rows) continue;
-    const simultanées = rows.filter(
+    const simultaneous = rows.filter(
       (autre) =>
         autre !== c &&
         autre.version.trim() !== c.version.trim() &&
         seRencontrent(lifespanOf(model, c), lifespanOf(model, autre))
     );
-    if (simultanées.length === 0) continue;
-    const versions = new Set([c, ...simultanées].map((l) => l.version.trim()));
+    if (simultaneous.length === 0) continue;
+    const versions = new Set([c, ...simultaneous].map((l) => l.version.trim()));
     parFluxEtConsommateur.delete(key);
     anomalies.push(
       anomaly(
-        `${nommeConso(c)}: consumer "${c.consumerName}" is listed on two versions (${[...versions].map((v) => v || "no version").join(", ")}); a consumer consumes only one version of a contract.`,
+        `${nameConsumption(c)}: consumer "${c.consumerName}" is listed on two versions (${[...versions].map((v) => v || "no version").join(", ")}); a consumer consumes only one version of a contract.`,
         c
       )
     );
@@ -513,21 +513,21 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
       return a ? lifespanOf(model, a) : TOUJOURS;
     };
 
-    function contrôlerEmboitement(
+    function checkNesting(
       subject: string,
       validite: ValiditePalier & Emplacement,
       parents: { name: string; interval: Intervalle }[]
     ) {
       const interval = lifespanOf(model, validite);
-      const arrivéeSaisie = validite.introducedAt.trim() !== "";
+      const arrivalFilled = validite.introducedAt.trim() !== "";
       const retraitSaisi = validite.retiredAt.trim() !== "";
 
-      if (arrivéeSaisie && retraitSaisi && interval.end <= interval.start) {
+      if (arrivalFilled && retraitSaisi && interval.end <= interval.start) {
         anomalies.push(anomaly(`${subject}: retirement milestone is at or before the introduction milestone.`, validite));
         return;
       }
       for (const parent of parents) {
-        const tropTôt = arrivéeSaisie && interval.start < parent.interval.start;
+        const tooEarly = arrivalFilled && interval.start < parent.interval.start;
         const tropTard = retraitSaisi && interval.end > parent.interval.end;
         // Deux intervalles qui ne se rencontrent JAMAIS ne débordent ni d'un
         // côté ni de l'autre : une consommation qui commence là où son
@@ -535,14 +535,14 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
         // un lien qui n'existe à aucun palier.
         const jamaisEnsemble =
           parent.interval.start < parent.interval.end && !seRencontrent(interval, parent.interval);
-        if (tropTôt || tropTard || jamaisEnsemble) {
+        if (tooEarly || tropTard || jamaisEnsemble) {
           anomalies.push(anomaly(`${subject} lives outside the lifetime of ${parent.name}.`, validite));
         }
       }
     }
 
     for (const i of model.interfaces) {
-      contrôlerEmboitement(nommeInterface(i), i, [
+      checkNesting(nameInterface(i), i, [
         { name: `its provider "${i.providerName}"`, interval: vieActeur(i.providerName) },
       ]);
     }
@@ -558,14 +558,14 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
             }]
           : []),
       ];
-      contrôlerEmboitement(nommeConso(c), c, parents);
+      checkNesting(nameConsumption(c), c, parents);
     }
   }
 
   for (const c of model.consumptions) {
     if (c.republishedAs.trim() !== "" && !isTechnicalActor(model, c.consumerName)) {
       anomalies.push(
-        anomaly(`${nommeConso(c)}: says it republishes, yet "${c.consumerName}" is a business actor — only plumbing relays.`, c)
+        anomaly(`${nameConsumption(c)}: says it republishes, yet "${c.consumerName}" is a business actor — only plumbing relays.`, c)
       );
     }
   }
@@ -573,19 +573,19 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   // Une chaîne coupée ne produit aucun lien fonctionnel. Sans ces deux lignes
   // le lien manquait EN SILENCE, ce qui est précisément ce que le contrôle du
   // bus fourre-tout, plus bas, cherche à éviter.
-  for (const coupée of chainesCoupees(auPalier, null)) {
-    if (coupée.reason === "loop") {
-      anomalies.push(anomaly(`${nommeInterface(coupée.iface)}: its relay chain loops back on itself.`, coupée.iface));
+  for (const cut of chainesCoupees(auPalier, null)) {
+    if (cut.reason === "loop") {
+      anomalies.push(anomaly(`${nameInterface(cut.iface)}: its relay chain loops back on itself.`, cut.iface));
     }
     // Une interface republiée que rien n'alimente : l'acteur technique l'expose,
     // mais aucune de ses consommations ne la désigne. Le lien fonctionnel
     // qu'on en attendait n'existe pas, et sans cette ligne il manquerait EN
     // SILENCE.
-    if (coupée.reason === "no-input") {
+    if (cut.reason === "no-input") {
       anomalies.push(
         anomaly(
-          `${nommeInterface(coupée.iface)}: nothing feeds it — no consumption of "${coupée.iface.providerName}" is republished as this interface, so the chain stops here.`,
-          coupée.iface
+          `${nameInterface(cut.iface)}: nothing feeds it — no consumption of "${cut.iface.providerName}" is republished as this interface, so the chain stops here.`,
+          cut.iface
         )
       );
     }
@@ -601,7 +601,7 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
     const ressort = consommationsForInterface(lookupAuPalier, auPalier, i).some((c) => c.republishedAs.trim() !== "");
     if (!ressort) {
       anomalies.push(
-        anomaly(`${nommeInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
+        anomaly(`${nameInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
       );
     }
   }
@@ -646,7 +646,7 @@ function checkVocabulaires(model: ParsedModel): AnomalyFamily {
     if (horsVocabulaire(g.perimeter, VOCABULAIRES.perimeter)) {
       anomalies.push(
         anomaly(
-          `${nommeGroupe(g)}: perimeter "${g.perimeter}" unknown. Accepted values: ${VOCABULAIRES.perimeter.join(", ")}.`,
+          `${nameGroup(g)}: perimeter "${g.perimeter}" unknown. Accepted values: ${VOCABULAIRES.perimeter.join(", ")}.`,
           g
         )
       );
@@ -657,7 +657,7 @@ function checkVocabulaires(model: ParsedModel): AnomalyFamily {
     if (horsVocabulaire(t.sensRepresentationBrut, VOCABULAIRES.direction)) {
       anomalies.push(
         anomaly(
-          `${nommeTypeFlux(t)}: direction "${t.sensRepresentationBrut}" unknown. Accepted values: ${VOCABULAIRES.direction.join(", ")}.`,
+          `${nameFlowType(t)}: direction "${t.sensRepresentationBrut}" unknown. Accepted values: ${VOCABULAIRES.direction.join(", ")}.`,
           t
         )
       );
@@ -668,18 +668,18 @@ function checkVocabulaires(model: ParsedModel): AnomalyFamily {
   for (const t of model.typesActeur) {
     if (horsVocabulaire(t.nature, VOCABULAIRES.nature)) {
       anomalies.push(
-        anomaly(`${nommeTypeActeur(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULAIRES.nature.join(", ")}.`, t)
+        anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULAIRES.nature.join(", ")}.`, t)
       );
     }
   }
 
   for (const c of model.consumptions) {
-    const où = nommeConso(c);
+    const where = nameConsumption(c);
     if (horsVocabulaire(c.decision, VOCABULAIRES.decision)) {
-      anomalies.push(anomaly(`${où}: decision "${c.decision}" unknown. Accepted values: ${VOCABULAIRES.decision.join(", ")}.`, c));
+      anomalies.push(anomaly(`${where}: decision "${c.decision}" unknown. Accepted values: ${VOCABULAIRES.decision.join(", ")}.`, c));
     }
     if (horsVocabulaire(c.criticality, VOCABULAIRES.criticality)) {
-      anomalies.push(anomaly(`${où}: criticality "${c.criticality}" unknown. Accepted values: ${VOCABULAIRES.criticality.join(", ")}.`, c));
+      anomalies.push(anomaly(`${where}: criticality "${c.criticality}" unknown. Accepted values: ${VOCABULAIRES.criticality.join(", ")}.`, c));
     }
   }
 
@@ -696,38 +696,38 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
 
   for (const iface of model.interfaces) {
     if (!iface.description.trim()) {
-      anomalies.push(anomaly(`${nommeInterface(iface)}: description empty.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)}: description empty.`, iface));
     }
     if (!iface.lienContrat.trim() && !iface.referenceContrat.trim()) {
-      anomalies.push(anomaly(`${nommeInterface(iface)}: no contract, neither link nor reference.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)}: no contract, neither link nor reference.`, iface));
     }
   }
 
   for (const c of model.consumptions) {
-    if (!c.usage.trim()) anomalies.push(anomaly(`${nommeConso(c)}: usage not described.`, c));
+    if (!c.usage.trim()) anomalies.push(anomaly(`${nameConsumption(c)}: usage not described.`, c));
     // Un palier de retrait tient lieu de décision : il dit que la consommation
     // part, et quand. Réclamer en plus un jugement demanderait deux fois la
     // même chose.
     if (!c.decision.trim() && !c.retiredAt.trim()) {
-      anomalies.push(anomaly(`${nommeConso(c)}: decision empty.`, c));
+      anomalies.push(anomaly(`${nameConsumption(c)}: decision empty.`, c));
     }
   }
 
   for (const a of model.actors) {
     if (!a.group.trim()) {
-      anomalies.push(anomaly(`${nommeActeur(a)}: group empty, so it stays out of the aggregated views until filled in.`, a));
+      anomalies.push(anomaly(`${nameActor(a)}: group empty, so it stays out of the aggregated views until filled in.`, a));
     }
   }
 
   for (const t of model.typesActeur) {
     if (!t.icone.trim()) {
-      anomalies.push(anomaly(`${nommeTypeActeur(t)}: icon not filled in.`, t));
+      anomalies.push(anomaly(`${nameActorType(t)}: icon not filled in.`, t));
     }
   }
 
   for (const g of model.groups) {
     if (!g.perimeter.trim()) {
-      anomalies.push(anomaly(`${nommeGroupe(g)}: perimeter not filled in.`, g));
+      anomalies.push(anomaly(`${nameGroup(g)}: perimeter not filled in.`, g));
     }
   }
 
@@ -741,18 +741,18 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
   if (model.milestones.length > 0) {
     for (const a of model.actors) {
       if (!a.introducedAt.trim()) {
-        anomalies.push(anomaly(`${nommeActeur(a)}: introduction milestone empty.`, a));
+        anomalies.push(anomaly(`${nameActor(a)}: introduction milestone empty.`, a));
       }
     }
     for (const i of model.interfaces) {
       if (!i.introducedAt.trim()) {
-        anomalies.push(anomaly(`${nommeInterface(i)}: introduction milestone empty.`, i));
+        anomalies.push(anomaly(`${nameInterface(i)}: introduction milestone empty.`, i));
       }
     }
     for (const c of model.consumptions) {
       if (!c.introducedAt.trim()) {
         anomalies.push(
-          anomaly(`${nommeConso(c)}: introduction milestone empty, so it is unknown when this consumer arrived.`, c)
+          anomaly(`${nameConsumption(c)}: introduction milestone empty, so it is unknown when this consumer arrived.`, c)
         );
       }
     }
@@ -763,7 +763,7 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
   const natureAdoptee = model.typesActeur.some((t) => t.nature.trim() !== "");
   if (natureAdoptee) {
     for (const t of model.typesActeur) {
-      if (!t.nature.trim()) anomalies.push(anomaly(`${nommeTypeActeur(t)}: nature not filled in.`, t));
+      if (!t.nature.trim()) anomalies.push(anomaly(`${nameActorType(t)}: nature not filled in.`, t));
     }
   }
 
@@ -791,7 +791,7 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
 
     if (toutesEligibles) candidates.push(iface);
   }
-  const items = itemsSitués(candidates, (i) => `${interfaceLabel(i.flowName, i.version)} ${adresse(i)}`);
+  const items = locatedItems(candidates, (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`);
 
   return {
     id: "decommissionnement",
@@ -806,14 +806,14 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
 // apparaît simplement pas. C'est un signal, pas une faute -- et un flux
 // décommissionné reste un flux, donc il compte ici comme les autres.
 function actorsWithNoFlow(model: ParsedModel): InfoBlock {
-  const touchés = new Set<string>();
-  for (const iface of model.interfaces) touchés.add(iface.providerName.trim());
-  for (const c of model.consumptions) touchés.add(c.consumerName.trim());
+  const touched = new Set<string>();
+  for (const iface of model.interfaces) touched.add(iface.providerName.trim());
+  for (const c of model.consumptions) touched.add(c.consumerName.trim());
   return {
     id: "acteurs-sans-flux",
     title: "Components with no flow",
     description: "They appear on no diagram until some interface reaches them.",
-    items: itemsSitués(model.actors.filter((a) => !touchés.has(a.name.trim())), (a) => `${a.name} ${adresse(a)}`),
+    items: locatedItems(model.actors.filter((a) => !touched.has(a.name.trim())), (a) => `${a.name} ${address(a)}`),
     level: "warning",
   };
 }
@@ -825,9 +825,9 @@ function criticitesManquantes(model: ParsedModel): InfoBlock {
     id: "criticite-manquante",
     title: "Criticality not filled in",
     description: "Consumptions whose criticality for the consumer is left empty.",
-    items: itemsSitués(
+    items: locatedItems(
       model.consumptions.filter((c) => !c.criticality.trim()),
-      (c) => `${c.flowName} ${adresse(c)} — ${c.consumerName}`
+      (c) => `${c.flowName} ${address(c)} — ${c.consumerName}`
     ),
     level: "warning",
   };
@@ -878,12 +878,12 @@ function dependances(model: ParsedModel): Map<string, Set<string>> {
 
 function atteignables(depuis: string, arcs: Map<string, Set<string>>): Set<string> {
   const vus = new Set<string>();
-  const àVoir = [...(arcs.get(depuis) ?? [])];
-  while (àVoir.length > 0) {
-    const n = àVoir.pop()!;
+  const toVisit = [...(arcs.get(depuis) ?? [])];
+  while (toVisit.length > 0) {
+    const n = toVisit.pop()!;
     if (vus.has(n)) continue;
     vus.add(n);
-    àVoir.push(...(arcs.get(n) ?? []));
+    toVisit.push(...(arcs.get(n) ?? []));
   }
   return vus;
 }
@@ -903,7 +903,7 @@ function rayonDImpact(model: ParsedModel): InfoBlock {
       versLAval.get(v)!.add(de);
     }
   }
-  const portée = [...versLAval.keys()]
+  const reach = [...versLAval.keys()]
     // Retranché de lui-même : un cycle ramène l'acteur dans son propre aval, et
     // « combien j'en entraîne » ne me compte pas. Sur le classeur d'exemple,
     // qui contient un cycle à quatre composants, cela se voyait.
@@ -915,7 +915,7 @@ function rayonDImpact(model: ParsedModel): InfoBlock {
     id: "rayon-impact",
     title: "Blast radius",
     description: "How many components each one takes with it, directly or through others.",
-    items: portée.map((x) => `${x.name}: ${x.downstream} component${x.downstream > 1 ? "s" : ""} downstream.`),
+    items: reach.map((x) => `${x.name}: ${x.downstream} component${x.downstream > 1 ? "s" : ""} downstream.`),
     level: "info",
   };
 }
@@ -933,16 +933,16 @@ function cyclesDeDependance(model: ParsedModel): InfoBlock {
   const arcs = dependances(model);
   // Seuls les acteurs qui dépendent d'au moins un autre peuvent boucler.
   const candidats = [...arcs.keys()];
-  const portée = new Map(candidats.map((n) => [n, atteignables(n, arcs)]));
+  const reach = new Map(candidats.map((n) => [n, atteignables(n, arcs)]));
 
   const groups: string[] = [];
-  const placés = new Set<string>();
+  const placed = new Set<string>();
   for (const n of candidats) {
-    if (placés.has(n) || !portée.get(n)!.has(n)) continue;
+    if (placed.has(n) || !reach.get(n)!.has(n)) continue;
     const group = candidats
-      .filter((m) => portée.get(n)!.has(m) && portée.get(m)!.has(n))
+      .filter((m) => reach.get(n)!.has(m) && reach.get(m)!.has(n))
       .sort((a, b) => a.localeCompare(b, "fr"));
-    for (const m of group) placés.add(m);
+    for (const m of group) placed.add(m);
     groups.push(`${group.join(", ")} (${group.length} components)`);
   }
 
@@ -957,12 +957,12 @@ function cyclesDeDependance(model: ParsedModel): InfoBlock {
 
 // Un type déclaré que personne n'emploie : le référentiel dit plus que le parc.
 function typesFluxInutilises(model: ParsedModel): InfoBlock {
-  const utilisés = new Set(model.interfaces.map((i) => normalizeText(i.flowType)));
+  const used = new Set(model.interfaces.map((i) => normalizeText(i.flowType)));
   return {
     id: "typesflux-inutilises",
     title: "Unused flow types",
     description: "Declared in FlowTypes, but no interface uses them.",
-    items: itemsSitués(model.flowTypes.filter((t) => !utilisés.has(normalizeText(t.type))), (t) => `${t.type} ${adresse(t)}`),
+    items: locatedItems(model.flowTypes.filter((t) => !used.has(normalizeText(t.type))), (t) => `${t.type} ${address(t)}`),
     level: "info",
   };
 }
@@ -973,13 +973,13 @@ function typesFluxInutilises(model: ParsedModel): InfoBlock {
 function couleursIllisibles(model: ParsedModel): InfoBlock {
   const items: string[] = [];
   for (const t of model.flowTypes) {
-    const déclarée = HEXA.exec(t.colour.trim());
-    if (!déclarée) continue;
-    const hex = `#${déclarée[1].toLowerCase()}`;
+    const declared = HEXA.exec(t.colour.trim());
+    if (!declared) continue;
+    const hex = `#${declared[1].toLowerCase()}`;
     const ratio = ratioDeContraste(hex, "#ffffff");
     if (ratio < SEUIL_TRAIT) {
       items.push(
-        `${t.type} ${adresse(t)}: colour ${hex} only reaches ${ratio.toFixed(2)}:1 on white; it is darkened on screen so the line stays visible.`
+        `${t.type} ${address(t)}: colour ${hex} only reaches ${ratio.toFixed(2)}:1 on white; it is darkened on screen so the line stays visible.`
       );
     }
   }
@@ -997,7 +997,7 @@ function interfacesAConfirmer(model: ParsedModel): InfoBlock {
     id: "a-confirmer",
     title: "Interfaces to confirm",
     description: "Interfaces whose To confirm column reads Yes — to confirm or to drop.",
-    items: itemsSitués(model.interfaces.filter((i) => i.aConfirmer), (i) => `${interfaceLabel(i.flowName, i.version)} ${adresse(i)}`),
+    items: locatedItems(model.interfaces.filter((i) => i.aConfirmer), (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`),
     level: "action",
   };
 }
@@ -1029,10 +1029,10 @@ function migrationsEnCours(model: ParsedModel): InfoBlock {
     const vers = actives.length > 0 ? actives.join(", ") : "no active version";
     enCours.push({
       iface,
-      text: `${interfaceLabel(iface.flowName, iface.version)} ${adresse(iface)} → ${vers}: ${restants.join(", ")}`,
+      text: `${interfaceLabel(iface.flowName, iface.version)} ${address(iface)} → ${vers}: ${restants.join(", ")}`,
     });
   }
-  const items = itemsSitués(enCours.map((e) => ({ ...e.iface, text: e.text })), (e) => e.text);
+  const items = locatedItems(enCours.map((e) => ({ ...e.iface, text: e.text })), (e) => e.text);
 
   return {
     id: "migrations",

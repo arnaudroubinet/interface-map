@@ -18,7 +18,7 @@ const report: IntegrityReport = {
   totalAvertissements: 0,
 };
 
-const chargé = (): AppState =>
+const loaded = (): AppState =>
   withFichierCharge(initialState(), { name: "c.xlsx", model: base.template(), report: report, dateModification: null });
 
 const actif = (label: string, state: AppState, dessin = true) =>
@@ -32,7 +32,7 @@ describe("EXPORTS — quand un format est offert", () => {
   });
 
   it("offre les images sur un schéma, et seulement là", () => {
-    const s = withVue(chargé(), "platform-detail");
+    const s = withVue(loaded(), "platform-detail");
     expect(actif("SVG", s)).toBe(true);
     expect(actif("PNG", s)).toBe(true);
     expect(actif("SVG", withVue(s, "matrix"))).toBe(false);
@@ -42,14 +42,14 @@ describe("EXPORTS — quand un format est offert", () => {
   // Un schéma pas encore rendu n'est pas exportable : le bouton attendrait un
   // dessin qui n'existe pas.
   it("n'offre pas une image tant que le dessin n'est pas prêt", () => {
-    expect(actif("SVG", withVue(chargé(), "platform-detail"), false)).toBe(false);
+    expect(actif("SVG", withVue(loaded(), "platform-detail"), false)).toBe(false);
   });
 
   it("réserve Excel à la matrix et Markdown au rapport", () => {
-    expect(actif("Excel", withVue(chargé(), "matrix"))).toBe(true);
-    expect(actif("Excel", withVue(chargé(), "checks"))).toBe(false);
-    expect(actif("Markdown", withVue(chargé(), "checks"))).toBe(true);
-    expect(actif("Markdown", withVue(chargé(), "matrix"))).toBe(false);
+    expect(actif("Excel", withVue(loaded(), "matrix"))).toBe(true);
+    expect(actif("Excel", withVue(loaded(), "checks"))).toBe(false);
+    expect(actif("Markdown", withVue(loaded(), "checks"))).toBe(true);
+    expect(actif("Markdown", withVue(loaded(), "matrix"))).toBe(false);
   });
 
   // Les trois qui emportent tout le classeur ne dépendent pas de la vue --
@@ -58,16 +58,16 @@ describe("EXPORTS — quand un format est offert", () => {
   // à un autre est le cas d'usage central d'un systemLandscape. Le fichier dit
   // désormais quelle lecture il porte, ce qui était la vraie exigence.
   it("offre les trois formats de modèle dans les deux lectures", () => {
-    const fonctionnel = withMode(withVue(chargé(), "matrix"), "functional");
+    const fonctionnel = withMode(withVue(loaded(), "matrix"), "functional");
     expect(actif("draw.io", fonctionnel)).toBe(true);
     expect(actif("Structurizr", fonctionnel)).toBe(true);
     expect(actif("LikeC4", fonctionnel)).toBe(true);
   });
 
   it("n'offre aucun des trois sur l'écran de mise à niveau", () => {
-    const bloqué = withVue(chargé(), "upgrade");
+    const blocked = withVue(loaded(), "upgrade");
     for (const label of ["draw.io", "Structurizr", "LikeC4"]) {
-      expect(actif(label, bloqué)).toBe(false);
+      expect(actif(label, blocked)).toBe(false);
     }
   });
 });

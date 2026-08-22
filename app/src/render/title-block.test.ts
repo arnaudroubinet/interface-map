@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { libelléCartouche, descriptionAccessible, type ContexteSchema } from "./title-block";
+import { titleBlockText, descriptionAccessible, type ContexteSchema } from "./title-block";
 
 const ctx = (o: Partial<ContexteSchema> = {}): ContexteSchema => ({
   title: "Platform detail",
@@ -15,21 +15,21 @@ const ctx = (o: Partial<ContexteSchema> = {}): ContexteSchema => ({
 
 describe("libelléCartouche", () => {
   it("dit la vue, la lecture et le palier sur la première ligne", () => {
-    expect(libelléCartouche(ctx()).title).toBe("Platform detail — architecture reading, milestone v2");
+    expect(titleBlockText(ctx()).title).toBe("Platform detail — architecture reading, milestone v2");
   });
 
   // Un classeur sans palier ne doit pas afficher « milestone null ».
   it("tait le palier quand le classeur n'en déclare aucun", () => {
-    expect(libelléCartouche(ctx({ milestone: null })).title).toBe("Platform detail — architecture reading");
+    expect(titleBlockText(ctx({ milestone: null })).title).toBe("Platform detail — architecture reading");
   });
 
   it("dit la source, les comptes et la date sur la seconde ligne", () => {
-    expect(libelléCartouche(ctx()).subtitle).toBe("carto.xlsx · 12 components, 24 flows · 2026-08-22");
+    expect(titleBlockText(ctx()).subtitle).toBe("carto.xlsx · 12 components, 24 flows · 2026-08-22");
   });
 
   // Le singulier compte : « 1 components » signale un texte fabriqué à la main.
   it("accorde le singulier", () => {
-    expect(libelléCartouche(ctx({ composants: 1, flows: 1 })).subtitle).toContain("1 component, 1 flow");
+    expect(titleBlockText(ctx({ composants: 1, flows: 1 })).subtitle).toContain("1 component, 1 flow");
   });
 });
 
@@ -54,12 +54,12 @@ describe("descriptionAccessible", () => {
 describe("libelléCartouche — ce que la planche compte", () => {
   it("laisse une planche dire ce qu'elle compte, quand les boîtes n'ont pas de sens", () => {
     const c = { ...ctx(), composants: 0, flows: 0, detail: "17 interfaces, 3 milestones" };
-    expect(libelléCartouche(c).subtitle).toContain("17 interfaces, 3 milestones");
-    expect(libelléCartouche(c).subtitle).not.toContain("0 component");
+    expect(titleBlockText(c).subtitle).toContain("17 interfaces, 3 milestones");
+    expect(titleBlockText(c).subtitle).not.toContain("0 component");
   });
 
   it("garde les comptes ordinaires quand rien ne les remplace", () => {
-    expect(libelléCartouche(ctx()).subtitle).toContain("12 components, 24 flows");
+    expect(titleBlockText(ctx()).subtitle).toContain("12 components, 24 flows");
   });
 
   it("reprend le même détail dans la description accessible", () => {

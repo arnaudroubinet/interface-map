@@ -54,7 +54,7 @@ const est = (value: string, attendu: string) => normalizeText(value) === normali
 // se contente pas d'ajouter des colonnes vides, elle traduit ce que le classeur
 // disait déjà du temps. Elle lit des valeurs françaises, elle passe donc AVANT
 // la traduction.
-function poserLesPaliers(model: ParsedModel, contexte: ContexteMiseANiveau): ParsedModel {
+function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): ParsedModel {
   const avant = {
     name: PALIER_AVANT,
     rank: 1,
@@ -88,13 +88,13 @@ function poserLesPaliers(model: ParsedModel, contexte: ContexteMiseANiveau): Par
   const interfaces = model.interfaces.map((i) => {
     // Retiré : déjà parti avant la bascule, donc vivant « avant » et retiré à
     // l'origine. À décommissionner : annoncé, donc partant au palier suivant.
-    const déjàParti = est(i.etat, "Retiré");
+    const alreadyGone = est(i.etat, "Retiré");
     return {
       ...i,
       ...bounds(
         i,
-        déjàParti ? PALIER_ORIGINE : est(i.etat, "À décommissionner") ? PALIER_SUIVANT : "",
-        déjàParti ? PALIER_AVANT : PALIER_ORIGINE
+        alreadyGone ? PALIER_ORIGINE : est(i.etat, "À décommissionner") ? PALIER_SUIVANT : "",
+        alreadyGone ? PALIER_AVANT : PALIER_ORIGINE
       ),
     };
   });
@@ -103,13 +103,13 @@ function poserLesPaliers(model: ParsedModel, contexte: ContexteMiseANiveau): Par
   // passer de cette consommation, jamais quand elle part. Seul le statut porte
   // du temps.
   const consumptions = model.consumptions.map((c) => {
-    const déjàPartie = est(c.statut, "Décommissionné");
+    const alreadyGone = est(c.statut, "Décommissionné");
     return {
       ...c,
       ...bounds(
         c,
-        déjàPartie ? PALIER_ORIGINE : "",
-        déjàPartie ? PALIER_AVANT : est(c.statut, "En projet") ? PALIER_SUIVANT : PALIER_ORIGINE
+        alreadyGone ? PALIER_ORIGINE : "",
+        alreadyGone ? PALIER_AVANT : est(c.statut, "En projet") ? PALIER_SUIVANT : PALIER_ORIGINE
       ),
     };
   });
@@ -164,8 +164,8 @@ const VALEURS_TRADUITES: Record<string, string> = {
 
 function traduire(value: string): string {
   const v = normalizeText(value);
-  const trouvée = Object.entries(VALEURS_TRADUITES).find(([fr]) => normalizeText(fr) === v);
-  return trouvée ? trouvée[1] : value;
+  const found = Object.entries(VALEURS_TRADUITES).find(([fr]) => normalizeText(fr) === v);
+  return found ? found[1] : value;
 }
 
 function traduireLesValeurs(model: ParsedModel): ParsedModel {
@@ -191,7 +191,7 @@ function traduireLesValeurs(model: ParsedModel): ParsedModel {
 //
 // Le périmètre, lui, ne se déduit de rien : il reste vide et la complétude le
 // réclame. L'inventer rendrait un classeur d'apparence complète et faux.
-function déduireLesGroupes(model: ParsedModel): ParsedModel {
+function deriveGroups(model: ParsedModel): ParsedModel {
   if (!model.groupesAbsents) return model;
   const names = [...new Set(model.actors.map((a) => a.group.trim()).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
@@ -212,7 +212,7 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
   {
     de: 0,
     vers: 1,
-    appliquer: (model, contexte) => traduireLesValeurs(poserLesPaliers(déduireLesGroupes(model), contexte)),
+    appliquer: (model, contexte) => traduireLesValeurs(seedMilestones(deriveGroups(model), contexte)),
   },
   // Le v1 est parti en production avec des formules qui citaient l'onglet
   // « Listes », renommé « Lists » à la traduction. Excel n'y voyait pas une
@@ -239,7 +239,7 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
   // quel fournisseur et de quelle version vient l'entrée -- un nom de flux seul
   // ne le savait pas --, et une valeur par ligne se guide par une liste
   // déroulante, ce qu'une case à plusieurs noms ne permettait pas.
-  { de: 3, vers: 4, appliquer: (model) => deplacerLesRelais(model) },
+  { de: 3, vers: 4, appliquer: (model) => moveRelays(model) },
 ];
 
 // Chaque relais de la v3 retrouve la consommation qu'il désignait : celle du
@@ -248,7 +248,7 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
 // autant : le nom que la v3 portait est recopié dans les commentaires de
 // l'interface. Sans cette ligne, la case disparaissait à la conversion et
 // personne n'apprenait jamais ce que le classeur disait avant.
-function deplacerLesRelais(model: ParsedModel): ParsedModel {
+function moveRelays(model: ParsedModel): ParsedModel {
   const republications = new Map<Consommation, string>();
   const perdus = new Map<InterfaceCatalogue, string[]>();
   for (const iface of model.interfaces) {
@@ -290,11 +290,11 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
   // casse : il refuse d'ouvrir le classeur ENTIER, sans rien dire de la feuille
   // fautive. On range donc sous l'orthographe déjà retenue -- celle que les
   // interfaces posent en premier, qui est le nom reconstruit.
-  const ongletExistant = (name: string) =>
+  const existingTab = (name: string) =>
     [...parOnglet.keys()].find((k) => k.toLowerCase() === name.toLowerCase()) ?? name;
 
   for (const i of model.interfaces) {
-    const tab = ongletExistant(i.expectedSheet);
+    const tab = existingTab(i.expectedSheet);
     if (!parOnglet.has(tab)) parOnglet.set(tab, []);
   }
   for (const c of model.consumptions) {
@@ -308,7 +308,7 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
     // Faute de rattachement, on garde l'onglet d'origine : déplacer d'autorité
     // une ligne qui ne désigne rien la perdrait.
     const iface = findInterfaceForConsommation(lookup, c);
-    const tab = ongletExistant(iface ? iface.expectedSheet : c.sheet);
+    const tab = existingTab(iface ? iface.expectedSheet : c.sheet);
     const rows = parOnglet.get(tab) ?? [];
     rows.push([
       c.flowName, c.version, c.consumerName, c.usage, c.criticality,
@@ -363,10 +363,10 @@ export function mettreANiveau(model: ParsedModel, dateMigration: Date = new Date
 
   const contexte: ContexteMiseANiveau = { dateMigration };
   let courant = model;
-  for (const étape of ETAPES_MISE_A_NIVEAU) {
-    if (étape.de < model.versionModele) continue;
-    if (étape.vers > VERSION_MODELE) break;
-    courant = étape.appliquer(courant, contexte);
+  for (const step of ETAPES_MISE_A_NIVEAU) {
+    if (step.de < model.versionModele) continue;
+    if (step.vers > VERSION_MODELE) break;
+    courant = step.appliquer(courant, contexte);
   }
   return donneesDepuisModele(courant);
 }

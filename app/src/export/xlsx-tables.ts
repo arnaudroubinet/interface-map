@@ -18,16 +18,16 @@ import * as XLSX from "xlsx";
 // ou plusieurs sources externes » -- le même symptôme qu'un renvoi vers un
 // AUTRE CLASSEUR -- et l'a remplacée à la main par une référence de tableau,
 // qui fonctionne. C'est cette forme qu'on reprend ici.
-export interface ListeNommée {
+export interface NamedList {
   name: string;
   sheet: string;
-  intitulé: string;
+  heading: string;
 }
 
 // Une colonne de saisie contrainte par une liste. La formule est le plus
 // souvent un simple nom de plage -- qui en est une -- mais elle peut aussi
 // calculer sa liste, pour les listes dépendantes des onglets FX_.
-export interface ValidationÀPoser {
+export interface ValidationToApply {
   sheet: string;
   column: string;
   // Absente sur une colonne de saisie libre : Excel accepte une validation
@@ -40,7 +40,7 @@ export interface ValidationÀPoser {
   prompt?: { title: string; text: string };
 }
 
-export interface TableauÀPoser {
+export interface TableToApply {
   // Nom de la feuille, tel qu'il apparaît dans le classeur.
   sheet: string;
   // Intitulés de colonnes, dans l'ordre. Ils doivent reprendre exactement la
@@ -63,7 +63,7 @@ const NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationsh
 const TYPE_TABLE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
 
-function échapper(text: string): string {
+function escapeXml(text: string): string {
   return text
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -82,7 +82,7 @@ function empreinte(text: string): string {
   return (h >>> 0).toString(36);
 }
 
-function assainir(text: string): string {
+function sanitise(text: string): string {
   return text
     .normalize("NFD")
     .replace(/[̀-ͯ]/g, "")
@@ -99,8 +99,8 @@ function assainir(text: string): string {
 // `colonne`, quand elle est fournie, distingue plusieurs tableaux posés sur la
 // même feuille -- Listes en porte un par vocabulaire.
 export function nomDeTableau(sheet: string, column?: string): string {
-  const base = `Tbl${assainir(sheet)}`;
-  return column ? `${base}_${assainir(column)}` : base;
+  const base = `Tbl${sanitise(sheet)}`;
+  return column ? `${base}_${sanitise(column)}` : base;
 }
 
 function xmlDuTableau(
@@ -113,9 +113,9 @@ function xmlDuTableau(
   const cols = columns
     .map((c, i) => {
       const formule = formules[c];
-      const start = `<tableColumn id="${i + 1}" name="${échapper(c)}"`;
+      const start = `<tableColumn id="${i + 1}" name="${escapeXml(c)}"`;
       return formule
-        ? `${start}><calculatedColumnFormula>${échapper(formule)}</calculatedColumnFormula></tableColumn>`
+        ? `${start}><calculatedColumnFormula>${escapeXml(formule)}</calculatedColumnFormula></tableColumn>`
         : `${start}/>`;
     })
     .join("");
@@ -142,13 +142,13 @@ function xmlDesRelations(idTable: number): string {
 // manipule via une forme minimale plutôt que de plier le code à leurs lacunes.
 export type Conteneur = Parameters<typeof XLSX.CFB.write>[0];
 
-export function lirePartie(cfb: Conteneur, path: string): string | null {
+export function readPart(cfb: Conteneur, path: string): string | null {
   const input = XLSX.CFB.find(cfb, path);
   if (!input || !input.content) return null;
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
-export function écrirePartie(cfb: Conteneur, path: string, content: string): void {
+export function writePart(cfb: Conteneur, path: string, content: string): void {
   const octets = new TextEncoder().encode(content);
   XLSX.CFB.utils.cfb_add(cfb, path, octets as unknown as number[]);
 }
@@ -162,13 +162,13 @@ const PLANCHER_VALIDATION = 1000;
 // N'ajoute que les <row> manquantes : la dimension de la feuille se règle à
 // part (poserLesTableaux), une fois connue l'étendue de TOUS les tableaux
 // qu'elle porte -- une feuille comme Listes en reçoit plusieurs.
-function matérialiserLesLignes(sheet: string, jusquÀ: number): string {
-  const présentes = new Set(
+function materialiseRows(sheet: string, upTo: number): string {
+  const present = new Set(
     [...sheet.matchAll(/<row r="(\d+)"/g)].map((m) => Number(m[1]))
   );
   const manquantes: string[] = [];
-  for (let row = 1; row <= jusquÀ; row++) {
-    if (!présentes.has(row)) manquantes.push(`<row r="${row}"/>`);
+  for (let row = 1; row <= upTo; row++) {
+    if (!present.has(row)) manquantes.push(`<row r="${row}"/>`);
   }
   return sheet.replace("</sheetData>", `${manquantes.join("")}</sheetData>`);
 }
@@ -176,9 +176,9 @@ function matérialiserLesLignes(sheet: string, jusquÀ: number): string {
 // La dernière colonne et la dernière ligne d'une référence de dimension --
 // une plage ("A1:N1000") ou, sur une feuille à une seule cellule, une cellule
 // nue ("A1").
-function étendueDéclarée(réf: string): { colonneIdx: number; row: number } {
-  const dernière = réf.split(":").pop()!;
-  const m = dernière.match(/^([A-Z]+)(\d+)$/);
+function declaredExtent(réf: string): { colonneIdx: number; row: number } {
+  const last = réf.split(":").pop()!;
+  const m = last.match(/^([A-Z]+)(\d+)$/);
   if (!m) return { colonneIdx: 0, row: 1 };
   return { colonneIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
 }
@@ -188,35 +188,35 @@ function étendueDéclarée(réf: string): { colonneIdx: number; row: number } {
 // qu'une feuille comme Listes en porte plusieurs et se serait mépris sur
 // lequel.
 function xmlDesNomsDefinis(
-  lists: readonly ListeNommée[],
-  tables: readonly TableauÀPoser[],
-  nomParTableau: ReadonlyMap<TableauÀPoser, string>
+  lists: readonly NamedList[],
+  tables: readonly TableToApply[],
+  nomParTableau: ReadonlyMap<TableToApply, string>
 ): string {
   if (lists.length === 0) return "";
   const names = lists
     .map((l) => {
-      const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.intitulé));
-      if (!table) throw new Error(`list "${l.name}" : aucun table sur "${l.sheet}" ne porte "${l.intitulé}"`);
+      const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.heading));
+      if (!table) throw new Error(`list "${l.name}" : aucun table sur "${l.sheet}" ne porte "${l.heading}"`);
       // Un tableau couvre toujours au moins une ligne de données (voir
       // poserLesTableaux plus bas), même sur un classeur vierge : la référence
       // vise donc une plage d'une cellule vide plutôt qu'une plage nulle, ce
       // qu'Excel refuse dans une validation.
-      const référence = `${nomParTableau.get(table)}[${échapper(l.intitulé)}]`;
-      return `<definedName name="${l.name}">${référence}</definedName>`;
+      const reference = `${nomParTableau.get(table)}[${escapeXml(l.heading)}]`;
+      return `<definedName name="${l.name}">${reference}</definedName>`;
     })
     .join("");
   return `<definedNames>${names}</definedNames>`;
 }
 
-function xmlDesValidations(validations: readonly ValidationÀPoser[], lastRow: number): string {
+function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: number): string {
   if (validations.length === 0) return "";
-  const jusquÀ = Math.max(PLANCHER_VALIDATION, lastRow);
+  const upTo = Math.max(PLANCHER_VALIDATION, lastRow);
   const items = validations
     .map((v) => {
       const prompt = v.prompt
-        ? `promptTitle="${échapper(v.prompt.title)}" prompt="${échapper(v.prompt.text)}" `
+        ? `promptTitle="${escapeXml(v.prompt.title)}" prompt="${escapeXml(v.prompt.text)}" `
         : "";
-      const plage = `sqref="${v.column}2:${v.column}${jusquÀ}"`;
+      const plage = `sqref="${v.column}2:${v.column}${upTo}"`;
       // Sans formule, une validation « none » : aucune contrainte, seulement
       // l'infobulle. Excel l'accepte et n'affiche aucune alerte.
       if (!v.formule) {
@@ -224,7 +224,7 @@ function xmlDesValidations(validations: readonly ValidationÀPoser[], lastRow: n
       }
       return (
         `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" ` +
-        `${prompt}${plage}><formula1>${échapper(v.formule)}</formula1></dataValidation>`
+        `${prompt}${plage}><formula1>${escapeXml(v.formule)}</formula1></dataValidation>`
       );
     })
     .join("");
@@ -240,14 +240,14 @@ function xmlDesValidations(validations: readonly ValidationÀPoser[], lastRow: n
 // On les pose donc ici, dans la même passe que les tableaux : quatre rôles,
 // pas davantage. Un jeu ouvert de styles deviendrait un moteur de style, ce
 // qu'un classeur de saisie n'a pas à contenir.
-export type RôleDeStyle = "title" | "section" | "body" | "aside" | "header";
+export type StyleRole = "title" | "section" | "body" | "aside" | "header";
 
-export interface MiseEnFormeÀPoser {
+export interface StyleToApply {
   sheet: string;
   // Adresses de cellules (« A1 », « B12 »), pas des plages : on ne stylise que
   // ce qui existe, et l'appelant sait exactement quelles lignes il a écrites.
   cellules: readonly string[];
-  rôle: RôleDeStyle;
+  role: StyleRole;
 }
 
 // Les polices et remplissages ajoutés, dans l'ordre. Les index de départ se
@@ -261,7 +261,7 @@ export interface MiseEnFormeÀPoser {
 // être confortable pour autant, surtout en italique et en petit corps. Les
 // notes passent donc à un ardoise franc, 10,16:1, et gardent l'italique pour
 // se distinguer -- c'est la FORME qui les met en retrait, pas la pâleur.
-const POLICES_AJOUTEES: Record<RôleDeStyle, string> = {
+const POLICES_AJOUTEES: Record<StyleRole, string> = {
   title: '<font><b/><sz val="18"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
   section: '<font><b/><sz val="14"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
   body: '<font><sz val="12"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
@@ -269,7 +269,7 @@ const POLICES_AJOUTEES: Record<RôleDeStyle, string> = {
   header: '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
 };
 
-const REMPLISSAGES_AJOUTES: Record<RôleDeStyle, string | null> = {
+const REMPLISSAGES_AJOUTES: Record<StyleRole, string | null> = {
   title: null,
   section: '<fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F8"/><bgColor indexed="64"/></patternFill></fill>',
   body: null,
@@ -277,21 +277,21 @@ const REMPLISSAGES_AJOUTES: Record<RôleDeStyle, string | null> = {
   header: '<fill><patternFill patternType="solid"><fgColor rgb="FF0E7DAD"/><bgColor indexed="64"/></patternFill></fill>',
 };
 
-const ROLES: RôleDeStyle[] = ["title", "section", "body", "aside", "header"];
+const ROLES: StyleRole[] = ["title", "section", "body", "aside", "header"];
 
 // Le texte long doit REVENIR À LA LIGNE dans sa cellule. Sans ça il faut
 // couper les phrases à la main dans le code -- ce que faisait l'onglet
 // d'explication, et qui se défait dès qu'on élargit la colonne.
-function xfDuRôle(rôle: RôleDeStyle, fontId: number, fillId: number | null): string {
-  const retour = rôle === "body" || rôle === "section" ? ' applyAlignment="1"' : "";
+function xfForRole(role: StyleRole, fontId: number, fillId: number | null): string {
+  const retour = role === "body" || role === "section" ? ' applyAlignment="1"' : "";
   const alignement =
-    rôle === "body" || rôle === "section" ? '<alignment vertical="top" wrapText="1"/>' : "";
+    role === "body" || role === "section" ? '<alignment vertical="top" wrapText="1"/>' : "";
   const fill = fillId === null ? "" : ` fillId="${fillId}" applyFill="1"`;
   return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${retour}>${alignement}</xf>`;
 }
 
 // Ajoute nos styles à ceux de SheetJS et rend l'index de chacun.
-function ajouterLesStyles(styles: string): { xml: string; index: Record<RôleDeStyle, number> } {
+function ajouterLesStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
   const compte = (balise: string) => Number(new RegExp(`<${balise} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
   const nbPolices = compte("fonts");
   const nbFonds = compte("fills");
@@ -303,21 +303,21 @@ function ajouterLesStyles(styles: string): { xml: string; index: Record<RôleDeS
   const fondDe: Record<string, number> = {};
   const policesXml: string[] = [];
   const fondsXml: string[] = [];
-  for (const rôle of ROLES) {
-    policeDe[rôle] = policeSuivante++;
-    policesXml.push(POLICES_AJOUTEES[rôle]);
-    const fill = REMPLISSAGES_AJOUTES[rôle];
+  for (const role of ROLES) {
+    policeDe[role] = policeSuivante++;
+    policesXml.push(POLICES_AJOUTEES[role]);
+    const fill = REMPLISSAGES_AJOUTES[role];
     if (fill) {
-      fondDe[rôle] = fondSuivant++;
+      fondDe[role] = fondSuivant++;
       fondsXml.push(fill);
     }
   }
 
-  const index = {} as Record<RôleDeStyle, number>;
+  const index = {} as Record<StyleRole, number>;
   const xfsXml: string[] = [];
-  ROLES.forEach((rôle, i) => {
-    index[rôle] = nbXf + i;
-    xfsXml.push(xfDuRôle(rôle, policeDe[rôle], fondDe[rôle] ?? null));
+  ROLES.forEach((role, i) => {
+    index[role] = nbXf + i;
+    xfsXml.push(xfForRole(role, policeDe[role], fondDe[role] ?? null));
   });
 
   const xml = styles
@@ -340,17 +340,17 @@ function appliquerLesStyles(sheet: string, parCellule: Map<string, number>): str
   });
 }
 
-export interface ComplémentOOXML {
-  tables: readonly TableauÀPoser[];
-  lists?: readonly ListeNommée[];
-  validations?: readonly ValidationÀPoser[];
-  misesEnForme?: readonly MiseEnFormeÀPoser[];
+export interface OoxmlExtras {
+  tables: readonly TableToApply[];
+  lists?: readonly NamedList[];
+  validations?: readonly ValidationToApply[];
+  misesEnForme?: readonly StyleToApply[];
   // Les feuilles dont la ligne d'en-tête reste visible au défilement. Une
   // feuille de saisie de trente lignes se remplit à l'aveugle sans ça.
   volets?: readonly string[];
 }
 
-export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOOXML | readonly TableauÀPoser[]): ArrayBuffer {
+export function applyOoxmlExtras(octets: ArrayBuffer, complément: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
   const {
     tables,
     lists = [],
@@ -358,11 +358,11 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     misesEnForme = [],
     volets = [],
   } = Array.isArray(complément)
-    ? { tables: complément as readonly TableauÀPoser[], lists: [], validations: [], misesEnForme: [], volets: [] }
-    : (complément as ComplémentOOXML);
+    ? { tables: complément as readonly TableToApply[], lists: [], validations: [], misesEnForme: [], volets: [] }
+    : (complément as OoxmlExtras);
   const cfb = XLSX.CFB.read(new Uint8Array(octets), { type: "array" });
 
-  const workbook = lirePartie(cfb, "/xl/workbook.xml");
+  const workbook = readPart(cfb, "/xl/workbook.xml");
   if (!workbook) throw new Error("classeur illisible : xl/workbook.xml absent");
 
   // Ordre des feuilles dans workbook.xml = ordre des fichiers sheetN.xml.
@@ -370,14 +370,14 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     m[1].replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
   );
 
-  let contentTypes = lirePartie(cfb, "/[Content_Types].xml");
+  let contentTypes = readPart(cfb, "/[Content_Types].xml");
   if (!contentTypes) throw new Error("classeur illisible : [Content_Types].xml absent");
 
   // Plusieurs tableaux peuvent cohabiter sur une même feuille -- Listes en
   // pose un par vocabulaire (colonneDépart) -- et ne doivent y laisser qu'un
   // seul <tableParts>, qu'un seul jeu de relations : on groupe donc par
   // feuille plutôt que de traiter chaque tableau isolément.
-  const parFeuille = new Map<string, TableauÀPoser[]>();
+  const parFeuille = new Map<string, TableToApply[]>();
   for (const table of tables) {
     const list = parFeuille.get(table.sheet) ?? [];
     list.push(table);
@@ -385,8 +385,8 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
   }
 
   let idTable = 0;
-  const nomParTableau = new Map<TableauÀPoser, string>();
-  const nomsUtilisés = new Set<string>();
+  const nomParTableau = new Map<TableToApply, string>();
+  const usedNames = new Set<string>();
 
   for (const [sheetName, tableauxDeLaFeuille] of parFeuille) {
     const index = names.indexOf(sheetName);
@@ -394,7 +394,7 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
 
     const sheetNumber = index + 1;
     const sheetPath = `/xl/worksheets/sheet${sheetNumber}.xml`;
-    let sheet = lirePartie(cfb, sheetPath);
+    let sheet = readPart(cfb, sheetPath);
     if (!sheet) throw new Error(`sheet "${sheetName}" absente du paquet`);
 
     // Ce que SheetJS avait déjà déclaré avant qu'on y touche : sur Listes,
@@ -403,11 +403,11 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     // dimension finale de la feuille est le maximum de cette étendue et de
     // celle des tableaux qu'on pose -- jamais l'une à la place de l'autre.
     const dimInitiale = sheet.match(/<dimension ref="([^"]*)"\/>/);
-    const étendueInitiale = dimInitiale ? étendueDéclarée(dimInitiale[1]) : { colonneIdx: 0, row: 1 };
+    const initialExtent = dimInitiale ? declaredExtent(dimInitiale[1]) : { colonneIdx: 0, row: 1 };
 
     const relations: string[] = [];
-    let dernièreLigneFeuille = étendueInitiale.row;
-    let dernièreColonneIdxFeuille = étendueInitiale.colonneIdx;
+    let lastSheetRow = initialExtent.row;
+    let lastSheetColumnIndex = initialExtent.colonneIdx;
 
     for (const table of tableauxDeLaFeuille) {
       idTable += 1;
@@ -415,8 +415,8 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
       // Un tableau couvre son en-tête ET au moins une ligne : c'est ce qu'Excel
       // écrit lui-même pour un tableau vide, et il refuse un tableau sans corps.
       const lastRow = 1 + Math.max(1, table.rows);
-      const dernièreColonneIdx = startColumn + table.columns.length - 1;
-      const ref = `${XLSX.utils.encode_col(startColumn)}1:${XLSX.utils.encode_col(dernièreColonneIdx)}${lastRow}`;
+      const lastColumnIndex = startColumn + table.columns.length - 1;
+      const ref = `${XLSX.utils.encode_col(startColumn)}1:${XLSX.utils.encode_col(lastColumnIndex)}${lastRow}`;
       // Plusieurs tableaux sur une même feuille se distinguent par leurs
       // colonnes -- nomDeTableau(feuille) seul retomberait sur le même nom
       // pour chacun.
@@ -429,17 +429,17 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
       // de tableau en double n'est pas une curiosité qu'Excel tolère : ECMA-376
       // §18.5.1.2 exige un displayName unique dans le classeur, et Excel
       // résout la collision en supprimant l'un des deux tableaux, en silence.
-      if (nomsUtilisés.has(name)) {
-        const désambiguïsé = `${name}_${empreinte(sheetName)}`;
-        name = nomsUtilisés.has(désambiguïsé) ? `${désambiguïsé}_${idTable}` : désambiguïsé;
+      if (usedNames.has(name)) {
+        const disambiguated = `${name}_${empreinte(sheetName)}`;
+        name = usedNames.has(disambiguated) ? `${disambiguated}_${idTable}` : disambiguated;
       }
-      nomsUtilisés.add(name);
+      usedNames.add(name);
       nomParTableau.set(table, name);
 
-      dernièreLigneFeuille = Math.max(dernièreLigneFeuille, lastRow);
-      dernièreColonneIdxFeuille = Math.max(dernièreColonneIdxFeuille, dernièreColonneIdx);
+      lastSheetRow = Math.max(lastSheetRow, lastRow);
+      lastSheetColumnIndex = Math.max(lastSheetColumnIndex, lastColumnIndex);
 
-      écrirePartie(
+      writePart(
         cfb,
         `/xl/tables/table${idTable}.xml`,
         xmlDuTableau(idTable, name, ref, table.columns, table.formuleParColonne)
@@ -455,7 +455,7 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     // tableau posé sur cette feuille, rId2 pour le second, etc.
     const tablePartsXml = relations.map((_, i) => `<tablePart r:id="rId${i + 1}"/>`).join("");
 
-    écrirePartie(
+    writePart(
       cfb,
       `/xl/worksheets/_rels/sheet${sheetNumber}.xml.rels`,
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -472,11 +472,11 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     // zone utilisée et propose de réparer le classeur. On matérialise donc les
     // lignes manquantes -- une <row> sans cellule est parfaitement légale --
     // jusqu'à la plus exigeante des tableaux de la feuille.
-    sheet = matérialiserLesLignes(sheet, dernièreLigneFeuille).replace(/<autoFilter[^>]*\/>/, "");
+    sheet = materialiseRows(sheet, lastSheetRow).replace(/<autoFilter[^>]*\/>/, "");
     // Les validations de la feuille. L'ordre des éléments d'une feuille est
     // imposé par le schéma OOXML : dataValidations vient après sheetData et
     // avant ignoredErrors, donc juste après la fermeture des données.
-    const desValidations = xmlDesValidations(validations.filter((v) => v.sheet === sheetName), dernièreLigneFeuille);
+    const desValidations = xmlDesValidations(validations.filter((v) => v.sheet === sheetName), lastSheetRow);
     // « tableParts » se place en dernier dans une feuille, juste avant sa
     // fermeture : l'ordre des éléments est imposé par le schéma OOXML.
     sheet = sheet
@@ -484,10 +484,10 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
       .replace("</worksheet>", `<tableParts count="${relations.length}">${tablePartsXml}</tableParts></worksheet>`)
       .replace(
         /<dimension ref="[^"]*"\/>/,
-        `<dimension ref="A1:${XLSX.utils.encode_col(dernièreColonneIdxFeuille)}${dernièreLigneFeuille}"/>`
+        `<dimension ref="A1:${XLSX.utils.encode_col(lastSheetColumnIndex)}${lastSheetRow}"/>`
       );
 
-    écrirePartie(cfb, sheetPath, sheet);
+    writePart(cfb, sheetPath, sheet);
   }
 
   // SheetJS écrit toujours une partie « metadata » décrivant les tableaux
@@ -496,9 +496,9 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
   // le classeur douteux : on la retire, avec sa déclaration et sa relation.
   XLSX.CFB.utils.cfb_del(cfb, "/xl/metadata.xml");
   contentTypes = contentTypes.replace(/<Override PartName="\/xl\/metadata\.xml"[^>]*\/>/, "");
-  const relsWorkbook = lirePartie(cfb, "/xl/_rels/workbook.xml.rels");
+  const relsWorkbook = readPart(cfb, "/xl/_rels/workbook.xml.rels");
   if (relsWorkbook) {
-    écrirePartie(
+    writePart(
       cfb,
       "/xl/_rels/workbook.xml.rels",
       relsWorkbook.replace(/<Relationship [^>]*sheetMetadata[^>]*\/>/, "")
@@ -509,22 +509,22 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
   // tableaux ne visite pas forcément : ils se posent donc à part, mais dans la
   // même passe -- le classeur n'est ouvert qu'une fois.
   if (misesEnForme.length > 0) {
-    const styles = lirePartie(cfb, "/xl/styles.xml");
+    const styles = readPart(cfb, "/xl/styles.xml");
     if (!styles) throw new Error("classeur illisible : xl/styles.xml absent");
     const { xml, index } = ajouterLesStyles(styles);
-    écrirePartie(cfb, "/xl/styles.xml", xml);
+    writePart(cfb, "/xl/styles.xml", xml);
     const parFeuilleStyle = new Map<string, Map<string, number>>();
     for (const mise of misesEnForme) {
-      const carte = parFeuilleStyle.get(mise.sheet) ?? new Map<string, number>();
-      for (const cellule of mise.cellules) carte.set(cellule, index[mise.rôle]);
-      parFeuilleStyle.set(mise.sheet, carte);
+      const map = parFeuilleStyle.get(mise.sheet) ?? new Map<string, number>();
+      for (const cellule of mise.cellules) map.set(cellule, index[mise.role]);
+      parFeuilleStyle.set(mise.sheet, map);
     }
-    for (const [sheetName, carte] of parFeuilleStyle) {
+    for (const [sheetName, map] of parFeuilleStyle) {
       const i = names.indexOf(sheetName);
       if (i < 0) throw new Error(`sheet "${sheetName}" absente du workbook`);
       const path = `/xl/worksheets/sheet${i + 1}.xml`;
-      const content = lirePartie(cfb, path);
-      if (content) écrirePartie(cfb, path, appliquerLesStyles(content, carte));
+      const content = readPart(cfb, path);
+      if (content) writePart(cfb, path, appliquerLesStyles(content, map));
     }
   }
 
@@ -532,14 +532,14 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     const i = names.indexOf(sheetName);
     if (i < 0) continue;
     const path = `/xl/worksheets/sheet${i + 1}.xml`;
-    const content = lirePartie(cfb, path);
+    const content = readPart(cfb, path);
     if (!content || content.includes("<pane ")) continue;
     // La ligne d'en-tête reste à l'écran : une feuille de saisie de trente
     // lignes se remplit à l'aveugle sans ça.
     const view =
       '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
       '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>';
-    écrirePartie(
+    writePart(
       cfb,
       path,
       content.includes("<sheetViews>")
@@ -548,10 +548,10 @@ export function poserLesTableaux(octets: ArrayBuffer, complément: ComplémentOO
     );
   }
 
-  écrirePartie(cfb, "/[Content_Types].xml", contentTypes);
+  writePart(cfb, "/[Content_Types].xml", contentTypes);
   // Les noms définis d'origine venaient des autofiltres de feuille, qu'on vient
   // de retirer ; on les remplace par les plages nommées des listes déroulantes.
-  écrirePartie(
+  writePart(
     cfb,
     "/xl/workbook.xml",
     workbook

@@ -1,15 +1,15 @@
 import { describe, it, expect, vi } from "vitest";
 import { ouvrirMigration } from "./upgrade-dialog";
-import { écrireModele, type DonneesClasseur } from "../export/template-export";
+import { writeTemplate, type DonneesClasseur } from "../export/template-export";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
-  return { ...actual, téléchargerClasseur: vi.fn() };
+  return { ...actual, downloadWorkbook: vi.fn() };
 });
 
 const donneesVides: DonneesClasseur = { flowTypes: [], typesActeur: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
-function déposer(zone: HTMLElement, file: File): void {
+function drop(zone: HTMLElement, file: File): void {
   const event = new Event("drop", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
   zone.dispatchEvent(event);
@@ -26,10 +26,10 @@ describe("ouvrirMigration — classeur corrompu", () => {
     ouvrirMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
-    const complet = écrireModele(donneesVides);
-    const tronqué = complet.slice(0, Math.floor(complet.byteLength / 3));
-    const file = { name: "corrompu.xlsx", arrayBuffer: async () => tronqué } as unknown as File;
-    déposer(zone, file);
+    const complet = writeTemplate(donneesVides);
+    const truncated = complet.slice(0, Math.floor(complet.byteLength / 3));
+    const file = { name: "corrompu.xlsx", arrayBuffer: async () => truncated } as unknown as File;
+    drop(zone, file);
 
     await vi.waitFor(() => {
       if (!zone.querySelector(".error-message")) throw new Error("pas encore de message d'erreur");
@@ -48,9 +48,9 @@ describe("ouvrirMigration — bouton de relance", () => {
     ouvrirMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
-    const buffer = écrireModele(donneesVides);
+    const buffer = writeTemplate(donneesVides);
     const file = { name: "ok.xlsx", arrayBuffer: async () => buffer } as unknown as File;
-    déposer(zone, file);
+    drop(zone, file);
 
     await vi.waitFor(() => {
       if (!zone.querySelector(".export-button")) throw new Error("pas encore de bouton de relance");

@@ -18,11 +18,11 @@ export interface Difference {
   retires: string[];
 }
 
-function différence(avant: Set<string>, après: Set<string>): Difference {
+function difference(avant: Set<string>, after: Set<string>): Difference {
   const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
   return {
-    ajoutes: [...après].filter((x) => !avant.has(x)).sort(parNom),
-    retires: [...avant].filter((x) => !après.has(x)).sort(parNom),
+    ajoutes: [...after].filter((x) => !avant.has(x)).sort(parNom),
+    retires: [...avant].filter((x) => !after.has(x)).sort(parNom),
   };
 }
 
@@ -52,9 +52,9 @@ function consommationsVivantes(model: ParsedModel, rank: number, mode: Mode): Se
 
 export function calculerEcarts(model: ParsedModel, rangAvant: number, rangApres: number, mode: Mode): Ecarts {
   return {
-    actors: différence(liveActors(model, rangAvant), liveActors(model, rangApres)),
-    interfaces: différence(interfacesVivantes(model, rangAvant), interfacesVivantes(model, rangApres)),
-    consumptions: différence(consommationsVivantes(model, rangAvant, mode), consommationsVivantes(model, rangApres, mode)),
+    actors: difference(liveActors(model, rangAvant), liveActors(model, rangApres)),
+    interfaces: difference(interfacesVivantes(model, rangAvant), interfacesVivantes(model, rangApres)),
+    consumptions: difference(consommationsVivantes(model, rangAvant, mode), consommationsVivantes(model, rangApres, mode)),
   };
 }
 

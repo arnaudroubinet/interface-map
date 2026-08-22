@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { migrerClasseurLegacy } from "./legacy-upgrade";
-import { écrireModele } from "./template-export";
+import { writeTemplate } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
 import {
   buildModel,
@@ -87,16 +87,16 @@ describe("migration depuis le format d'origine", () => {
         lien({ Statut: "Bidon", "Nom du flux": "C" }),
       ])
     );
-    const décisions = donnees.fx.flatMap((o) => o.rows).map((l) => l[iDecision]);
+    const decisions = donnees.fx.flatMap((o) => o.rows).map((l) => l[iDecision]);
     // « À supprimer » reste une décision : le format d'origine ne dit nulle
     // part quand ce flux part, seulement qu'il n'a plus lieu d'être.
     const retraits = donnees.fx.flatMap((o) => o.rows).map((l) => l[COLONNES_FX.indexOf("Retired at")]);
     expect(retraits.every((r) => r === "")).toBe(true);
-    expect(décisions).toContain("Remove");
-    expect(décisions).toContain("Transform");
+    expect(decisions).toContain("Remove");
+    expect(decisions).toContain("Transform");
     // Une valeur hors vocabulaire n'est pas devinée : elle reste vide, et la
     // complétude la réclame.
-    expect(décisions).toContain("");
+    expect(decisions).toContain("");
   });
 
   // Dans les fichiers réels, l'onglet Composants n'est pas tenu à jour.
@@ -165,17 +165,17 @@ describe("migration legacy — colonnes version et état", () => {
   // §7.4 signalera les manques.
   it("leaves version empty rather than inventing it", () => {
     const { donnees } = migrerClasseurLegacy(classeurLegacy([lien({})]));
-    const résultat = buildModel(parseWorkbook(écrireModele(donnees)));
-    if (!résultat.ok) throw new Error("classeur migré illisible");
-    expect(résultat.model.interfaces[0].version).toBe("");
-    expect(résultat.model.consumptions[0].version).toBe("");
+    const result = buildModel(parseWorkbook(writeTemplate(donnees)));
+    if (!result.ok) throw new Error("classeur migré illisible");
+    expect(result.model.interfaces[0].version).toBe("");
+    expect(result.model.consumptions[0].version).toBe("");
   });
 
   it("emits a workbook already at the current schema number", () => {
     const { donnees } = migrerClasseurLegacy(classeurLegacy([lien({})]));
-    const résultat = buildModel(parseWorkbook(écrireModele(donnees)));
-    if (!résultat.ok) throw new Error("classeur migré illisible");
-    expect(résultat.model.versionModele).toBe(VERSION_MODELE);
+    const result = buildModel(parseWorkbook(writeTemplate(donnees)));
+    if (!result.ok) throw new Error("classeur migré illisible");
+    expect(result.model.versionModele).toBe(VERSION_MODELE);
   });
 });
 
@@ -207,21 +207,21 @@ describe("nom d'onglet FX_ — la même règle des deux côtés (migration et re
     expect(donnees.fx).toHaveLength(1);
     expect(nomOngletValide(donnees.fx[0].name)).toBe(true);
 
-    const résultat = buildModel(parseWorkbook(écrireModele(donnees)));
-    if (!résultat.ok) throw new Error("classeur migré illisible");
+    const result = buildModel(parseWorkbook(writeTemplate(donnees)));
+    if (!result.ok) throw new Error("classeur migré illisible");
     // Le cœur de l'affaire : l'onglet que l'écriture a créé est exactement
     // celui que la relecture attend, et la consommation a survécu au voyage.
-    expect(résultat.model.interfaces[0].expectedSheet).toBe(donnees.fx[0].name);
-    expect(résultat.model.consumptions).toHaveLength(1);
+    expect(result.model.interfaces[0].expectedSheet).toBe(donnees.fx[0].name);
+    expect(result.model.consumptions).toHaveLength(1);
   });
 
   it("crée des deux côtés le même onglet pour un nom déjà valide", () => {
     const { donnees } = migrerClasseurLegacy(classeurLegacy([lien({ "Type de flux": "HTTP" })]));
     expect(donnees.fx.map((o) => o.name)).toEqual(["FX_Appelé_HTTP"]);
 
-    const résultat = buildModel(parseWorkbook(écrireModele(donnees)));
-    if (!résultat.ok) throw new Error("classeur migré illisible");
-    expect(résultat.model.interfaces[0].expectedSheet).toBe("FX_Appelé_HTTP");
-    expect(résultat.model.consumptions).toHaveLength(1);
+    const result = buildModel(parseWorkbook(writeTemplate(donnees)));
+    if (!result.ok) throw new Error("classeur migré illisible");
+    expect(result.model.interfaces[0].expectedSheet).toBe("FX_Appelé_HTTP");
+    expect(result.model.consumptions).toHaveLength(1);
   });
 });

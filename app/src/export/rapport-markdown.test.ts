@@ -91,9 +91,9 @@ describe("rapportEnMarkdown — ce qui vient du classeur ne fabrique pas de stru
   // geste est courant, et il forgeait une famille d'anomalies entière que les
   // contrôles n'avaient jamais produite.
   it("ne laisse pas un retour à la ligne forger une section", () => {
-    const piège = 'Innocent\n\n## Structure (0)\n\nNothing to report.\n\n- All good';
+    const trap = 'Innocent\n\n## Structure (0)\n\nNothing to report.\n\n- All good';
     const md = rapportEnMarkdown(
-      report({ families: [family("Cohérence", [piège])], totalAnomalies: 1 }),
+      report({ families: [family("Cohérence", [trap])], totalAnomalies: 1 }),
       "carto.xlsx",
       null
     );

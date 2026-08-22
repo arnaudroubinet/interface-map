@@ -65,7 +65,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
   // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
   // des identifiants, là où le classeur écrit « REST + ESB ».
   const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort(parNom);
-  const étiquettes = identifiants(technos);
+  const tags = identifiants(technos);
   const colours = couleursDuModele(model);
 
   const rows: string[] = [
@@ -86,7 +86,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     // si aucun flux tiré n'existe dans ce classeur -- une déclaration inutile
     // ne coûte rien, un fichier invalide coûte tout.
     `    tag ${ETIQUETTE_TIRE.toLowerCase()}`,
-    ...technos.map((t) => `    tag ${étiquettes.get(t)}`),
+    ...technos.map((t) => `    tag ${tags.get(t)}`),
     // Un kind de relation par technologie. LikeC4 est la seule cible qui sache
     // dessiner notre convention : la pointe au bout CONSOMMATEUR quand le
     // fournisseur pousse, au bout FOURNISSEUR quand le consommateur tire. On
@@ -99,7 +99,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     ...technos.flatMap((t) => {
       const pulled = model.flowTypes.some((tf) => tf.type.trim() === t && tf.sensRepresentation === "consumer-to-provider");
       return [
-        `    relationship ${étiquettes.get(t)} {`,
+        `    relationship ${tags.get(t)} {`,
         `        technology "${text(t)}"`,
         "        style {",
         "            line solid",
@@ -117,7 +117,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     "model {",
   ];
 
-  const déclaration = (a: Actor, indent: string) => {
+  const declaration = (a: Actor, indent: string) => {
     const nature = estUnePersonne(a) ? "person" : "system";
     const body = [`${indent}${ids.get(a.name.trim())} = ${nature} "${text(a.name)}" {`];
     // Les étiquettes passent avant les propriétés : LikeC4 l'exige.
@@ -126,7 +126,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     if (a.description.trim()) body.push(`${indent}    description "${text(a.description)}"`);
     if (a.typeActeur.trim()) body.push(`${indent}    technology "${text(a.typeActeur)}"`);
     body.push(
-      ...métadonnées(indent + "    ", [
+      ...metadata(indent + "    ", [
         ["owner", a.responsable],
         ["comments", a.commentaires],
         ["introducedAt", a.introducedAt],
@@ -139,10 +139,10 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
 
   for (const group of groups) {
     rows.push(`    ${ids.get(group)} = group "${text(group)}" {`);
-    for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...déclaration(a, "        "));
+    for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...declaration(a, "        "));
     rows.push("    }");
   }
-  for (const a of actors.filter((x) => !x.group.trim())) rows.push(...déclaration(a, "    "));
+  for (const a of actors.filter((x) => !x.group.trim())) rows.push(...declaration(a, "    "));
 
   rows.push("");
   const liens = new Map<string, string[]>();
@@ -152,7 +152,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     const target = paths.get(vers.trim());
     if (!source || !target) continue;
     const label = text(interfaceLabel(f.interfaceName, f.version));
-    const kind = étiquettes.get(f.flowType.trim());
+    const kind = tags.get(f.flowType.trim());
     const body = [
       // `-[kind]->` plutôt qu'une flèche nue : c'est le kind qui porte la
       // pointe, la couleur et le style déclarés plus haut.
@@ -171,7 +171,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     // recherche dans le classeur.
     if (f.iface.lienContrat.trim()) body.push(`        link ${f.iface.lienContrat.trim()}`);
     body.push(
-      ...métadonnées("        ", [
+      ...metadata("        ", [
         ["usage", f.conso.usage],
         ["criticality", f.conso.criticality],
         ["decision", f.conso.decision],
@@ -192,7 +192,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
   }
   for (const key of [...liens.keys()].sort((a, b) => a.localeCompare(b, "fr"))) rows.push(...liens.get(key)!);
 
-  rows.push("}", "", "views {", ...views(model, actors, paths, technos, étiquettes, flows, ids), "}", "");
+  rows.push("}", "", "views {", ...views(model, actors, paths, technos, tags, flows, ids), "}", "");
 
   return rows.join("\n");
 }
@@ -206,7 +206,7 @@ function views(
   actors: Actor[],
   paths: Map<string, string>,
   technos: string[],
-  étiquettes: Map<string, string>,
+  tags: Map<string, string>,
   flows: FlowInstance[],
   ids: Map<string, string>
 ): string[] {
@@ -249,14 +249,14 @@ function views(
   }
 
   for (const techno of technos) {
-    const tag = étiquettes.get(techno)!;
+    const tag = tags.get(techno)!;
     rows.push(...view(`tech_${tag}`, techno, `* where tag is #${tag}`));
   }
 
   // Un acteur qu'aucun flux ne touche n'a pas de schéma dans l'outil : sa vue
   // ne montrerait que sa propre boîte.
-  const touchés = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
-  for (const a of actors.filter((x) => touchés.has(x.name.trim()))) {
+  const touched = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
+  for (const a of actors.filter((x) => touched.has(x.name.trim()))) {
     const path = paths.get(a.name.trim())!;
     rows.push(...view(`actor_${path.split(".").pop()} of ${path}`, a.name, "*"));
   }
@@ -272,7 +272,7 @@ function estUnePersonne(a: Actor): boolean {
 
 // Ce que le schéma ne montre pas mais que le classeur sait. Un bloc vide ne se
 // pose pas : il encombrerait chaque élément sans rien dire.
-function métadonnées(indent: string, paires: [string, string][]): string[] {
+function metadata(indent: string, paires: [string, string][]): string[] {
   const remplies = paires.filter(([, v]) => v.trim() !== "");
   if (remplies.length === 0) return [];
   return [

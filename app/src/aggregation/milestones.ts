@@ -15,9 +15,9 @@ export interface Intervalle {
 export const TOUJOURS: Intervalle = { start: -Infinity, end: Infinity };
 
 export function rankOfMilestone(model: ParsedModel, name: string): number | undefined {
-  const cherché = normalizeText(name);
-  if (!cherché) return undefined;
-  return model.milestones.find((p) => normalizeText(p.name) === cherché)?.rank;
+  const sought = normalizeText(name);
+  if (!sought) return undefined;
+  return model.milestones.find((p) => normalizeText(p.name) === sought)?.rank;
 }
 
 // Un palier cité mais inconnu est traité comme absent plutôt que résolu au
@@ -36,8 +36,8 @@ export function lifespanOf(model: ParsedModel, validite: ValiditePalier): Interv
 // livré, le palier de rang le plus haut tout court -- mieux vaut montrer un
 // état connu que rien du tout, et un contrôle signale l'absence.
 export function currentMilestone(model: ParsedModel): Milestone | undefined {
-  const livrés = model.milestones.filter((p) => normalizeText(p.statut) === normalizeText("Delivered"));
-  const candidats = livrés.length > 0 ? livrés : model.milestones;
+  const delivered = model.milestones.filter((p) => normalizeText(p.statut) === normalizeText("Delivered"));
+  const candidats = delivered.length > 0 ? delivered : model.milestones;
   return candidats.reduce<Milestone | undefined>(
     (meilleur, p) => (!meilleur || p.rank > meilleur.rank ? p : meilleur),
     undefined

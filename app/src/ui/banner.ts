@@ -26,7 +26,7 @@ export interface FormatExport {
   actif: (state: AppState, dessinDisponible: boolean) => boolean;
 }
 
-const surUnSchéma = (state: AppState, dessinDisponible: boolean) =>
+const onADiagram = (state: AppState, dessinDisponible: boolean) =>
   state.fichier !== null && state.view !== "matrix" && state.view !== "checks" && dessinDisponible;
 
 // Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
@@ -34,8 +34,8 @@ const surUnSchéma = (state: AppState, dessinDisponible: boolean) =>
 const surTout = (state: AppState) => state.fichier !== null && state.view !== "upgrade";
 
 export const EXPORTS: FormatExport[] = [
-  { label: "SVG", rappel: "onExportSvg", actif: surUnSchéma },
-  { label: "PNG", rappel: "onExportPng", actif: surUnSchéma },
+  { label: "SVG", rappel: "onExportSvg", actif: onADiagram },
+  { label: "PNG", rappel: "onExportPng", actif: onADiagram },
   // La matrix n'est pas un dessin : ce qu'on veut en emporter, c'est le
   // tableau, dans l'outil où on le trie et le filtre.
   { label: "Excel", rappel: "onExportXlsx", actif: (s) => s.fichier !== null && s.view === "matrix" },

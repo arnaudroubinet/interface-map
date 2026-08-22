@@ -28,15 +28,15 @@ const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
 function rcm(ids: string[], ctx: ContexteOrdre): string[] {
   const restants = new Set(ids);
   const order: string[] = [];
-  const parDegré = (a: string, b: string) => ctx.degree(a) - ctx.degree(b) || parNom(a, b);
+  const byDegree = (a: string, b: string) => ctx.degree(a) - ctx.degree(b) || parNom(a, b);
   while (restants.size > 0) {
-    const départ = [...restants].sort(parDegré)[0];
-    const file = [départ];
-    restants.delete(départ);
+    const start = [...restants].sort(byDegree)[0];
+    const file = [start];
+    restants.delete(start);
     while (file.length > 0) {
       const courant = file.shift()!;
       order.push(courant);
-      for (const v of ctx.neighbours(courant).filter((x) => restants.has(x)).sort(parDegré)) {
+      for (const v of ctx.neighbours(courant).filter((x) => restants.has(x)).sort(byDegree)) {
         restants.delete(v);
         file.push(v);
       }

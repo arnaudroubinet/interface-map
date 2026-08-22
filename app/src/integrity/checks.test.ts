@@ -619,10 +619,10 @@ describe("emplacement des anomalies", () => {
       interfaces: [iface({ description: "", row: 42 })],
       consumptions: [conso({ usage: "", sheet: "FX_A_HTTP", row: 7 })],
     });
-    const complétude = messages(m, "completude");
+    const completeness = messages(m, "completude");
 
-    expect(complétude).toContain('Interface "F" (Interfaces, row 42): description empty.');
-    expect(complétude).toContain('Consumption "F" (FX_A_HTTP, row 7): usage not described.');
+    expect(completeness).toContain('Interface "F" (Interfaces, row 42): description empty.');
+    expect(completeness).toContain('Consumption "F" (FX_A_HTTP, row 7): usage not described.');
   });
 
   it("carries the address as data too, so the report can order and link on it", () => {
@@ -640,11 +640,11 @@ describe("emplacement des anomalies", () => {
       interfaces: [iface({ description: "", lienContrat: "l", row: 5 })],
       consumptions: [],
     });
-    const adresses = runIntegrityChecks(m)
+    const addresses = runIntegrityChecks(m)
       .families.find((f) => f.id === "completude")!
       .anomalies.map((a) => `${a.emplacement!.sheet}:${a.emplacement!.row}`);
 
-    expect(adresses).toEqual(["Actors:3", "Actors:9", "Interfaces:5"]);
+    expect(addresses).toEqual(["Actors:3", "Actors:9", "Interfaces:5"]);
   });
 
   it("puts what has no address first, since it points at the file rather than a line", () => {
@@ -788,7 +788,7 @@ describe("nature et relais", () => {
 
   // La republication est portée par la ligne de consommation du bus : c'est
   // elle qui dit sous laquelle de SES interfaces l'entrée ressort.
-  function parcRelais(republishedAs = "trx.norm"): ParsedModel {
+  function relayEstate(republishedAs = "trx.norm"): ParsedModel {
     return model({
       typesActeur: TYPES,
       actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", typeActeur: "Middleware" }), actor({ name: "B" })],
@@ -805,28 +805,28 @@ describe("nature et relais", () => {
   }
 
   it("ne signale rien sur une chaîne entière", () => {
-    expect(messages(parcRelais(), "references")).not.toContain("republished");
-    expect(messages(parcRelais(), "coherence")).not.toContain("republish");
+    expect(messages(relayEstate(), "references")).not.toContain("republished");
+    expect(messages(relayEstate(), "coherence")).not.toContain("republish");
   });
 
   it("signale une republication vers une interface que l'acteur n'expose pas", () => {
-    expect(messages(parcRelais("Fantôme"), "references")).toContain("Fantôme");
+    expect(messages(relayEstate("Fantôme"), "references")).toContain("Fantôme");
   });
 
   it("signale une republication déclarée par un acteur métier", () => {
-    const m = parcRelais();
+    const m = relayEstate();
     m.consumptions[1].republishedAs = "Autre chose";
     expect(messages(m, "coherence")).toContain("only plumbing relays");
   });
 
   it("signale une interface republiée que rien n'alimente", () => {
-    expect(messages(parcRelais(""), "coherence")).toContain("nothing feeds it");
+    expect(messages(relayEstate(""), "coherence")).toContain("nothing feeds it");
   });
 
   // Le bus fourre-tout : le flux entre dans la plomberie et n'en ressort pour
   // personne, sans quoi le lien fonctionnel manquerait en silence.
   it("signale un flux qui entre chez un technique et n'en ressort pour personne", () => {
-    const m = parcRelais();
+    const m = relayEstate();
     m.interfaces.push(iface({ flowName: "Référentiel", providerName: "Tatooine", expectedSheet: "FX_Tatooine_REF" }));
     m.consumptions.push(conso({ flowName: "Référentiel", consumerName: "Bus", sheet: "FX_Tatooine_REF" }));
     m.fxSheetNames.push("FX_Tatooine_REF");
@@ -834,20 +834,20 @@ describe("nature et relais", () => {
   });
 
   it("signale une nature hors vocabulaire", () => {
-    const m = parcRelais();
+    const m = relayEstate();
     m.typesActeur = [{ ...TYPES[0], nature: "Métier" }, TYPES[1]];
     expect(messages(m, "vocabulaires")).toContain("Métier");
   });
 
   it("réclame la nature manquante dès qu'un type en déclare une", () => {
-    const m = parcRelais();
+    const m = relayEstate();
     m.typesActeur = [{ ...TYPES[0], nature: "" }, TYPES[1]];
     expect(messages(m, "completude")).toContain("nature");
   });
 
   // Tant que l'équipe n'a pas adopté la distinction, l'outil n'en parle pas.
   it("se tait sur un classeur où aucun type ne déclare de nature", () => {
-    const m = parcRelais();
+    const m = relayEstate();
     m.typesActeur = TYPES.map((t) => ({ ...t, nature: "" }));
     expect(messages(m, "completude")).not.toContain("nature");
   });
@@ -903,13 +903,13 @@ describe("frise des paliers", () => {
   // existe : sans elle, ce sont ces anomalies-là qu'on lirait, pas celles de
   // la frise.
   const anomalies = (milestones: ReturnType<typeof milestone>[]) => {
-    const dès = { introducedAt: milestones[0].name };
+    const asSoonAs = { introducedAt: milestones[0].name };
     return runIntegrityChecks(
       model({
         milestones,
-        actors: [actor({ name: "A", ...dès }), actor({ name: "B", ...dès })],
-        interfaces: [iface({ ...dès })],
-        consumptions: [conso({ ...dès })],
+        actors: [actor({ name: "A", ...asSoonAs }), actor({ name: "B", ...asSoonAs })],
+        interfaces: [iface({ ...asSoonAs })],
+        consumptions: [conso({ ...asSoonAs })],
       })
     )
       .families.flatMap((f) => f.anomalies)
@@ -1082,7 +1082,7 @@ describe("chaîne cassée en son milieu", () => {
 // partagent la même, ne se voient pas dans le classeur : la première retombe
 // silencieusement sur la palette, la seconde rend deux traits indiscernables.
 describe("couleur déclarée d'une technologie", () => {
-  const parc = (colours: [string, string][]) =>
+  const estate = (colours: [string, string][]) =>
     model({
       flowTypes: colours.map(([type, colour], i) => base.typeFlux({ type, colour, row: i })),
       interfaces: colours.map(([type], i) =>
@@ -1096,19 +1096,19 @@ describe("couleur déclarée d'une technologie", () => {
     runIntegrityChecks(m).families.flatMap((f) => f.anomalies).map((a) => a.message).filter((x) => x.includes("colour"));
 
   it("accepte un hexadécimal, avec ou sans dièse", () => {
-    expect(messages(parc([["HTTP", "#2a78d6"], ["Kafka", "eb6834"]]))).toHaveLength(0);
+    expect(messages(estate([["HTTP", "#2a78d6"], ["Kafka", "eb6834"]]))).toHaveLength(0);
   });
 
   it("accepte une couleur absente", () => {
-    expect(messages(parc([["HTTP", ""], ["Kafka", ""]]))).toHaveLength(0);
+    expect(messages(estate([["HTTP", ""], ["Kafka", ""]]))).toHaveLength(0);
   });
 
   it("signale une valeur qui n'est pas une couleur", () => {
-    expect(messages(parc([["HTTP", "bleu ciel"]]))[0]).toContain("bleu ciel");
+    expect(messages(estate([["HTTP", "bleu ciel"]]))[0]).toContain("bleu ciel");
   });
 
   it("signale deux technologies qui déclarent la même couleur", () => {
-    const dits = messages(parc([["HTTP", "#2a78d6"], ["Kafka", "#2A78D6"]]));
+    const dits = messages(estate([["HTTP", "#2a78d6"], ["Kafka", "#2A78D6"]]));
     expect(dits).toHaveLength(1);
     expect(dits[0]).toContain("Kafka");
   });

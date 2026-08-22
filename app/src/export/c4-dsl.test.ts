@@ -211,7 +211,7 @@ describe("modeleEnStructurizr", () => {
 // L'initiative n'est pas perdue : une relation C4 n'a qu'un sens, elle passe
 // donc en étiquette.
 describe("modeleEnStructurizr — sens de la relation", () => {
-  const parc = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
+  const estate = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "Fournisseur" }), actor({ name: "Appelant" })],
       flowTypes: [base.typeFlux({ sensRepresentation, sensRepresentationBrut: "" })],
@@ -227,7 +227,7 @@ describe("modeleEnStructurizr — sens de la relation", () => {
 
   it("va du fournisseur au consommateur, même quand le consommateur appelle", () => {
     for (const direction of ["provider-to-consumer", "consumer-to-provider"] as const) {
-      const dsl = modeleEnStructurizr(parc(direction), null, "c.xlsx");
+      const dsl = modeleEnStructurizr(estate(direction), null, "c.xlsx");
       const [de, vers] = relation(dsl).split(" -> ");
       expect(de).toBe(identifiantDe(dsl, "Fournisseur"));
       expect(vers.split(" ")[0]).toBe(identifiantDe(dsl, "Appelant"));
@@ -235,8 +235,8 @@ describe("modeleEnStructurizr — sens de la relation", () => {
   });
 
   it("étiquette la relation que le consommateur initie", () => {
-    expect(modeleEnStructurizr(parc("consumer-to-provider"), null, "c.xlsx")).toContain('"Pulled"');
-    expect(modeleEnStructurizr(parc("provider-to-consumer"), null, "c.xlsx")).not.toContain('"Pulled"');
+    expect(modeleEnStructurizr(estate("consumer-to-provider"), null, "c.xlsx")).toContain('"Pulled"');
+    expect(modeleEnStructurizr(estate("provider-to-consumer"), null, "c.xlsx")).not.toContain('"Pulled"');
   });
 });
 
@@ -245,12 +245,12 @@ describe("modeleEnStructurizr — sens de la relation", () => {
 // une plateforme à l'écran et n'en était plus une dans le fichier C4 : la vue
 // dédiée disparaissait sans un mot.
 describe("modeleEnStructurizr — périmètre écrit autrement", () => {
-  const parc = (perimeter: string) =>
+  const estate = (perimeter: string) =>
     model({ groups: [{ name: "Socle", perimeter, sheet: "Groups", row: 0 }] });
 
   it("reconnaît la plateforme quelle que soit la casse", () => {
     for (const v of ["Platform", "platform", "PLATFORM"]) {
-      expect(modeleEnStructurizr(parc(v), null, "c.xlsx")).toContain('"platform-only"');
+      expect(modeleEnStructurizr(estate(v), null, "c.xlsx")).toContain('"platform-only"');
     }
   });
 
@@ -259,14 +259,14 @@ describe("modeleEnStructurizr — périmètre écrit autrement", () => {
   // sortait vide.
   it("étiquette les acteurs dans l'écriture que la vue filtre", () => {
     for (const v of ["platform", "PLATFORM"]) {
-      const dsl = modeleEnStructurizr(parc(v), null, "c.xlsx");
+      const dsl = modeleEnStructurizr(estate(v), null, "c.xlsx");
       expect(dsl).toContain('"Platform"');
       expect(dsl).not.toContain(`"${v}"`);
     }
   });
 
   it("ne fabrique pas la vue quand aucun groupe n'est plateforme", () => {
-    expect(modeleEnStructurizr(parc("External"), null, "c.xlsx")).not.toContain('"platform-only"');
+    expect(modeleEnStructurizr(estate("External"), null, "c.xlsx")).not.toContain('"platform-only"');
   });
 });
 
@@ -308,13 +308,13 @@ describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
   });
 
   it("donne une forme aux types d'acteur qu'il reconnaît, et laisse les autres en boîte", () => {
-    const parc = model({
+    const estate = model({
       typesActeur: [
         { type: "Queue", icone: "", nature: "", sheet: "ActorTypes", row: 0 },
         { type: "Chose", icone: "", nature: "", sheet: "ActorTypes", row: 0 },
       ],
     });
-    const dsl = modeleEnStructurizr(parc, null, "carto.xlsx");
+    const dsl = modeleEnStructurizr(estate, null, "carto.xlsx");
     expect(dsl).toMatch(/element "Queue" \{\s*\n\s*shape Pipe/);
     expect(dsl).not.toContain('element "Chose"');
   });

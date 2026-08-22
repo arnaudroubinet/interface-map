@@ -31,8 +31,8 @@ describe("ordonner", () => {
   // À degré égal, le nom départage : sans quoi l'ordre dépendrait de celui
   // d'entrée, et deux exports du même classeur différeraient.
   it("départage par le nom à degré égal", () => {
-    const égaux = contexte({}, { X: 2, Y: 2, Z: 2 });
-    expect(orderBy(["Z", "X", "Y"], "degree", égaux)).toEqual(["X", "Y", "Z"]);
+    const equal = contexte({}, { X: 2, Y: 2, Z: 2 });
+    expect(orderBy(["Z", "X", "Y"], "degree", equal)).toEqual(["X", "Y", "Z"]);
   });
 });
 

@@ -19,10 +19,10 @@ function iface(flowName: string, flowType: string): InterfaceCatalogue {
 // même couleur à deux technologies pourtant dessinées côte à côte -- légende
 // comprise.
 describe("couleursDuModele", () => {
-  const model = (types: string[], utilisés: string[]): ParsedModel => ({
+  const model = (types: string[], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
     flowTypes: types.map(typeFlux),
-    interfaces: utilisés.map((t, i) => iface(`F${i}`, t)),
+    interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
@@ -64,27 +64,27 @@ describe("colorForTechnologies", () => {
 // -- pour devenir une donnée. La palette ne sert plus qu'à celles qui n'en
 // déclarent aucune.
 describe("couleursDuModele — couleur déclarée par le référentiel", () => {
-  const parc = (types: [string, string][], utilisés: string[]): ParsedModel => ({
+  const estate = (types: [string, string][], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
     flowTypes: types.map(([type, colour]) => ({ ...typeFlux(type), colour })),
-    interfaces: utilisés.map((t, i) => iface(`F${i}`, t)),
+    interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
 
   it("respecte la couleur déclarée", () => {
-    const c = couleursDuModele(parc([["HTTP", "#123456"], ["Kafka", ""]], ["HTTP", "Kafka"]));
+    const c = couleursDuModele(estate([["HTTP", "#123456"], ["Kafka", ""]], ["HTTP", "Kafka"]));
     expect(c.get("HTTP")).toBe("#123456");
   });
 
   // Teinte assez foncée pour traverser le garde-fou de contraste intacte :
   // ce test porte sur l'ÉCRITURE acceptée, pas sur la correction de clarté.
   it("accepte l'hexadécimal sans dièse et le normalise", () => {
-    expect(couleursDuModele(parc([["HTTP", "1F5FAE"]], ["HTTP"])).get("HTTP")).toBe("#1f5fae");
+    expect(couleursDuModele(estate([["HTTP", "1F5FAE"]], ["HTTP"])).get("HTTP")).toBe("#1f5fae");
   });
 
   it("ignore une valeur qui n'est pas une couleur", () => {
-    const c = couleursDuModele(parc([["HTTP", "bleu ciel"]], ["HTTP"]));
+    const c = couleursDuModele(estate([["HTTP", "bleu ciel"]], ["HTTP"]));
     expect(c.get("HTTP")).toMatch(/^#[0-9a-f]{6}$/);
     expect(c.get("HTTP")).not.toBe("bleu ciel");
   });
@@ -93,16 +93,16 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
   // qu'on ajoute autour, alors que le rang alphabétique la décalait.
   it("ne bouge plus quand une technologie s'ajoute avant elle dans l'alphabet", () => {
     const types: [string, string][] = [["HTTP", "#123456"], ["Kafka", "#654321"]];
-    const avant = couleursDuModele(parc(types, ["HTTP", "Kafka"]));
-    const après = couleursDuModele(parc([...types, ["Batch", "#0f0f0f"]], ["HTTP", "Kafka", "Batch"]));
-    expect(après.get("HTTP")).toBe(avant.get("HTTP"));
-    expect(après.get("Kafka")).toBe(avant.get("Kafka"));
+    const avant = couleursDuModele(estate(types, ["HTTP", "Kafka"]));
+    const after = couleursDuModele(estate([...types, ["Batch", "#0f0f0f"]], ["HTTP", "Kafka", "Batch"]));
+    expect(after.get("HTTP")).toBe(avant.get("HTTP"));
+    expect(after.get("Kafka")).toBe(avant.get("Kafka"));
   });
 
   // Une teinte déjà prise par une déclaration ne doit pas être redistribuée à
   // une voisine : deux traits identiques resteraient indiscernables.
   it("n'attribue pas à une autre une teinte déjà déclarée", () => {
-    const c = couleursDuModele(parc([["HTTP", "#2a78d6"], ["Kafka", ""], ["File", ""]], ["HTTP", "Kafka", "File"]));
+    const c = couleursDuModele(estate([["HTTP", "#2a78d6"], ["Kafka", ""], ["File", ""]], ["HTTP", "Kafka", "File"]));
     expect(new Set([...c.values()]).size).toBe(3);
   });
 });
@@ -114,22 +114,22 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
 // Sur un classeur réel, trois technologies dessinées se partageaient les
 // 1re, 3e et 4e teintes parce que deux inconnues s'étaient glissées entre.
 describe("couleursDuModele — une technologie non déclarée ne prend pas de teinte", () => {
-  const parc = (déclarées: string[], employées: string[]): ParsedModel => ({
+  const estate = (declared: string[], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
-    flowTypes: déclarées.map((t) => typeFlux(t)),
-    interfaces: employées.map((t, i) => iface(`F${i}`, t)),
+    flowTypes: declared.map((t) => typeFlux(t)),
+    interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
     versionModele: VERSION_MODELE, fichierModifie: null,
   });
 
   it("ignore une technologie absente du référentiel", () => {
-    const c = couleursDuModele(parc(["HTTP", "Kafka"], ["HTTP", "Kafka", "Inconnue"]));
+    const c = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Inconnue"]));
     expect([...c.keys()].sort()).toEqual(["HTTP", "Kafka"]);
   });
 
   it("ne laisse pas une inconnue décaler les teintes des autres", () => {
-    const sans = couleursDuModele(parc(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
-    const avec = couleursDuModele(parc(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
+    const sans = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
+    const avec = couleursDuModele(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
     expect(avec.get("HTTP")).toBe(sans.get("HTTP"));
     expect(avec.get("Kafka")).toBe(sans.get("Kafka"));
   });
@@ -153,16 +153,16 @@ describe("la palette de repli est lisible", () => {
 // --- Le référentiel peut imposer n'importe quelle teinte. Un jaune clair
 // déclaré au classeur produisait un trait invisible, sans un mot.
 describe("couleursDuModele — garde-fou de contraste", () => {
-  const parc = (colour: string) => ({
+  const estate = (colour: string) => ({
     interfaces: [{ flowType: "HTTP" }],
     flowTypes: [{ type: "HTTP", colour }],
   });
 
   it("assombrit une couleur déclarée illisible plutôt que de la dessiner telle quelle", () => {
-    expect(ratioDeContraste(couleursDuModele(parc("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
+    expect(ratioDeContraste(couleursDuModele(estate("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
   });
 
   it("respecte telle quelle une couleur déclarée qui passe le seuil", () => {
-    expect(couleursDuModele(parc("#1f5fae")).get("HTTP")).toBe("#1f5fae");
+    expect(couleursDuModele(estate("#1f5fae")).get("HTTP")).toBe("#1f5fae");
   });
 });

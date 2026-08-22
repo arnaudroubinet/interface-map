@@ -1,6 +1,6 @@
 import type { Frise } from "../aggregation/roadmap";
 import { ENCRE, PAPIER, styleDuNoeud } from "./node-styles";
-import { construireCartouche, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
+import { buildTitleBlock, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const POLICE = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
@@ -55,7 +55,7 @@ export function buildFriseSvg(timeline: Frise, shownMilestone: string | null, co
   fill.setAttribute("fill", PAPIER);
   svg.appendChild(fill);
 
-  if (contexte) svg.appendChild(construireCartouche(contexte, MARGE, MARGE));
+  if (contexte) svg.appendChild(buildTitleBlock(contexte, MARGE, MARGE));
 
   // L'axe : une graduation par palier, avec son nom et sa date. Le palier
   // affiché porte une verticale pleine -- c'est le « vous êtes ici ».

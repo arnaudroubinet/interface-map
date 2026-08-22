@@ -1,13 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { mountApp } from "./app";
-import { écrireModele, type DonneesClasseur } from "../export/template-export";
+import { writeTemplate, type DonneesClasseur } from "../export/template-export";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
-  return { ...actual, téléchargerTexte: vi.fn() };
+  return { ...actual, downloadText: vi.fn() };
 });
 
-import { téléchargerTexte } from "../export/download";
+import { downloadText } from "../export/download";
 
 const donnees: DonneesClasseur = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
@@ -25,14 +25,14 @@ const donnees: DonneesClasseur = {
 // jsdom's File n'implémente pas arrayBuffer() : on ne construit pas un vrai
 // File, juste ce que handleFile lui demande (name, arrayBuffer()).
 function dropFile(root: HTMLElement): void {
-  const buffer = écrireModele(donnees);
+  const buffer = writeTemplate(donnees);
   const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
   const event = new Event("drop", { bubbles: true, cancelable: true });
   Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
   root.dispatchEvent(event);
 }
 
-function boutonParLibellé(root: HTMLElement, label: string): HTMLButtonElement {
+function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
   const bouton = [...root.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim().startsWith(label));
   if (!bouton) throw new Error(`bouton "${label}" introuvable`);
   return bouton as HTMLButtonElement;
@@ -50,21 +50,21 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
       if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
-    boutonParLibellé(root, "Integrity checks").click();
-    boutonParLibellé(root, "Markdown").click();
+    buttonByLabel(root, "Integrity checks").click();
+    buttonByLabel(root, "Markdown").click();
 
     const modeSelect = [...root.querySelectorAll("select")].find((s) =>
       [...s.options].some((o) => o.value === "functional")
     ) as HTMLSelectElement;
     modeSelect.value = "functional";
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
-    boutonParLibellé(root, "Integrity checks").click();
-    boutonParLibellé(root, "Markdown").click();
+    buttonByLabel(root, "Integrity checks").click();
+    buttonByLabel(root, "Markdown").click();
 
-    const appelé = vi.mocked(téléchargerTexte);
-    expect(appelé).toHaveBeenCalledTimes(2);
-    const [, nomArchitecture] = appelé.mock.calls[0];
-    const [, nomFonctionnel] = appelé.mock.calls[1];
+    const called = vi.mocked(downloadText);
+    expect(called).toHaveBeenCalledTimes(2);
+    const [, nomArchitecture] = called.mock.calls[0];
+    const [, nomFonctionnel] = called.mock.calls[1];
     expect(nomFonctionnel).toBe(nomArchitecture);
   });
 });
@@ -104,7 +104,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
   it("dessine l'acteur seul au lieu du message « aucun flux »", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = écrireModele(donneesAvecActeurIsole);
+    const buffer = writeTemplate(donneesAvecActeurIsole);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -119,7 +119,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
     modeSelect.value = "functional";
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
-    boutonParLibellé(root, "By actor").click();
+    buttonByLabel(root, "By actor").click();
     const acteurSelect = [...root.querySelectorAll("select")].find((s) =>
       [...s.options].some((o) => o.value === "Ghost")
     ) as HTMLSelectElement;
@@ -158,7 +158,7 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
   it("ouvre sur Group to group, pas sur Integrity checks", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = écrireModele(donneesAvecAnomalieRetiree);
+    const buffer = writeTemplate(donneesAvecAnomalieRetiree);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -189,7 +189,7 @@ describe("vue Écarts — un seul palier déclaré", () => {
   it("ne prétend pas que le classeur ne déclare aucun palier", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = écrireModele(donneesAvecUnSeulPalier);
+    const buffer = writeTemplate(donneesAvecUnSeulPalier);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -198,7 +198,7 @@ describe("vue Écarts — un seul palier déclaré", () => {
       if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
-    boutonParLibellé(root, "Changes").click();
+    buttonByLabel(root, "Changes").click();
 
     const message = root.querySelector(".no-flow");
     expect(message?.textContent).toBe("This workbook declares only one milestone; comparing needs two.");
@@ -243,14 +243,14 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   it("dessine la chaîne retenue, et pas la précédente", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = écrireModele(deuxChaines);
+    const buffer = writeTemplate(deuxChaines);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => expect(root.querySelector(".rail-view-item")).not.toBeNull());
 
-    boutonParLibellé(root, "Chain").click();
+    buttonByLabel(root, "Chain").click();
     const select = await vi.waitFor(() => {
       const s = root.querySelector(".rail-chain") as HTMLSelectElement | null;
       if (!s || s.options.length < 2) throw new Error("sélecteur pas prêt");

@@ -350,7 +350,7 @@ describe("groupFlows — les noms d'échange suivent le trait fusionné", () => 
 // n'avait rien qui sorte de lui. Le tracé suit désormais la donnée, du
 // fournisseur vers le consommateur ; seule la pointe dit qui appelle.
 describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initiative", () => {
-  const parc = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
+  const estate = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       flowTypes: [base.typeFlux({ sensRepresentation, sensRepresentationBrut: "" })],
@@ -360,14 +360,14 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
 
   it("va du fournisseur au consommateur, qu'il soit poussé ou tiré", () => {
     for (const direction of ["provider-to-consumer", "consumer-to-provider"] as const) {
-      const g = groupFlows(buildFlowInstances(parc(direction)), identityNodeKey, true);
+      const g = groupFlows(buildFlowInstances(estate(direction)), identityNodeKey, true);
       expect([g[0].from, g[0].to]).toEqual(["A", "B"]);
     }
   });
 
   it("marque le trait comme tiré quand le consommateur prend l'initiative", () => {
-    expect(groupFlows(buildFlowInstances(parc("consumer-to-provider")), identityNodeKey, true)[0].pulled).toBe(true);
-    expect(groupFlows(buildFlowInstances(parc("provider-to-consumer")), identityNodeKey, true)[0].pulled).toBe(false);
+    expect(groupFlows(buildFlowInstances(estate("consumer-to-provider")), identityNodeKey, true)[0].pulled).toBe(true);
+    expect(groupFlows(buildFlowInstances(estate("provider-to-consumer")), identityNodeKey, true)[0].pulled).toBe(false);
   });
 });
 

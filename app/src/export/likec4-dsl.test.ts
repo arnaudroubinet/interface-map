@@ -181,21 +181,21 @@ describe("modeleEnLikeC4", () => {
 // convention de pointe réduite à une étiquette -- alors que LikeC4 est la
 // SEULE cible qui sache la dessiner.
 describe("modeleEnLikeC4 — la notation traverse l'export", () => {
-  const parc = (direction: "consumer-to-provider" | "provider-to-consumer") =>
+  const estate = (direction: "consumer-to-provider" | "provider-to-consumer") =>
     model({ flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentation: direction })] });
 
   it("pose une pointe ouverte sur une technologie tirée", () => {
-    expect(modeleEnLikeC4(parc("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
+    expect(modeleEnLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
   });
 
   it("pose une pointe pleine sur une technologie poussée", () => {
-    expect(modeleEnLikeC4(parc("provider-to-consumer"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
+    expect(modeleEnLikeC4(estate("provider-to-consumer"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
   });
 
   // Le style de trait par défaut de LikeC4 est `dashed` : sans `line solid`,
   // TOUS nos traits sortent en pointillé et « Transform » ne se distingue plus.
   it("écrit line solid explicitement", () => {
-    expect(modeleEnLikeC4(parc("provider-to-consumer"), null)).toContain("line solid");
+    expect(modeleEnLikeC4(estate("provider-to-consumer"), null)).toContain("line solid");
   });
 
   it("donne à la relation la couleur que la technologie a dans l'outil", () => {

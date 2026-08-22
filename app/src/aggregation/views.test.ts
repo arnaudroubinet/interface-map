@@ -3,7 +3,7 @@ import * as base from "../testing/fixtures";
 import { buildFlowInstances, groupFlows, identityNodeKey } from "./core";
 import { toutesLesPlanches } from "./boards";
 import { computeLayout } from "../layout/graph-layout";
-import { construireDrawio } from "../export/drawio-export";
+import { buildDrawio } from "../export/drawio-export";
 import {
   buildGroupToGroupView,
   buildPlatformDetailView,
@@ -253,7 +253,7 @@ describe("mode fonctionnel", () => {
   // Tatooine expose Transactions ; Bus (Middleware, Technical) la relaie sous
   // trx.norm vers Naboo : la chaîne fonctionnelle relie Tatooine à
   // Naboo, Bus retiré.
-  function parc(): ParsedModel {
+  function estate(): ParsedModel {
     return {
       actors: [
         actor({ name: "Tatooine", typeActeur: "Application", group: "Socle" }),
@@ -291,19 +291,19 @@ describe("mode fonctionnel", () => {
   const options = (mode: Mode) => ({ counters: true, mode });
 
   it("laisse le mode architecture inchangé", () => {
-    const m = parc();
+    const m = estate();
     const view = buildPlatformDetailView(m, lect(m, "architecture"), options("architecture"));
     expect(view.nodes.map((n) => n.id)).toContain("Bus");
   });
 
   it("retire l'acteur technique en mode fonctionnel", () => {
-    const m = parc();
+    const m = estate();
     const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
     expect(view.nodes.map((n) => n.id)).not.toContain("Bus");
   });
 
   it("relie la source au consommateur en mode fonctionnel", () => {
-    const m = parc();
+    const m = estate();
     const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
     expect([view.edges[0].from, view.edges[0].to]).toEqual(["Tatooine", "Finance"]);
@@ -312,7 +312,7 @@ describe("mode fonctionnel", () => {
   // Sans technologie, deux échanges entre les mêmes applications fusionnent en
   // un seul trait, quel que soit le médium qui les portait.
   it("fusionne les traits sans distinguer les technologies", () => {
-    const m = parc();
+    const m = estate();
     m.interfaces.push(iface({ flowName: "Autre", providerName: "Tatooine", flowType: "Kafka", expectedSheet: "FX_Tatooine_Kafka" }));
     m.consumptions.push(conso({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
     m.flowTypes.push(base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }));
@@ -326,7 +326,7 @@ describe("mode fonctionnel", () => {
   // en fonctionnel elle doit se vider comme partout ailleurs, et le rendu
   // (matrix-table.ts) n'a de sens que si cette donnée lui arrive bien vide.
   it("vide la technologie des cellules de la matrix en mode fonctionnel", () => {
-    const m = parc();
+    const m = estate();
     // Tatooine fournit, le Bus consomme : la ligne est donc celle du fournisseur,
     // même en HTTP où c'est le Bus qui passe l'appel.
     const architecture = buildMatrixView(m, lect(m, "architecture"), { mode: "architecture" });
@@ -343,7 +343,7 @@ describe("mode fonctionnel", () => {
   // une case sans étiquette, qui vide tout le schéma en un clic sans rien
   // expliquer.
   it("ne propose aucune technologie à filtrer en mode fonctionnel", () => {
-    const m = parc();
+    const m = estate();
     const options = optionsFiltreActeur(flows(m, "functional"), "Tatooine");
     expect(options.technologies).toEqual([]);
   });
@@ -353,7 +353,7 @@ describe("mode fonctionnel", () => {
   // retirerait de l'information sans le dire.
   describe("acteur métier isolé", () => {
     it("reste affiché, à travers son groupe, en groupe à groupe", () => {
-      const m = parc();
+      const m = estate();
       m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
       const view = buildGroupToGroupView(m, lect(m, "functional"), options("functional"));
@@ -361,7 +361,7 @@ describe("mode fonctionnel", () => {
     });
 
     it("garde son propre nœud en plateforme détaillée quand c'est un composant de la plateforme", () => {
-      const m = parc();
+      const m = estate();
       m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Socle" }));
       const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
       const node = view.nodes.find((n) => n.id === "Isolé");
@@ -369,14 +369,14 @@ describe("mode fonctionnel", () => {
     });
 
     it("reste affiché en plateforme seule quand c'est un composant de la plateforme", () => {
-      const m = parc();
+      const m = estate();
       m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Socle" }));
       const view = buildPlatformOnlyView(m, lect(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Isolé");
     });
 
     it("garde une ligne vide dans la matrix", () => {
-      const m = parc();
+      const m = estate();
       m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
       const matrix = buildMatrixView(m, lect(m, "functional"), { mode: "functional" });
@@ -393,8 +393,8 @@ describe("mode fonctionnel", () => {
         { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
         { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
       ];
-      function avecIsoléRetiré(): ParsedModel {
-        const m = parc();
+      function withIsolatedRetired(): ParsedModel {
+        const m = estate();
         m.milestones = milestones;
         m.actors.push(
           actor({ name: "Isolé", typeActeur: "Application", group: "Socle", introducedAt: "v1", retiredAt: "v2" })
@@ -403,25 +403,25 @@ describe("mode fonctionnel", () => {
       }
 
       it("garde sa boîte au palier où il vit encore", () => {
-        const m = avecIsoléRetiré();
+        const m = withIsolatedRetired();
         const view = buildPlatformDetailView(m, lect(m, "functional", 1), options("functional"));
         expect(view.nodes.map((n) => n.id)).toContain("Isolé");
       });
 
       it("perd sa boîte en plateforme détaillée au palier où il est retiré", () => {
-        const m = avecIsoléRetiré();
+        const m = withIsolatedRetired();
         const view = buildPlatformDetailView(m, lect(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
       it("perd sa boîte en plateforme seule au palier où il est retiré", () => {
-        const m = avecIsoléRetiré();
+        const m = withIsolatedRetired();
         const view = buildPlatformOnlyView(m, lect(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
       it("perd sa ligne de matrix au palier où il est retiré", () => {
-        const m = avecIsoléRetiré();
+        const m = withIsolatedRetired();
         const matrix = buildMatrixView(m, lect(m, "functional", 2), { mode: "functional" });
         expect(matrix.rows.map((l) => l.actor)).not.toContain("Isolé");
       });
@@ -455,7 +455,7 @@ describe("frontière de la plateforme", () => {
 //    qu'elle produit.
 // ---------------------------------------------------------------------------
 
-const parcTire = () =>
+const pulledEstate = () =>
   base.template({
     actors: [base.actor({ name: "Fournisseur" }), base.actor({ name: "Consommateur" })],
     groups: [base.group({ name: "G" })],
@@ -468,7 +468,7 @@ const parcTire = () =>
 
 describe("le trait va du fournisseur au consommateur, partout", () => {
   it("les vues agrégées et la matrix suivent la donnée", () => {
-    const m = parcTire();
+    const m = pulledEstate();
     const g = groupFlows(buildFlowInstances(m), identityNodeKey, true)[0];
     expect([g.from, g.to, g.pulled]).toEqual(["Fournisseur", "Consommateur", true]);
     const mat = buildMatrixView(m, lectureDuMode(m, null, "architecture"), { mode: "architecture" });
@@ -476,18 +476,18 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
   });
 
   it("la vue « By actor » aussi, alors qu'elle fabrique ses arêtes elle-même", () => {
-    const m = parcTire();
+    const m = pulledEstate();
     const edge = buildByActorView(m, buildFlowInstances(m), "Fournisseur", {}).edges[0];
     expect([edge.from, edge.to, edge.pulled]).toEqual(["Fournisseur", "Consommateur", true]);
   });
 
   it("toutes les planches d'un même fichier draw.io racontent la même architecture", async () => {
-    const m = parcTire();
-    const placées = [];
+    const m = pulledEstate();
+    const placed = [];
     for (const p of toutesLesPlanches(m, null, "architecture")) {
-      placées.push({ title: p.title, actor: p.actor, layout: await computeLayout(p.nodes, p.edges) });
+      placed.push({ title: p.title, actor: p.actor, layout: await computeLayout(p.nodes, p.edges) });
     }
-    const xml = construireDrawio(placées, () => "#000");
+    const xml = buildDrawio(placed, () => "#000");
     const direction = xml
       .split("<diagram ")
       .slice(1)
@@ -505,7 +505,7 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
 // « épaisseur par criticité » était donc coché et sans effet -- un réglage qui
 // ne fait rien est pire qu'un réglage absent.
 describe("les vues transportent la criticité jusqu'au trait", () => {
-  const parc = () =>
+  const estate = () =>
     base.template({
       groups: [{ name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 }],
       typesActeur: [base.typeActeur()],
@@ -519,7 +519,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
     });
 
   it("la porte à travers les vues agrégées", () => {
-    const m = parc();
+    const m = estate();
     const view = buildPlatformDetailView(m, lectureDuMode(m, null, "architecture"), { counters: true });
     expect(view.edges[0].criticality).toBe("1 - Critical");
   });
@@ -527,7 +527,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
   // Cette vue fabrique ses arêtes elle-même, sans passer par l'agrégation :
   // c'est exactement là qu'un champ nouveau se perd.
   it("la porte aussi dans la vue par acteur, qui fabrique ses arêtes à part", () => {
-    const m = parc();
+    const m = estate();
     const view = buildByActorView(m, lectureDuMode(m, null, "architecture").flows, "A", {});
     expect(view.edges[0].criticality).toBe("1 - Critical");
   });

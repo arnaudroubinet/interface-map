@@ -1,7 +1,7 @@
 import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
-import type { Mode, LibelléArête } from "../aggregation/core";
+import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import type { OrdreMatrice } from "../aggregation/seriation";
 import { chainesDisponibles } from "../aggregation/chain";
 import type { Voisinage } from "../aggregation/impact";
@@ -9,7 +9,7 @@ import type { SujetDeFrise } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
 
 // L'ordre de lecture va du plus court au plus complet.
-const LIBELLES_ARETE: [LibelléArête, string][] = [
+const LIBELLES_ARETE: [EdgeLabelMode, string][] = [
   ["technology", "technology"],
   ["exchanges", "what flows"],
   ["both", "both"],
@@ -72,7 +72,7 @@ export interface RailCallbacks {
   onPalierAffiche: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
   onOptionCompteurs: (value: boolean) => void;
-  onLibelléArête: (value: LibelléArête) => void;
+  onLibelléArête: (value: EdgeLabelMode) => void;
   onOrdreMatrice: (value: OrdreMatrice) => void;
   onEchellePng: (value: 1 | 2 | 4) => void;
   onTechnoMasquee: (techno: string, hidden: boolean) => void;
@@ -90,7 +90,7 @@ export interface RailCallbacks {
 // Un palier se choisit dans une liste, jamais ne se tape : son libellé et son
 // statut sont affichés en regard, pour qu'on sache si l'on regarde du livré ou
 // du planifié.
-function sélecteurPalier(
+function milestoneSelect(
   title: string,
   milestones: readonly { name: string; label: string; statut: string }[],
   choisi: string | null,
@@ -175,20 +175,20 @@ export function renderPiedDeRail(
   root: HTMLElement,
   callbacks: Pick<RailCallbacks, "onTelechargerModele" | "onTelechargerExemple" | "onMigrationLegacy">
 ): void {
-  const départs = el("div", { class: "rail-starts" });
+  const starts = el("div", { class: "rail-starts" });
   const exemple = el("button", { class: "rail-button" }, ["Sample workbook"]);
   exemple.title = "A complete fictional repository, to see the tool at work";
   exemple.addEventListener("click", callbacks.onTelechargerExemple);
-  départs.appendChild(exemple);
+  starts.appendChild(exemple);
   const template = el("button", { class: "rail-button" }, ["Blank template"]);
   template.title = "An empty workbook, ready to fill in";
   template.addEventListener("click", callbacks.onTelechargerModele);
-  départs.appendChild(template);
+  starts.appendChild(template);
   const migration = el("button", { class: "rail-button" }, ["Repair or upgrade a workbook"]);
   migration.title = "Bring any workbook up to the current format and create the sheets it is missing";
   migration.addEventListener("click", callbacks.onMigrationLegacy);
-  départs.appendChild(migration);
-  root.appendChild(départs);
+  starts.appendChild(migration);
+  root.appendChild(starts);
   root.appendChild(el("p", { class: "rail-copyright" }, ["© Arnaud Roubinet 2026"]));
 }
 
@@ -212,7 +212,7 @@ export function renderRail(
 
   // Sur l'écran de mise à niveau, les vues restent visibles mais inertes : les
   // rendre cliquables pour les voir refuser serait pire que de les griser.
-  const bloqué = state.view === "upgrade";
+  const blocked = state.view === "upgrade";
 
   renderMode(root, state, callbacks.onMode);
 
@@ -220,7 +220,7 @@ export function renderRail(
   const views = state.mode === "functional" ? VUES.filter((v) => !VUES_SANS_OBJET_EN_FONCTIONNEL.includes(v.id)) : VUES;
   for (const v of views) {
     const bouton = el("button", { class: "rail-view-item" }, [v.label]);
-    if (bloqué) bouton.disabled = true;
+    if (blocked) bouton.disabled = true;
     if (v.id === state.view) bouton.setAttribute("aria-current", "true");
     // Trois compteurs, trois natures : les anomalies invalident les schémas
     // (rouge), les actions attendent une décision (bleu), les avertissements
@@ -229,7 +229,7 @@ export function renderRail(
     // Sur l'écran de mise à niveau, le rapport porte sur un classeur mal lu
     // (§ vueAuChargement) : ses comptes ne veulent rien dire, les montrer
     // laisserait croire à un diagnostic qu'on n'a pas.
-    if (v.id === "checks" && !bloqué) {
+    if (v.id === "checks" && !blocked) {
       const { totalAnomalies, totalActions, totalAvertissements } = state.fichier.report;
       if (totalAnomalies > 0) {
         bouton.appendChild(
@@ -256,11 +256,11 @@ export function renderRail(
   // entier, pas pour la vue courante. Absent quand le classeur ne déclare
   // aucun palier -- proposer un axe vide n'apprendrait rien.
   const milestones = state.fichier.model.milestones;
-  if (milestones.length > 0 && !bloqué) {
+  if (milestones.length > 0 && !blocked) {
     const block = el("div", { class: "rail-milestones" });
-    block.appendChild(sélecteurPalier("Milestone", milestones, state.shownMilestone, callbacks.onPalierAffiche));
+    block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onPalierAffiche));
     if (state.view === "changes") {
-      block.appendChild(sélecteurPalier("Compared to", milestones, state.comparedMilestone, callbacks.onPalierCompare));
+      block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onPalierCompare));
     }
     root.appendChild(block);
   }
@@ -385,7 +385,7 @@ export function renderRail(
     if (actors) root.appendChild(actors);
   }
 
-  if (state.view !== "checks" && !bloqué) {
+  if (state.view !== "checks" && !blocked) {
     const options = el("fieldset", { class: "rail-options" });
 
     const compteursLabel = el("label", {});
@@ -399,16 +399,16 @@ export function renderRail(
     // Nommer le seul protocole fait une carte des TUYAUX ; nommer l'échange en
     // fait une carte de ce qui CIRCULE. Les deux se valent selon la question
     // qu'on pose au schéma, d'où le choix plutôt qu'un défaut imposé.
-    const libelléLabel = el("label", { class: "rail-option-label" }, ["Label "]);
-    const libelléSelect = el("select", { class: "rail-select" });
+    const labelField = el("label", { class: "rail-option-label" }, ["Label "]);
+    const labelSelect = el("select", { class: "rail-select" });
     for (const [value, text] of LIBELLES_ARETE) {
       const option = el("option", { value: value }, [text]);
-      if (value === state.options.libelléArête) option.selected = true;
-      libelléSelect.appendChild(option);
+      if (value === state.options.edgeLabelMode) option.selected = true;
+      labelSelect.appendChild(option);
     }
-    libelléSelect.addEventListener("change", () => callbacks.onLibelléArête(libelléSelect.value as LibelléArête));
-    libelléLabel.appendChild(libelléSelect);
-    options.appendChild(libelléLabel);
+    labelSelect.addEventListener("change", () => callbacks.onLibelléArête(labelSelect.value as EdgeLabelMode));
+    labelField.appendChild(labelSelect);
+    options.appendChild(labelField);
 
     // L'échelle du PNG, à côté de ce qu'elle sert : un schéma d'architecture
     // est du trait fin, c'est le cas où une haute résolution paie encore.

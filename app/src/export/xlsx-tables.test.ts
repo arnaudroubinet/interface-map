@@ -4,7 +4,7 @@
 // réellement produit. Bonne couverture, rangée sous un autre nom.
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { poserLesTableaux, type TableauÀPoser } from "./xlsx-tables";
+import { applyOoxmlExtras, type TableToApply } from "./xlsx-tables";
 
 // Un classeur minimal, juste assez pour que poserLesTableaux trouve les
 // feuilles qu'on lui demande de compléter.
@@ -36,14 +36,14 @@ function displayNamesDesTables(paquet: ArrayBuffer): string[] {
 // deux tableaux (« Enregistrements supprimés ») et en proposant de réparer.
 describe("poserLesTableaux — collision de noms de tableau", () => {
   const sheets = ["FX_A B_HTTP", "FX_A-B_HTTP"];
-  const tables: TableauÀPoser[] = sheets.map((sheet) => ({
+  const tables: TableToApply[] = sheets.map((sheet) => ({
     sheet,
     columns: ["Flow name"],
     rows: 1,
   }));
 
   it("donne un displayName distinct à deux feuilles qui s'assainissent à l'identique", () => {
-    const paquet = poserLesTableaux(classeurMinimal(sheets), { tables });
+    const paquet = applyOoxmlExtras(classeurMinimal(sheets), { tables });
     const names = displayNamesDesTables(paquet);
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(2);
@@ -51,8 +51,8 @@ describe("poserLesTableaux — collision de noms de tableau", () => {
 
   it("nomme les tableaux de façon stable d'une génération à l'autre", () => {
     const brut = classeurMinimal(sheets);
-    const premier = displayNamesDesTables(poserLesTableaux(brut, { tables }));
-    const second = displayNamesDesTables(poserLesTableaux(brut, { tables }));
+    const premier = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
+    const second = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
     expect(second).toEqual(premier);
   });
 });

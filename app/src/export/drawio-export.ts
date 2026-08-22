@@ -1,7 +1,7 @@
 import type { LayoutResult, LayoutNode, LayoutEdge } from "../layout/graph-layout";
 import { entreesDeLegende } from "../render/legend";
-import { libelléCartouche, type ContexteSchema } from "../render/title-block";
-import { sousLibellé } from "../layout/graph-layout";
+import { titleBlockText, type ContexteSchema } from "../render/title-block";
+import { subLabel } from "../layout/graph-layout";
 
 // Toutes les planches, dans un fichier qu'on peut rouvrir et retoucher : une
 // par onglet, comme draw.io présente ses pages. C'est le pendant modifiable des
@@ -10,7 +10,7 @@ import { sousLibellé } from "../layout/graph-layout";
 // regardait.
 
 const XML: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
-const échapper = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
+const escapeXml = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
 
 // Le gabarit C4 de draw.io, celui-là même dont le placement reprend les cotes :
 // nom en gras, type entre crochets, description en dessous.
@@ -20,9 +20,9 @@ const échapper = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
 // l'attribut qui le porte. N'en faire qu'un produit un fichier qu'aucun
 // analyseur XML n'ouvre -- draw.io compris.
 function content(n: LayoutNode): string {
-  const morceaux = [`<b>${échapper(n.label)}</b>`];
-  if (n.subtitle) morceaux.push(`[${échapper(n.subtitle)}]`);
-  if (n.description) morceaux.push(`<br/>${échapper(n.description)}`);
+  const morceaux = [`<b>${escapeXml(n.label)}</b>`];
+  if (n.subtitle) morceaux.push(`[${escapeXml(n.subtitle)}]`);
+  if (n.description) morceaux.push(`<br/>${escapeXml(n.description)}`);
   return morceaux.join("<div></div>");
 }
 
@@ -48,12 +48,12 @@ function styleNoeud(n: LayoutNode): string {
   ].join(";");
 }
 
-function libelléArête(e: LayoutEdge): string {
-  const sous = sousLibellé(e.label, e.technology);
-  return sous ? `${échapper(e.label)}<div></div>${échapper(sous)}` : échapper(e.label ?? "");
+function edgeLabelMode(e: LayoutEdge): string {
+  const sous = subLabel(e.label, e.technology);
+  return sous ? `${escapeXml(e.label)}<div></div>${escapeXml(sous)}` : escapeXml(e.label ?? "");
 }
 
-export interface PlanchePlacée {
+export interface PlacedBoard {
   title: string;
   // Ce que la page dit d'elle-même : le même bloc que le cartouche du SVG.
   // draw.io est le format DESTINÉ À CIRCULER, et ses pages partaient sans.
@@ -67,8 +67,8 @@ export interface PlanchePlacée {
 // Un onglet par planche : le fichier porte tout ce que l'outil sait dessiner,
 // et draw.io les présente comme il présente ses pages. Rouvrir le classeur pour
 // en tirer une seule vue reviendrait à refaire le travail à chaque fois.
-export function construireDrawio(
-  boards: PlanchePlacée[],
+export function buildDrawio(
+  boards: PlacedBoard[],
   couleurTechnologie: (technology: string) => string
 ): string {
   // La planche d'un acteur se déclare comme telle : c'est ce qui permet,
@@ -91,7 +91,7 @@ export function construireDrawio(
 // même fonction que celles du SVG : deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
 function blocsExplicatifs(
-  { title, contexte, layout }: PlanchePlacée,
+  { title, contexte, layout }: PlacedBoard,
   cellule: (id: string) => string,
   couleurTechnologie: (technology: string) => string
 ): string[] {
@@ -104,13 +104,13 @@ function blocsExplicatifs(
 
   const text = (id: string, value: string, x: number, y: number, l: number, h: number, style: string) =>
     cellules.push(
-      `        <mxCell id="${cellule(id)}" value="${échapper(value)}" style="${style}" vertex="1" parent="${cellule("1")}">`,
+      `        <mxCell id="${cellule(id)}" value="${escapeXml(value)}" style="${style}" vertex="1" parent="${cellule("1")}">`,
       `          <mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${l}" height="${h}" as="geometry" />`,
       "        </mxCell>"
     );
 
   const yCartouche = Math.min(...ys) - 64;
-  const header = contexte ? libelléCartouche(contexte) : { title, subtitle: "" };
+  const header = contexte ? titleBlockText(contexte) : { title, subtitle: "" };
   text("cartouche_t", header.title, gauche, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
   if (header.subtitle) {
     text("cartouche_s", header.subtitle, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
@@ -119,14 +119,14 @@ function blocsExplicatifs(
   const inputs = entreesDeLegende(layout.edges, layout.nodes, couleurTechnologie);
   inputs.forEach((input, i) => {
     const y = bas + 48 + i * 22;
-    const é = input.sample;
-    if (é.shape === "line") {
+    const e = input.sample;
+    if (e.shape === "line") {
       const style = [
         "html=1",
-        `strokeColor=${é.colour}`,
+        `strokeColor=${e.colour}`,
         "strokeWidth=2",
-        é.dashed ? "dashed=1" : "dashed=0",
-        é.head === "start" ? "startArrow=block;startFill=0;endArrow=none" : "endArrow=block;endFill=1;startArrow=none",
+        e.dashed ? "dashed=1" : "dashed=0",
+        e.head === "start" ? "startArrow=block;startFill=0;endArrow=none" : "endArrow=block;endFill=1;startArrow=none",
       ].join(";");
       cellules.push(
         `        <mxCell id="${cellule(`legende_${i}`)}" style="${style}" edge="1" parent="${cellule("1")}">`,
@@ -141,7 +141,7 @@ function blocsExplicatifs(
         y - 6,
         34,
         12,
-        `rounded=0;html=1;fillColor=${é.fill};strokeColor=${é.stroke}${é.dashed ? ";dashed=1" : ""}`
+        `rounded=0;html=1;fillColor=${e.fill};strokeColor=${e.stroke}${e.dashed ? ";dashed=1" : ""}`
       );
     }
     text(`legende_t_${i}`, input.text, gauche + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
@@ -151,7 +151,7 @@ function blocsExplicatifs(
 }
 
 function diagramme(
-  board: PlanchePlacée,
+  board: PlacedBoard,
   index: number,
   couleurTechnologie: (technology: string) => string,
   pageParActeur: Map<string, string>
@@ -162,7 +162,7 @@ function diagramme(
   // Les identifiants sont uniques dans le FICHIER, pas dans la page : deux
   // planches citent presque toujours le même acteur, et draw.io rattacherait
   // alors les traits de l'une aux boîtes de l'autre.
-  const cellule = (id: string) => `p${index}_${échapper(id)}`;
+  const cellule = (id: string) => `p${index}_${escapeXml(id)}`;
 
   for (const n of layout.nodes) {
     // Seul point du fichier où les deux conventions se rencontrent, et il a
@@ -181,12 +181,12 @@ function diagramme(
     const page = pageParActeur.get(n.label);
     const attributs = [
       `id="${cellule(n.id)}"`,
-      `label="${échapper(content(n))}"`,
-      n.description ? `tooltip="${échapper(n.description)}"` : "",
+      `label="${escapeXml(content(n))}"`,
+      n.description ? `tooltip="${escapeXml(n.description)}"` : "",
       // Cliquer une boîte ouvre la planche de cet acteur, quand elle existe :
       // soixante onglets ne se parcourent pas à la main.
       page && page !== `page_${index}` ? `link="data:page/id,${page}"` : "",
-      n.subtitle ? `type="${échapper(n.subtitle)}"` : "",
+      n.subtitle ? `type="${escapeXml(n.subtitle)}"` : "",
       n.external ? 'perimeter="External"' : "",
     ].filter(Boolean);
     cellules.push(
@@ -216,8 +216,8 @@ function diagramme(
         : ["endArrow=block", "endFill=1", "startArrow=none"]),
     ].join(";");
     cellules.push(
-      `        <mxCell id="${cellule(`e${i}`)}" value="${échapper(
-        libelléArête(e)
+      `        <mxCell id="${cellule(`e${i}`)}" value="${escapeXml(
+        edgeLabelMode(e)
       )}" style="${style}" edge="1" parent="${cellule("1")}" source="${cellule(e.from)}" target="${cellule(e.to)}">`,
       '          <mxGeometry relative="1" as="geometry" />',
       "        </mxCell>"
@@ -225,7 +225,7 @@ function diagramme(
   });
 
   return [
-    `  <diagram name="${échapper(title)}" id="page_${index}">`,
+    `  <diagram name="${escapeXml(title)}" id="page_${index}">`,
     // tooltips et fold ne sont pas décoratifs : sans eux draw.io n'affiche pas
     // les infobulles et ne replie pas la frontière de plateforme.
     `    <mxGraphModel dx="${Math.round(layout.width)}" dy="${Math.round(

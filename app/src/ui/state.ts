@@ -4,7 +4,7 @@ import type { GranulariteMatrice } from "../aggregation/views";
 import type { OrdreMatrice } from "../aggregation/seriation";
 import type { Voisinage } from "../aggregation/impact";
 import type { SujetDeFrise } from "../aggregation/roadmap";
-import type { Mode, LibelléArête } from "../aggregation/core";
+import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { currentMilestone, rankOfMilestone } from "../aggregation/milestones";
 import { actorsForReading } from "../aggregation/reading";
@@ -63,7 +63,7 @@ export interface AppOptions {
   // Ce que l'étiquette d'un trait NOMME : le tuyau, ce qui y circule, ou les
   // deux. Le défaut reste le tuyau -- c'est le comportement historique, et il
   // tient dans la largeur d'une boîte.
-  libelléArête: LibelléArête;
+  edgeLabelMode: EdgeLabelMode;
   // Un schéma d'architecture est du trait fin avec de petits caractères :
   // c'est le cas où 600 dpi paie encore. Le bon réflexe reste le SVG, qui est
   // vectoriel et n'a pas de résolution.
@@ -136,7 +136,7 @@ export function initialState(): AppState {
     mode: "architecture",
     shownMilestone: null,
     comparedMilestone: null,
-    options: { counters: true, libelléArête: "technology", echellePng: 2, graisseParCriticite: false },
+    options: { counters: true, edgeLabelMode: "technology", echellePng: 2, graisseParCriticite: false },
     filtresActeur: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
     filtresMatrice: { masquerExternes: false, hiddenActors: [], granularite: "actor", order: "alphabetical" },
@@ -169,7 +169,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
   // On ouvre sur le dernier palier livré, et on compare par défaut au
   // précédent : c'est l'écart qu'on vient de franchir, celui dont on parle.
   const courant = currentMilestone(fichier.model);
-  const précédent = [...fichier.model.milestones]
+  const previous = [...fichier.model.milestones]
     .filter((p) => courant !== undefined && p.rank < courant.rank)
     .sort((a, b) => b.rank - a.rank)[0];
 
@@ -179,7 +179,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     view: vueAuChargement(fichier),
     mode: "architecture",
     shownMilestone: courant?.name ?? null,
-    comparedMilestone: précédent?.name ?? null,
+    comparedMilestone: previous?.name ?? null,
     filtresActeur: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
     filtresMatrice: { masquerExternes: false, hiddenActors: [], granularite: "actor", order: "alphabetical" },
@@ -201,8 +201,8 @@ function selectionRetenue(state: AppState, mode: Mode, milestone: string | null)
   if (!state.fichier || !state.selectionActeur) return state.selectionActeur;
   const model = state.fichier.model;
   const rank = milestone === null ? null : rankOfMilestone(model, milestone) ?? null;
-  const proposés = new Set(actorsForReading(model, rank, mode).map((a) => a.name));
-  return proposés.has(state.selectionActeur) ? state.selectionActeur : null;
+  const offered = new Set(actorsForReading(model, rank, mode).map((a) => a.name));
+  return offered.has(state.selectionActeur) ? state.selectionActeur : null;
 }
 
 export function withPalierAffiche(state: AppState, milestone: string | null): AppState {

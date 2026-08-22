@@ -2,8 +2,8 @@ import { el, clear } from "../shared/dom";
 import { wireDropZone, MESSAGE_CLASSEUR_ILLISIBLE } from "./drop-zone";
 import { type RapportMigration } from "../export/legacy-upgrade";
 import { reparerClasseur } from "../export/repair";
-import { écrireModele } from "../export/template-export";
-import { téléchargerClasseur } from "../export/download";
+import { writeTemplate } from "../export/template-export";
+import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
@@ -33,8 +33,8 @@ function row(report: RapportMigration): string[] {
 }
 
 export function ouvrirMigration(): void {
-  const précédent = document.querySelector(".migration-overlay");
-  if (précédent) précédent.remove();
+  const previous = document.querySelector(".migration-overlay");
+  if (previous) previous.remove();
 
   const voile = el("div", { class: "migration-overlay" });
   const box = el("div", { class: "migration-box" });
@@ -45,7 +45,7 @@ export function ouvrirMigration(): void {
   const zone = el("div", { class: "drop-target migration-target" });
   const message = el("p", { class: "drop-target-text" });
 
-  const réinitialiser = () => {
+  const reset = () => {
     clear(zone);
     zone.appendChild(el("p", { class: "drop-target-title" }, ["Drop a workbook — original format, older model, or simply missing sheets"]));
     zone.appendChild(
@@ -62,10 +62,10 @@ export function ouvrirMigration(): void {
     fichier
       .arrayBuffer()
       .then((octets) => {
-        const réparation = reparerClasseur(octets);
+        const repair = reparerClasseur(octets);
         const base = fichier.name.replace(/\.(xlsx|xlsm)$/i, "");
-        const workbook = écrireModele(réparation.donnees);
-        téléchargerClasseur(workbook, `${base}-repaired.xlsx`);
+        const workbook = writeTemplate(repair.donnees);
+        downloadWorkbook(workbook, `${base}-repaired.xlsx`);
 
         // On fait passer les contrôles sur ce qu'on vient d'écrire : annoncer
         // « il restera des choses à saisir » sans les compter laisserait croire
@@ -78,9 +78,9 @@ export function ouvrirMigration(): void {
         zone.appendChild(el("p", { class: "drop-target-title" }, ["Workbook repaired"]));
         zone.appendChild(
           el("p", { class: "drop-target-text" }, [
-            `${réparation.donnees.actors.length} components, ${réparation.donnees.interfaces.length} interfaces, ` +
-              `${réparation.donnees.fx.reduce((n, o) => n + o.rows.length, 0)} consumptions, ` +
-              `${réparation.donnees.fx.length} flow sheets.`,
+            `${repair.donnees.actors.length} components, ${repair.donnees.interfaces.length} interfaces, ` +
+              `${repair.donnees.fx.reduce((n, o) => n + o.rows.length, 0)} consumptions, ` +
+              `${repair.donnees.fx.length} flow sheets.`,
           ])
         );
         if (bilan) {
@@ -94,14 +94,14 @@ export function ouvrirMigration(): void {
             ])
           );
         }
-        const points = réparation.rapportLegacy ? row(réparation.rapportLegacy) : [];
+        const points = repair.rapportLegacy ? row(repair.rapportLegacy) : [];
         if (points.length > 0) {
           const list = el("ul", { class: "migration-list" });
           for (const p of points) list.appendChild(el("li", {}, [p]));
           zone.appendChild(list);
         }
         const encore = el("button", { class: "export-button" }, ["Convert another file"]);
-        encore.addEventListener("click", réinitialiser);
+        encore.addEventListener("click", reset);
         zone.appendChild(encore);
       })
       .catch((err) => {
@@ -115,7 +115,7 @@ export function ouvrirMigration(): void {
       });
   };
 
-  réinitialiser();
+  reset();
   wireDropZone(zone, convertir);
 
   // Le glisser-déposer ne suffit pas : depuis un dossier ou un courriel, on veut
@@ -136,10 +136,10 @@ export function ouvrirMigration(): void {
   voile.addEventListener("click", (e) => {
     if (e.target === voile) voile.remove();
   });
-  document.addEventListener("keydown", function échap(e) {
+  document.addEventListener("keydown", function esc(e) {
     if (e.key !== "Escape") return;
     voile.remove();
-    document.removeEventListener("keydown", échap);
+    document.removeEventListener("keydown", esc);
   });
 
   document.body.appendChild(voile);

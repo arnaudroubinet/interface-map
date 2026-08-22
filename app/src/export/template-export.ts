@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { téléchargerClasseur } from "./download";
+import { downloadWorkbook } from "./download";
 import {
   COLONNES_ACTEURS,
   COLONNES_GROUPES,
@@ -15,7 +15,7 @@ import {
   FEUILLE_VERSION,
   COLONNE_VERSION_MODELE,
   PREFIXE_FEUILLE_FX,
-  assainirNomOnglet,
+  sanitiseTabName,
   CARACTERES_INTERDITS_ONGLET,
   REMPLACEMENT_ONGLET,
   LONGUEUR_MAX_ONGLET,
@@ -30,13 +30,13 @@ import {
   VOCABULAIRE_PERIMETRE,
 } from "../aggregation/vocabularies";
 import {
-  poserLesTableaux,
-  type TableauÀPoser,
-  type ListeNommée,
-  type ValidationÀPoser,
-  type MiseEnFormeÀPoser,
+  applyOoxmlExtras,
+  type TableToApply,
+  type NamedList,
+  type ValidationToApply,
+  type StyleToApply,
 } from "./xlsx-tables";
-import { ICONES_PAR_DEFAUT, LISTES, MODE_EMPLOI, TYPES_FLUX, type RôleDeLigne } from "./template-data";
+import { ICONES_PAR_DEFAUT, LISTES, MODE_EMPLOI, TYPES_FLUX, type RowRole } from "./template-data";
 
 // Les vocabulaires et le mode d'emploi vivent dans modele-donnees.ts ; ce
 // module-ci n'est plus que la machinerie qui les assemble en classeur.
@@ -88,14 +88,14 @@ export const FEUILLE_LISTES = "Lists";
 
 export function formuleApercu(row: number): string {
   const icone = colonneDeListe("Icon");
-  const aperçu = colonneDeListe("Preview");
-  return `IFERROR(INDEX(${FEUILLE_LISTES}!$${aperçu}:$${aperçu},MATCH(B${row},${FEUILLE_LISTES}!$${icone}:$${icone},0)),"")`;
+  const preview = colonneDeListe("Preview");
+  return `IFERROR(INDEX(${FEUILLE_LISTES}!$${preview}:$${preview},MATCH(B${row},${FEUILLE_LISTES}!$${icone}:$${icone},0)),"")`;
 }
 
 // Seul onglet pré-rempli : sans lui, tous les acteurs porteraient le jeton
 // neutre et un contrôle d'intégrité s'allumerait sur un classeur neuf.
-function feuilleTypesActeur(déclarés: readonly (readonly string[])[]): XLSX.WorkSheet {
-  const rows = déclarés.length > 0 ? déclarés.map((l) => [...l]) : ICONES_PAR_DEFAUT.map(([t, i]) => [t, i]);
+function feuilleTypesActeur(declared: readonly (readonly string[])[]): XLSX.WorkSheet {
+  const rows = declared.length > 0 ? declared.map((l) => [...l]) : ICONES_PAR_DEFAUT.map(([t, i]) => [t, i]);
   const headers = [...COLONNES_TYPESACTEUR, COLONNE_APERCU_ICONE];
   // La colonne Aperçu suit COLONNES_TYPESACTEUR au lieu d'une lettre écrite en
   // dur : l'ajout de "Nature" l'a décalée de C à D, et une lettre figée
@@ -143,7 +143,7 @@ const NOMS_STOCKES: Record<string, string> = {
   HSTACK: "_xlfn.HSTACK",
 };
 
-function nommerPourExcel(formule: string): string {
+function nameForExcel(formule: string): string {
   return formule.replace(
     new RegExp(`(?<![.A-Za-z_])(${Object.keys(NOMS_STOCKES).join("|")})\\(`, "g"),
     (_, name: string) => `${NOMS_STOCKES[name]}(`
@@ -156,7 +156,7 @@ function nommerPourExcel(formule: string): string {
 // dépendantes cessent de voir les derniers flux sans rien dire. Le plancher
 // laisse de quoi saisir dans un classeur neuf.
 const MARGE_LIGNES_LISTES = 1000;
-const dernièreLigneListes = (nbInterfaces: number) => nbInterfaces + MARGE_LIGNES_LISTES;
+const lastListRow = (nbInterfaces: number) => nbInterfaces + MARGE_LIGNES_LISTES;
 
 // Emplacement des deux tables d'appoint dans l'onglet Listes : après les
 // colonnes de vocabulaire, séparées d'elles et l'une de l'autre par une colonne
@@ -183,11 +183,11 @@ function colonnesDAppoint() {
 // raccourci d'un seul côté, ce nom ne désignerait plus rien et les listes
 // dépendantes d'un onglet au nom long resteraient vides.
 function formuleAssainirOnglet(expression: string): string {
-  const assaini = CARACTERES_INTERDITS_ONGLET.reduce(
+  const sanitised = CARACTERES_INTERDITS_ONGLET.reduce(
     (courant, interdit) => `SUBSTITUTE(${courant},"${interdit}","${REMPLACEMENT_ONGLET}")`,
     expression
   );
-  return `LEFT(${assaini},${LONGUEUR_MAX_ONGLET})`;
+  return `LEFT(${sanitised},${LONGUEUR_MAX_ONGLET})`;
 }
 
 function formulesDAppoint(lastRow: number): { cellule: string; ref: string; formule: string }[] {
@@ -201,8 +201,8 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
   // (feuilleFxAttendue, dans parsing/build-model.ts, fait foi).
   const tab = formuleAssainirOnglet(`"${PREFIXE_FEUILLE_FX}"&${provider}&"${SEPARATEUR_FEUILLE_FX}"&${type}`);
   const nonVide = `${flows}<>""`;
-  const étalée = (table: string) =>
-    nommerPourExcel(`IFERROR(INDEX(${table},SEQUENCE(${lastRow - 1}),{1,2}),"")`);
+  const spread = (table: string) =>
+    nameForExcel(`IFERROR(INDEX(${table},SEQUENCE(${lastRow - 1}),{1,2}),"")`);
 
   return [
     {
@@ -210,14 +210,14 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       // les versions d'un même flux contiguës, condition de MATCH + COUNTIF.
       cellule: `${c.cleVersion}2`,
       ref: `${c.cleVersion}2:${c.version}${lastRow}`,
-      formule: étalée(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${nonVide}),1,1)`),
+      formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${nonVide}),1,1)`),
     },
     {
       // Couples (onglet, flux) dédoublonnés : sans UNIQUE, un flux à trois
       // versions apparaîtrait trois fois dans la liste déroulante.
       cellule: `${c.ongletFlux}2`,
       ref: `${c.ongletFlux}2:${c.flows}${lastRow}`,
-      formule: étalée(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${nonVide})),1,1)`),
+      formule: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${nonVide})),1,1)`),
     },
     {
       // Couples (exposant, interface versionnée), triés par exposant : c'est ce
@@ -229,7 +229,7 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       ref: `${c.provider}2:${c.interfaceExposee}${lastRow}`,
       // Le libellé versionné, construit comme libelleInterface : le nom, une
       // espace seulement s'il y a une version, puis la version.
-      formule: étalée(
+      formule: spread(
         `SORT(UNIQUE(FILTER(HSTACK(${provider},${flows}&IF(${version}="",""," ")&${version}),${nonVide})),1,1)`
       ),
     },
@@ -254,7 +254,7 @@ function feuilleListes(lastRow: number): XLSX.WorkSheet {
     [`${c.provider}1`, "ActeurExposant"],
     [`${c.interfaceExposee}1`, "InterfaceExposee"],
   ];
-  for (const [adresse, title] of titles) ws[adresse] = { t: "s", v: title };
+  for (const [address, title] of titles) ws[address] = { t: "s", v: title };
   for (const { cellule, ref, formule } of formulesDAppoint(lastRow)) {
     ws[cellule] = { t: "s", v: "", f: formule, F: ref };
   }
@@ -293,8 +293,8 @@ const CLASSEUR_VIDE: DonneesClasseur = { flowTypes: [], typesActeur: [], milesto
 // celle de feuilleFxAttendue et elle ne vit qu'à un endroit : l'appliquer aussi
 // ici rend l'écriture totale -- avant, un nom trop long était écarté en
 // silence, et ses consommations disparaissaient du classeur produit.
-function ongletsFx(donnees: DonneesClasseur): DonneesClasseur["fx"] {
-  return donnees.fx.map((o) => ({ ...o, name: assainirNomOnglet(o.name) }));
+function fxTabs(donnees: DonneesClasseur): DonneesClasseur["fx"] {
+  return donnees.fx.map((o) => ({ ...o, name: sanitiseTabName(o.name) }));
 }
 
 function feuilleGarnie(columns: readonly string[], rows: readonly (readonly string[])[], largeurs: number[]) {
@@ -313,7 +313,7 @@ function feuilleFx(rows: readonly (readonly string[])[], largeurs: number[]): XL
   return ws;
 }
 
-export function construireClasseurModele(donnees: DonneesClasseur = CLASSEUR_VIDE): XLSX.WorkBook {
+export function buildTemplateWorkbook(donnees: DonneesClasseur = CLASSEUR_VIDE): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
   const largeursActeurs = COLONNES_ACTEURS.map((c) => Math.max(16, c.length + 4));
   const largeursInterfaces = COLONNES_INTERFACES.map((c) => Math.max(18, c.length + 4));
@@ -342,10 +342,10 @@ export function construireClasseurModele(donnees: DonneesClasseur = CLASSEUR_VID
     "FlowTypes"
   );
   XLSX.utils.book_append_sheet(wb, feuilleGarnie(COLONNES_INTERFACES, donnees.interfaces, largeursInterfaces), "Interfaces");
-  for (const tab of ongletsFx(donnees)) {
+  for (const tab of fxTabs(donnees)) {
     XLSX.utils.book_append_sheet(wb, feuilleFx(tab.rows, largeursFx), tab.name);
   }
-  XLSX.utils.book_append_sheet(wb, feuilleListes(dernièreLigneListes(donnees.interfaces.length)), FEUILLE_LISTES);
+  XLSX.utils.book_append_sheet(wb, feuilleListes(lastListRow(donnees.interfaces.length)), FEUILLE_LISTES);
   XLSX.utils.book_append_sheet(wb, feuilleVersion(), FEUILLE_VERSION);
 
   // Listes alimente les listes déroulantes, Version porte la signature du
@@ -365,10 +365,10 @@ export function construireClasseurModele(donnees: DonneesClasseur = CLASSEUR_VID
 // doit compter les MÊMES lignes : dimensionné sur l'amorce, il déborde en
 // lignes vides quand l'équipe en a retiré, et laisse hors du tableau les types
 // qu'elle a ajoutés, donc hors de la liste déroulante qui le vise.
-const writtenRows = (déclarés: readonly unknown[], amorce: readonly unknown[]) =>
-  déclarés.length > 0 ? déclarés.length : amorce.length;
+const writtenRows = (declared: readonly unknown[], amorce: readonly unknown[]) =>
+  declared.length > 0 ? declared.length : amorce.length;
 
-export function tableauxDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): TableauÀPoser[] {
+export function tableauxDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): TableToApply[] {
   return [
     { sheet: "Actors", columns: COLONNES_ACTEURS, rows: donnees.actors.length },
     { sheet: "Groups", columns: COLONNES_GROUPES, rows: donnees.groups.length },
@@ -384,7 +384,7 @@ export function tableauxDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): Tabl
     },
     { sheet: "FlowTypes", columns: COLONNES_TYPESFLUX, rows: writtenRows(donnees.flowTypes, TYPES_FLUX) },
     { sheet: "Interfaces", columns: COLONNES_INTERFACES, rows: donnees.interfaces.length },
-    ...ongletsFx(donnees).map((o) => ({ sheet: o.name, columns: COLONNES_FX, rows: o.rows.length })),
+    ...fxTabs(donnees).map((o) => ({ sheet: o.name, columns: COLONNES_FX, rows: o.rows.length })),
     // Un tableau PAR vocabulaire, dimensionné à son seul contenu -- pas un
     // tableau unique couvrant les huit colonnes, dimensionné sur la plus
     // longue (Icon) : les listes plus courtes se seraient sinon retrouvées
@@ -412,28 +412,28 @@ function colonneDeListe(key: string): string {
 // « Toute référence à un acteur ou à un type passe par une liste déroulante. Ne
 // tapez jamais un nom à la main : une variante d'orthographe crée un acteur
 // fantôme. » -- la règle du classeur, appliquée par le fichier lui-même.
-export function listesDuModele(): ListeNommée[] {
+export function listesDuModele(): NamedList[] {
   return [
-    { name: "L_Perimetre", sheet: FEUILLE_LISTES, intitulé: "Perimeter" },
-    { name: "L_Sens", sheet: FEUILLE_LISTES, intitulé: "Direction" },
-    { name: "L_Decision", sheet: FEUILLE_LISTES, intitulé: "Decision" },
-    { name: "L_Criticite", sheet: FEUILLE_LISTES, intitulé: "Criticality" },
-    { name: "L_Confirmation", sheet: FEUILLE_LISTES, intitulé: "Confirmation" },
-    { name: "L_Icone", sheet: FEUILLE_LISTES, intitulé: "Icon" },
-    { name: "L_Nature", sheet: FEUILLE_LISTES, intitulé: "Nature" },
+    { name: "L_Perimetre", sheet: FEUILLE_LISTES, heading: "Perimeter" },
+    { name: "L_Sens", sheet: FEUILLE_LISTES, heading: "Direction" },
+    { name: "L_Decision", sheet: FEUILLE_LISTES, heading: "Decision" },
+    { name: "L_Criticite", sheet: FEUILLE_LISTES, heading: "Criticality" },
+    { name: "L_Confirmation", sheet: FEUILLE_LISTES, heading: "Confirmation" },
+    { name: "L_Icone", sheet: FEUILLE_LISTES, heading: "Icon" },
+    { name: "L_Nature", sheet: FEUILLE_LISTES, heading: "Nature" },
     // Ces trois-là pointent sur des onglets de saisie : la liste s'enrichit à
     // mesure qu'on remplit le classeur.
-    { name: "L_TypeActeur", sheet: "ActorTypes", intitulé: "Actor type" },
-    { name: "L_Acteur", sheet: "Actors", intitulé: "Name" },
-    { name: "L_Groupe", sheet: "Groups", intitulé: "Group" },
-    { name: "L_TypeFlux", sheet: "FlowTypes", intitulé: "Flow type" },
-    { name: "L_Palier", sheet: "Milestones", intitulé: "Milestone" },
+    { name: "L_TypeActeur", sheet: "ActorTypes", heading: "Actor type" },
+    { name: "L_Acteur", sheet: "Actors", heading: "Name" },
+    { name: "L_Groupe", sheet: "Groups", heading: "Group" },
+    { name: "L_TypeFlux", sheet: "FlowTypes", heading: "Flow type" },
+    { name: "L_Palier", sheet: "Milestones", heading: "Milestone" },
   ];
 }
 
-export function columnOf(columns: readonly string[], intitulé: string): string {
-  const index = columns.indexOf(intitulé);
-  if (index < 0) throw new Error(`column "${intitulé}" absente`);
+export function columnOf(columns: readonly string[], heading: string): string {
+  const index = columns.indexOf(heading);
+  if (index < 0) throw new Error(`column "${heading}" absente`);
   return XLSX.utils.encode_col(index);
 }
 
@@ -518,16 +518,16 @@ export const INVITES: Record<string, { title: string; text: string }> = {
 
 // La feuille d'abord, l'intitulé ensuite : un même nom de colonne ne dit pas la
 // même chose d'une feuille à l'autre.
-function invitePour(sheet: string, intitulé: string): { title: string; text: string } | undefined {
-  return INVITES[`${sheet}.${intitulé}`] ?? INVITES[intitulé];
+function invitePour(sheet: string, heading: string): { title: string; text: string } | undefined {
+  return INVITES[`${sheet}.${heading}`] ?? INVITES[heading];
 }
 
-export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): ValidationÀPoser[] {
-  const v = (sheet: string, columns: readonly string[], intitulé: string, formule?: string) => ({
+export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): ValidationToApply[] {
+  const v = (sheet: string, columns: readonly string[], heading: string, formule?: string) => ({
     sheet,
-    column: columnOf(columns, intitulé),
+    column: columnOf(columns, heading),
     formule,
-    prompt: invitePour(sheet, intitulé),
+    prompt: invitePour(sheet, heading),
   });
 
   // Toute colonne qu'aucune liste ne guide reçoit quand même son infobulle :
@@ -537,11 +537,11 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
   // absence d'invite.
   const libres = (sheet: string, columns: readonly string[], guidées: readonly string[]) =>
     columns.filter((c) => !guidées.includes(c) && invitePour(sheet, c)).map((c) => v(sheet, columns, c));
-  const dépendantes = formulesDependantes(dernièreLigneListes(donnees.interfaces.length));
+  const dependent = formulesDependantes(lastListRow(donnees.interfaces.length));
   // Les deux bornes de validité se posent partout où l'on date des objets, et
   // toujours de la même façon.
   const bounds = (sheet: string, columns: readonly string[]) =>
-    COLONNES_VALIDITE.map((intitulé) => v(sheet, columns, intitulé, "L_Palier"));
+    COLONNES_VALIDITE.map((heading) => v(sheet, columns, heading, "L_Palier"));
 
   const GUIDEES_FX = [
     "Flow name",
@@ -553,12 +553,12 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
     ...COLONNES_VALIDITE,
   ];
   const listesFx = (sheet: string) => [
-    v(sheet, COLONNES_FX, "Flow name", dépendantes.flows),
-    v(sheet, COLONNES_FX, "Version", dépendantes.version),
+    v(sheet, COLONNES_FX, "Flow name", dependent.flows),
+    v(sheet, COLONNES_FX, "Version", dependent.version),
     v(sheet, COLONNES_FX, "Consumer", "L_Acteur"),
     v(sheet, COLONNES_FX, "Criticality for this consumer", "L_Criticite"),
     v(sheet, COLONNES_FX, "Decision", "L_Decision"),
-    v(sheet, COLONNES_FX, COLONNE_REPUBLICATION, dépendantes.republication),
+    v(sheet, COLONNES_FX, COLONNE_REPUBLICATION, dependent.republication),
     ...bounds(sheet, COLONNES_FX),
     ...libres(sheet, COLONNES_FX, GUIDEES_FX),
   ];
@@ -581,7 +581,7 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
     ...libres("FlowTypes", COLONNES_TYPESFLUX, ["Direction"]),
     ...libres("Interfaces", COLONNES_INTERFACES, ["Provider", "Flow type", "To confirm", ...COLONNES_VALIDITE]),
     // Les onglets de flux garnis reçoivent les mêmes listes que leur patron.
-    ...ongletsFx(donnees).flatMap((o) => listesFx(o.name)),
+    ...fxTabs(donnees).flatMap((o) => listesFx(o.name)),
   ];
 }
 
@@ -600,17 +600,17 @@ const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
 // de son style, et c'est ce qui permet de ne plus couper les phrases à la main.
 // Les deux colonnes reçoivent le même style -- une section dont seule la
 // gauche serait colorée aurait l'air d'une erreur d'alignement.
-export function misesEnFormeDuModele(): MiseEnFormeÀPoser[] {
-  const parRôle = new Map<RôleDeLigne, string[]>();
+export function misesEnFormeDuModele(): StyleToApply[] {
+  const byRole = new Map<RowRole, string[]>();
   MODE_EMPLOI.forEach((row, i) => {
-    const cellules = parRôle.get(row.rôle) ?? [];
+    const cellules = byRole.get(row.role) ?? [];
     cellules.push(`A${i + 1}`, `B${i + 1}`);
-    parRôle.set(row.rôle, cellules);
+    byRole.set(row.role, cellules);
   });
-  const misesEnForme: MiseEnFormeÀPoser[] = [...parRôle.entries()].map(([rôle, cellules]) => ({
+  const misesEnForme: StyleToApply[] = [...byRole.entries()].map(([role, cellules]) => ({
     sheet: "Instructions",
     cellules,
-    rôle,
+    role,
   }));
   // La ligne d'en-tête de chaque feuille de saisie : elle reste à l'écran
   // (volet figé) et doit se distinguer des données qu'elle nomme.
@@ -618,14 +618,14 @@ export function misesEnFormeDuModele(): MiseEnFormeÀPoser[] {
     misesEnForme.push({
       sheet: name,
       cellules: columns.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
-      rôle: "header",
+      role: "header",
     });
   }
   return misesEnForme;
 }
 
-export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe: Date = new Date()): ArrayBuffer {
-  const workbook = construireClasseurModele(donnees);
+export function writeTemplate(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe: Date = new Date()): ArrayBuffer {
+  const workbook = buildTemplateWorkbook(donnees);
   // Les propriétés de document, que l'outil ne posait pas : un classeur qu'il
   // venait de produire se relisait donc SANS date de sauvegarde, et le
   // cartouche de chaque schéma annonçait « save date unknown » sur des données
@@ -642,7 +642,7 @@ export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe
     ModifiedDate: écritLe,
   };
   const brut = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  const complété = poserLesTableaux(brut, {
+  const completed = applyOoxmlExtras(brut, {
     tables: tableauxDuModele(donnees),
     lists: listesDuModele(),
     validations: validationsDuModele(donnees),
@@ -650,15 +650,15 @@ export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe
       ...misesEnFormeDuModele(),
       // Les onglets de flux garnis portent la même ligne d'en-tête que leur
       // patron : sans cette ligne, seuls les onglets vides l'auraient.
-      ...ongletsFx(donnees).map((o) => ({
+      ...fxTabs(donnees).map((o) => ({
         sheet: o.name,
         cellules: COLONNES_FX.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
-        rôle: "header" as const,
+        role: "header" as const,
       })),
     ],
-    volets: [...FEUILLES_DE_SAISIE.map(([name]) => name), ...ongletsFx(donnees).map((o) => o.name)],
+    volets: [...FEUILLES_DE_SAISIE.map(([name]) => name), ...fxTabs(donnees).map((o) => o.name)],
   });
-  return complété;
+  return completed;
 }
 
 // Les classeurs générés ne portent plus aucun code : ce sont des .xlsx
@@ -666,6 +666,6 @@ export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe
 // synchronisation SharePoint, et rien ne l'a remplacé -- il n'y a plus rien à
 // automatiser depuis que l'outil crée lui-même les onglets attendus.
 export function downloadTemplateXlsx(filename: string, donneesClasseur?: DonneesClasseur): void {
-  const donnees = écrireModele(donneesClasseur);
-  téléchargerClasseur(donnees, filename);
+  const donnees = writeTemplate(donneesClasseur);
+  downloadWorkbook(donnees, filename);
 }

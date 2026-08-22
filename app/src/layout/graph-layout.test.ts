@@ -133,11 +133,11 @@ describe("ce qui tient dans une boîte", () => {
 
   it("tronque un nom à ce qui tient réellement dans la largeur de la boîte", () => {
     const long = "Plateforme de règlement-livraison interbancaire et conservation";
-    const tronqué = nomTronque(long);
+    const truncated = nomTronque(long);
     // La largeur estimée du nom, icône comprise, doit tenir dans la boîte :
     // c'est la seule chose qui compte, et elle dépend des deux constantes.
-    expect(tronqué.length * 8.2 + 25).toBeLessThanOrEqual(LARGEUR_NOEUD);
-    expect(tronqué).toMatch(/…$/);
+    expect(truncated.length * 8.2 + 25).toBeLessThanOrEqual(LARGEUR_NOEUD);
+    expect(truncated).toMatch(/…$/);
   });
 
   it("laisse intact un nom qui tient déjà", () => {

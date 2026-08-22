@@ -12,7 +12,7 @@ export interface Cadre {
 const ZOOM_MIN = 0.2;
 const ZOOM_MAX = 8;
 
-export function cadreDuSvg(svg: SVGSVGElement): Cadre {
+export function frameOfSvg(svg: SVGSVGElement): Cadre {
   const [x, y, width, height] = (svg.getAttribute("viewBox") ?? "0 0 100 100").split(/\s+/).map(Number);
   return { x, y, width, height };
 }
@@ -23,10 +23,10 @@ export function appliquer(svg: SVGSVGElement, frame: Cadre): void {
 
 // Le point sous le curseur ne bouge pas : c'est ce qui distingue un zoom
 // utilisable d'un zoom qui perd son lecteur.
-export function zoomer(frame: Cadre, facteur: number, ancre: { x: number; y: number }, initial: Cadre): Cadre {
-  const échelleCourante = initial.width / frame.width;
-  const échelle = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, échelleCourante * facteur));
-  const effectif = échelle / échelleCourante;
+export function zoomBy(frame: Cadre, facteur: number, ancre: { x: number; y: number }, initial: Cadre): Cadre {
+  const currentScale = initial.width / frame.width;
+  const scale = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, currentScale * facteur));
+  const effectif = scale / currentScale;
   const width = frame.width / effectif;
   const height = frame.height / effectif;
   return {
@@ -37,17 +37,17 @@ export function zoomer(frame: Cadre, facteur: number, ancre: { x: number; y: num
   };
 }
 
-export function deplacer(frame: Cadre, dx: number, dy: number): Cadre {
+export function panBy(frame: Cadre, dx: number, dy: number): Cadre {
   return { ...frame, x: frame.x + dx, y: frame.y + dy };
 }
 
 // Le branchement DOM : molette pour zoomer, glisser pour déplacer. Rend de quoi
 // piloter depuis le banner, et se détache tout seul avec le SVG qu'il équipe.
-export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomer: (facteur: number) => void } {
-  const initial = cadreDuSvg(svg);
+export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (facteur: number) => void } {
+  const initial = frameOfSvg(svg);
   let frame = { ...initial };
 
-  const poser = (c: Cadre) => {
+  const apply = (c: Cadre) => {
     frame = c;
     appliquer(svg, frame);
   };
@@ -64,35 +64,35 @@ export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomer:
 
   svg.addEventListener("wheel", (e) => {
     e.preventDefault();
-    poser(zoomer(frame, e.deltaY < 0 ? 1.15 : 1 / 1.15, pointDuDessin(e), initial));
+    apply(zoomBy(frame, e.deltaY < 0 ? 1.15 : 1 / 1.15, pointDuDessin(e), initial));
   });
 
-  let départ: { x: number; y: number; frame: Cadre } | null = null;
+  let start: { x: number; y: number; frame: Cadre } | null = null;
   svg.addEventListener("pointerdown", (e) => {
-    départ = { x: e.clientX, y: e.clientY, frame };
+    start = { x: e.clientX, y: e.clientY, frame };
     svg.setPointerCapture(e.pointerId);
     svg.style.cursor = "grabbing";
   });
   svg.addEventListener("pointermove", (e) => {
-    if (!départ) return;
+    if (!start) return;
     const box = svg.getBoundingClientRect();
-    poser(
-      deplacer(
-        départ.frame,
-        -((e.clientX - départ.x) / box.width) * départ.frame.width,
-        -((e.clientY - départ.y) / box.height) * départ.frame.height
+    apply(
+      panBy(
+        start.frame,
+        -((e.clientX - start.x) / box.width) * start.frame.width,
+        -((e.clientY - start.y) / box.height) * start.frame.height
       )
     );
   });
-  const relâcher = () => {
-    départ = null;
+  const release = () => {
+    start = null;
     svg.style.cursor = "";
   };
-  svg.addEventListener("pointerup", relâcher);
-  svg.addEventListener("pointercancel", relâcher);
+  svg.addEventListener("pointerup", release);
+  svg.addEventListener("pointercancel", release);
 
   return {
-    ajuster: () => poser({ ...initial }),
-    zoomer: (facteur) => poser(zoomer(frame, facteur, { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 }, initial)),
+    ajuster: () => apply({ ...initial }),
+    zoomBy: (facteur) => apply(zoomBy(frame, facteur, { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 }, initial)),
   };
 }

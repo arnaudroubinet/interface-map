@@ -6,7 +6,7 @@ import { rankOfMilestone } from "../aggregation/milestones";
 import { couleursDuModele } from "../render/colors";
 import { toutesLesPlanches } from "../aggregation/boards";
 import { computeLayout } from "../layout/graph-layout";
-import { construireDrawio } from "../export/drawio-export";
+import { buildDrawio } from "../export/drawio-export";
 import { modeleEnStructurizr } from "../export/c4-dsl";
 import { modeleEnLikeC4 } from "../export/likec4-dsl";
 import { rapportEnMarkdown } from "../export/rapport-markdown";
@@ -14,7 +14,7 @@ import { buildExportFilename } from "../export/filename";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { téléchargerTexte } from "../export/download";
+import { downloadText } from "../export/download";
 
 // Les sept exports, hors de la fermeture de mountApp.
 //
@@ -51,7 +51,7 @@ function selectionDuNom(state: AppState): string | null {
 
 // Le palier affiché vaut pour tout ce qui décrit le MODÈLE plutôt qu'une
 // planche : ces exports ne portent ni nom de vue ni sélection.
-function rangAffiché(state: AppState): number | null {
+function shownRank(state: AppState): number | null {
   if (!state.fichier || state.shownMilestone === null) return null;
   return rankOfMilestone(state.fichier.model, state.shownMilestone) ?? null;
 }
@@ -100,7 +100,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       // Pas de mode ici : le rapport juge le CLASSEUR, pas une lecture du
       // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
       // ne doit donc pas bouger non plus.
-      téléchargerTexte(
+      downloadText(
         rapportEnMarkdown(state.fichier.report, state.fichier.name, state.shownMilestone),
         nomDeFichier("md", false)
       );
@@ -115,10 +115,10 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       if (!state.fichier) return;
       const model = state.fichier.model;
       const colours = couleursDuModele(model);
-      const placées = [];
-      for (const board of toutesLesPlanches(model, rangAffiché(state), state.mode)) {
+      const placed = [];
+      for (const board of toutesLesPlanches(model, shownRank(state), state.mode)) {
         const layout = await computeLayout(board.nodes, board.edges);
-        placées.push({
+        placed.push({
           title: board.title,
           actor: board.actor,
           layout,
@@ -138,8 +138,8 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
           },
         });
       }
-      téléchargerTexte(
-        construireDrawio(placées, (t) => colours.get(t) ?? "#000"),
+      downloadText(
+        buildDrawio(placed, (t) => colours.get(t) ?? "#000"),
         buildExportFilename("boards", null, state.shownMilestone, "drawio", state.mode)
       );
     },
@@ -147,8 +147,8 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     onExportStructurizr() {
       const state = ctx.etat();
       if (!state.fichier) return;
-      téléchargerTexte(
-        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.name, state.shownMilestone, state.mode),
+      downloadText(
+        modeleEnStructurizr(state.fichier.model, shownRank(state), state.fichier.name, state.shownMilestone, state.mode),
         buildExportFilename("model", null, state.shownMilestone, "dsl")
       );
     },
@@ -156,8 +156,8 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     onExportLikeC4() {
       const state = ctx.etat();
       if (!state.fichier) return;
-      téléchargerTexte(
-        modeleEnLikeC4(state.fichier.model, rangAffiché(state), state.mode),
+      downloadText(
+        modeleEnLikeC4(state.fichier.model, shownRank(state), state.mode),
         buildExportFilename("model", null, state.shownMilestone, "c4")
       );
     },

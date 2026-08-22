@@ -75,20 +75,20 @@ export const TYPES_FLUX: [string, string, string][] = [
 // mise en forme : c'est ce qui permet de ne plus couper les phrases à la main.
 // L'ancienne version le faisait -- des lignes de 80 caractères découpées dans
 // le code -- et la coupure se défaisait dès qu'on élargissait la colonne.
-export type RôleDeLigne = "title" | "section" | "body" | "aside";
+export type RowRole = "title" | "section" | "body" | "aside";
 
 export interface LigneModeEmploi {
-  rôle: RôleDeLigne;
+  role: RowRole;
   gauche: string;
   droite: string;
 }
 
-const t = (droite: string): LigneModeEmploi => ({ rôle: "title", gauche: "INTERFACE MAP", droite });
-const s_ = (gauche: string): LigneModeEmploi => ({ rôle: "section", gauche, droite: "" });
-const l = (gauche: string, droite: string): LigneModeEmploi => ({ rôle: "body", gauche, droite });
-const p = (droite: string): LigneModeEmploi => ({ rôle: "body", gauche: "", droite });
-const d = (droite: string): LigneModeEmploi => ({ rôle: "aside", gauche: "", droite });
-const vide = (): LigneModeEmploi => ({ rôle: "body", gauche: "", droite: "" });
+const t = (droite: string): LigneModeEmploi => ({ role: "title", gauche: "INTERFACE MAP", droite });
+const s_ = (gauche: string): LigneModeEmploi => ({ role: "section", gauche, droite: "" });
+const l = (gauche: string, droite: string): LigneModeEmploi => ({ role: "body", gauche, droite });
+const p = (droite: string): LigneModeEmploi => ({ role: "body", gauche: "", droite });
+const d = (droite: string): LigneModeEmploi => ({ role: "aside", gauche: "", droite });
+const vide = (): LigneModeEmploi => ({ role: "body", gauche: "", droite: "" });
 
 export const MODE_EMPLOI: LigneModeEmploi[] = [
   t("How to fill this workbook in — and what the tool makes of it."),

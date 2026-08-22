@@ -75,7 +75,7 @@ export const COLONNE_VERSION_MODELE = "Model version";
 // « antérieur au versionnement ». On ne devine rien de plus -- la mise à
 // niveau saura quoi faire, et se tromper vers le haut ferait lire un classeur
 // avec des colonnes qu'il n'a pas.
-function lireVersionModele(sheets: RawSheet[]): number {
+function readSchemaVersion(sheets: RawSheet[]): number {
   const sheet = sheets.find((s) => matchesSheetName(s.name, FEUILLE_VERSION));
   if (!sheet) return 0;
   const header = findHeader(sheet.headers, COLONNE_VERSION_MODELE);
@@ -152,7 +152,7 @@ export const SEPARATEUR_FEUILLE_FX = "_";
 //
 // Deux couples (exposant, type) peuvent désormais tomber sur le même nom une
 // fois coupés : un contrôle d'intégrité le signale plutôt que de les fondre.
-export function assainirNomOnglet(name: string): string {
+export function sanitiseTabName(name: string): string {
   const sansInterdits = CARACTERES_INTERDITS_ONGLET.reduce(
     (courant, interdit) => courant.split(interdit).join(REMPLACEMENT_ONGLET),
     name
@@ -161,7 +161,7 @@ export function assainirNomOnglet(name: string): string {
 }
 
 export function expectedFxSheet(providerName: string, flowType: string): string {
-  return assainirNomOnglet(`${PREFIXE_FEUILLE_FX}${providerName}${SEPARATEUR_FEUILLE_FX}${flowType}`);
+  return sanitiseTabName(`${PREFIXE_FEUILLE_FX}${providerName}${SEPARATEUR_FEUILLE_FX}${flowType}`);
 }
 
 export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
@@ -266,7 +266,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   }
 
   const headerMapTypesFlux = buildHeaderMap(headersTypesFlux, COLONNES_TYPESFLUX);
-  const entêteCouleur = COLONNES_COULEUR_FLUX.map((c) => findHeader(headersTypesFlux, c)).find(Boolean);
+  const colourHeader = COLONNES_COULEUR_FLUX.map((c) => findHeader(headersTypesFlux, c)).find(Boolean);
   const flowTypes: TypeFlux[] = feuilleTypesFlux.rows
     .filter(({ values: r }) => rowHasContent(r, headerMapTypesFlux, COLONNES_TYPESFLUX))
     .map(({ row, values: r }) => ({
@@ -275,7 +275,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       type: get(r, headerMapTypesFlux, "Flow type"),
       sensRepresentation: normSens(get(r, headerMapTypesFlux, "Direction")),
       sensRepresentationBrut: get(r, headerMapTypesFlux, "Direction"),
-      colour: entêteCouleur ? (r[entêteCouleur] ?? "").toString().trim() : "",
+      colour: colourHeader ? (r[colourHeader] ?? "").toString().trim() : "",
       description: get(r, headerMapTypesFlux, "Description"),
     }))
     .filter((t) => t.type !== "");
@@ -387,7 +387,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       consumptions,
       fxSheetNames,
       colonnesOptionnellesAbsentes,
-      versionModele: lireVersionModele(workbook.sheets),
+      versionModele: readSchemaVersion(workbook.sheets),
       fichierModifie: workbook.fichierModifie,
     },
   };

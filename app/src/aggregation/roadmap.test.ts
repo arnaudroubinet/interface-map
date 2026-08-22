@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { construireFrise } from "./roadmap";
+import { buildRoadmap } from "./roadmap";
 import type { ParsedModel } from "../parsing/model";
 
-function parc(overrides: Partial<ParsedModel> = {}): ParsedModel {
+function estate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     milestones: [
       base.milestone({ name: "v1", rank: 1 }),
@@ -26,37 +26,37 @@ function parc(overrides: Partial<ParsedModel> = {}): ParsedModel {
 
 describe("construireFrise", () => {
   it("rend un segment par ligne, borné par ses paliers", () => {
-    const f = construireFrise(parc(), "interfaces");
+    const f = buildRoadmap(estate(), "interfaces");
     expect(f.segments.find((s) => s.label === "Member lookup 1.0")).toMatchObject({ start: 1, end: 3 });
   });
 
   // Une ligne sans palier de retrait court jusqu'au bout : il faut le DESSINER
   // comme tel, l'arrêter au dernier palier connu dirait qu'elle y meurt.
   it("marque comme ouverte à droite une ligne sans palier de retrait", () => {
-    const f = construireFrise(parc(), "interfaces");
+    const f = buildRoadmap(estate(), "interfaces");
     expect(f.segments.find((s) => s.label === "Member lookup 2.0")?.ouvertADroite).toBe(true);
     expect(f.segments.find((s) => s.label === "Member lookup 1.0")?.ouvertADroite).toBe(false);
   });
 
   // Symétriquement : une ligne sans palier d'arrivée vient d'avant l'axe.
   it("marque comme ouverte à gauche une ligne sans palier d'arrivée", () => {
-    const m = parc();
+    const m = estate();
     m.interfaces[0].introducedAt = "";
-    expect(construireFrise(m, "interfaces").segments[0].ouvertAGauche).toBe(true);
+    expect(buildRoadmap(m, "interfaces").segments[0].ouvertAGauche).toBe(true);
   });
 
   // Le recouvrement de deux versions est exactement ce qu'on vient voir.
   it("laisse voir deux versions qui coexistent", () => {
-    const [un, deux] = construireFrise(parc(), "interfaces").segments;
+    const [un, deux] = buildRoadmap(estate(), "interfaces").segments;
     expect(Math.max(un.start, deux.start)).toBeLessThan(Math.min(un.end, deux.end));
   });
 
   it("range les lignes par rattachement puis par arrivée", () => {
-    const m = parc();
+    const m = estate();
     m.interfaces.push(
       base.iface({ flowName: "Autre", providerName: "Zeffo", expectedSheet: "FX_A_HTTP", introducedAt: "v1" })
     );
-    expect(construireFrise(m, "interfaces").segments.map((s) => s.label)).toEqual([
+    expect(buildRoadmap(m, "interfaces").segments.map((s) => s.label)).toEqual([
       "Member lookup 1.0",
       "Member lookup 2.0",
       "Autre",
@@ -64,12 +64,12 @@ describe("construireFrise", () => {
   });
 
   it("rend aussi la frise des acteurs", () => {
-    expect(construireFrise(parc(), "actors").segments.map((s) => s.label)).toEqual(["A"]);
+    expect(buildRoadmap(estate(), "actors").segments.map((s) => s.label)).toEqual(["A"]);
   });
 
   // Un classeur sans palier n'a pas d'axe : la frise est vide plutôt que
   // fausse.
   it("ne rend rien quand le classeur ne déclare aucun palier", () => {
-    expect(construireFrise(parc({ milestones: [] }), "interfaces").segments).toEqual([]);
+    expect(buildRoadmap(estate({ milestones: [] }), "interfaces").segments).toEqual([]);
   });
 });

@@ -105,19 +105,19 @@ const ECHANGES_NOMMES = 2;
 // qui y circule (« Policy events 1.0, Claims 2.0 »), ou les deux. Nommer le
 // seul protocole faisait une carte des tuyaux là où on attend une carte des
 // échanges.
-export type LibelléArête = "technology" | "exchanges" | "both";
+export type EdgeLabelMode = "technology" | "exchanges" | "both";
 
-function échangesNommés(names: readonly string[]): string {
-  const nommés = names.slice(0, ECHANGES_NOMMES).join(", ");
+function namedExchanges(names: readonly string[]): string {
+  const named = names.slice(0, ECHANGES_NOMMES).join(", ");
   const reste = names.length - ECHANGES_NOMMES;
-  return reste > 0 ? `${nommés} +${reste}` : nommés;
+  return reste > 0 ? `${named} +${reste}` : named;
 }
 
 export function cellLabel(
   technology: string,
   count: number,
   names: readonly string[] = [],
-  what: LibelléArête = "technology"
+  what: EdgeLabelMode = "technology"
 ): string {
   const tuyau = technology ? (count > 1 ? `${technology} ×${count}` : technology) : "";
   // Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
@@ -125,9 +125,9 @@ export function cellLabel(
   // compteur seul. Or « 2 » n'apprend ni ce qui circule ni pourquoi.
   if (what === "technology" && tuyau) return tuyau;
   if (names.length === 0) return tuyau || String(count);
-  const échanges = échangesNommés(names);
-  if (what === "both" && tuyau) return `${échanges} — ${tuyau}`;
-  return échanges;
+  const exchanges = namedExchanges(names);
+  if (what === "both" && tuyau) return `${exchanges} — ${tuyau}`;
+  return exchanges;
 }
 
 function isATransformer(decision: string): boolean {
@@ -164,9 +164,9 @@ export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
 // Icône déclarée pour un type d'acteur. Le classeur fait foi ; sans
 // déclaration, le rendu retombe sur le jeton neutre.
 export function iconForActorType(model: ParsedModel, typeActeur: string): string | undefined {
-  const cherché = normalizeText(typeActeur);
-  if (!cherché) return undefined;
-  return model.typesActeur.find((t) => normalizeText(t.type) === cherché)?.icone || undefined;
+  const sought = normalizeText(typeActeur);
+  if (!sought) return undefined;
+  return model.typesActeur.find((t) => normalizeText(t.type) === sought)?.icone || undefined;
 }
 
 export function nomEstExterne(model: ParsedModel, name: string): boolean {
@@ -227,9 +227,9 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
   for (const i of model.interfaces) {
     byKey.set(interfaceKey(i.expectedSheet, i.flowName, i.version), i);
     const kNomVersion = nomVersionKey(i.flowName, i.version);
-    const déjà = byNomVersion.get(kNomVersion);
-    if (!déjà) byNomVersion.set(kNomVersion, i);
-    else if (normalizeText(déjà.providerName) !== normalizeText(i.providerName)) nomVersionAmbigu.add(kNomVersion);
+    const already = byNomVersion.get(kNomVersion);
+    if (!already) byNomVersion.set(kNomVersion, i);
+    else if (normalizeText(already.providerName) !== normalizeText(i.providerName)) nomVersionAmbigu.add(kNomVersion);
     if (!byNom.has(nomKey(i.flowName))) byNom.set(nomKey(i.flowName), i);
   }
   return { byKey, byNomVersion, byNom, nomVersionAmbigu };
@@ -419,7 +419,7 @@ export type Mode = "architecture" | "functional";
 // des flux déjà résolus au bon (rang, mode) n'a plus besoin de la redemander.
 export interface AggregationOptions {
   counters: boolean;
-  libelléArête?: LibelléArête;
+  edgeLabelMode?: EdgeLabelMode;
 }
 
 export function aggregateEdges(
@@ -437,8 +437,8 @@ export function aggregateEdges(
     // Sans compteur on ne nomme que le tuyau, sauf si l'utilisateur a demandé
     // autre chose : « counters » décide du ×N, pas de ce qui est nommé.
     label:
-      options.counters || (options.libelléArête ?? "technology") !== "technology"
-        ? cellLabel(g.technology, g.count, g.names, options.libelléArête ?? "technology")
+      options.counters || (options.edgeLabelMode ?? "technology") !== "technology"
+        ? cellLabel(g.technology, g.count, g.names, options.edgeLabelMode ?? "technology")
         : g.technology,
     attenuated: g.attenuated,
     pulled: g.pulled,

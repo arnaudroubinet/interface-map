@@ -20,9 +20,9 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
     });
     // La première ligne de données suit l'en-tête, lui-même au début de la
     // plage réelle de la feuille -- qui ne commence pas toujours en A1.
-    const départ = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
+    const start = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
     const rows: RawRow[] = brutes
-      .map((values, i) => ({ row: départ + 2 + i, values }))
+      .map((values, i) => ({ row: start + 2 + i, values }))
       .filter((r) => Object.values(r.values).some((v) => (v ?? "").toString().trim() !== ""));
     const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false })[0];
     // Array.from, pas .map : sheet_to_json renvoie un tableau creux quand une

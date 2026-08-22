@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { construireClasseurMatrice } from "./xlsx-export";
+import { buildMatrixWorkbook } from "./xlsx-export";
 import type { MatrixResult } from "../aggregation/views";
 import * as base from "../testing/fixtures";
 
@@ -22,7 +22,7 @@ const matrix: MatrixResult = base.matrix({
 // On relit le classeur écrit, pas l'objet en mémoire : c'est le fichier reçu
 // dans Excel qui compte.
 function classeurProduit(): XLSX.WorkBook {
-  const wb = construireClasseurMatrice(matrix);
+  const wb = buildMatrixWorkbook(matrix);
   const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   return XLSX.read(new Uint8Array(octets), { type: "array" });
 }
@@ -80,7 +80,7 @@ describe("export Excel de la matrix — mode fonctionnel (technologie vide)", ()
   });
 
   function classeurFonctionnel(): XLSX.WorkBook {
-    const wb = construireClasseurMatrice(matriceFonctionnelle);
+    const wb = buildMatrixWorkbook(matriceFonctionnelle);
     const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
     return XLSX.read(new Uint8Array(octets), { type: "array" });
   }
@@ -108,12 +108,12 @@ describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () =>
   });
 
   it("écrit les lignes dans l'ordre du tableau, pas dans l'ordre alphabétique", () => {
-    const sheet = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    const sheet = buildMatrixWorkbook(nonAlphabetique).Sheets["Matrix"];
     expect([sheet.A2.v, sheet.A3.v]).toEqual(["Zeffo", "Bracca"]);
   });
 
   it("écrit les colonnes dans l'ordre du tableau", () => {
-    const sheet = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    const sheet = buildMatrixWorkbook(nonAlphabetique).Sheets["Matrix"];
     expect([sheet.B1.v, sheet.C1.v]).toEqual(["Zeffo", "Bracca"]);
   });
 });

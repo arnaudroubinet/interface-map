@@ -113,8 +113,8 @@ export function buildGroupToGroupView(model: ParsedModel, reading: Lecture, opti
   const kindFor = () => "group" as const;
   const detailsFor = (id: NodeId) => groupDetails(model, id, reading.actors);
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolés = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
-  return { nodes: [...nodes, ...isolés], edges };
+  const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  return { nodes: [...nodes, ...isolated], edges };
 }
 
 export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, options: AggregationOptions): ViewResult {
@@ -126,8 +126,8 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, op
   const kindFor = (id: NodeId) => (plateformeIds.has(id) ? "platform" as const : "group" as const);
   const detailsFor = (id: NodeId) => (plateformeIds.has(id) ? actorDetails(model, id) : groupDetails(model, id, reading.actors));
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolés = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
-  const nodesTotal = [...nodes, ...isolés];
+  const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  const nodesTotal = [...nodes, ...isolated];
 
   // Les composants de la plateforme entrent dans la frontière ; tout le reste
   // gravite autour. Sans au moins deux composants, un cadre n'apporte rien.
@@ -152,8 +152,8 @@ export function buildPlatformOnlyView(model: ParsedModel, reading: Lecture, opti
   const kindFor = () => "platform" as const;
   const detailsFor = (id: NodeId) => actorDetails(model, id);
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolés = nodesIsoles(acteursPlateforme, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
-  return { nodes: [...nodes, ...isolés], edges };
+  const isolated = nodesIsoles(acteursPlateforme, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  return { nodes: [...nodes, ...isolated], edges };
 }
 
 export interface OptionsVueTechnologie extends AggregationOptions {
@@ -344,7 +344,7 @@ export interface OptionsVueMatrice {
 // À chaque granularité son repli et sa lecture du périmètre : un id de ligne
 // est un nom d'acteur en « acteur », un nom de groupe en « groupe », et l'un ou
 // l'autre en « plateforme ».
-function replisMatrice(
+function matrixFolding(
   model: ParsedModel,
   granularite: GranulariteMatrice
 ): { key: NodeKeyFn; external: (id: string) => boolean } {
@@ -370,7 +370,7 @@ export function optionsFiltreMatrice(
   flows: FlowInstance[],
   options: { granularite?: GranulariteMatrice; masquerExternes?: boolean }
 ): string[] {
-  const { key, external } = replisMatrice(model, options.granularite ?? "actor");
+  const { key, external } = matrixFolding(model, options.granularite ?? "actor");
   const ids = new Set<string>();
   for (const flow of flows) {
     for (const name of [flow.provider, flow.consumer]) {
@@ -386,7 +386,7 @@ export function optionsFiltreMatrice(
 }
 
 export function buildMatrixView(model: ParsedModel, reading: Lecture, options: OptionsVueMatrice): MatrixResult {
-  const { key, external } = replisMatrice(model, options.granularite ?? "actor");
+  const { key, external } = matrixFolding(model, options.granularite ?? "actor");
   const hiddenIds = new Set(options.hiddenActors ?? []);
   const isHidden = (id: string) => hiddenIds.has(id) || (options.masquerExternes === true && external(id));
   // Un lien tombe dès qu'une de ses deux extrémités est masquée : une ligne ou

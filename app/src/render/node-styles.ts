@@ -9,7 +9,7 @@ export const ENCRE = "#14181f";
 // nombre de flux agrégés produisait un effet de gras sur les troncs fusionnés,
 // qui écrasait visuellement leurs voisins ; le volume se lit dans le « ×N » du
 // libellé, pas dans la graisse du trait.
-export const ÉPAISSEUR_TRAIT = 2;
+export const STROKE_WIDTH = 2;
 
 // Un écart ne porte pas la couleur de sa technologie : il porte celle de son
 // sens. C'est aussi ce que dit PAPIER/ENCRE -- un export ne suit pas le thème

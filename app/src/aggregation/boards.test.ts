@@ -164,8 +164,8 @@ describe("planches selon le mode", () => {
     const m = modeleAvecTechnique();
     m.milestones = milestones;
     m.actors.push(actor({ name: "Isolé", group: "Socle", introducedAt: "v1", retiredAt: "v2" }));
-    const titresÀ = (rank: number) => toutesLesPlanches(m, rank, "functional").map((p) => p.title);
-    expect(titresÀ(1)).toContain("Isolé (actor)");
-    expect(titresÀ(2)).not.toContain("Isolé (actor)");
+    const titlesAt = (rank: number) => toutesLesPlanches(m, rank, "functional").map((p) => p.title);
+    expect(titlesAt(1)).toContain("Isolé (actor)");
+    expect(titlesAt(2)).not.toContain("Isolé (actor)");
   });
 });

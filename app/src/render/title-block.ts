@@ -20,7 +20,7 @@ export interface ContexteSchema {
 
 const pluriel = (n: number, mot: string, pluriels = `${mot}s`) => `${n} ${n > 1 ? pluriels : mot}`;
 
-export function libelléCartouche(c: ContexteSchema): { title: string; subtitle: string } {
+export function titleBlockText(c: ContexteSchema): { title: string; subtitle: string } {
   const milestone = c.milestone ? `, milestone ${c.milestone}` : "";
   return {
     title: `${c.title} — ${c.reading} reading${milestone}`,
@@ -46,9 +46,9 @@ export const HAUTEUR_CARTOUCHE = 44;
 // par la pâleur.
 const GRIS_SOUS_TITRE = "#39424f";
 
-export function construireCartouche(c: ContexteSchema, x: number, y: number): SVGGElement {
+export function buildTitleBlock(c: ContexteSchema, x: number, y: number): SVGGElement {
   const ns = "http://www.w3.org/2000/svg";
-  const { title, subtitle } = libelléCartouche(c);
+  const { title, subtitle } = titleBlockText(c);
   const g = document.createElementNS(ns, "g");
   g.setAttribute("class", "fx-titleblock");
   const row = (text: string, dy: number, size: number, gras: boolean, colour: string) => {

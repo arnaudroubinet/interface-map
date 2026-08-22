@@ -193,7 +193,7 @@ describe("renderRail — filtre « Technologies » de la vue par acteur", () => 
 // ---------------------------------------------------------------------------
 
 describe("le sélecteur « By actor » suit le palier affiché", () => {
-  const parc = base.template({
+  const estate = base.template({
     actors: [
       base.actor({ name: "Aaa", introducedAt: "v1", retiredAt: "v2" }),
       base.actor({ name: "Bbb", introducedAt: "v1" }),
@@ -210,17 +210,17 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
     const state: AppState = withVue(
       withFichierCharge(initialState(), {
         name: "c.xlsx",
-        model: parc,
-        report: runIntegrityChecks(parc),
+        model: estate,
+        report: runIntegrityChecks(estate),
         dateModification: null,
       }),
       "by-actor"
     );
     expect(state.shownMilestone).toBe("v2");
-    expect(actorsForReading(parc, 2, "architecture").map((a) => a.name)).toEqual(["Bbb"]);
+    expect(actorsForReading(estate, 2, "architecture").map((a) => a.name)).toEqual(["Bbb"]);
 
     const root = document.createElement("div");
-    renderRail(root, state, reading(parc, 2, "architecture"), [], callbacks);
+    renderRail(root, state, reading(estate, 2, "architecture"), [], callbacks);
     const offerts = [...root.querySelectorAll("select.rail-select option")].map((o) => o.getAttribute("value"));
     expect(offerts).not.toContain("Aaa");
   });
@@ -230,7 +230,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
 // choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
 // qui est nommé.
 describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
-  const chargé = () => withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
+  const loaded = () => withFichierCharge(initialState(), { name: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
   const rendu = (s: AppState) => {
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -238,12 +238,12 @@ describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
   };
 
   it("propose les trois lectures de l'étiquette", () => {
-    const options = [...rendu(chargé()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
+    const options = [...rendu(loaded()).querySelectorAll(".rail-option-label option")].map((o) => o.getAttribute("value"));
     expect(options).toEqual(["technology", "exchanges", "both"]);
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...chargé(), options: { counters: true, libelléArête: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
+    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
     const select = rendu(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });
