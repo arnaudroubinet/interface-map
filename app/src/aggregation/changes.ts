@@ -1,4 +1,4 @@
-import type { ParsedModel } from "../parsing/model";
+import type { ParsedModel, Validity } from "../parsing/model";
 import { interfaceLabel, type GraphEdge, type Mode } from "./core";
 import { flowsForReading, reading as readingOfMode } from "./reading";
 import { buildPlatformDetailView, type ViewResult } from "./views";
@@ -18,6 +18,24 @@ export interface Difference {
   retires: string[];
 }
 
+// One side of a comparison. The model used to be implicit -- a single one,
+// looked at through two ranks -- so the only question this module could answer
+// was "what changed between v1 and v2 of this file". Making it a parameter
+// answers the other one, asked at least as often: "what changed since January's
+// version of the referential".
+export interface Snapshot {
+  model: ParsedModel;
+  // `null` reads the file WHOLE, with no milestone filter. That is what one
+  // wants when comparing two workbooks: their milestone names have no reason to
+  // match, and picking one on either side would state an equivalence nobody
+  // entered.
+  rank: number | null;
+}
+
+function isLive(model: ParsedModel, row: Validity, rank: number | null): boolean {
+  return rank === null || isLiveAt(lifespanOf(model, row), rank);
+}
+
 function difference(before: Set<string>, after: Set<string>): Difference {
   const byName = (a: string, b: string) => a.localeCompare(b, "fr");
   return {
@@ -26,23 +44,23 @@ function difference(before: Set<string>, after: Set<string>): Difference {
   };
 }
 
-function liveActors(model: ParsedModel, rank: number): Set<string> {
+function liveActors({ model, rank }: Snapshot): Set<string> {
   return new Set(
-    model.actors.filter((a) => isLiveAt(lifespanOf(model, a), rank)).map((a) => a.name.trim())
+    model.actors.filter((a) => isLive(model, a, rank)).map((a) => a.name.trim())
   );
 }
 
-function liveInterfaces(model: ParsedModel, rank: number): Set<string> {
+function liveInterfaces({ model, rank }: Snapshot): Set<string> {
   return new Set(
     model.interfaces
-      .filter((i) => isLiveAt(lifespanOf(model, i), rank))
+      .filter((i) => isLive(model, i, rank))
       .map((i) => interfaceLabel(i.flowName, i.version))
   );
 }
 
 // A consumption is named by the pair it creates: that is what one reads on the
 // diagram, and what speaks in a meeting.
-function liveConsumptions(model: ParsedModel, rank: number, mode: Mode): Set<string> {
+function liveConsumptions({ model, rank }: Snapshot, mode: Mode): Set<string> {
   return new Set(
     flowsForReading(model, rank, mode).map(
       (f) => `${f.consumer} → ${interfaceLabel(f.interfaceName, f.version)}`
@@ -50,11 +68,11 @@ function liveConsumptions(model: ParsedModel, rank: number, mode: Mode): Set<str
   );
 }
 
-export function computeChanges(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): Changes {
+export function computeChanges(before: Snapshot, after: Snapshot, mode: Mode): Changes {
   return {
-    actors: difference(liveActors(model, rankBefore), liveActors(model, rankAfter)),
-    interfaces: difference(liveInterfaces(model, rankBefore), liveInterfaces(model, rankAfter)),
-    consumptions: difference(liveConsumptions(model, rankBefore, mode), liveConsumptions(model, rankAfter, mode)),
+    actors: difference(liveActors(before), liveActors(after)),
+    interfaces: difference(liveInterfaces(before), liveInterfaces(after)),
+    consumptions: difference(liveConsumptions(before, mode), liveConsumptions(after, mode)),
   };
 }
 
@@ -66,10 +84,15 @@ export function computeChanges(model: ParsedModel, rankBefore: number, rankAfter
 // component gained or lost a flow, not merely which group, while keeping the
 // outside folded. One more selector on a comparison view would make it heavier
 // to read than it is worth.
-export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): ViewResult {
+export function buildEcartsView(a: Snapshot, b: Snapshot, mode: Mode): ViewResult {
   const options = { counters: true };
-  const before = buildPlatformDetailView(model, readingOfMode(model, rankBefore, mode), options);
-  const after = buildPlatformDetailView(model, readingOfMode(model, rankAfter, mode), options);
+  // Each side is read through ITS OWN model: on two workbooks the perimeter,
+  // the groups and the actor types are the compared file's, not the current
+  // one's. The node ids are names, and names are what the two files share.
+  const side = (s: Snapshot) =>
+    buildPlatformDetailView(s.model, readingOfMode(s.model, s.rank, mode), options);
+  const before = side(a);
+  const after = side(b);
 
   // A link carries the DELTA of its volume, not the volume: what changed is
   // the subject. Without this, a link going from six flows to four stayed an

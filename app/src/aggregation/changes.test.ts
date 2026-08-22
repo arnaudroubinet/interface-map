@@ -38,9 +38,13 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
   };
 }
 
-describe("calculerEcarts", () => {
+// One side of a comparison, when both sides are two ranks of the SAME file --
+// which is what this whole file, written before A6, is about.
+const at = (m: ParsedModel, rank: number) => ({ model: m, rank });
+
+describe("computeChanges", () => {
   it("says nothing changed between two ranks when nothing moved", () => {
-    const e = computeChanges(model(), 1, 2, "architecture");
+    const e = computeChanges(at(model(), 1), at(model(), 2), "architecture");
     expect(e.actors).toEqual({ ajoutes: [], retires: [] });
     expect(e.interfaces).toEqual({ ajoutes: [], retires: [] });
     expect(e.consumptions).toEqual({ ajoutes: [], retires: [] });
@@ -48,19 +52,19 @@ describe("calculerEcarts", () => {
 
   it("names an acteur that arrives", () => {
     const m = model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C", introducedAt: "v2" })] });
-    expect(computeChanges(m, 1, 2, "architecture").actors.ajoutes).toEqual(["C"]);
+    expect(computeChanges(at(m, 1), at(m, 2), "architecture").actors.ajoutes).toEqual(["C"]);
   });
 
   it("names an acteur that leaves", () => {
     const m = model({ actors: [actor({ name: "A" }), actor({ name: "B", retiredAt: "v2" })] });
-    expect(computeChanges(m, 1, 2, "architecture").actors.retires).toEqual(["B"]);
+    expect(computeChanges(at(m, 1), at(m, 2), "architecture").actors.retires).toEqual(["B"]);
   });
 
   it("names an interface that arrives, with its version", () => {
     const m = model({
       interfaces: [iface({}), iface({ version: "2.0", introducedAt: "v2" })],
     });
-    expect(computeChanges(m, 1, 2, "architecture").interfaces.ajoutes).toEqual(["F 2.0"]);
+    expect(computeChanges(at(m, 1), at(m, 2), "architecture").interfaces.ajoutes).toEqual(["F 2.0"]);
   });
 
   it("names a consumption by the pair it creates", () => {
@@ -68,14 +72,14 @@ describe("calculerEcarts", () => {
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
       consumptions: [consumption({}), consumption({ consumerName: "C", introducedAt: "v2" })],
     });
-    expect(computeChanges(m, 1, 2, "architecture").consumptions.ajoutes).toEqual(["C → F"]);
+    expect(computeChanges(at(m, 1), at(m, 2), "architecture").consumptions.ajoutes).toEqual(["C → F"]);
   });
 
   // Reading the change backwards must give the inverse, otherwise the two
   // selectors' reading direction would be ambiguous.
   it("reads backwards as the mirror of forwards", () => {
     const m = model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C", introducedAt: "v2" })] });
-    expect(computeChanges(m, 2, 1, "architecture").actors.retires).toEqual(["C"]);
+    expect(computeChanges(at(m, 2), at(m, 1), "architecture").actors.retires).toEqual(["C"]);
   });
 });
 
@@ -91,7 +95,7 @@ describe("buildEcartsView", () => {
         consumption({ consumerName: "C", retiredAt: "v2" }),
       ],
     });
-    const edge = buildEcartsView(m, 1, 2, "architecture").edges[0];
+    const edge = buildEcartsView(at(m, 1), at(m, 2), "architecture").edges[0];
     expect(edge.label).toBe("−1");
     expect(edge.change).toBe("removed");
   });
@@ -102,7 +106,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({}), consumption({ consumerName: "C", introducedAt: "v2" })],
     });
-    const edge = buildEcartsView(m, 1, 2, "architecture").edges[0];
+    const edge = buildEcartsView(at(m, 1), at(m, 2), "architecture").edges[0];
     expect(edge.label).toBe("+1");
     expect(edge.change).toBe("added");
   });
@@ -114,7 +118,7 @@ describe("buildEcartsView", () => {
       actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
     });
-    expect(buildEcartsView(m, 1, 2, "architecture").edges).toEqual([]);
+    expect(buildEcartsView(at(m, 1), at(m, 2), "architecture").edges).toEqual([]);
   });
 
   // The base is "platform detail": one wants to know WHICH component gained or
@@ -125,7 +129,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({ retiredAt: "v2" })],
     });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     // A is in the Platform group: it is named, not folded into "G1".
     expect(view.nodes.map((n) => n.id)).toContain("A");
     expect(view.nodes.map((n) => n.id)).not.toContain("G1");
@@ -139,7 +143,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({ retiredAt: "v2" })],
     });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     const ids = new Set(view.nodes.map((n) => n.id));
     for (const n of view.nodes) {
       if (n.parent) expect(ids.has(n.parent)).toBe(true);
@@ -167,7 +171,7 @@ describe("buildEcartsView", () => {
       ],
       fxSheetNames: ["FX_A_HTTP", "FX_C_HTTP"],
     });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     // A is named (Platform), B folded onto G2; G3 did not move, so it drops out.
     expect(view.nodes.map((n) => n.id).sort()).toEqual(["A", "G2"]);
   });
@@ -178,18 +182,18 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({}), consumption({ consumerName: "C", introducedAt: "v2" })],
     });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     expect(view.edges.some((e) => e.change === "added")).toBe(true);
   });
 
   it("marks an edge that only existed before as a removal", () => {
     const m = model({ consumptions: [consumption({ retiredAt: "v2" })] });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     expect(view.edges.every((e) => e.change === "removed")).toBe(true);
   });
 
   it("leaves an unchanged edge unmarked", () => {
-    const view = buildEcartsView(model(), 1, 2, "architecture");
+    const view = buildEcartsView(at(model(), 1), at(model(), 2), "architecture");
     expect(view.edges.every((e) => e.change === undefined)).toBe(true);
   });
 
@@ -197,7 +201,7 @@ describe("buildEcartsView", () => {
   // left to reach and the diagram would be inconsistent.
   it("keeps the nodes a removed edge needs", () => {
     const m = model({ consumptions: [consumption({ retiredAt: "v2" })] });
-    const view = buildEcartsView(m, 1, 2, "architecture");
+    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
     for (const e of view.edges) {
       expect(view.nodes.map((n) => n.id)).toContain(e.from);
       expect(view.nodes.map((n) => n.id)).toContain(e.to);
@@ -234,7 +238,78 @@ describe("calculerEcarts — mode fonctionnel", () => {
   it("compares the functional links when the mode asks for it", () => {
     // A link that exists only at the second milestone shows up as an addition,
     // with the plumbing removed.
-    const changes = computeChanges(functionalEstate(), 1, 2, "functional");
+    const changes = computeChanges(at(functionalEstate(), 1), at(functionalEstate(), 2), "functional");
     expect(changes.consumptions.ajoutes).toEqual(["Naboo → Transactions"]);
+  });
+});
+
+// --- A6: the same difference, between two FILES rather than two milestones of
+// one. "What has changed since January's version of the referential" is the
+// question a mapping gets asked most often, and the model was implicit in the
+// computation -- so the answer could only ever be about one workbook.
+describe("computeChanges — two workbooks", () => {
+  // Two versions of one referential, six months apart. Nothing here shares a
+  // milestone: that is the normal case, and why both sides read whole.
+  function january(): ParsedModel {
+    return model({
+      milestones: [],
+      actors: [actor({ name: "A", introducedAt: "" }), actor({ name: "B", introducedAt: "" })],
+      interfaces: [iface({ flowName: "Legacy batch", version: "1.0", introducedAt: "" })],
+      consumptions: [consumption({ flowName: "Legacy batch", version: "1.0", consumerName: "B", introducedAt: "" })],
+    });
+  }
+
+  function june(): ParsedModel {
+    return model({
+      milestones: [],
+      actors: [actor({ name: "A", introducedAt: "" }), actor({ name: "C", introducedAt: "" })],
+      interfaces: [iface({ flowName: "Claims", version: "2.0", introducedAt: "" })],
+      consumptions: [consumption({ flowName: "Claims", version: "2.0", consumerName: "C", introducedAt: "" })],
+    });
+  }
+
+  const whole = (m: ParsedModel) => ({ model: m, rank: null });
+
+  it("compares two distinct models, not merely two ranks of the same one", () => {
+    const c = computeChanges(whole(january()), whole(june()), "architecture");
+    expect(c.interfaces.ajoutes).toContain("Claims 2.0");
+    expect(c.interfaces.retires).toContain("Legacy batch 1.0");
+  });
+
+  // An actor present in only one of the two must not break the computation:
+  // that is the NORMAL case when comparing two versions of a referential.
+  it("bears an actor absent from one of the two workbooks", () => {
+    const c = computeChanges(whole(january()), whole(june()), "architecture");
+    expect(c.actors.ajoutes).toEqual(["C"]);
+    expect(c.actors.retires).toEqual(["B"]);
+  });
+
+  it("names the consumption pairs that arrived and those that left", () => {
+    const c = computeChanges(whole(january()), whole(june()), "architecture");
+    expect(c.consumptions.ajoutes).toEqual(["C → Claims 2.0"]);
+    expect(c.consumptions.retires).toEqual(["B → Legacy batch 1.0"]);
+  });
+
+  // A rank of `null` means "the whole file", with no milestone filter. Two
+  // workbooks have no reason to share a milestone name, and picking one on
+  // either side would state an equivalence nobody entered.
+  it("reads each side whole when neither carries a rank", () => {
+    const c = computeChanges(whole(january()), whole(january()), "architecture");
+    expect(c.actors).toEqual({ ajoutes: [], retires: [] });
+    expect(c.interfaces).toEqual({ ajoutes: [], retires: [] });
+    expect(c.consumptions).toEqual({ ajoutes: [], retires: [] });
+  });
+
+  // The diagram must survive the same crossing: its nodes come from both sides,
+  // and a box that exists in only one of the two workbooks is the whole point.
+  it("draws the change between two workbooks", () => {
+    const view = buildEcartsView(whole(january()), whole(june()), "architecture");
+    expect(view.edges.map((e) => [e.from, e.to, e.change])).toEqual(
+      expect.arrayContaining([
+        ["A", "B", "removed"],
+        ["A", "C", "added"],
+      ])
+    );
+    expect(view.nodes.map((n) => n.id)).toEqual(expect.arrayContaining(["A", "B", "C"]));
   });
 });

@@ -334,7 +334,7 @@ export function mountApp(root: HTMLElement): void {
       } else {
         renderArea.appendChild(
           buildEcartsReport(
-            computeChanges(model, comparedRank, rank, state.mode),
+            computeChanges({ model, rank: comparedRank }, { model, rank }, state.mode),
             state.comparedMilestone!,
             state.shownMilestone!
           )
@@ -343,7 +343,7 @@ export function mountApp(root: HTMLElement): void {
         // goes to see where. It arrives later, the layout being asynchronous, and a
         // generation counter protects it from a stale display.
         const generation = ++renderGeneration;
-        const changesView = buildEcartsView(model, comparedRank, rank, state.mode);
+        const changesView = buildEcartsView({ model, rank: comparedRank }, { model, rank }, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
           renderArea.appendChild(buildChangesDiagramTitle(state.comparedMilestone!, state.shownMilestone!));
