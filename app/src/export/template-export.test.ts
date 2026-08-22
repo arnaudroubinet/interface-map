@@ -29,15 +29,15 @@ import { runIntegrityChecks } from "../integrity/checks";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { SAMPLE_DATA } from "./sample-data";
 
-// On relit le fichier écrit, pas l'objet en mémoire : c'est celui-là que
-// l'utilisateur ouvrira, et c'est lui qui doit repasser dans notre parseur.
-// écrireModele inclut le complément OOXML (tableaux structurés).
+// The written file is reread, not the in-memory object: that is the one the
+// user will open, and it is the one that must go back through our parser.
+// writeTemplate includes the OOXML extras (structured tables).
 function rereadTemplate(): ArrayBuffer {
   return writeTemplate();
 }
 
-// Le contenu brut d'une partie du paquet, pour vérifier ce que SheetJS ne sait
-// ni écrire ni relire.
+// The raw content of one part of the package, to check what SheetJS can
+// neither write nor reread.
 function part(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
   const input = XLSX.CFB.find(cfb, path);
@@ -45,12 +45,12 @@ function part(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
-// Les parties de feuille sont numérotées dans l'ordre du classeur : les
-// désigner par ce numéro casse dès qu'un onglet s'insère avant. On résout donc
-// par nom, comme partout ailleurs dans ce projet.
-// Même raison pour les parties « table » : leur numéro suit l'ordre du
-// classeur, donc il bouge dès qu'un tableau s'insère avant. On les retrouve
-// par le nom qu'elles portent.
+// The sheet parts are numbered in the workbook's order: naming them by that
+// number breaks as soon as a sheet is inserted before. So they are resolved by
+// name, as everywhere else in this project.
+// The same reason for the "table" parts: their number follows the workbook's
+// order, so it moves as soon as a table is inserted before. They are found
+// again by the name they carry.
 function tableXml(tableName: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
   for (const path of cfb.FullPaths) {
@@ -68,8 +68,8 @@ function sheetXml(name: string, paquet: ArrayBuffer = rereadTemplate()): string 
   return part(`/xl/worksheets/sheet${index + 1}.xml`, paquet);
 }
 
-describe("modèle de classeur", () => {
-  it("porte tous les onglets que le parseur attend", () => {
+describe("the workbook template", () => {
+  it("carries every sheet the parser expects", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     expect(wb.SheetNames).toEqual([
       "Instructions",
@@ -84,9 +84,9 @@ describe("modèle de classeur", () => {
     ]);
   });
 
-  // Le contrat central : un modèle qui ne se relit pas serait pire qu'aucun
-  // modèle, l'utilisateur ne saurait pas si le tort vient de lui ou de l'outil.
-  it("se relit sans erreur bloquante ni colonne manquante", () => {
+  // The central contract: a template that does not reread would be worse than no
+  // template, as the user would not know whether the fault is theirs or the tool's.
+  it("rereads with no blocking error and no missing column", () => {
     const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
 
@@ -95,15 +95,15 @@ describe("modèle de classeur", () => {
     expect(result.model.missingOptionalColumns).toEqual([]);
   });
 
-  it("déclare le périmètre au niveau du groupe, pas déduit des acteurs", () => {
+  it("declares the perimeter at group level, not deduced from the actors", () => {
     const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
-    // L'onglet existe et fait foi, même vide de lignes.
+    // The sheet exists and is authoritative, even with no rows.
     expect(result.model.groupsSheetMissing).toBe(false);
   });
 
-  it("pré-remplit TypesActeur avec des icônes qui existent dans le catalogue", () => {
+  it("pre-fills ActorTypes with icons that exist in the catalogue", () => {
     const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
@@ -114,9 +114,9 @@ describe("modèle de classeur", () => {
     }
   });
 
-  // Un modèle qui s'ouvre sur des erreurs ferait douter de l'outil avant même
-  // la première saisie : un classeur vierge est vide, pas incohérent.
-  it("ne déclenche aucune anomalie bloquante à l'ouverture", () => {
+  // A template opening on errors would cast doubt on the tool before the first
+  // entry: a blank workbook is empty, not inconsistent.
+  it("triggers no blocking anomaly on opening", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     const report = runIntegrityChecks(result.model);
@@ -124,72 +124,72 @@ describe("modèle de classeur", () => {
     expect(messages).toEqual([]);
   });
 
-  // Excel refusait d'ouvrir le modèle : l'autofiltre pose un nom défini qui cite
-  // le nom de la feuille entre apostrophes, et SheetJS ne double pas
-  // l'apostrophe interne de « Mode d'emploi ». Le fichier restait relisible par
-  // SheetJS lui-même, d'où des tests verts sur un classeur qu'Excel proposait de
-  // réparer. La règle est donc vérifiée ici, à la source.
-  it("ne pose pas d'autofiltre sur une feuille dont le nom contient une apostrophe", () => {
+  // Excel refused to open the template: the autofilter sets a defined name quoting
+  // the sheet's name between apostrophes, and SheetJS does not double the inner
+  // apostrophe of "Mode d'emploi". The file stayed readable by SheetJS itself,
+  // hence green tests on a workbook Excel offered to repair. The rule is
+  // therefore checked here, at the source.
+  it("sets no autofilter on a sheet whose name holds an apostrophe", () => {
     const wb = buildTemplateWorkbook();
     for (const name of wb.SheetNames) {
       if (name.includes("'")) {
         expect(wb.Sheets[name]["!autofilter"]).toBeUndefined();
       }
     }
-    // Plus aucune feuille ne porte d'apostrophe depuis que « Mode d'emploi »
-    // est devenu « Instructions ». La règle reste vraie et le test la garde,
-    // mais il ne protège plus rien tant qu'aucun nom n'en porte.
+    // No sheet carries an apostrophe any more since "Mode d'emploi" became
+    // "Instructions". The rule stays true and the test guards it, but it no
+    // longer protects anything while no name carries one.
     expect(wb.SheetNames.some((n) => n.includes("'"))).toBe(false);
   });
 
-  it("liste les noms d'icône acceptés dans l'onglet Listes, chacun avec son aperçu", () => {
+  it("lists the accepted icon names on the Lists sheet, each with its preview", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const lists = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Lists, { defval: "" });
     const offered = lists.map((l) => l.Icon).filter(Boolean);
     expect(offered).toEqual(AVAILABLE_ICONS);
-    // Chaque nom a son repère visuel en regard, sur la même ligne.
+    // Each name has its visual cue alongside, on the same row.
     for (const row of lists.filter((l) => l.Icon)) {
       expect(row["Preview"]).toBe(ICON_PREVIEWS[row.Icon]);
       expect(row["Preview"]).not.toBe("");
     }
   });
 
-  // Les types d'acteur sont énumérés par l'onglet TypesActeur : les répéter
-  // dans Listes aurait créé deux vérités concurrentes.
-  it("n'énumère pas les types d'acteur dans Listes", () => {
+  // The actor types are enumerated by the ActorTypes sheet: repeating them in
+  // Lists would have created two competing truths.
+  it("does not enumerate the actor types in Lists", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Lists, { header: 1 })[0];
     expect(headers).not.toContain("ActorType");
   });
 
-  // SheetJS n'écrit pas les tableaux structurés : on complète le paquet OOXML
-  // après coup. Ces vérifications portent donc sur le XML, pas sur l'objet.
-  // Le préfixe « Tbl » est le contrat de la macro : elle cherche
-  // « TblInterfaces » et s'arrête si elle ne le trouve pas.
-  it("pose un vrai tableau Excel sur chaque feuille de saisie", () => {
+  // SheetJS does not write structured tables: the OOXML package is completed
+  // afterwards. These checks are therefore on the XML, not on the object.
+  // The "Tbl" prefix is the macro's contract: it looks for "TblInterfaces" and
+  // stops if it does not find it.
+  it("sets a real Excel table on every entry sheet", () => {
     for (let i = 1; i <= tablesOfTemplate().length; i++) {
       const table = part(`/xl/tables/table${i}.xml`);
       expect(table).toContain('displayName="Tbl');
       expect(table).toContain('showRowStripes="1"');
     }
-    // Et la déclaration côté feuille, sans quoi Excel ignorerait la partie.
+    // And the declaration on the sheet's side, failing which Excel would ignore the part.
     expect(sheetXml("Actors")).toContain("<tableParts count=\"1\">");
   });
 
-  it("nomme les colonnes du tableau comme la ligne d'en-tête", () => {
+  it("names the table's columns like the header row", () => {
     const actors = tablesOfTemplate().find((t) => t.sheet === "Actors")!;
     const table = part("/xl/tables/table1.xml");
     for (const column of actors.columns) {
-      // Excel refuse un tableau dont une colonne déclarée ne correspond pas.
+      // Excel refuses a table one of whose declared columns does not match.
       expect(table).toContain(column.replace(/'/g, "'"));
     }
   });
 
-  // SheetJS n'écrit pas non plus les validations de données : elles sont
-  // injectées, donc vérifiées sur le XML.
-  // Le périmètre se déclare sur le groupe : la colonne du même nom a disparu de
-  // l'onglet Acteurs, et avec elle sa liste déroulante.
-  it("ne demande plus de périmètre sur les acteurs", () => {
+  // SheetJS does not write data validations either: they are injected, hence
+  // checked on the XML.
+  // The perimeter is declared on the group: the column of the same name has gone
+  // from the Actors sheet, and its drop-down with it.
+  it("no longer asks for a perimeter on the actors", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     expect(result.model.missingOptionalColumns).toEqual([]);
@@ -199,28 +199,28 @@ describe("modèle de classeur", () => {
     expect(XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Groups, { header: 1 })[0]).toContain("Perimeter");
   });
 
-  it("contraint les colonnes de référence par une liste déroulante", () => {
+  it("constrains the reference columns with a drop-down", () => {
     const actors = sheetXml("Actors");
-    // Le compte se lit sur ce qui est déclaré, pas sur un littéral : une
-    // colonne contrainte de plus ne doit pas casser ce test pour rien.
+    // The count is read from what is declared, not from a literal: one more
+    // constrained column must not break this test for nothing.
     const expected = validationsOfTemplate().filter((v) => v.sheet === "Actors").length;
     expect(expected).toBeGreaterThan(1);
     expect(actors).toContain(`<dataValidations count="${expected}">`);
     expect(actors).toContain('type="list"');
     expect(actors).toContain("<formula1>L_TypeActeur</formula1>");
-    // Placée entre les données et les erreurs ignorées : l'ordre des éléments
-    // d'une feuille est imposé par le schéma OOXML.
+    // Placed between the data and the ignored errors: the order of a sheet's
+    // elements is imposed by the OOXML schema.
     expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<dataValidations"));
     expect(actors.indexOf("<dataValidations")).toBeLessThan(actors.indexOf("<tableParts"));
   });
 
-  it("pointe chaque liste vers la colonne du tableau qui la porte", () => {
+  it("points each list at the table column carrying it", () => {
     const workbook = part("/xl/workbook.xml");
-    // Une référence structurée : le tableau s'étend de lui-même, ni OFFSET ni
-    // COUNTA n'ont plus lieu d'être derrière ces noms. Chaque vocabulaire de
-    // Listes porte désormais SON tableau, dimensionné à son seul contenu — pas
-    // le tableau unique TblLists, qui rembourrait les listes courtes de lignes
-    // vides jusqu'à la hauteur de la plus longue (Icon).
+    // A structured reference: the table extends by itself, and neither OFFSET nor
+    // COUNTA has any place behind these names. Each of Lists' vocabularies now
+    // carries ITS table, sized to its own content — not the single TblLists table,
+    // which padded the short lists with blank rows up to the longest one's height
+    // (Icon).
     const expected: [string, string][] = [
       ["L_Perimetre", "TblLists_Perimeter[Perimeter]"],
       ["L_Sens", "TblLists_Direction[Direction]"],
@@ -243,12 +243,12 @@ describe("modèle de classeur", () => {
     expect(workbook).not.toContain("COUNTA(");
   });
 
-  // La régression que ce test attrape : un seul tableau TblLists, dimensionné
-  // sur la plus longue liste (Icon, 25 entrées), faisait de chaque liste plus
-  // courte 2 à 4 valeurs réelles suivies de lignes blanches -- visibles dans
-  // le menu déroulant, et comptées par COUNTA puisque SheetJS y écrit des
-  // cellules chaîne vides plutôt que de ne rien écrire.
-  it("dimensionne le tableau de chaque vocabulaire de Listes à son propre contenu, sans ligne vide", () => {
+  // The regression this test catches: a single TblLists table, sized on the
+  // longest list (Icon, 25 entries), made every shorter list 2 to 4 real values
+  // followed by blank rows -- visible in the drop-down, and counted by COUNTA
+  // since SheetJS writes empty string cells there rather than writing nothing.
+  //
+  it("sizes each Lists vocabulary's table to its own content, with no blank row", () => {
     const headers = Object.keys(LISTES);
     headers.forEach((key, index) => {
       const column = XLSX.utils.encode_col(index);
@@ -258,25 +258,25 @@ describe("modèle de classeur", () => {
     });
   });
 
-  // Chaque liste vise une feuille et un intitulé qui existent vraiment sur son
-  // tableau : une référence structurée ne se rattrape pas comme un OFFSET, qui
-  // aurait au moins pointé quelque part. Une table ou une colonne absente rend
-  // le nom défini invalide, et Excel le signale en proposant de réparer le
+  // Each list targets a sheet and a heading that really exist on its table: a
+  // structured reference is not recoverable like an OFFSET, which would at least
+  // have pointed somewhere. A missing table or column makes the defined name
+  // invalid, and Excel reports it by offering to repair the
   // classeur.
-  it("chaque liste vise une feuille et un intitulé réellement présents dans son tableau", () => {
+  it("each list targets a sheet and a heading really present in its table", () => {
     const tables = tablesOfTemplate();
     for (const list of listsOfTemplate()) {
-      // Listes porte un tableau PAR vocabulaire : chercher par feuille seule
-      // retomberait sur le premier d'entre eux, pas forcément celui qui porte
-      // l'intitulé visé.
+      // Lists carries one table PER vocabulary: searching by sheet alone would
+      // fall back on the first of them, not necessarily the one carrying the
+      // heading targeted.
       const table = tables.find((t) => t.sheet === list.sheet && t.columns.includes(list.heading));
       expect(table, `pas de table portant "${list.heading}" sur ${list.sheet}`).toBeDefined();
     }
   });
 
-  it("ne référence que des listes réellement définies", () => {
-    // Les listes dépendantes des onglets FX_ calculent leur plage : ce sont des
-    // formules, pas des noms. La règle ne vaut donc que pour les secondes.
+  it("references only lists that are really defined", () => {
+    // The FX_ sheets' dependent lists compute their range: those are formulas, not
+    // names. The rule therefore holds only for the latter.
     const defined = new Set(listsOfTemplate().map((l) => l.name));
     const byName = validationsOfTemplate().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
     expect(byName.length).toBeGreaterThan(0);
@@ -285,46 +285,46 @@ describe("modèle de classeur", () => {
     }
   });
 
-  // Les tableaux portent leur propre filtre : les autofiltres de feuille, et
-  // les noms définis qu'ils traînaient, n'ont plus lieu d'être.
-  it("ne laisse que les noms définis des listes, aucun résidu d'autofiltre", () => {
+  // The tables carry their own filter: the sheet autofilters, and the defined
+  // names they dragged along, have no place any more.
+  it("leaves only the lists' defined names, no autofilter residue", () => {
     const workbook = part("/xl/workbook.xml");
     expect(workbook).not.toContain("_FilterDatabase");
     const names = [...workbook.matchAll(/<definedName name="([^"]*)"/g)].map((m) => m[1]);
     expect(names.sort()).toEqual(listsOfTemplate().map((l) => l.name).sort());
   });
 
-  // Ni le patron ni le dictionnaire ne se remplissent à la main.
-  it("masque Listes et Version, visibles sur les feuilles de saisie", () => {
+  // Neither the pattern nor the dictionary is filled by hand.
+  it("hides Lists and Version, visible on the entry sheets", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const states = wb.Workbook!.Sheets!;
     const hidden = wb.SheetNames.filter((_, i) => states[i].Hidden);
     expect(hidden).toEqual(["Lists", "Version"]);
   });
 
-  it("livre les types de flux courants, prêts à l'emploi", () => {
+  it("ships the common flow types, ready to use", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     const types = result.model.flowTypes;
     expect(types.map((t) => t.type)).toContain("HTTP");
     expect(types.map((t) => t.type)).toContain("Kafka");
-    // Le sens est déjà tranché pour chacun : il ne se saisit pas.
+    // The direction is already settled for each: it is not typed in.
     expect(types.every((t) => t.direction.length > 0)).toBe(true);
-    // Les variantes dépôt/retrait et les composites ont disparu du référentiel.
+    // The deposit/withdrawal variants and the composites have gone from the referential.
     expect(types.some((t) => /repository|removed|ESB|ETL/i.test(t.type))).toBe(false);
   });
 
-  it("montre l'icône choisie par une colonne calculée, jamais saisie", () => {
+  it("shows the chosen icon through a calculated column, never typed", () => {
     const table = tableXml("TblActorTypes");
     expect(table).toContain("<calculatedColumnFormula>");
     expect(table).toContain("Lists!$");
   });
 
-  // Excel charge les tables dans l'ordre : une formule qui désigne une table
-  // définie plus loin est invalide au moment où il la lit, et il SUPPRIME la
-  // table fautive en proposant de réparer le classeur. Son journal nous l'a
-  // appris ; ce test empêche d'y revenir.
-  it("n'utilise aucune référence structurée vers une autre table", () => {
+  // Excel loads the tables in order: a formula naming a table defined further on
+  // is invalid at the moment it reads it, and it DELETES the offending table while
+  // offering to repair the workbook. Its log taught us that; this test prevents
+  // going back there.
+  it("uses no structured reference to another table", () => {
     for (let i = 1; i <= tablesOfTemplate().length; i++) {
       const table = part(`/xl/tables/table${i}.xml`);
       const formules = [...table.matchAll(/<calculatedColumnFormula>(.*?)<\/calculatedColumnFormula>/g)];
@@ -335,26 +335,26 @@ describe("modèle de classeur", () => {
   });
 });
 
-// matérialiserLesLignes déclarait la dimension de la feuille d'après la seule
-// étendue du tableau qu'elle venait de poser, en écrasant ce que SheetJS avait
-// écrit. Sur Listes, la zone d'appoint (colonnes J à N, jusqu'à la ligne 1000)
-// tombait hors de « A1:H26 » ; sur chaque onglet FX_, la cellule K1 -- dont
-// dépendent les deux listes en cascade -- tombait hors de « A1:I{n} ». Excel
-// reconstruit la plage sans broncher, mais un autre lecteur (ce projet compris)
+// materialiseRows declared the sheet's dimension from the extent of the table
+// it had just laid down alone, overwriting what SheetJS had written. On Lists,
+// the helper area (columns J to N, up to row 1000) fell outside "A1:H26"; on
+// every FX_ sheet, cell K1 -- on which both cascading lists depend -- fell
+// outside "A1:I{n}". Excel rebuilds the range without flinching, but another
+// reader (this project included)
 // s'y fie telle quelle.
-describe("modèle de classeur — dimension déclarée", () => {
-  it("couvre la zone d'appoint de Listes, pas seulement les tableaux de vocabulaire", () => {
+describe("the workbook template — declared dimension", () => {
+  it("covers Lists' helper area, not only the vocabulary tables", () => {
     const lists = sheetXml("Lists");
     const m = lists.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
     expect(m).not.toBeNull();
     const [, lastColumn, lastRow] = m!;
-    // La colonne FluxDeLOnglet, la plus à droite de la zone d'appoint.
+    // The FluxDeLOnglet column, the rightmost of the helper area.
     const flows = XLSX.utils.encode_col(Object.keys(LISTES).length + 5);
     expect(XLSX.utils.decode_col(lastColumn)).toBeGreaterThanOrEqual(XLSX.utils.decode_col(flows));
     expect(Number(lastRow)).toBe(1000);
   });
 
-  it("couvre la cellule d'appoint qui nomme l'onglet, sur chaque feuille FX_", () => {
+  it("covers the helper cell naming the sheet, on every FX_ sheet", () => {
     const paquet = writeTemplate(SAMPLE_DATA);
     for (const tab of SAMPLE_DATA.fx) {
       const sheet = sheetXml(tab.name, paquet);
@@ -365,38 +365,38 @@ describe("modèle de classeur — dimension déclarée", () => {
   });
 });
 
-// La macro GenererOngletsManquants est livrée DANS les classeurs générés : son
-// contrat n'est plus une convention, c'est une dépendance. Elle cherche la
-// feuille Interfaces, son tableau « TblInterfaces », deux colonnes nommées, et
-// le patron FX_Modèle. Un renommage silencieux la casserait chez l'utilisateur,
-// sans que rien ici ne bronche.
+// The GenererOngletsManquants macro ships INSIDE the generated workbooks: its
+// contract is no longer a convention, it is a dependency. It looks for the
+// Interfaces sheet, its "TblInterfaces" table, two named columns, and the
+// FX_Modèle pattern. A silent rename would break it at the user's end, with
+// nothing here flinching.
 
-// La macro et son bouton voyagent DANS les classeurs générés : c'est Excel qui
-// crée les onglets FX_, l'outil ne fait que lire.
+// The macro and its button travel INSIDE the generated workbooks: it is Excel
+// that creates the FX_ sheets, the tool only reads.
 
-describe("modèle de classeur — numéro de schéma", () => {
-  it("écrit le numéro courant dans l'onglet Version", () => {
+describe("the workbook template — schema number", () => {
+  it("writes the current number on the Version sheet", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const rows = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Version, { defval: "" });
     expect(String(rows[0]["Model version"])).toBe(String(SCHEMA_VERSION));
   });
 
-  // Le classeur qu'on vient de produire ne doit jamais réclamer sa propre mise
-  // à niveau : c'est le test qui attrape un oubli d'incrément des deux côtés.
-  it("se relit à la version que l'outil attend", () => {
+  // The workbook just produced must never ask for its own upgrade: this is the
+  // test that catches a forgotten increment on either side.
+  it("rereads at the version the tool expects", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("modèle illisible");
     expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
 
-describe("modèle de classeur — version d'interface", () => {
+describe("the workbook template — interface version", () => {
 
-  // La version est en saisie libre : les conventions de numérotation varient
-  // d'une équipe à l'autre, une liste fermée les ferait toutes rentrer de force
-  // dans une seule. Elle porte quand même son infobulle -- expliquer n'est pas
+  // The version is free entry: numbering conventions vary from one team to the
+  // next, and a closed list would force them all into one. It still carries its
+  // tooltip -- explaining is not
   // contraindre.
-  it("laisse la colonne Version en saisie libre, mais expliquée", () => {
+  it("leaves the Version column free entry, but explained", () => {
     const surVersion = validationsOfTemplate().filter(
       (v) => v.sheet === "Interfaces" && v.column === columnOf(INTERFACE_COLUMNS, "Version")
     );
@@ -405,9 +405,9 @@ describe("modèle de classeur — version d'interface", () => {
     expect(surVersion[0].prompt?.text).toContain("Free text");
   });
 
-  // Le même intitulé sur un onglet FX_ désigne une liste dépendante : la même
+  // The same heading on an FX_ sheet names a dependent list: the same
   // infobulle y serait fausse.
-  it("n'y met pas l'invite des onglets FX_", () => {
+  it("does not put the FX_ sheets' prompt on it", () => {
     const surVersion = validationsOfTemplate().find(
       (v) => v.sheet === "Interfaces" && v.column === columnOf(INTERFACE_COLUMNS, "Version")
     );
@@ -416,11 +416,11 @@ describe("modèle de classeur — version d'interface", () => {
 
 });
 
-// Les lignes d'exemple sont positionnelles : une colonne insérée en amont les
-// décale sans rien casser de visible, et le classeur livré raconte alors n'im-
-// porte quoi. Ces deux tests sont là pour que ça ne puisse plus passer.
-describe("fichier d'exemple — alignement sur les colonnes", () => {
-  it("donne à chaque ligne autant de cellules que la feuille a de colonnes", () => {
+// The sample rows are positional: a column inserted upstream shifts them
+// without breaking anything visible, and the shipped workbook then talks
+// nonsense. These two tests exist so that can no longer get through.
+describe("the sample file — alignment on the columns", () => {
+  it("gives every row as many cells as the sheet has columns", () => {
     for (const row of SAMPLE_DATA.interfaces) {
       expect(row).toHaveLength(INTERFACE_COLUMNS.length);
     }
@@ -431,7 +431,7 @@ describe("fichier d'exemple — alignement sur les colonnes", () => {
     }
   });
 
-  it("se relit avec chaque valeur dans sa colonne", () => {
+  it("rereads with every value in its column", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const iface = result.model.interfaces.find((i) => i.flowName === "Member lookup")!;
@@ -441,9 +441,9 @@ describe("fichier d'exemple — alignement sur les colonnes", () => {
     expect(consumption.decision).toBe("Keep");
   });
 
-  // Le fichier d'exemple sert à montrer l'outil à l'œuvre : le rapport de
-  // migration en fait partie, il lui faut donc un cas à montrer.
-  it("porte un décommissionnement en cours, pour que le rapport ait quelque chose à dire", () => {
+  // The sample file exists to show the tool at work: the migration report is
+  // part of that, so it needs a case to show.
+  it("carries a decommissioning under way, so the report has something to say", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const report = runIntegrityChecks(result.model);
@@ -452,10 +452,10 @@ describe("fichier d'exemple — alignement sur les colonnes", () => {
   });
 });
 
-describe("listes dépendantes des onglets FX_", () => {
-  // Les tables d'appoint doivent être VIVANTES : figées à la génération, elles
-  // cesseraient d'être justes dès la première interface ajoutée dans Excel.
-  it("alimente les deux tables d'appoint par formule depuis Interfaces", () => {
+describe("the FX_ sheets' dependent lists", () => {
+  // The helper tables must be LIVE: frozen at generation time, they would stop
+  // being right the moment the first interface was added in Excel.
+  it("feeds both helper tables by formula from Interfaces", () => {
     const lists = sheetXml("Lists");
     expect(lists).toContain('t="array"');
     expect(lists).toContain("FILTER(");
@@ -463,29 +463,29 @@ describe("listes dépendantes des onglets FX_", () => {
     expect(lists).toContain("Interfaces!");
   });
 
-  // Reconstruit le nom d'onglet FX_ par la même convention que le parseur
-  // (build-model.ts) et que la migration legacy (migration-legacy.ts) :
-  // « FX_ » + exposant + « _ » + type de flux.
-  it("reconstruit le nom d'onglet FX_ par « FX_ » + exposant + « _ » + type", () => {
+  // Rebuilds the FX_ sheet name by the same convention as the parser
+  // (build-model.ts) and the legacy migration (legacy-upgrade.ts):
+  // "FX_" + publisher + "_" + flow type.
+  it("rebuilds the FX_ sheet name as \"FX_\" + publisher + \"_\" + type", () => {
     const lists = sheetXml("Lists");
     expect(lists).toContain("&quot;FX_&quot;&amp;");
     expect(lists).toContain("&amp;&quot;_&quot;&amp;");
   });
 
-  it("donne à chaque onglet FX_ une cellule qui nomme son propre onglet", () => {
+  it("gives every FX_ sheet a cell naming its own sheet", () => {
     const wb = XLSX.read(new Uint8Array(writeTemplate(SAMPLE_DATA)), { type: "array" });
     const cellule = wb.Sheets["FX_Takodana_HTTP"][TAB_CELL];
     expect(cellule?.f).toContain('CELL("filename"');
   });
 
-  it("masque la colonne qui porte cette cellule, hors du tableau de saisie", () => {
+  it("hides the column carrying that cell, outside the entry table", () => {
     const template = sheetXml("FX_Takodana_HTTP", writeTemplate(SAMPLE_DATA));
     expect(template).toMatch(/<col[^>]*hidden="(1|true)"/);
-    // Le tableau de saisie s'arrête avant : la cellule ne doit pas y entrer.
+    // The entry table stops before it: the cell must not enter it.
     expect(EXTRA_COLUMN > columnOf(FX_COLUMNS, FX_COLUMNS[FX_COLUMNS.length - 1])).toBe(true);
   });
 
-  it("filtre les flux sur l'onglet et les versions sur le flux de la ligne", () => {
+  it("filters the flows on the sheet and the versions on the row's flow", () => {
     const validations = validationsOfTemplate(SAMPLE_DATA);
     const onFlow = validations.find(
       (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(FX_COLUMNS, "Flow name")
@@ -493,16 +493,16 @@ describe("listes dépendantes des onglets FX_", () => {
     const surVersion = validations.find(
       (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(FX_COLUMNS, "Version")
     )!;
-    // La liste des flux se cale sur le nom de l'onglet, porté par la cellule.
+    // The flow list keys on the sheet's name, carried by the cell.
     expect(onFlow.formule).toContain(`$${EXTRA_COLUMN}$1`);
     expect(onFlow.formule).toContain("MATCH(");
-    // Celle des versions y ajoute le flux de la LIGNE : référence relative en
-    // ligne, pour qu'Excel décale la formule d'une ligne à l'autre.
+    // The versions' list adds THIS ROW's flow to it: a row-relative reference,
+    // so Excel shifts the formula from one row to the next.
     expect(surVersion.formule).toContain(`$${columnOf(FX_COLUMNS, "Flow name")}2`);
     expect(surVersion.formule).toContain("MATCH(");
   });
 
-  it("pose ces deux validations sur chaque onglet FX_", () => {
+  it("sets both validations on every FX_ sheet", () => {
     const validations = validationsOfTemplate(SAMPLE_DATA);
     for (const tab of SAMPLE_DATA.fx) {
       const columns = validations.filter((v) => v.sheet === tab.name).map((v) => v.column);
@@ -511,19 +511,19 @@ describe("listes dépendantes des onglets FX_", () => {
     }
   });
 
-  // La liste globale des flux n'a plus d'emploi : la garder laisserait deux
-  // façons de proposer un flux, dont une fausse.
-  it("n'expose plus de liste globale des flux", () => {
+  // The global flow list has no use left: keeping it would leave two ways of
+  // offering a flow, one of them wrong.
+  it("no longer exposes a global flow list", () => {
     expect(listsOfTemplate().map((l) => l.name)).not.toContain("L_Flux");
     expect(validationsOfTemplate(SAMPLE_DATA).map((v) => v.formule)).not.toContain("L_Flux");
   });
 });
 
-// Excel a refusé une première version de ces formules et supprimé
-// l'enregistrement : les fonctions postérieures à 2007 doivent être STOCKÉES
-// sous un nom préfixé (_xlfn., et _xlfn._xlws. pour FILTER et SORT). Sans lui,
-// Excel ne les reconnaît pas et propose de réparer le fichier.
-describe("formules d'appoint — noms stockés", () => {
+// Excel refused a first version of these formulas and deleted the record:
+// functions newer than 2007 must be STORED under a prefixed name (_xlfn., and
+// _xlfn._xlws. for FILTER and SORT). Without it, Excel does not recognise them
+// and offers to repair the file.
+describe("helper formulas — stored names", () => {
   const expected: [string, string][] = [
     ["FILTER", "_xlfn._xlws.FILTER("],
     ["SORT", "_xlfn._xlws.SORT("],
@@ -532,7 +532,7 @@ describe("formules d'appoint — noms stockés", () => {
     ["HSTACK", "_xlfn.HSTACK("],
   ];
 
-  it("préfixe chaque fonction récente", () => {
+  it("prefixes every recent function", () => {
     const lists = sheetXml("Lists");
     for (const [, prefixed] of expected) {
       expect(lists).toContain(prefixed);
@@ -547,8 +547,8 @@ describe("formules d'appoint — noms stockés", () => {
   });
 });
 
-describe("modèle de classeur — paliers", () => {
-  it("porte un onglet Paliers, visible, avec ses colonnes", () => {
+describe("the workbook template — milestones", () => {
+  it("carries a Milestones sheet, visible, with its columns", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     expect(wb.SheetNames).toContain("Milestones");
     const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Milestones, { header: 1 })[0];
@@ -557,9 +557,9 @@ describe("modèle de classeur — paliers", () => {
     expect(states[wb.SheetNames.indexOf("Milestones")].Hidden).toBeFalsy();
   });
 
-  // Les bornes de validité se choisissent, elles ne se tapent pas : une faute
-  // de frappe créerait un palier fantôme, invisible de l'onglet Paliers.
-  it("contraint les deux bornes de validité par la liste des paliers", () => {
+  // The validity bounds are picked, not typed: a typo would create a phantom
+  // milestone, invisible from the Milestones sheet.
+  it("constrains both validity bounds with the milestone list", () => {
     const onMilestone = validationsOfTemplate(SAMPLE_DATA).filter((v) => v.formule === "L_Palier");
     const sheets = new Set(onMilestone.map((v) => v.sheet));
     expect(sheets).toContain("Actors");
@@ -571,23 +571,23 @@ describe("modèle de classeur — paliers", () => {
     }
   });
 
-  it("alimente cette liste depuis l'onglet Paliers lui-même", () => {
+  it("feeds that list from the Milestones sheet itself", () => {
     const plage = listsOfTemplate().find((l) => l.name === "L_Palier")!;
     expect(plage.sheet).toBe("Milestones");
     expect(plage.heading).toBe("Milestone");
   });
 
-  it("se relit sans colonne manquante, paliers compris", () => {
+  it("rereads with no missing column, milestones included", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("modèle illisible");
     expect(result.model.missingOptionalColumns).toEqual([]);
   });
 });
 
-// Le fichier d'exemple sert à montrer l'outil à l'œuvre : il doit donc être
-// exemplaire, et notamment ne se signaler aucune anomalie à lui-même.
-describe("fichier d'exemple — axe des paliers", () => {
-  it("renseigne un palier d'arrivée sur chaque ligne, sans anomalie", () => {
+// The sample file exists to show the tool at work: it must therefore be
+// exemplary, and in particular report no anomaly against itself.
+describe("the sample file — the milestone axis", () => {
+  it("fills in an arrival milestone on every row, with no anomaly", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!result.ok) throw new Error("exemple illisible");
     const messages = runIntegrityChecks(result.model).families.flatMap((f) => f.anomalies.map((a) => a.message));
@@ -595,29 +595,29 @@ describe("fichier d'exemple — axe des paliers", () => {
   });
 });
 
-// Une formule qui cite un onglet inexistant n'est pas une formule cassée aux
-// yeux d'Excel : c'est une référence à un AUTRE CLASSEUR. Le fichier s'ouvre
-// alors sur « Ce classeur comporte des liaisons avec une ou plusieurs sources
-// externes », et les listes qui en dépendent ne se remplissent jamais.
-describe("formules — aucun onglet fantôme", () => {
-  it("ne cite que des onglets qui existent dans le classeur", () => {
+// A formula quoting a non-existent sheet is not a broken formula in Excel's
+// eyes: it is a reference to ANOTHER WORKBOOK. The file then opens on "This
+// workbook contains links to one or more external sources", and the lists that
+// depend on it never fill.
+describe("formulas — no phantom sheet", () => {
+  it("quotes only sheets that exist in the workbook", () => {
     const paquet = writeTemplate();
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const known = new Set(wb.SheetNames);
 
     const cited = new Set<string>();
     const relever = (xml: string) => {
-      // Un nom d'onglet dans une formule précède un « ! » : soit nu, soit
-      // entre apostrophes quand il porte un espace.
+      // A sheet name in a formula precedes a "!": either bare, or between
+      // apostrophes when it carries a space.
       for (const m of xml.matchAll(/(?:'([^']+)'|([A-Za-z_][A-Za-z0-9_.]*))!/g)) {
         cited.add(m[1] ?? m[2]);
       }
     };
     for (const name of wb.SheetNames) relever(sheetXml(name, paquet));
     relever(part("/xl/workbook.xml", paquet));
-    // Les colonnes calculées ne vivent pas dans la feuille mais dans la partie
-    // « table » : c'est là qu'était la formule d'aperçu, et l'oublier laissait
-    // le contrôle aveugle sur celle-là même qui a déclenché l'avertissement.
+    // The calculated columns live not in the sheet but in the "table" part: that
+    // is where the preview formula was, and forgetting it left the check blind to
+    // the very one that triggered the warning.
     const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
     for (const input of cfb.FullPaths) {
       if (/\/xl\/tables\/table\d+\.xml$/.test(input)) relever(part(input.replace(/^[^/]*/, ""), paquet));
@@ -627,15 +627,15 @@ describe("formules — aucun onglet fantôme", () => {
   });
 });
 
-// Chaque onglet où l'on saisit porte un tableau structuré : c'est ce qui lui
-// donne ses bandes, son filtre et l'extension automatique des formules à la
-// ligne suivante. Un onglet qui n'en a pas se saisit moins bien que ses
-// voisins, sans que rien n'explique la différence.
-describe("modèle de classeur — tous les onglets de saisie sont des tableaux", () => {
-  it("n'oublie aucun onglet de données", () => {
+// Every sheet one types into carries a structured table: that is what gives it
+// its banding, its filter and the automatic extension of formulas to the next
+// row. A sheet without one is typed into less well than its neighbours, with
+// nothing to explain the difference.
+describe("the workbook template — every entry sheet is a table", () => {
+  it("forgets no data sheet", () => {
     const paquet = writeTemplate();
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
-    // Ni la prose, ni les deux onglets masqués qui ne se saisissent pas.
+    // Neither the prose, nor the two hidden sheets that are not typed into.
     const entry = wb.SheetNames.filter((n) => !["Instructions", "Lists", "Version"].includes(n));
     const withTable = new Set(tablesOfTemplate(SAMPLE_DATA).map((t) => t.sheet));
 
@@ -643,20 +643,20 @@ describe("modèle de classeur — tous les onglets de saisie sont des tableaux",
   });
 });
 
-// SheetJS lève « Sheet names cannot exceed 31 chars » dès que FX_<exposant>_
-// <type> dépasse la limite qu'Excel impose aux noms d'onglet -- ce que
-// COLONNES_FX ne prévient pas à l'écriture. Un référentiel réel a des noms
-// d'acteur et de technologie longs ; l'export ne doit pas mourir dessus.
-// Comme donneesDepuisModele() (migration-modele.ts) et migrerClasseurLegacy()
-// (migration-legacy.ts) le font déjà pour le même cas : on écarte l'onglet
-// impossible, l'interface reste au catalogue, et le contrôle d'intégrité --
-// qui sait déjà lire « son onglet FX_ attendu n'existe pas » -- le signale à
-// la relecture. Refuser tout l'export aurait puni les interfaces valides pour
-// une seule qui ne l'est pas.
-// L'intention est la même qu'avant -- ne jamais produire un classeur qu'Excel
-// refuserait -- mais le moyen a changé : on assainit le nom au lieu d'écarter
-// l'onglet, ce qui emportait ses consommations sans un mot.
-describe("modèle de classeur — onglet FX_ au nom impossible", () => {
+// SheetJS throws "Sheet names cannot exceed 31 chars" as soon as
+// FX_<publisher>_<type> exceeds the limit Excel imposes on sheet names -- which
+// FX_COLUMNS does not prevent at writing time. A real referential has long
+// actor and technology names; the export must not die on them.
+// As dataFromModel() (schema-upgrade.ts) and migrateLegacyWorkbook()
+// (legacy-upgrade.ts) already do for the same case: the impossible sheet is
+// dropped, the interface stays in the catalogue, and the integrity check --
+// which already knows how to say "its expected FX_ sheet does not exist" --
+// reports it on re-reading. Refusing the whole export would have punished the
+// valid interfaces for a single invalid one.
+// The intent is the same as before -- never produce a workbook Excel would
+// refuse -- but the means has changed: the name is sanitised instead of the
+// sheet being dropped, which carried its consumptions off without a word.
+describe("the workbook template — an FX_ sheet with an impossible name", () => {
   const overlongName = `FX_${"A".repeat(30)}_HTTP`; // 38 caractères
 
   const data: WorkbookData = {
@@ -674,34 +674,34 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
 
   const sanitised = overlongName.slice(0, 31);
 
-  it("n'échoue pas quand un onglet FX_ dépasse 31 caractères", () => {
+  it("does not fail when an FX_ sheet exceeds 31 characters", () => {
     expect(() => writeTemplate(data)).not.toThrow();
   });
 
-  it("crée l'onglet sous un nom qu'Excel accepte, sans toucher aux autres", () => {
+  it("creates the sheet under a name Excel accepts, without touching the others", () => {
     const wb = XLSX.read(new Uint8Array(writeTemplate(data)), { type: "array" });
     expect(wb.SheetNames).toContain(sanitised);
     expect(wb.SheetNames).toContain("FX_Takodana_HTTP");
     expect(wb.SheetNames.every((n) => n.length <= 31)).toBe(true);
   });
 
-  it("lui pose son tableau et ses validations, comme aux autres", () => {
+  it("gives it its table and its validations, like the others", () => {
     expect(tablesOfTemplate(data).map((t) => t.sheet)).toContain(sanitised);
     expect(validationsOfTemplate(data).map((v) => v.sheet)).toContain(sanitised);
   });
 });
 
-describe("modèle de classeur — nature et relais", () => {
-  it("propose la nature en liste fermée sur ActorTypes", () => {
+describe("the workbook template — nature and relays", () => {
+  it("offers the nature as a closed list on ActorTypes", () => {
     const lists = listsOfTemplate();
     expect(lists.find((l) => l.name === "L_Nature")).toBeDefined();
   });
 
-  // La lecture fonctionnelle tient sur deux colonnes. « Relays », en v3, vivait
-  // sur la ligne d'interface ; elle a laissé place à « Republished as » sur la
-  // ligne de consommation, qui seule sait de quel fournisseur et de quelle
-  // version vient l'entrée -- et qu'une liste déroulante peut guider.
-  it("écrit les deux colonnes qui portent la lecture fonctionnelle", () => {
+  // The functional reading rests on two columns. "Relays", in v3, lived on the
+  // interface row; it gave way to "Republished as" on the consumption row, which
+  // alone knows which provider and which version the input comes from -- and
+  // which a drop-down can guide.
+  it("writes the two columns that carry the functional reading", () => {
     const paquet = writeTemplate(SAMPLE_DATA);
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const types = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1 })[0];
@@ -714,12 +714,12 @@ describe("modèle de classeur — nature et relais", () => {
   });
 });
 
-// --- QA : les deux référentiels du classeur, quand ils ne font pas exactement
-// la taille de l'amorce. Le tableau structuré est dimensionné sur l'amorce
-// (ICONES_PAR_DEFAUT, TYPES_FLUX) et non sur les données réellement écrites :
-// la liste déroulante qui le vise se remplit donc de lignes vides quand
-// l'équipe en a retiré, et perd des valeurs quand elle en a ajouté.
-describe("modèle de classeur — tableaux des référentiels dimensionnés sur les données", () => {
+// --- QA: the workbook's two referentials, when they are not exactly the seed's
+// size. The structured table is sized on the seed (DEFAULT_ICONS, FLOW_TYPES)
+// and not on the data actually written: the drop-down targeting it therefore
+// fills with blank rows when the team has removed some, and loses values when
+// it has added some.
+describe("the workbook template — referential tables sized on the data", () => {
   const data: WorkbookData = {
     flowTypes: [
       ["HTTP", "consumer → provider", "REST"],
@@ -746,25 +746,25 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
 
   const table = (sheet: string) => tablesOfTemplate(data).find((t) => t.sheet === sheet)!;
 
-  it("borne le tableau FlowTypes aux types réellement écrits", () => {
+  it("bounds the FlowTypes table to the types actually written", () => {
     expect(table("FlowTypes").rows).toBe(data.flowTypes.length);
   });
 
-  it("étend le tableau ActorTypes à tous les types réellement écrits", () => {
+  it("extends the ActorTypes table to every type actually written", () => {
     expect(table("ActorTypes").rows).toBe(data.actorTypes.length);
   });
 
-  it("ne laisse aucun type d'acteur hors du tableau qui alimente L_TypeActeur", () => {
+  it("leaves no actor type outside the table that feeds L_TypeActeur", () => {
     const wb = XLSX.read(new Uint8Array(writeTemplate(data)), { type: "array" });
     const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1, defval: "" });
     expect(rows.length - 1).toBe(table("ActorTypes").rows);
   });
 });
 
-// --- QA : le classeur pose ses validations et ses tables d'appoint sur une
-// plage figée à 1000 lignes. Au-delà, une saisie n'est plus contrôlée et les
-// listes dépendantes cessent de voir les flux -- sans que rien ne le dise.
-describe("modèle de classeur — grands classeurs", () => {
+// --- QA: the workbook sets its validations and its helper tables over a range
+// frozen at 1000 rows. Beyond that, an entry is no longer checked and the
+// dependent lists stop seeing the flows -- with nothing to say so.
+describe("the workbook template — large workbooks", () => {
   const NB = 1200;
   const big: WorkbookData = {
     flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], fx: [],
@@ -773,34 +773,34 @@ describe("modèle de classeur — grands classeurs", () => {
     ]),
   };
 
-  it("étend les validations au-delà de la millième ligne", () => {
+  it("extends the validations beyond the thousandth row", () => {
     const xml = sheetXml("Interfaces", writeTemplate(big));
     const sqrefs = [...xml.matchAll(/sqref="[A-Z]+2:[A-Z]+(\d+)"/g)].map((m) => Number(m[1]));
     expect(sqrefs.length).toBeGreaterThan(0);
     expect(Math.min(...sqrefs)).toBeGreaterThan(NB);
   });
 
-  it("étend les tables d'appoint au-delà de la millième ligne", () => {
+  it("extends the helper tables beyond the thousandth row", () => {
     const xml = sheetXml("Lists", writeTemplate(big));
     const dimension = xml.match(/<dimension ref="A1:[A-Z]+(\d+)"/);
     expect(Number(dimension![1])).toBeGreaterThan(NB);
   });
 });
 
-// --- QA : la liste « Version » d'un onglet FX_ ne s'ouvre pas tant que la
-// colonne « Flow name » est vide -- la source s'évalue en #N/A, contrepartie
-// assumée du MATCH exact. Rien ne le disait à celui qui saisit : il voyait une
-// liste morte. Excel sait afficher une bulle à la sélection de la cellule ; le
-// drapeau était posé, le texte manquait.
-describe("modèle de classeur — invites de saisie", () => {
+// --- QA: an FX_ sheet's "Version" list does not open while the "Flow name"
+// column is empty -- the source evaluates to #N/A, the accepted price of the
+// exact MATCH. Nothing said so to whoever was typing: they saw a dead list.
+// Excel can show a bubble when the cell is selected; the flag was set, the text
+// was missing.
+describe("the workbook template — entry prompts", () => {
   const validations = () => validationsOfTemplate(SAMPLE_DATA);
 
-  it("explique l'ordre de saisie sur la colonne Version d'un onglet FX_", () => {
+  it("explains the entry order on an FX_ sheet's Version column", () => {
     const version = validations().find((v) => v.sheet.startsWith("FX_") && v.prompt?.text.includes("Flow name"));
     expect(version).toBeDefined();
   });
 
-  it("écrit l'invite dans le XML de la feuille", () => {
+  it("writes the prompt into the sheet's XML", () => {
     const paquet = writeTemplate(SAMPLE_DATA);
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const fxName = wb.SheetNames.find((n) => n.startsWith("FX_") && n !== "FX_Modèle")!;
@@ -809,17 +809,17 @@ describe("modèle de classeur — invites de saisie", () => {
     expect(xml).toContain("prompt=");
   });
 
-  // Toute colonne de saisie porte désormais son infobulle, liste ou pas :
-  // c'était la moitié du classeur qui ne disait rien, et justement celle où
-  // l'on hésite.
-  it("explique chaque colonne de saisie", () => {
+  // Every entry column now carries its tooltip, list or no list: that was half
+  // the workbook saying nothing, and precisely the half people hesitate over.
+  //
+  it("explains every entry column", () => {
     const sansInvite = validations().filter((v) => !v.prompt);
     expect(sansInvite).toEqual([]);
   });
 
-  // Une invite vide n'a rien à écrire : le classeur ne doit pas se couvrir
+  // An empty prompt has nothing to write: the workbook must not cover itself
   // d'attributs vides.
-  it("n'écrit jamais une invite vide", () => {
+  it("never writes an empty prompt", () => {
     for (const v of validations()) {
       expect(v.prompt?.title.trim()).toBeTruthy();
       expect(v.prompt?.text.trim()).toBeTruthy();
@@ -827,13 +827,13 @@ describe("modèle de classeur — invites de saisie", () => {
   });
 });
 
-// --- QA : le nom d'onglet est assaini côté outil (assainirNomOnglet). La
-// formule Excel des tables d'appoint reconstruit ce même nom pour retrouver
-// les flux d'un onglet : si elle ne refait pas l'assainissement à l'identique,
-// les listes dépendantes d'un onglet au nom raccourci cherchent un onglet qui
-// n'existe pas, et restent vides.
-describe("modèle de classeur — la formule Excel assainit comme l'outil", () => {
-  // On n'extrait que la formule : comparer le XML entier noierait l'échec.
+// --- QA: the sheet name is sanitised on the tool's side (sanitiseTabName). The
+// helper tables' Excel formula rebuilds that same name to find a sheet's flows:
+// if it does not reproduce the sanitising identically, the dependent lists of a
+// shortened-name sheet look for a sheet that does not exist, and stay empty.
+//
+describe("the workbook template — the Excel formula sanitises like the tool", () => {
+  // Only the formula is extracted: comparing the whole XML would drown the failure.
   const formuleAppoint = () => {
     const xml = sheetXml("Lists", writeTemplate(SAMPLE_DATA));
     const m = xml.match(/<f t="array"[^>]*>([^<]*)<\/f>/);
@@ -841,23 +841,23 @@ describe("modèle de classeur — la formule Excel assainit comme l'outil", () =
     return m[1];
   };
 
-  it("coupe le nom reconstruit à 31 caractères", () => {
+  it("cuts the rebuilt name at 31 characters", () => {
     expect(formuleAppoint()).toContain("LEFT(");
     expect(formuleAppoint()).toContain(",31)");
   });
 
-  it("remplace chacun des caractères qu'Excel interdit", () => {
+  it("replaces every character Excel forbids", () => {
     const substitutions = (formuleAppoint().match(/SUBSTITUTE\(/g) ?? []).length;
     expect(substitutions).toBe(7);
   });
 });
 
-// --- Le plancher des validations : sur un petit classeur, la liste déroulante
-// doit descendre bien plus bas que les lignes déjà écrites, sans quoi la
-// première saisie sous la dernière ligne ne serait plus contrôlée. Mesuré par
-// mutation : abaisser ce plancher de 1000 à 2 ne faisait tomber aucun test.
-describe("modèle de classeur — le plancher des validations", () => {
-  it("valide loin sous les lignes déjà écrites, même sur un classeur minuscule", () => {
+// --- The validations' floor: on a small workbook the drop-down must reach well
+// below the rows already written, failing which the first entry under the last
+// row would no longer be checked. Measured by mutation: lowering that floor
+// from 1000 to 2 made no test fail.
+describe("the workbook template — the validations' floor", () => {
+  it("validates far below the rows already written, even on a tiny workbook", () => {
     const xml = sheetXml("Actors", writeTemplate());
     const upTo = [...xml.matchAll(/sqref="[A-Z]+2:[A-Z]+(\d+)"/g)].map((m) => Number(m[1]));
     expect(upTo.length).toBeGreaterThan(0);
@@ -865,43 +865,43 @@ describe("modèle de classeur — le plancher des validations", () => {
   });
 });
 
-// --- QA : l'outil ne posait aucune propriété de document. Un classeur qu'il
-// venait de produire se relisait donc SANS date de sauvegarde, et le cartouche
-// de chaque schéma annonçait « save date unknown » sur des données fraîches --
-// ce qui donne à l'outil l'air de mal lire les fichiers Excel.
-describe("écrireModele — les propriétés du document", () => {
+// --- QA: the tool set no document property at all. A workbook it had just
+// produced therefore reread WITHOUT a save date, and every diagram's title block
+// announced "save date unknown" over fresh data -- which makes the tool look
+// like it reads Excel files badly.
+describe("writeTemplate — the document properties", () => {
   const THE_DAY = new Date("2026-08-22T09:00:00Z");
 
-  it("écrit la date de sauvegarde, et la relecture la retrouve", () => {
+  it("writes the save date, and the re-reading finds it again", () => {
     expect(parseWorkbook(writeTemplate(SAMPLE_DATA, THE_DAY)).savedAt?.toISOString()).toBe(
       "2026-08-22T09:00:00.000Z"
     );
   });
 
-  // La date est injectée, pas lue de l'horloge : c'est ce qui rend l'écriture
-  // reproductible, comme la mise à niveau le fait déjà.
-  it("prend la date qu'on lui donne plutôt que l'heure courante", () => {
+  // The date is injected, not read from the clock: that is what makes the writing
+  // reproducible, as the upgrade already does.
+  it("takes the date it is given rather than the current time", () => {
     const other = new Date("2020-01-02T03:04:05Z");
     expect(parseWorkbook(writeTemplate(SAMPLE_DATA, other)).savedAt?.toISOString()).toBe(other.toISOString());
   });
 
-  // Les tableaux structurés, les listes et les validations sont posés APRÈS
-  // l'écriture SheetJS, en réécrivant le zip : ils ne doivent pas emporter
+  // The structured tables, lists and validations are applied AFTER SheetJS has
+  // written, by rewriting the zip: they must not carry away
   // docProps/core.xml au passage.
-  it("garde la date malgré la réécriture du classeur", () => {
+  it("keeps the date despite the workbook being rewritten", () => {
     const reread = parseWorkbook(writeTemplate(SAMPLE_DATA, THE_DAY));
     expect(reread.savedAt).not.toBeNull();
     expect(reread.sheets.some((f) => f.name === "Interfaces")).toBe(true);
   });
 });
 
-// --- L'onglet d'explication et les aides à la saisie. La moitié du classeur
-// ne disait rien : les colonnes de saisie libre n'avaient aucune infobulle,
-// alors que ce sont celles où l'on hésite.
-describe("modèle de classeur — les aides à la saisie", () => {
+// --- The explanation sheet and the data-entry aids. Half the workbook said
+// nothing: the free-entry columns had no tooltip at all, although they are the
+// ones people hesitate over.
+describe("the workbook template — the data-entry aids", () => {
   const entrySheets = ["Actors", "Groups", "Milestones", "ActorTypes", "FlowTypes", "Interfaces"];
 
-  it("pose une infobulle sur chaque colonne de chaque feuille de saisie", () => {
+  it("sets a tooltip on every column of every entry sheet", () => {
     const validations = validationsOfTemplate();
     const columnsOf: Record<string, readonly string[]> = {
       Actors: ACTOR_COLUMNS,
@@ -919,9 +919,9 @@ describe("modèle de classeur — les aides à la saisie", () => {
     }
   });
 
-  // Une infobulle déclarée pour une colonne qui n'existe pas ne sert personne
-  // et donne l'illusion d'une couverture.
-  it("ne déclare aucune infobulle pour une colonne inexistante", () => {
+  // A tooltip declared for a column that does not exist serves nobody and gives
+  // the illusion of coverage.
+  it("declares no tooltip for a non-existent column", () => {
     const all = [
       ...ACTOR_COLUMNS, ...GROUP_COLUMNS, ...MILESTONE_COLUMNS,
       ...ACTOR_TYPE_COLUMNS, ...FLOW_TYPE_COLUMNS, ...INTERFACE_COLUMNS, ...FX_COLUMNS,
