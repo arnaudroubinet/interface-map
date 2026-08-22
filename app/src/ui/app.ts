@@ -21,6 +21,7 @@ import { toutesLesPlanches } from "../aggregation/planches";
 import { buildGraphSvg } from "../render/svg-builder";
 import type { ContexteSchema } from "../render/cartouche";
 import { brancherZoom } from "../render/zoom";
+import { conseilDEchelle } from "./echelle";
 import type { Lecture } from "../aggregation/fonctionnel";
 import { lectureUnion } from "../aggregation/fonctionnel";
 import type { ViewResult } from "../aggregation/views";
@@ -424,6 +425,18 @@ export function mountApp(root: HTMLElement): void {
       if (view.nodes.length === 0) {
         zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["No flow to display for this selection."]));
       } else {
+        // Une planche qui a dépassé ce que le nœud-lien sert bien doit le
+        // DIRE, et proposer où aller. Jamais bloquer, jamais tronquer.
+        const conseil = conseilDEchelle(view.nodes.filter((n) => n.kind !== "frontiere").length, view.edges.length);
+        if (conseil) {
+          const bandeauEchelle = el("div", { class: "conseil-echelle" }, [conseil.message]);
+          for (const cible of conseil.vues) {
+            const bouton = el("button", { type: "button" }, [LIBELLE_VUE[cible]]);
+            bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), cible)));
+            bandeauEchelle.appendChild(bouton);
+          }
+          zoneRendu.appendChild(bandeauEchelle);
+        }
         // Le calcul de placement est asynchrone (ELK). Une génération protège
         // d'un rendu périmé : si l'utilisateur change de vue pendant le calcul,
         // le schéma qui arrive en retard ne doit pas s'afficher par-dessus.

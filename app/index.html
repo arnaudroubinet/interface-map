@@ -192,6 +192,15 @@
   /* Le SVG ne porte plus ses dimensions : il s'étire dans sa zone plutôt que
      d'en déborder. */
   .zone-rendu > svg { display: block; width: 100%; height: auto; max-height: 100%; }
+  .conseil-echelle {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    margin-bottom: 10px; padding: 8px 12px; font-size: 13px;
+    border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+  }
+  .conseil-echelle button {
+    font: inherit; padding: 2px 10px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--text);
+  }
   .commandes-zoom { display: flex; gap: 6px; margin-top: 8px; }
   .commandes-zoom button {
     font: inherit; padding: 2px 10px; cursor: pointer;
