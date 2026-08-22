@@ -3,6 +3,8 @@ import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } f
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import type { OrdreMatrice } from "../aggregation/seriation";
+import { chainesDisponibles } from "../aggregation/chaine";
+import { rangDuPalier } from "../aggregation/paliers";
 
 // L'ordre de lecture va du plus court au plus complet.
 const LIBELLES_ARETE: [LibelléArête, string][] = [
@@ -23,6 +25,7 @@ const ORDRE_DES_VUES: Vue[] = [
   "plateforme-seule",
   "par-acteur",
   "par-technologie",
+  "chaine",
   "matrice",
   "ecarts",
   "controles",
@@ -52,6 +55,7 @@ export interface RailCallbacks {
   onVue: (vue: Vue) => void;
   onSelectionActeur: (nom: string) => void;
   onSelectionTechnologie: (type: string) => void;
+  onSelectionChaine: (chaîne: string) => void;
   onPalierAffiche: (palier: string) => void;
   onPalierCompare: (palier: string) => void;
   onOptionCompteurs: (value: boolean) => void;
@@ -292,6 +296,24 @@ export function renderRail(
     });
     const acteurs = blocFiltre("Actors", dispo, state.filtresTechnologie.acteursMasques, callbacks.onActeurMasqueTechnologie);
     if (acteurs) root.appendChild(acteurs);
+  }
+
+  if (state.vue === "chaine") {
+    // Le sélecteur de chaîne. Une chaîne n'a de sens qu'en lecture
+    // fonctionnelle : c'est là que la plomberie est traversée, et la vue montre
+    // justement ce que cette traversée efface.
+    const chaînes = chainesDisponibles(state.fichier.model, rangDuPalier(state.fichier.model, state.palierAffiche ?? "") ?? null);
+    const select = el("select", { class: "rail-selecteur rail-chaine" });
+    for (const c of chaînes) {
+      const option = el("option", { value: c.id }, [c.libellé]);
+      if (c.id === state.selectionChaine) option.selected = true;
+      select.appendChild(option);
+    }
+    select.addEventListener("change", () => callbacks.onSelectionChaine(select.value));
+    root.appendChild(select);
+    if (chaînes.length === 0) {
+      root.appendChild(el("p", { class: "rail-vide" }, ["No chain in this workbook: no flow crosses a technical actor."]));
+    }
   }
 
   if (state.vue === "matrice") {

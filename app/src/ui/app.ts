@@ -22,6 +22,7 @@ import { buildGraphSvg } from "../render/svg-builder";
 import { libelléCartouche, type ContexteSchema } from "../render/cartouche";
 import { brancherZoom } from "../render/zoom";
 import { conseilDEchelle } from "./echelle";
+import { chainesDisponibles, buildChainView } from "../aggregation/chaine";
 import type { Lecture } from "../aggregation/fonctionnel";
 import { lectureUnion } from "../aggregation/fonctionnel";
 import type { ViewResult } from "../aggregation/views";
@@ -56,6 +57,7 @@ import {
   withOptions,
   withSelectionActeur,
   withSelectionTechnologie,
+  withSelectionChaine,
   withTechnoMasquee,
   withActeurMasque,
   withMasquerExternes,
@@ -382,6 +384,13 @@ export function mountApp(root: HTMLElement): void {
         view = buildPlatformDetailView(model, lecture, options);
       } else if (state.vue === "plateforme-seule") {
         view = buildPlatformOnlyView(model, lecture, options);
+      } else if (state.vue === "chaine") {
+        const chaînes = chainesDisponibles(model, rang);
+        const retenue = chaînes.find((c) => c.id === state.selectionChaine);
+        if (!retenue && chaînes.length > 0) {
+          chaineParDefaut = chaînes[0].id;
+        }
+        view = retenue ? buildChainView(model, retenue) : { nodes: [], edges: [] };
       } else if (state.vue === "par-acteur") {
         // Même liste que le sélecteur du rail (§5.2) : un défaut piochant hors
         // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
@@ -413,7 +422,12 @@ export function mountApp(root: HTMLElement): void {
 
       let besoinDeSelectionTechnologie = false;
       let acteurParDefaut: string | null = null;
+      let chaineParDefaut: string | null = null;
       const view = construireVue(lecture);
+      if (chaineParDefaut) {
+        setState(withSelectionChaine(state, chaineParDefaut));
+        return;
+      }
       if (acteurParDefaut) {
         setState(withSelectionActeur(state, acteurParDefaut));
         return;
@@ -453,7 +467,7 @@ export function mountApp(root: HTMLElement): void {
         // contient donc PAS le palier -- c'est précisément d'un palier à
         // l'autre qu'on veut la continuité.
         const cléPlacement = JSON.stringify([
-          state.vue, state.mode, state.selectionActeur, state.selectionTechnologie,
+          state.vue, state.mode, state.selectionActeur, state.selectionTechnologie, state.selectionChaine,
           state.filtresActeur, state.filtresTechnologie, options,
         ]);
         const vueUnion = construireVue(lectureUnion(model, state.mode));
@@ -484,6 +498,7 @@ export function mountApp(root: HTMLElement): void {
       onMode: (mode) => setState(withMode(state, mode)),
       onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
       onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),
+      onSelectionChaine: (chaîne) => setState(withSelectionChaine(withMessageBandeau(state, null), chaîne)),
       onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),
       onPalierAffiche: (palier) => setState(recalculerRapport(withPalierAffiche(withMessageBandeau(state, null), palier))),
       onPalierCompare: (palier) => setState(withPalierCompare(withMessageBandeau(state, null), palier)),

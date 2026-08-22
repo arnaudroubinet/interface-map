@@ -1,4 +1,4 @@
-import type { Acteur, ParsedModel, InterfaceCatalogue } from "../parsing/model";
+import type { Acteur, ParsedModel, InterfaceCatalogue, Consommation } from "../parsing/model";
 import {
   buildFlowInstances,
   libelleInterface,
@@ -50,6 +50,11 @@ function acteurVivant(
 // saisie serait pire que la ligne mal saisie.
 interface Remontee {
   sources: InterfaceCatalogue[];
+  // Le TRAJET vers chaque source, maillon par maillon, de la source vers l'aval.
+  // La traversée le reconstruisait déjà segment par segment et le jetait pour
+  // n'en garder que les extrémités : c'est l'information la plus difficile à
+  // obtenir du classeur, et la seule qui réponde à « par où passe ce flux ? ».
+  chemins: Map<InterfaceCatalogue, Maillon[]>;
   coupures: ChaineCoupee[];
 }
 
@@ -62,12 +67,36 @@ interface Remontee {
 // liste déroulante ordinaire peut guider. Un bus qui agrège n'a rien de
 // spécial à écrire -- il a simplement plusieurs lignes qui désignent la même
 // interface.
+// Un segment de chaîne : ce qui circule sur UN maillon, sous le nom et la
+// technologie qu'il porte à cet endroit-là. C'est précisément ce que la lecture
+// fonctionnelle efface -- et ce qu'on cherche quand on demande « par où passe
+// ce flux ? ».
+export interface Maillon {
+  exposant: string;
+  consommateur: string;
+  interfaceNom: string;
+  version: string;
+  technologie: string;
+  atténué: boolean;
+}
+
+function maillon(iface: InterfaceCatalogue, conso: Consommation): Maillon {
+  return {
+    exposant: iface.acteurExposant.trim(),
+    consommateur: conso.acteurConsommateur.trim(),
+    interfaceNom: iface.nomDuFlux,
+    version: iface.version,
+    technologie: iface.typeDeFlux,
+    atténué: normalizeText(conso.decision) === normalizeText("Transform"),
+  };
+}
+
 function entreesDe(
   model: ParsedModel,
   lookup: InterfaceLookup,
   republiee: InterfaceCatalogue,
   rang: number | null
-): InterfaceCatalogue[] {
+): { iface: InterfaceCatalogue; conso: Consommation }[] {
   const vivant = (v: { palierIntroduction: string; palierRetrait: string }) =>
     rang === null || estVivant(intervalleDeVie(model, v), rang);
   const relayeur = republiee.acteurExposant.trim();
@@ -78,14 +107,14 @@ function entreesDe(
     normalizeText(libelleInterface(republiee.nomDuFlux, republiee.version)),
   ]);
 
-  const entrées: InterfaceCatalogue[] = [];
+  const entrées: { iface: InterfaceCatalogue; conso: Consommation }[] = [];
   for (const c of model.consommations) {
     if (c.acteurConsommateur.trim() !== relayeur) continue;
     if (!désigné.has(normalizeText(c.republiePar))) continue;
     if (!vivant(c)) continue;
     const amont = findInterfaceForConsommation(lookup, c);
     if (!amont || !vivant(amont) || !acteurVivant(model, amont.acteurExposant, rang)) continue;
-    if (!entrées.includes(amont)) entrées.push(amont);
+    if (!entrées.some((e) => e.iface === amont)) entrées.push({ iface: amont, conso: c });
   }
   return entrées;
 }
@@ -101,27 +130,55 @@ function remonter(
   rang: number | null,
   chemin: ReadonlySet<InterfaceCatalogue> = new Set()
 ): Remontee {
-  if (!estActeurTechnique(model, départ.acteurExposant)) return { sources: [départ], coupures: [] };
-  if (chemin.has(départ)) return { sources: [], coupures: [{ iface: départ, raison: "boucle" }] };
+  if (!estActeurTechnique(model, départ.acteurExposant)) {
+    return { sources: [départ], chemins: new Map([[départ, []]]), coupures: [] };
+  }
+  if (chemin.has(départ)) return { sources: [], chemins: new Map(), coupures: [{ iface: départ, raison: "boucle" }] };
 
   const entrées = entreesDe(model, lookup, départ, rang);
-  if (entrées.length === 0) return { sources: [], coupures: [{ iface: départ, raison: "sans-entree" }] };
+  if (entrées.length === 0) {
+    return { sources: [], chemins: new Map(), coupures: [{ iface: départ, raison: "sans-entree" }] };
+  }
 
   const parcouru = new Set(chemin).add(départ);
   const sources: InterfaceCatalogue[] = [];
+  const chemins = new Map<InterfaceCatalogue, Maillon[]>();
   const coupures: ChaineCoupee[] = [];
   for (const entrée of entrées) {
-    const remontée = remonter(model, lookup, entrée, rang, parcouru);
-    for (const source of remontée.sources) if (!sources.includes(source)) sources.push(source);
+    const remontée = remonter(model, lookup, entrée.iface, rang, parcouru);
+    for (const source of remontée.sources) {
+      if (!sources.includes(source)) sources.push(source);
+      // Le maillon qui vient d'être franchi s'ajoute EN AVAL de ce que la
+      // remontée a rapporté : le trajet se lit de la source vers le
+      // consommateur, comme le trait.
+      if (!chemins.has(source)) {
+        chemins.set(source, [...(remontée.chemins.get(source) ?? []), maillon(entrée.iface, entrée.conso)]);
+      }
+    }
     coupures.push(...remontée.coupures);
   }
-  return { sources, coupures };
+  return { sources, chemins, coupures };
+}
+
+// La chaîne complète d'un flux fonctionnel : un maillon par segment, chacun
+// portant le nom sous lequel l'échange circule À CET ENDROIT et la technologie
+// qui l'y porte. Un lien direct est une chaîne d'un seul maillon : ce n'est pas
+// un cas particulier.
+// `f` est la consommation MÉTIER d'origine -- celle dont l'interface est le
+// DERNIER maillon. Un flux fonctionnel ne convient pas : son `iface` a déjà été
+// remplacée par la source, et la chaîne se réduirait à un maillon.
+export function chainesDuFlux(model: ParsedModel, rang: number | null, f: FlowInstance): Maillon[][] {
+  const lookup = buildInterfaceLookup(model);
+  const remontée = remonter(model, lookup, f.iface, rang);
+  return remontée.sources
+    .filter((source) => source.acteurExposant.trim() !== f.consommateur.trim())
+    .map((source) => [...(remontée.chemins.get(source) ?? []), maillon(f.iface, f.conso)]);
 }
 
 // Les consommations qui comptent : celles d'un acteur MÉTIER. Une consommation
 // par un acteur technique n'est pas une extrémité mais un segment, traversé
 // depuis l'aval.
-function consommationsMetier(
+export function consommationsMetier(
   model: ParsedModel,
   rang: number | null,
 ): FlowInstance[] {

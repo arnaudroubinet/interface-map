@@ -204,3 +204,83 @@ describe("vue Écarts — un seul palier déclaré", () => {
     expect(message?.textContent).toBe("This workbook declares only one milestone; comparing needs two.");
   });
 });
+
+
+// --- QA : la mémoire du placement est indexée sur ce qui décide du DESSIN.
+// La sélection de chaîne y manquait, et changer de chaîne ne changeait donc
+// rien à l'écran : deux vues différentes partageaient le même schéma.
+describe("vue Chaîne — changer de chaîne redessine", () => {
+  // Deux chaînes DISJOINTES : aucun acteur commun. C'est ce qui rend le défaut
+  // détectable -- avec une plomberie partagée, le dessin resterait plausible
+  // même en réutilisant le placement de l'autre chaîne.
+  const deuxChaines: DonneesClasseur = {
+    typesFlux: [["Kafka", "provider → consumer", ""]],
+    typesActeur: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
+    paliers: [],
+    groupes: [["Core", "Platform"]],
+    acteurs: [
+      ["Amont1", "Core", "Application", "", "", "", "", ""],
+      ["Amont2", "Core", "Application", "", "", "", "", ""],
+      ["Bus1", "Core", "Infra", "", "", "", "", ""],
+      ["Bus2", "Core", "Infra", "", "", "", "", ""],
+      ["Aval1", "Core", "Application", "", "", "", "", ""],
+      ["Aval2", "Core", "Application", "", "", "", "", ""],
+    ],
+    interfaces: [
+      ["Un", "", "Amont1", "Kafka", "", "", "", "", "No", "", ""],
+      ["Deux", "", "Amont2", "Kafka", "", "", "", "", "No", "", ""],
+      ["Sortie1", "", "Bus1", "Kafka", "", "", "", "", "No", "", ""],
+      ["Sortie2", "", "Bus2", "Kafka", "", "", "", "", "No", "", ""],
+    ],
+    fx: [
+      { nom: "FX_Amont1_Kafka", lignes: [["Un", "", "Bus1", "", "", "Keep", "", "Sortie1", "", ""]] },
+      { nom: "FX_Amont2_Kafka", lignes: [["Deux", "", "Bus2", "", "", "Keep", "", "Sortie2", "", ""]] },
+      { nom: "FX_Bus1_Kafka", lignes: [["Sortie1", "", "Aval1", "", "", "Keep", "", "", "", ""]] },
+      { nom: "FX_Bus2_Kafka", lignes: [["Sortie2", "", "Aval2", "", "", "Keep", "", "", "", ""]] },
+    ],
+  };
+
+  it("dessine la chaîne retenue, et pas la précédente", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    const buffer = écrireModele(deuxChaines);
+    const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
+    root.dispatchEvent(event);
+    await vi.waitFor(() => expect(root.querySelector(".rail-vue-item")).not.toBeNull());
+
+    boutonParLibellé(root, "Chain").click();
+    const select = await vi.waitFor(() => {
+      const s = root.querySelector(".rail-chaine") as HTMLSelectElement | null;
+      if (!s || s.options.length < 2) throw new Error("sélecteur pas prêt");
+      return s;
+    });
+    const libellés = [...select.options].map((o) => o.textContent);
+    expect(libellés).toHaveLength(2);
+
+    // Les BOÎTES, pas seulement les étiquettes : celles-ci viennent de la vue
+    // courante et changeraient même sur un placement périmé. Les boîtes, elles,
+    // viennent du placement -- c'est là que le défaut se voit.
+    const boîtes = async () =>
+      vi.waitFor(() => {
+        const svg = root.querySelector(".zone-rendu svg");
+        if (!svg) throw new Error("pas de schéma");
+        const b = [...svg.querySelectorAll(".fx-noeuds > g")].map((g) => g.querySelector("text")?.textContent);
+        if (b.length === 0) throw new Error("pas de boîte");
+        return b;
+      });
+
+    const premier = await boîtes();
+    expect(premier).toContain("Amont1");
+    select.value = select.options[1].value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    const second = await vi.waitFor(async () => {
+      const b = await boîtes();
+      expect(b).not.toEqual(premier);
+      return b;
+    });
+    expect(second).toContain("Amont2");
+    expect(second).not.toContain("Amont1");
+  });
+});

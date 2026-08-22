@@ -13,6 +13,7 @@ export type Vue =
   | "plateforme-seule"
   | "par-acteur"
   | "par-technologie"
+  | "chaine"
   | "matrice"
   | "ecarts"
   | "controles"
@@ -36,6 +37,7 @@ export const LIBELLE_VUE: Record<Vue, string> = {
   "plateforme-seule": "Platform only",
   "par-acteur": "By actor",
   "par-technologie": "By technology",
+  chaine: "Chain",
   matrice: "Matrix",
   ecarts: "Changes",
   controles: "Integrity checks",
@@ -108,6 +110,9 @@ export interface AppState {
   filtresMatrice: FiltresVueMatrice;
   selectionActeur: string | null;
   selectionTechnologie: string | null;
+  // La chaîne suivie, par son libellé. Une chaîne n'existe qu'en lecture
+  // fonctionnelle, où la plomberie est justement ce qu'on traverse.
+  selectionChaine: string | null;
   messageBandeau: string | null;
 }
 
@@ -124,6 +129,7 @@ export function initialState(): AppState {
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
     selectionTechnologie: null,
+    selectionChaine: null,
     messageBandeau: null,
   };
 }
@@ -165,6 +171,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
     selectionTechnologie: null,
+    selectionChaine: null,
     messageBandeau: null,
   };
 }
@@ -240,6 +247,10 @@ export function withActeurMasque(state: AppState, acteur: string, masqué: boole
     ...state,
     filtresActeur: { ...state.filtresActeur, acteursMasques: basculer(state.filtresActeur.acteursMasques, acteur, masqué) },
   };
+}
+
+export function withSelectionChaine(state: AppState, chaîne: string | null): AppState {
+  return { ...state, selectionChaine: chaîne };
 }
 
 export function withSelectionTechnologie(state: AppState, technologie: string | null): AppState {
