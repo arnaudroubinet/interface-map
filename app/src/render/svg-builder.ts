@@ -640,13 +640,21 @@ function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], libellés: Map
 // Elle est DANS le SVG, pas dans l'interface : le code couleur doit voyager
 // avec le schéma. Tant qu'elle vivait dans le rail, chaque export vers Word ou
 // PowerPoint partait sans elle, et il fallait l'expliquer à chaque diffusion.
-const LEGENDE_LIGNE = 16;
-const LEGENDE_PAD = 10;
-const LEGENDE_ECHANTILLON = 22;
+// La légende porte désormais la NOTATION en plus du code couleur : une
+// douzaine d'entrées là où il y en avait cinq. À 10 px elle était le plus
+// petit texte de la planche, celui qu'on lit en dernier alors qu'il explique
+// tout le reste.
+const LEGENDE_TAILLE_TEXTE = 12;
+const LEGENDE_LIGNE = 19;
+const LEGENDE_PAD = 12;
+const LEGENDE_ECHANTILLON = 26;
+// Largeur moyenne d'un caractère à cette taille, dans la pile de polices du
+// schéma. Sous-estimée, le texte déborde du cadre.
+const LEGENDE_LARGEUR_CAR = 6.7;
 
 function largeurLegende(entrées: string[]): number {
-  const texte = Math.max(0, ...entrées.map((e) => e.length * 5.6));
-  return LEGENDE_PAD * 2 + LEGENDE_ECHANTILLON + 8 + texte;
+  const texte = Math.max(0, ...entrées.map((e) => e.length * LEGENDE_LARGEUR_CAR));
+  return LEGENDE_PAD * 2 + LEGENDE_ECHANTILLON + 10 + texte;
 }
 
 function construireLegende(entrées: readonly EntreeLegende[], x: number, y: number, largeur: number, hauteur: number): SVGGElement {
@@ -718,9 +726,9 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
   for (const entrée of entrées) {
     g.appendChild(entrée.échantillon.forme === "trait" ? trait(entrée.échantillon) : boite(entrée.échantillon));
     const t = el("text");
-    t.setAttribute("x", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON + 8));
-    t.setAttribute("y", String(ligne + 3.5));
-    t.setAttribute("font-size", "10");
+    t.setAttribute("x", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON + 10));
+    t.setAttribute("y", String(ligne + 4));
+    t.setAttribute("font-size", String(LEGENDE_TAILLE_TEXTE));
     t.setAttribute("fill", ENCRE);
     t.textContent = entrée.texte;
     g.appendChild(t);
@@ -774,11 +782,13 @@ export function buildGraphSvg(
   // qu'on l'ouvrait seul, alors que les largeurs d'étiquettes sont calibrées
   // pour cette pile-là.
   svg.setAttribute("font-family", POLICE);
-  // Le viewBox SEUL : posées en dur, les dimensions faisaient déborder le
-  // schéma de sa zone -- 47 % visible sur le classeur d'exemple -- sans aucun
-  // moyen de le ramener. Le fichier EXPORTÉ, lui, les repose (serializeSvg) :
-  // un .svg sans width ni height s'ouvre à une taille arbitraire dans Word.
+  // Le viewBox pilote le CADRAGE (zoom, panoramique) ; width et height fixent
+  // la taille d'affichage, qui reste celle du dessin. Étirer le SVG à la
+  // largeur de la fenêtre a été essayé : tout tenait à l'écran, et plus rien
+  // n'était lisible -- 0,5x d'échelle, donc une légende à 5 px.
   svg.setAttribute("viewBox", `${bornes.x0} ${bornes.y0} ${largeur} ${hauteur}`);
+  svg.setAttribute("width", String(largeur));
+  svg.setAttribute("height", String(hauteur));
 
   // Le patron d'accessibilité n°11 de l'étude Deque, le plus fiable des douze
   // testés sur l'ensemble navigateurs x lecteurs d'écran. Deux exigences :

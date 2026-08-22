@@ -1,3 +1,4 @@
+import type { MatrixResult, MatrixRow, MatrixCell } from "../aggregation/views";
 import type {
   Acteur,
   Consommation,
@@ -136,5 +137,16 @@ export function modele(o: Partial<ParsedModel> = {}): ParsedModel {
     versionModele: VERSION_MODELE,
     fichierModifie: null,
     ...o,
+  };
+}
+
+// Une matrice de test, ses marges calculées comme le fait buildMatrixView : un
+// test qui poserait des totaux à la main pourrait affirmer n'importe quoi.
+export function matrice(o: { colonnes: string[]; lignes: MatrixRow[] }): MatrixResult {
+  const total = (cellules: MatrixCell[]) => cellules.reduce((n, c) => n + c.count, 0);
+  return {
+    ...o,
+    totauxLigne: new Map(o.lignes.map((l) => [l.acteur, total([...l.cellules.values()].flat())])),
+    totauxColonne: new Map(o.colonnes.map((c) => [c, total(o.lignes.flatMap((l) => l.cellules.get(c) ?? []))])),
   };
 }

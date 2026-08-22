@@ -22,6 +22,7 @@ import {
 } from "./core";
 import type { Lecture } from "./fonctionnel";
 import { estActeurTechnique } from "./nature";
+import { ordonner, type ContexteOrdre, type OrdreMatrice } from "./seriation";
 
 export interface ViewResult {
   nodes: GraphNode[];
@@ -297,6 +298,11 @@ export interface MatrixRow {
 export interface MatrixResult {
   colonnes: string[];
   lignes: MatrixRow[];
+  // Les marges du tableau : degré sortant par ligne, entrant par colonne. Une
+  // matrice sans totaux oblige à compter des cases à l'œil pour savoir qui est
+  // le moyeu.
+  totauxLigne: Map<string, number>;
+  totauxColonne: Map<string, number>;
 }
 
 // La matrice se lit aux mêmes trois échelles que les vues graphiques : acteur
@@ -307,6 +313,7 @@ export type GranulariteMatrice = "acteur" | "groupe" | "plateforme";
 export interface OptionsVueMatrice {
   mode: Mode;
   granularite?: GranulariteMatrice;
+  ordre?: OrdreMatrice;
   masquerExternes?: boolean;
   acteursMasques?: readonly string[];
 }
@@ -366,7 +373,6 @@ export function buildMatrixView(model: ParsedModel, lecture: Lecture, options: O
   const groups = groupFlows(flows, cle, false);
 
   const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
-  const colonnes = [...new Set(groups.map((g) => g.to))].sort(parNom);
 
   const lignesMap = new Map<string, MatrixRow>();
   for (const g of groups) {
@@ -392,12 +398,39 @@ export function buildMatrixView(model: ParsedModel, lecture: Lecture, options: O
     }
   }
 
-  const lignes = [...lignesMap.values()].sort((a, b) => parNom(a.acteur, b.acteur));
+  // L'ordre se décide ICI, une fois, et l'affichage comme l'export le suivent :
+  // « ce qui est à l'écran est ce qui s'exporte ».
+  const voisinage = new Map<string, Set<string>>();
+  const ajouterVoisin = (a: string, b: string) => {
+    const v = voisinage.get(a) ?? new Set<string>();
+    v.add(b);
+    voisinage.set(a, v);
+  };
+  for (const g of groups) {
+    ajouterVoisin(g.from, g.to);
+    ajouterVoisin(g.to, g.from);
+  }
+  const ctxOrdre: ContexteOrdre = {
+    groupeDe: (id) => model.acteurs.find((a) => a.nom.trim() === id)?.groupe.trim() ?? id,
+    degre: (id) => voisinage.get(id)?.size ?? 0,
+    voisins: (id) => [...(voisinage.get(id) ?? [])],
+  };
+  const ordre = options.ordre ?? "alphabetique";
+  const colonnes = ordonner([...new Set(groups.map((g) => g.to))], ordre, ctxOrdre);
+
+  const lignes = ordonner([...lignesMap.keys()], ordre, ctxOrdre).map((id) => lignesMap.get(id)!);
   for (const ligne of lignes) {
     for (const cellules of ligne.cellules.values()) {
       cellules.sort((a, b) => parNom(a.technologie, b.technologie));
     }
   }
 
-  return { colonnes, lignes };
+  // Les marges : combien de flux partent de chaque ligne, combien arrivent sur
+  // chaque colonne. C'est ce qui NOMME le moyeu sans compter les cases à l'œil.
+  const totauxLigne = new Map(lignes.map((l) => [l.acteur, [...l.cellules.values()].flat().reduce((n, c) => n + c.count, 0)]));
+  const totauxColonne = new Map(
+    colonnes.map((c) => [c, lignes.reduce((n, l) => n + (l.cellules.get(c) ?? []).reduce((m, x) => m + x.count, 0), 0)])
+  );
+
+  return { colonnes, lignes, totauxLigne, totauxColonne };
 }

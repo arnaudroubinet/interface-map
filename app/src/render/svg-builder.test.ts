@@ -975,11 +975,14 @@ describe("buildGraphSvg — la taille du schéma", () => {
       [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false }]
     );
 
-  it("ne pose pas de dimensions absolues sur le schéma affiché", async () => {
+  // Le viewBox pilote le CADRAGE, width/height la taille d'affichage. Les
+  // deux, et cohérents : étirer le SVG à la largeur de la fenêtre ramenait
+  // l'échelle à 0,5x sur le classeur d'exemple, donc la légende à 5 px.
+  it("pose un viewBox ET les dimensions du dessin, accordés", async () => {
     const svg = buildGraphSvg(await parc(), () => "#111");
-    expect(svg.getAttribute("viewBox")).not.toBeNull();
-    expect(svg.getAttribute("width")).toBeNull();
-    expect(svg.getAttribute("height")).toBeNull();
+    const [, , l, h] = svg.getAttribute("viewBox")!.split(/\s+/);
+    expect(svg.getAttribute("width")).toBe(l);
+    expect(svg.getAttribute("height")).toBe(h);
   });
 
   // Le FICHIER doit dire sa taille : sans width ni height, un .svg s'ouvre à

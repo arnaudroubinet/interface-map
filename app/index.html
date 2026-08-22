@@ -189,9 +189,13 @@
     background-image: radial-gradient(circle, var(--line) 1px, transparent 1px);
     background-size: 20px 20px;
   }
-  /* Le SVG ne porte plus ses dimensions : il s'étire dans sa zone plutôt que
-     d'en déborder. */
-  .zone-rendu > svg { display: block; width: 100%; height: auto; max-height: 100%; }
+  /* Le schéma s'affiche à SA taille, et la zone défile. L'avoir étiré à la
+     largeur de la fenêtre a été essayé et mesuré : sur le classeur d'exemple,
+     une planche de 2282 px dans un volet de 1141 px tombe à 0,5x, ce qui
+     ramène la légende à 5 px, les noms de boîtes à 8 px et les étiquettes à
+     5 px. Tout était visible, et plus rien n'était lisible.
+     « Fit » reste à un clic, pour qui veut la vue d'ensemble. */
+  .zone-rendu > svg { display: block; }
   .conseil-echelle {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
     margin-bottom: 10px; padding: 8px 12px; font-size: 13px;

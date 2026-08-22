@@ -49,7 +49,7 @@ function contexte(state: AppState, svg: SVGSVGElement | null = document.createEl
     etat: () => courant,
     setState: (s) => void (courant = s),
     svgCourant: () => svg,
-    matriceCourante: () => ({ colonnes: ["B"], lignes: [] }),
+    matriceCourante: () => base.matrice({ colonnes: ["B"], lignes: [] }),
   };
   return { ctx, handlers: handlersExport(ctx), état: () => courant };
 }

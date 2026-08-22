@@ -13,14 +13,15 @@ import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icones";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
 import type { MatrixResult } from "../aggregation/views";
+import * as base from "../testing/fixtures";
 import type { IntegrityReport } from "../integrity/checks";
 
 describe("buildMatrixTable", () => {
   it("draws exactly the rows and columns it is given", () => {
-    const matrix: MatrixResult = {
+    const matrix: MatrixResult = base.matrice({
       colonnes: ["A"],
       lignes: [{ acteur: "B", cellules: new Map([["A", [{ technologie: "HTTP", count: 2, atténué: false, noms: [] }]]]) }],
-    };
+    });
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
 
@@ -31,10 +32,10 @@ describe("buildMatrixTable", () => {
   });
 
   it("marks an attenuated technology distinctly", () => {
-    const matrix: MatrixResult = {
+    const matrix: MatrixResult = base.matrice({
       colonnes: ["B"],
       lignes: [{ acteur: "A", cellules: new Map([["B", [{ technologie: "HTTP", count: 1, atténué: true, noms: [] }]]]) }],
-    };
+    });
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
 
@@ -45,13 +46,13 @@ describe("buildMatrixTable", () => {
   // chacune de son côté : une case « soi à soi » n'est plus sur une diagonale,
   // et la griser ne produisait qu'un bloc gris flottant au milieu du tableau.
   it("marks no cell with a background of its own", () => {
-    const matrix: MatrixResult = {
+    const matrix: MatrixResult = base.matrice({
       colonnes: ["A", "B"],
       lignes: [
         { acteur: "A", cellules: new Map([["B", [{ technologie: "HTTP", count: 1, atténué: false, noms: [] }]]]) },
         { acteur: "B", cellules: new Map([["A", [{ technologie: "HTTP", count: 1, atténué: false, noms: [] }]]]) },
       ],
-    };
+    });
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
 
@@ -61,10 +62,10 @@ describe("buildMatrixTable", () => {
   // En mode fonctionnel la technologie est vidée (§4.5) ; la cellule ne doit
   // pas afficher un « ×3 » précédé d'un vide.
   it("montre le seul compteur quand la cellule n'a pas de technologie", () => {
-    const matrix: MatrixResult = {
+    const matrix: MatrixResult = base.matrice({
       colonnes: ["A"],
       lignes: [{ acteur: "B", cellules: new Map([["A", [{ technologie: "", count: 2, atténué: false, noms: [] }]]]) }],
-    };
+    });
 
     const table = buildMatrixTable(matrix, () => "#000");
 
@@ -282,7 +283,7 @@ describe("buildAide", () => {
 // matrice fonctionnelle était illisible. Sans technologie il n'y a pas de
 // couleur à porter, et la cellule doit hériter de celle du thème.
 describe("buildMatrixTable — couleur des cellules", () => {
-  const matrice = (technologie: string): MatrixResult => ({
+  const matrice = (technologie: string): MatrixResult => base.matrice({
     colonnes: ["A"],
     lignes: [{ acteur: "B", cellules: new Map([["A", [{ technologie, count: 1, atténué: false, noms: ["F"] }]]]) }],
   });
@@ -311,7 +312,7 @@ describe("buildMatrixTable — couleur des cellules", () => {
 // thème. N'importe quel hexadécimal devient lisible, et la couleur reste le
 // rappel qu'elle a toujours été.
 describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
-  const matrice = (technologie: string): MatrixResult => ({
+  const matrice = (technologie: string): MatrixResult => base.matrice({
     colonnes: ["A"],
     lignes: [{ acteur: "B", cellules: new Map([["A", [{ technologie, count: 1, atténué: false, noms: ["F"] }]]]) }],
   });

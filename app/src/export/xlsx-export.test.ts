@@ -2,10 +2,11 @@ import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { construireClasseurMatrice } from "./xlsx-export";
 import type { MatrixResult } from "../aggregation/views";
+import * as base from "../testing/fixtures";
 
 // Le tableau arrive déjà élagué : ni Kamino ni Muet n'émettent, ils n'ont donc
 // pas de ligne, et Tatooine ne reçoit rien, il n'a pas de colonne.
-const matrice: MatrixResult = {
+const matrice: MatrixResult = base.matrice({
   colonnes: ["Kamino", "Muet"],
   lignes: [
     {
@@ -16,7 +17,7 @@ const matrice: MatrixResult = {
       ]),
     },
   ],
-};
+});
 
 // On relit le classeur écrit, pas l'objet en mémoire : c'est le fichier reçu
 // dans Excel qui compte.
@@ -65,7 +66,7 @@ describe("export Excel de la matrice", () => {
 // repli, la grille exportée n'a plus que ses en-têtes -- un classeur qui a
 // l'air correct et qui ne dit à personne qu'il ne montre plus rien.
 describe("export Excel de la matrice — mode fonctionnel (technologie vide)", () => {
-  const matriceFonctionnelle: MatrixResult = {
+  const matriceFonctionnelle: MatrixResult = base.matrice({
     colonnes: ["Kamino", "Muet"],
     lignes: [
       {
@@ -76,7 +77,7 @@ describe("export Excel de la matrice — mode fonctionnel (technologie vide)", (
         ]),
       },
     ],
-  };
+  });
 
   function classeurFonctionnel(): XLSX.WorkBook {
     const wb = construireClasseurMatrice(matriceFonctionnelle);
