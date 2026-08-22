@@ -1,4 +1,6 @@
 import * as XLSX from "xlsx";
+import { customXmlItem, CUSTOM_XML_PROPS, hasReferential, NO_REFERENTIAL } from "./datamashup";
+import type { ReferentialUrls } from "./datamashup";
 
 // SheetJS does not write Excel's structured tables: in its writer,
 // "tableParts" is nothing but a comment. But it exposes CFB, which can reread
@@ -148,9 +150,12 @@ export function readPart(cfb: Conteneur, path: string): string | null {
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
-export function writePart(cfb: Conteneur, path: string, content: string): void {
-  const bytes = new TextEncoder().encode(content);
+export function writeBinaryPart(cfb: Conteneur, path: string, bytes: Uint8Array): void {
   XLSX.CFB.utils.cfb_add(cfb, path, bytes as unknown as number[]);
+}
+
+export function writePart(cfb: Conteneur, path: string, content: string): void {
+  writeBinaryPart(cfb, path, new TextEncoder().encode(content));
 }
 
 // How far a sheet's validations reach: at least enough to type comfortably in
@@ -348,6 +353,19 @@ export interface OoxmlExtras {
   // The sheets whose header row stays visible while scrolling. A thirty-row
   // entry sheet is filled in blind without it.
   panes?: readonly string[];
+  // The two referential URLs the workbook carries. Empty ones write no query at
+  // all: a workbook without a referential must stay an ordinary workbook.
+  referentials?: ReferentialUrls;
+}
+
+const TYPE_CUSTOM_XML_PROPS =
+  "application/vnd.openxmlformats-officedocument.customXmlProperties+xml";
+
+// The next free relationship id in a .rels part. SheetJS numbers its own from
+// rId1 without a gap; reusing one would make Excel drop a sheet.
+function freeRelationshipId(rels: string): string {
+  const used = [...rels.matchAll(/Id="rId(\d+)"/g)].map((m) => Number(m[1]));
+  return `rId${(used.length > 0 ? Math.max(...used) : 0) + 1}`;
 }
 
 export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
@@ -357,8 +375,16 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     validations = [],
     styles = [],
     panes = [],
+    referentials = NO_REFERENTIAL,
   } = Array.isArray(extras)
-    ? { tables: extras as readonly TableToApply[], lists: [], validations: [], styles: [], panes: [] }
+    ? {
+        tables: extras as readonly TableToApply[],
+        lists: [],
+        validations: [],
+        styles: [],
+        panes: [],
+        referentials: NO_REFERENTIAL,
+      }
     : (extras as OoxmlExtras);
   const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
 
@@ -546,6 +572,39 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         ? content.replace(/<sheetViews>.*?<\/sheetViews>/, view)
         : content.replace(/(<dimension[^>]*\/>)/, `$1${view}`)
     );
+  }
+
+  // The Power Query stream. Excel keeps it in a custom XML part, related to the
+  // workbook; itemProps says which schema it follows. The item itself takes no
+  // Override -- the .xml Default already covers it, and that is how Excel
+  // writes it.
+  if (hasReferential(referentials)) {
+    writeBinaryPart(cfb, "/customXml/item1.xml", customXmlItem(referentials));
+    writePart(cfb, "/customXml/itemProps1.xml", CUSTOM_XML_PROPS);
+    writePart(
+      cfb,
+      "/customXml/_rels/item1.xml.rels",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
+        `<Relationship Id="rId1" Type="${NS_REL}/customXmlProps" Target="itemProps1.xml"/>` +
+        `</Relationships>`
+    );
+    contentTypes = contentTypes.replace(
+      "</Types>",
+      `<Override PartName="/customXml/itemProps1.xml" ContentType="${TYPE_CUSTOM_XML_PROPS}"/></Types>`
+    );
+    const rels = readPart(cfb, "/xl/_rels/workbook.xml.rels");
+    if (rels) {
+      writePart(
+        cfb,
+        "/xl/_rels/workbook.xml.rels",
+        rels.replace(
+          "</Relationships>",
+          `<Relationship Id="${freeRelationshipId(rels)}" Type="${NS_REL}/customXml" ` +
+            `Target="../customXml/item1.xml"/></Relationships>`
+        )
+      );
+    }
   }
 
   writePart(cfb, "/[Content_Types].xml", contentTypes);
