@@ -620,8 +620,14 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
   ];
   return [
     v("Actors", ACTOR_COLUMNS, "Name", "L_RefActeur"),
-    v("Actors", ACTOR_COLUMNS, "Group", "L_RefGroupe"),
-    v("Actors", ACTOR_COLUMNS, "Actor type", "L_RefTypeActeur"),
+    // The group and the actor type stay on the LOCAL sheets, although the
+    // referential carries both. The integrity check holds "Groups" to be
+    // authoritative and counts an anomaly against any group absent from it,
+    // and "ActorTypes" alone carries each type's icon. A drop-down offering the
+    // referential's values would therefore propose exactly what the report
+    // marks red, and draw a component with no icon.
+    v("Actors", ACTOR_COLUMNS, "Group", "L_Groupe"),
+    v("Actors", ACTOR_COLUMNS, "Actor type", "L_TypeActeur"),
     v("FlowTypes", FLOW_TYPE_COLUMNS, "Flow type", "L_RefTypeFlux"),
     v("Groups", GROUP_COLUMNS, "Perimeter", "L_Perimetre"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Icon", "L_Icone"),

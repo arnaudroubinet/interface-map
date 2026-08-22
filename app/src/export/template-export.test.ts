@@ -214,7 +214,14 @@ describe("the workbook template", () => {
     expect(expected).toBeGreaterThan(1);
     expect(actors).toContain(`<dataValidations count="${expected}">`);
     expect(actors).toContain('type="list"');
-    expect(actors).toContain("<formula1>L_RefTypeActeur</formula1>");
+    expect(actors).toContain("<formula1>L_RefActeur</formula1>");
+    // The group and the actor type read the LOCAL sheets: the integrity check
+    // holds Groups to be authoritative, and ActorTypes carries the icon. A
+    // drop-down fed by the referential would propose what the report marks red.
+    expect(actors).toContain("<formula1>L_Groupe</formula1>");
+    expect(actors).toContain("<formula1>L_TypeActeur</formula1>");
+    expect(actors).not.toContain("L_RefGroupe</formula1>");
+    expect(actors).not.toContain("L_RefTypeActeur</formula1>");
     // Placed between the data and the ignored errors: the order of a sheet's
     // elements is imposed by the OOXML schema.
     expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<dataValidations"));

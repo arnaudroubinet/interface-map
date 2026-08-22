@@ -60,8 +60,16 @@ change simplement de source.
 
 ## 4. Ce que ces tableaux alimentent
 
-- **Trois listes déroulantes sur `Actors`** : `Name` sur `TblRefActors[Name]`,
-  `Group` et `Actor type` sur les valeurs dédoublonnées correspondantes.
+- **Une liste déroulante sur `Actors`** : `Name` sur `TblRefActors[Name]`.
+  `Group` et `Actor type` restent sur les onglets locaux (`L_Groupe`,
+  `L_TypeActeur`) alors même que le référentiel porte ces deux colonnes. La
+  raison est que la cartographie en est encore propriétaire : le contrôle
+  d'intégrité tient `Groups` pour la référence et compte une anomalie pour tout
+  groupe qui n'y figure pas, et `ActorTypes` porte l'icône du type, que le
+  référentiel ne transporte pas. Une liste alimentée par le référentiel
+  proposerait donc exactement ce que le rapport signale en rouge, et dessinerait
+  un composant sans icône. Le jour où le référentiel possédera les lignes —
+  la suite naturelle décrite au §2 — ces deux colonnes le suivront.
 - **Une liste déroulante sur `FlowTypes`** : `Flow type` sur
   `TblRefTechnologies[Flow type]`.
 - **Les couleurs des technologies.** Le parseur lit `RefTechnologies` en plus
