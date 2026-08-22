@@ -10,7 +10,7 @@ import {
   groupNodeKey,
 } from "./core";
 import { VERSION_MODELE } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Les fabriques partagées, avec les seuls défauts propres à ce fichier : deux
 // groupes G1/G2, et une consommation déjà décidée.
@@ -18,14 +18,14 @@ function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
 const iface = base.iface;
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ legacyStatus: "Actif", decision: "Keep", ...o });
 }
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     actors: [actor({ name: "A", group: "G1" }), actor({ name: "B", group: "G2" })],
     groups: [base.group({ name: "G1" }), base.group({ name: "G2", perimeter: "External" })],
-    typesActeur: [base.typeActeur()],
+    actorTypes: [base.actorType()],
     flowTypes: [base.typeFlux()],
     interfaces: [iface()],
     consumptions: [conso()],
@@ -55,7 +55,7 @@ describe("buildFlowInstances", () => {
   it("attaches a consumption to the version it declares, not to another version of the same flux", () => {
     const flows = buildFlowInstances(
       model({
-        interfaces: [iface({ version: "1.0" }), iface({ version: "2.0", etat: "Retiré" })],
+        interfaces: [iface({ version: "1.0" }), iface({ version: "2.0", legacyState: "Retiré" })],
         consumptions: [conso({ version: "1.0" })],
       })
     );
@@ -80,7 +80,7 @@ describe("buildFlowInstances", () => {
       model({
         flowTypes: [
           base.typeFlux({ type: "HTTP" }),
-          base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
+          base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
         ],
         interfaces: [
           iface({ flowName: "F", providerName: "A", flowType: "HTTP", expectedSheet: "FX_A_HTTP" }),
@@ -213,9 +213,9 @@ describe("nodesFromEdges", () => {
 
 describe("buildFlowInstances — filtrage par palier", () => {
   const milestones = [
-    { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-    { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-    { name: "v3", rank: 3, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v3", rank: 3, label: "", status: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
   ];
 
   it("keeps a flow whose whole chain is alive at the rank", () => {
@@ -350,10 +350,10 @@ describe("groupFlows — les noms d'échange suivent le trait fusionné", () => 
 // n'avait rien qui sorte de lui. Le tracé suit désormais la donnée, du
 // fournisseur vers le consommateur ; seule la pointe dit qui appelle.
 describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initiative", () => {
-  const estate = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
+  const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
-      flowTypes: [base.typeFlux({ sensRepresentation, sensRepresentationBrut: "" })],
+      flowTypes: [base.typeFlux({ direction, rawDirection: "" })],
       interfaces: [iface({ providerName: "A" })],
       consumptions: [conso({ consumerName: "B" })],
     });
@@ -438,7 +438,7 @@ describe("groupFlows — la criticité portée par le trait", () => {
     buildFlowInstances(
       base.template({
         groups: [base.group({ name: "G" })],
-        typesActeur: [base.typeActeur()],
+        actorTypes: [base.actorType()],
         flowTypes: [base.typeFlux()],
         fxSheetNames: ["FX_A_HTTP"],
         actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],

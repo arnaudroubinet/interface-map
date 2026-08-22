@@ -7,7 +7,7 @@ vi.mock("../export/download", async (importOriginal) => {
   return { ...actual, downloadWorkbook: vi.fn() };
 });
 
-const donneesVides: DonneesClasseur = { flowTypes: [], typesActeur: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
+const donneesVides: DonneesClasseur = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
 function drop(zone: HTMLElement, file: File): void {
   const event = new Event("drop", { bubbles: true, cancelable: true });

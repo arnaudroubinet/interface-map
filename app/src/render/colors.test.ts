@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { colorForTechnologies, couleursDuModele, PALETTE } from "./colors";
 import { ratioDeContraste } from "./contrast";
-import type { ParsedModel, InterfaceCatalogue, TypeFlux } from "../parsing/model";
+import type { ParsedModel, InterfaceCatalogue, FlowType } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
-function typeFlux(type: string): TypeFlux {
+function typeFlux(type: string): FlowType {
   return base.typeFlux({ type });
 }
 
@@ -20,11 +20,11 @@ function iface(flowName: string, flowType: string): InterfaceCatalogue {
 // comprise.
 describe("couleursDuModele", () => {
   const model = (types: string[], used: string[]): ParsedModel => ({
-    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
     flowTypes: types.map(typeFlux),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
-    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE, fichierModifie: null,
+    consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE, savedAt: null,
   });
 
   const SEIZE = ["Kafka", "SFTP", "HTTP", "File", "SMTP", "JMS", "LDAP", "NTP",
@@ -65,11 +65,11 @@ describe("colorForTechnologies", () => {
 // déclarent aucune.
 describe("couleursDuModele — couleur déclarée par le référentiel", () => {
   const estate = (types: [string, string][], used: string[]): ParsedModel => ({
-    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
     flowTypes: types.map(([type, colour]) => ({ ...typeFlux(type), colour })),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
-    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE, fichierModifie: null,
+    consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE, savedAt: null,
   });
 
   it("respecte la couleur déclarée", () => {
@@ -115,11 +115,11 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
 // 1re, 3e et 4e teintes parce que deux inconnues s'étaient glissées entre.
 describe("couleursDuModele — une technologie non déclarée ne prend pas de teinte", () => {
   const estate = (declared: string[], used: string[]): ParsedModel => ({
-    actors: [], groups: [], groupesAbsents: false, typesActeur: [], milestones: [],
+    actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
     flowTypes: declared.map((t) => typeFlux(t)),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
-    consumptions: [], fxSheetNames: [], colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE, fichierModifie: null,
+    consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE, savedAt: null,
   });
 
   it("ignore une technologie absente du référentiel", () => {

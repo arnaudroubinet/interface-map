@@ -22,7 +22,7 @@ export function isTechnicalActor(model: ParsedModel, nomActeur: string): boolean
   // aggregation/ (core.ts, views.ts, changes.ts, planches.ts...).
   const actor = model.actors.find((a) => a.name.trim() === nomActeur.trim());
   if (!actor) return false;
-  const type = model.typesActeur.find((t) => normalizeText(t.type) === normalizeText(actor.typeActeur));
+  const type = model.actorTypes.find((t) => normalizeText(t.type) === normalizeText(actor.actorType));
   return type !== undefined && normalizeText(type.nature) === normalizeText(NATURE_TECHNIQUE);
 }
 

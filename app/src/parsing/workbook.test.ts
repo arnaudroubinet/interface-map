@@ -27,8 +27,8 @@ describe("parseWorkbook", () => {
   it("reads the core.xml modified date", () => {
     const buffer = buildFixtureBuffer(new Date("2026-08-01T10:00:00Z"));
     const result = parseWorkbook(buffer);
-    expect(result.fichierModifie).toBeInstanceOf(Date);
-    expect(result.fichierModifie?.toISOString()).toBe("2026-08-01T10:00:00.000Z");
+    expect(result.savedAt).toBeInstanceOf(Date);
+    expect(result.savedAt?.toISOString()).toBe("2026-08-01T10:00:00.000Z");
   });
 
   it("reads headers from the header row itself, even for a sheet with no data rows", () => {

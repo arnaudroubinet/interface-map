@@ -1,17 +1,17 @@
 export interface RawSheet {
   name: string;
-  // En-têtes lus depuis la ligne 1 de la feuille elle-même, pas déduits de
-  // `rows` : une feuille présente mais sans ligne de données (les onglets
-  // FX_ créés vides par l'outil) aurait sinon 0 colonne connue
-  // et déclencherait de fausses anomalies "colonne absente" sur chacune.
+  // Headers read from row 1 of the sheet itself, not inferred from `rows`: a
+  // sheet that exists but holds no data row -- the FX_ tabs the tool creates
+  // empty -- would otherwise have no known column at all, and would raise a
+  // false "missing column" anomaly for every one of them.
   headers: string[];
   rows: RawRow[];
 }
 
-// Une ligne de feuille, avec son numéro tel qu'Excel l'affiche. Le numéro sert
-// au rapport d'intégrité, qui cite l'emplacement pour qu'on aille corriger :
-// l'indice du tableau ne conviendrait pas, une ligne vide intercalée le
-// décalant de la réalité.
+// A sheet row, with the number Excel shows for it. That number serves the
+// integrity report, which quotes the location so it can be gone to and fixed:
+// the array index would not do, since one blank row in between shifts it away
+// from what the reader sees.
 export interface RawRow {
   row: number;
   values: Record<string, string>;
@@ -19,150 +19,151 @@ export interface RawRow {
 
 export interface ParsedWorkbook {
   sheets: RawSheet[];
-  fichierModifie: Date | null;
+  savedAt: Date | null;
 }
 
-// D'où vient une ligne du classeur. C'est une donnée de provenance, pas une
-// donnée métier : elle ne décrit pas ce que la ligne contient, elle dit où la
-// retrouver pour la corriger. Le rapport d'intégrité la cite.
-export interface Emplacement {
+// Where a row comes from. This is provenance, not domain data: it does not
+// describe what the row holds, it says where to find it again to correct it.
+// The integrity report quotes it.
+export interface Location {
   sheet: string;
   row: number;
 }
 
-// Les deux bornes de validité d'une ligne sur l'axe des paliers. Ce sont des
-// PALIERS, jamais des dates : la date est portée par le palier lui-même, dans
-// l'onglet Paliers. Une ligne ne sait pas quand elle est arrivée, elle sait à
-// quel jalon. Vides, elles
-// gardent le sens habituel du projet : « depuis toujours » et « toujours là »,
-// donc un classeur qui ne déclare aucun palier se lit exactement comme avant.
-export interface ValiditePalier {
+// A row's two validity bounds on the milestone axis. These are MILESTONES,
+// never dates: the date is carried by the milestone itself, on the Milestones
+// sheet. A row does not know when it arrived, it knows at which marker. Left
+// empty they keep the project's usual meaning -- "always been there" and
+// "still there" -- so a workbook declaring no milestone reads exactly as
+// before.
+export interface Validity {
   introducedAt: string;
   retiredAt: string;
 }
 
-export interface Actor extends ValiditePalier, Emplacement {
+export interface Actor extends Validity, Location {
   name: string;
   group: string;
-  typeActeur: string;
-  responsable: string;
+  actorType: string;
+  owner: string;
   description: string;
-  commentaires: string;
+  comments: string;
 }
 
-// Le périmètre est porté par le GROUPE, pas par l'acteur : « Socle » est la
-// plateforme, et tout ce qu'il contient en fait partie. Marquer chaque
-// application une par une laissait un groupe mixte -- moitié plateforme,
-// moitié externe -- dont ni la couleur ni le décompte ne pouvaient être justes.
-export interface Groupe extends Emplacement {
+// The perimeter is carried by the GROUP, not by the actor: "Core" is the
+// platform, and everything it holds belongs to it. Marking each application
+// one by one left room for a mixed group -- half platform, half external --
+// whose colour and whose count could not both be right.
+export interface Group extends Location {
   name: string;
   perimeter: string;
 }
 
-// Un jalon de la plateforme. À ne jamais confondre avec la version d'un
-// contrat d'interface ni avec le numéro de schéma du classeur : trois notions
-// distinctes que le mot « version » recouvrirait toutes les trois.
-export interface Milestone extends Emplacement {
+// A milestone of the platform. Never to be confused with an interface
+// contract's version, nor with the workbook's schema number: three distinct
+// notions that the word "version" would cover all at once.
+export interface Milestone extends Location {
   name: string;
-  // Porte l'ordre. Une colonne et non l'ordre des lignes : un tri dans Excel
-  // détruirait un ordre implicite sans rien dire.
+  // Carries the order. A column rather than the order of the rows: sorting in
+  // Excel would destroy an implicit order without saying a word.
   rank: number;
   label: string;
-  statut: string;
+  status: string;
   date: string;
   description: string;
 }
 
-// Le type d'acteur est une liste ouverte, propre à chaque référentiel : c'est
-// le classeur qui dit quelle icône lui donner, pas le code.
-export interface TypeActeur extends Emplacement {
+// The actor type is an open list, particular to each repository: it is the
+// workbook that says which icon to give it, not the code.
+export interface ActorType extends Location {
   type: string;
-  icone: string;
-  // Métier ou technique. C'est le TYPE qui tranche, jamais l'acteur : même
-  // principe que le périmètre, déclaré sur le groupe et non sur ses membres.
-  // Vide vaut métier -- un classeur qui n'a pas rempli la colonne montre tout,
-  // plutôt que de masquer des acteurs en silence.
+  icon: string;
+  // Business or technical. It is the TYPE that decides, never the actor: same
+  // principle as the perimeter, declared on the group and not on its members.
+  // Empty means business -- a workbook that has not filled the column shows
+  // everything rather than hiding actors in silence.
   nature: string;
 }
 
-export interface TypeFlux extends Emplacement {
+export interface FlowType extends Location {
   type: string;
-  sensRepresentation: "provider-to-consumer" | "consumer-to-provider";
-  // La valeur telle que saisie. sensRepresentation la normalise en retombant
-  // sur « consommateur → exposant » pour tout ce qu'elle ne reconnaît pas :
-  // sans la valeur d'origine, une saisie fautive inverserait la flèche sans
-  // que rien ne puisse le signaler.
-  sensRepresentationBrut: string;
+  direction: "provider-to-consumer" | "consumer-to-provider";
+  // The value as typed in. `direction` normalises it, falling back to
+  // "consumer to provider" for anything it does not recognise: without the
+  // original value, a mistyped entry would reverse the arrow with nothing able
+  // to report it.
+  rawDirection: string;
   description: string;
-  // La couleur du référentiel, en hexadécimal, quand il en porte une. Vide
-  // sinon : la palette prend alors le relais. C'est ce qui ancre la teinte à la
-  // technologie plutôt qu'à son rang, lequel changeait dès qu'on ajoutait une
-  // technologie avant les autres dans l'alphabet.
+  // The repository's colour, in hex, when it carries one. Empty otherwise: the
+  // palette then takes over. This is what anchors a shade to its technology
+  // rather than to its rank, which shifted as soon as a technology was added
+  // ahead of the others alphabetically.
   colour: string;
 }
 
-export interface InterfaceCatalogue extends ValiditePalier, Emplacement {
+export interface InterfaceCatalogue extends Validity, Location {
   flowName: string;
-  // Une version vide est une version, pas une absence : elle participe à la
-  // clé de rattachement au même titre qu'une autre valeur, et c'est ce qui
-  // laisse les classeurs antérieurs se lire à l'identique.
+  // An empty version is a version, not an absence: it takes part in the
+  // matching key like any other value, and that is what lets earlier workbooks
+  // read identically.
   version: string;
-  // Hérité de la v1 : l'axe des paliers l'a remplacé. Lu uniquement pour que
-  // la mise à niveau sache quoi convertir, jamais réécrit.
-  etat: string;
+  // Inherited from v1: the milestone axis replaced it. Read only so the schema
+  // upgrade knows what to convert, never written back.
+  legacyState: string;
   providerName: string;
   flowType: string;
   description: string;
-  lienContrat: string;
-  referenceContrat: string;
-  commentaires: string;
-  aConfirmer: boolean;
+  contractLink: string;
+  contractReference: string;
+  comments: string;
+  toConfirm: boolean;
   expectedSheet: string;
-  // Le nom de flux de l'interface que celle-ci prolonge. Rempli sur les seules
-  // interfaces exposées par un acteur technique : c'est lui qui permet de
-  // suivre un échange à travers la plomberie, alors même que son nom change
-  // d'un segment à l'autre.
-  relais: string;
+  // The flow name of the interface this one extends. Filled only on interfaces
+  // provided by a technical actor: it is what allows an exchange to be
+  // followed through the plumbing, even as its name changes from one segment
+  // to the next.
+  legacyRelays: string;
 }
 
-export interface Consommation extends ValiditePalier, Emplacement {
+export interface Consumption extends Validity, Location {
   flowName: string;
-  // La version consommée, telle qu'écrite au catalogue : c'est le troisième
-  // terme de la clé de rattachement à l'interface.
+  // The version consumed, as written in the catalogue: it is the third term of
+  // the key that attaches this row to its interface.
   version: string;
   consumerName: string;
   usage: string;
   criticality: string;
-  // Hérité de la v1, comme InterfaceCatalogue.etat.
-  statut: string;
+  // Inherited from v1, like InterfaceCatalogue.legacyState.
+  legacyStatus: string;
   decision: string;
-  commentaires: string;
-  // Renseigné seulement quand le consommateur est un acteur technique : le nom
-  // de CELLE DE SES interfaces qui republie ce flux. C'est ce qui rabat une
-  // chaîne en lecture fonctionnelle, et c'est porté par la consommation parce
-  // que c'est elle qui désigne le fournisseur et la version d'origine.
+  comments: string;
+  // Filled only when the consumer is a technical actor: the name of WHICH OF
+  // ITS OWN interfaces republishes this flow. This is what folds a chain in
+  // the functional reading, and it is carried by the consumption because the
+  // consumption is the line that names the original provider and version.
   republishedAs: string;
   sheet: string;
 }
 
 export interface ParsedModel {
   actors: Actor[];
-  groups: Groupe[];
-  typesActeur: TypeActeur[];
-  // Vrai quand l'onglet « Groupes » manque. Aucun périmètre n'est alors connu :
-  // on ne le devine pas, un contrôle d'intégrité réclame l'onglet.
-  groupesAbsents: boolean;
-  flowTypes: TypeFlux[];
-  // Déclarés par l'onglet Paliers, triés par rang. Vide quand l'onglet manque.
+  groups: Group[];
+  actorTypes: ActorType[];
+  // True when the "Groups" sheet is missing. No perimeter is then known: it is
+  // not guessed, an integrity check asks for the sheet.
+  groupsSheetMissing: boolean;
+  flowTypes: FlowType[];
+  // Declared by the Milestones sheet, sorted by rank. Empty when the sheet is
+  // missing.
   milestones: Milestone[];
   interfaces: InterfaceCatalogue[];
-  consumptions: Consommation[];
+  consumptions: Consumption[];
   fxSheetNames: string[];
-  colonnesOptionnellesAbsentes: { sheet: string; column: string }[];
-  // Numéro de schéma du classeur : 0 pour tout classeur antérieur à son
-  // introduction. Décide si l'outil sait lire ce fichier tel quel.
-  versionModele: number;
-  fichierModifie: Date | null;
+  missingOptionalColumns: { sheet: string; column: string }[];
+  // The workbook's schema number: 0 for any workbook older than its
+  // introduction. Decides whether the tool can read this file as it stands.
+  schemaVersion: number;
+  savedAt: Date | null;
 }
 
 export interface BlockingError {
@@ -171,4 +172,4 @@ export interface BlockingError {
 
 export type BuildModelResult =
   | { ok: true; model: ParsedModel }
-  | { ok: false; erreurs: BlockingError[] };
+  | { ok: false; errors: BlockingError[] };

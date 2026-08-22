@@ -154,7 +154,7 @@ describe("migration legacy — colonnes version et état", () => {
     for (const row of donnees.groups) expect(row).toHaveLength(COLONNES_GROUPES.length);
     for (const row of donnees.milestones) expect(row).toHaveLength(COLONNES_PALIERS.length);
     for (const row of donnees.flowTypes) expect(row).toHaveLength(COLONNES_TYPESFLUX.length);
-    for (const row of donnees.typesActeur) expect(row).toHaveLength(COLONNES_TYPESACTEUR.length);
+    for (const row of donnees.actorTypes) expect(row).toHaveLength(COLONNES_TYPESACTEUR.length);
     // Non vides pour de vrai : sinon les boucles ci-dessus ne vérifient rien.
     expect(donnees.actors.length).toBeGreaterThan(0);
     expect(donnees.groups.length).toBeGreaterThan(0);
@@ -175,7 +175,7 @@ describe("migration legacy — colonnes version et état", () => {
     const { donnees } = migrerClasseurLegacy(classeurLegacy([lien({})]));
     const result = buildModel(parseWorkbook(writeTemplate(donnees)));
     if (!result.ok) throw new Error("classeur migré illisible");
-    expect(result.model.versionModele).toBe(VERSION_MODELE);
+    expect(result.model.schemaVersion).toBe(VERSION_MODELE);
   });
 });
 

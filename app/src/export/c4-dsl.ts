@@ -107,15 +107,15 @@ export function modeleEnStructurizr(
     // dit déjà dans son type d'acteur.
     const mot = estUnePersonne(a) ? "person" : "softwareSystem";
     const body = [`${indent}${ids.get(a.name.trim())} = ${mot} "${text(a.name)}" "${text(a.description)}" {`];
-    const tags = [a.typeActeur, perimeter(model, a.group)].map(text).filter(Boolean);
+    const tags = [a.actorType, perimeter(model, a.group)].map(text).filter(Boolean);
     if (tags.length > 0) body.push(`${indent}    tags "${tags.join('" "')}"`);
     // Ce que le schéma ne montre pas mais que le classeur sait : responsable,
     // commentaires, paliers. Rangé en propriétés plutôt que perdu -- l'export
     // devient une reprise complète, pas un résumé.
     body.push(
       ...properties(indent + "    ", [
-        ["Owner", a.responsable],
-        ["Comments", a.commentaires],
+        ["Owner", a.owner],
+        ["Comments", a.comments],
         ["Introduced at", a.introducedAt],
         ["Retired at", a.retiredAt],
       ])
@@ -154,7 +154,7 @@ export function modeleEnStructurizr(
     ];
     // Le contrat est une adresse : la donner à l'outil, c'est un clic depuis le
     // schéma plutôt qu'une recherche dans le classeur.
-    if (f.iface.lienContrat.trim()) body.push(`            url ${f.iface.lienContrat.trim()}`);
+    if (f.iface.contractLink.trim()) body.push(`            url ${f.iface.contractLink.trim()}`);
     body.push(
       ...properties("            ", [
         // Ce que l'échange transporte : la description de la relation, au sens
@@ -165,15 +165,15 @@ export function modeleEnStructurizr(
         ["Usage", f.conso.usage],
         ["Criticality", f.conso.criticality],
         ["Decision", f.conso.decision],
-        ["Contract reference", f.iface.referenceContrat],
+        ["Contract reference", f.iface.contractReference],
         // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
         // ce drapeau, le fichier produit affirmerait plus que lui.
-        ["To confirm", f.iface.aConfirmer ? "Yes" : ""],
+        ["To confirm", f.iface.toConfirm ? "Yes" : ""],
         // Deux colonnes de commentaires, deux sujets : le contrat d'un côté,
         // l'usage qu'un consommateur en fait de l'autre. Les fondre en une
         // seule perdrait de qui vient quoi.
-        ["Interface comments", f.iface.commentaires],
-        ["Consumption comments", f.conso.commentaires],
+        ["Interface comments", f.iface.comments],
+        ["Consumption comments", f.conso.comments],
         ["Introduced at", f.conso.introducedAt],
         ["Retired at", f.conso.retiredAt],
       ])
@@ -193,7 +193,7 @@ export function modeleEnStructurizr(
   // pour les mots les plus courants : c'est le classeur qui nomme ses types,
   // et un type inconnu reste une boîte plutôt que de recevoir une forme au
   // hasard.
-  for (const t of model.typesActeur) {
+  for (const t of model.actorTypes) {
     const shape = FORME_PAR_TYPE[normalizeText(t.type)];
     if (!shape) continue;
     rows.push(`            element "${text(t.type)}" {`, `                shape ${shape}`, "            }");
@@ -293,7 +293,7 @@ function perimeter(model: ParsedModel, group: string): string {
 // que C4 sait rendre autrement, dans les deux langues qu'un classeur peut
 // porter. Tout le reste est un système.
 function estUnePersonne(a: Actor): boolean {
-  return ["person", "humain"].includes(normalizeText(a.typeActeur));
+  return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 
 // Un bloc `properties` ne se pose que s'il a quelque chose à dire : un bloc

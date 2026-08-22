@@ -89,7 +89,7 @@ describe("buildGraphSvg", () => {
   // L'icône n'est plus déduite du type : elle est DÉSIGNÉE par le classeur.
   it("draws the icon designated for the node, and marks an external actor in its type line and border", async () => {
     const nodes: GraphNode[] = [
-      { id: "A", label: "Hoth", kind: "actor", subtitle: "Partenaire", external: true, icone: "handshake" },
+      { id: "A", label: "Hoth", kind: "actor", subtitle: "Partenaire", external: true, icon: "handshake" },
     ];
     const layout = await computeLayout(nodes, []);
 
@@ -108,8 +108,8 @@ describe("buildGraphSvg", () => {
 
   it("falls back to the neutral token when the workbook designates nothing, or names an icon that does not exist", async () => {
     const attendu = ICONES[ICONE_PAR_DEFAUT].length;
-    for (const icone of [undefined, "licorne-violette"]) {
-      const layout = await computeLayout([{ id: "A", label: "Tatooine", kind: "actor", subtitle: "Rituel", icone }], []);
+    for (const icon of [undefined, "licorne-violette"]) {
+      const layout = await computeLayout([{ id: "A", label: "Tatooine", kind: "actor", subtitle: "Rituel", icon }], []);
       const svg = buildGraphSvg(layout, () => "#2a78d6");
       const groups = [...svg.querySelectorAll(".fx-nodes g")];
       expect(groups.some((g) => g.children.length === attendu)).toBe(true);
@@ -740,8 +740,8 @@ describe("buildGraphSvg — un nom long tient dans sa boîte", () => {
 
   const rendu = async () => {
     const nodes: GraphNode[] = [
-      { id: "A", label: LONG, kind: "actor", icone: "app-window" },
-      { id: "B", label: "Chandrila", kind: "actor", icone: "app-window" },
+      { id: "A", label: LONG, kind: "actor", icon: "app-window" },
+      { id: "B", label: "Chandrila", kind: "actor", icon: "app-window" },
     ];
     const edges: GraphEdge[] = [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false }];
     return buildGraphSvg(await computeLayout(nodes, edges), () => "#2a78d6");

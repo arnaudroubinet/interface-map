@@ -174,7 +174,7 @@ export function migrerClasseurLegacy(paquet: ArrayBuffer, dateMigration: Date = 
       // Le format d'origine ne déclare ni types de flux ni types d'acteur :
       // l'amorce fait foi, et les contrôles diront ce qui manque.
       flowTypes: [],
-      typesActeur: [],
+      actorTypes: [],
       // Le format d'origine n'a aucune chronologie : tout ce qu'il contient
       // existait à la bascule, et il n'annonce aucune suite -- un seul palier
       // suffit donc à le porter.

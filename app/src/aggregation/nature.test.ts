@@ -1,19 +1,19 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { isTechnicalActor, businessActors } from "./nature";
-import type { ParsedModel, Actor, TypeActeur } from "../parsing/model";
+import type { ParsedModel, Actor, ActorType } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
-function actor(name: string, typeActeur: string): Actor {
-  return base.actor({ name, typeActeur });
+function actor(name: string, actorType: string): Actor {
+  return base.actor({ name, actorType });
 }
 
-function type(t: string, nature: string): TypeActeur {
-  return { type: t, icone: "", nature, sheet: "ActorTypes", row: 0 };
+function type(t: string, nature: string): ActorType {
+  return { type: t, icon: "", nature, sheet: "ActorTypes", row: 0 };
 }
 
-function model(actors: Actor[], typesActeur: TypeActeur[]): ParsedModel {
-  return base.template({ actors, typesActeur });
+function model(actors: Actor[], actorTypes: ActorType[]): ParsedModel {
+  return base.template({ actors, actorTypes });
 }
 
 describe("nature des acteurs", () => {

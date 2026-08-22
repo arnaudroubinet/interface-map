@@ -9,12 +9,12 @@ import type { ParsedModel } from "../parsing/model";
 function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     groups: [base.group({ name: "G" })],
-    typesActeur: [base.typeActeur({ nature: "Business" }), base.typeActeur({ type: "Infra", nature: "Technical" })],
+    actorTypes: [base.actorType({ nature: "Business" }), base.actorType({ type: "Infra", nature: "Technical" })],
     flowTypes: [base.typeFlux({ type: "Kafka" }), base.typeFlux({ type: "HTTP" })],
     actors: [
       base.actor({ name: "Boreal" }),
-      base.actor({ name: "Kafka", typeActeur: "Infra" }),
-      base.actor({ name: "ESB", typeActeur: "Infra" }),
+      base.actor({ name: "Kafka", actorType: "Infra" }),
+      base.actor({ name: "ESB", actorType: "Infra" }),
       base.actor({ name: "Onderon" }),
     ],
     fxSheetNames: ["FX_Boreal_Kafka", "FX_Kafka_Kafka", "FX_ESB_HTTP"],
@@ -58,7 +58,7 @@ describe("chainesDisponibles", () => {
   it("rend un seul maillon pour un lien direct", () => {
     const direct = base.template({
       groups: [base.group({ name: "G" })],
-      typesActeur: [base.typeActeur()],
+      actorTypes: [base.actorType()],
       flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],

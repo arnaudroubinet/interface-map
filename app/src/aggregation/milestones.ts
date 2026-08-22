@@ -1,4 +1,4 @@
-import type { Actor, ParsedModel, Milestone, ValiditePalier } from "../parsing/model";
+import type { Actor, ParsedModel, Milestone, Validity } from "../parsing/model";
 import { normalizeText } from "../shared/text";
 
 // L'axe du temps de la plateforme. À ne jamais confondre avec la version d'un
@@ -26,7 +26,7 @@ export function rankOfMilestone(model: ParsedModel, name: string): number | unde
 // Rien n'est hérité d'un objet à l'autre : une borne d'arrivée absente est un
 // manque de saisie, signalé comme tel (§7.4). On ne devine pas à la place de
 // celui qui tient le fichier.
-export function lifespanOf(model: ParsedModel, validite: ValiditePalier): Intervalle {
+export function lifespanOf(model: ParsedModel, validite: Validity): Intervalle {
   const start = rankOfMilestone(model, validite.introducedAt);
   const end = rankOfMilestone(model, validite.retiredAt);
   return { start: start ?? -Infinity, end: end ?? Infinity };
@@ -36,7 +36,7 @@ export function lifespanOf(model: ParsedModel, validite: ValiditePalier): Interv
 // livré, le palier de rang le plus haut tout court -- mieux vaut montrer un
 // état connu que rien du tout, et un contrôle signale l'absence.
 export function currentMilestone(model: ParsedModel): Milestone | undefined {
-  const delivered = model.milestones.filter((p) => normalizeText(p.statut) === normalizeText("Delivered"));
+  const delivered = model.milestones.filter((p) => normalizeText(p.status) === normalizeText("Delivered"));
   const candidats = delivered.length > 0 ? delivered : model.milestones;
   return candidats.reduce<Milestone | undefined>(
     (meilleur, p) => (!meilleur || p.rank > meilleur.rank ? p : meilleur),

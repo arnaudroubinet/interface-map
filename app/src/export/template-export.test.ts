@@ -92,7 +92,7 @@ describe("modèle de classeur", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.model.colonnesOptionnellesAbsentes).toEqual([]);
+    expect(result.model.missingOptionalColumns).toEqual([]);
   });
 
   it("déclare le périmètre au niveau du groupe, pas déduit des acteurs", () => {
@@ -100,7 +100,7 @@ describe("modèle de classeur", () => {
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
     // L'onglet existe et fait foi, même vide de lignes.
-    expect(result.model.groupesAbsents).toBe(false);
+    expect(result.model.groupsSheetMissing).toBe(false);
   });
 
   it("pré-remplit TypesActeur avec des icônes qui existent dans le catalogue", () => {
@@ -108,9 +108,9 @@ describe("modèle de classeur", () => {
     const result = buildModel(parsed);
     if (!result.ok) throw new Error("modèle illisible");
 
-    expect(result.model.typesActeur.length).toBeGreaterThan(0);
-    for (const t of result.model.typesActeur) {
-      expect(ICONES_DISPONIBLES).toContain(t.icone);
+    expect(result.model.actorTypes.length).toBeGreaterThan(0);
+    for (const t of result.model.actorTypes) {
+      expect(ICONES_DISPONIBLES).toContain(t.icon);
     }
   });
 
@@ -192,7 +192,7 @@ describe("modèle de classeur", () => {
   it("ne demande plus de périmètre sur les acteurs", () => {
     const result = buildModel(parseWorkbook(modeleRelu()));
     if (!result.ok) throw new Error("modèle illisible");
-    expect(result.model.colonnesOptionnellesAbsentes).toEqual([]);
+    expect(result.model.missingOptionalColumns).toEqual([]);
     const wb = XLSX.read(new Uint8Array(modeleRelu()), { type: "array" });
     const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 })[0];
     expect(headers).not.toContain("Perimeter");
@@ -309,7 +309,7 @@ describe("modèle de classeur", () => {
     expect(types.map((t) => t.type)).toContain("HTTP");
     expect(types.map((t) => t.type)).toContain("Kafka");
     // Le sens est déjà tranché pour chacun : il ne se saisit pas.
-    expect(types.every((t) => t.sensRepresentation.length > 0)).toBe(true);
+    expect(types.every((t) => t.direction.length > 0)).toBe(true);
     // Les variantes dépôt/retrait et les composites ont disparu du référentiel.
     expect(types.some((t) => /dépôt|removed|ESB|ETL/i.test(t.type))).toBe(false);
   });
@@ -386,7 +386,7 @@ describe("modèle de classeur — numéro de schéma", () => {
   it("se relit à la version que l'outil attend", () => {
     const result = buildModel(parseWorkbook(modeleRelu()));
     if (!result.ok) throw new Error("modèle illisible");
-    expect(result.model.versionModele).toBe(VERSION_MODELE);
+    expect(result.model.schemaVersion).toBe(VERSION_MODELE);
   });
 });
 
@@ -580,7 +580,7 @@ describe("modèle de classeur — paliers", () => {
   it("se relit sans colonne manquante, paliers compris", () => {
     const result = buildModel(parseWorkbook(writeTemplate(DONNEES_EXEMPLE)));
     if (!result.ok) throw new Error("modèle illisible");
-    expect(result.model.colonnesOptionnellesAbsentes).toEqual([]);
+    expect(result.model.missingOptionalColumns).toEqual([]);
   });
 });
 
@@ -661,7 +661,7 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
 
   const donnees: DonneesClasseur = {
     flowTypes: [],
-    typesActeur: [],
+    actorTypes: [],
     milestones: [],
     groups: [],
     actors: [],
@@ -726,7 +726,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
       ["Kafka", "provider → consumer", "événements"],
       ["SFTP", "provider → consumer", "fichiers"],
     ],
-    typesActeur: [
+    actorTypes: [
       ["Application", "app-window", ""],
       ["Service", "cog", ""],
       ["Packaged product", "package", ""],
@@ -751,7 +751,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
   });
 
   it("étend le tableau ActorTypes à tous les types réellement écrits", () => {
-    expect(table("ActorTypes").rows).toBe(donnees.typesActeur.length);
+    expect(table("ActorTypes").rows).toBe(donnees.actorTypes.length);
   });
 
   it("ne laisse aucun type d'acteur hors du tableau qui alimente L_TypeActeur", () => {
@@ -767,7 +767,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
 describe("modèle de classeur — grands classeurs", () => {
   const NB = 1200;
   const grand: DonneesClasseur = {
-    flowTypes: [], typesActeur: [], milestones: [], groups: [], actors: [], fx: [],
+    flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], fx: [],
     interfaces: Array.from({ length: NB }, (_, i) => [
       `Flux ${i}`, "1.0", "Tatooine", "HTTP", "", "", "", "No", "", "", "",
     ]),
@@ -873,7 +873,7 @@ describe("écrireModele — les propriétés du document", () => {
   const LE_JOUR = new Date("2026-08-22T09:00:00Z");
 
   it("écrit la date de sauvegarde, et la relecture la retrouve", () => {
-    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, LE_JOUR)).fichierModifie?.toISOString()).toBe(
+    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, LE_JOUR)).savedAt?.toISOString()).toBe(
       "2026-08-22T09:00:00.000Z"
     );
   });
@@ -882,7 +882,7 @@ describe("écrireModele — les propriétés du document", () => {
   // reproductible, comme la mise à niveau le fait déjà.
   it("prend la date qu'on lui donne plutôt que l'heure courante", () => {
     const autre = new Date("2020-01-02T03:04:05Z");
-    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, autre)).fichierModifie?.toISOString()).toBe(autre.toISOString());
+    expect(parseWorkbook(writeTemplate(DONNEES_EXEMPLE, autre)).savedAt?.toISOString()).toBe(autre.toISOString());
   });
 
   // Les tableaux structurés, les listes et les validations sont posés APRÈS
@@ -890,7 +890,7 @@ describe("écrireModele — les propriétés du document", () => {
   // docProps/core.xml au passage.
   it("garde la date malgré la réécriture du classeur", () => {
     const relu = parseWorkbook(writeTemplate(DONNEES_EXEMPLE, LE_JOUR));
-    expect(relu.fichierModifie).not.toBeNull();
+    expect(relu.savedAt).not.toBeNull();
     expect(relu.sheets.some((f) => f.name === "Interfaces")).toBe(true);
   });
 });

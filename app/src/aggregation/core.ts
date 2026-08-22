@@ -1,4 +1,4 @@
-import type { Actor, InterfaceCatalogue, ParsedModel, Consommation, ValiditePalier } from "../parsing/model";
+import type { Actor, InterfaceCatalogue, ParsedModel, Consumption, Validity } from "../parsing/model";
 import { lifespanOf, isLiveAt } from "./milestones";
 import { normalizeText } from "../shared/text";
 import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE, VOCABULAIRE_CRITICITE } from "./vocabularies";
@@ -29,7 +29,7 @@ export interface GraphNode {
   attenuation?: number;
   // Nom d'icône, résolu depuis l'onglet TypesActeur du classeur. Le rendu ne
   // décide plus quelle icône va à quel type : il l'applique.
-  icone?: string;
+  icon?: string;
   // Nœud conteneur (style C4 : la frontière de la plateforme). Les enfants
   // sont placés à l'intérieur par le moteur, et la frontière est dessinée
   // autour d'eux.
@@ -76,7 +76,7 @@ export interface FlowInstance {
   // d'architecture, eux, y trouvent tout ce que le trait ne montre pas :
   // contrat, usage, criticité, décision, paliers.
   iface: InterfaceCatalogue;
-  conso: Consommation;
+  conso: Consumption;
 }
 
 // Comment on nomme une interface, partout : « Authent 1.0 », ou « Authent »
@@ -163,10 +163,10 @@ export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
 
 // Icône déclarée pour un type d'acteur. Le classeur fait foi ; sans
 // déclaration, le rendu retombe sur le jeton neutre.
-export function iconForActorType(model: ParsedModel, typeActeur: string): string | undefined {
-  const sought = normalizeText(typeActeur);
+export function iconForActorType(model: ParsedModel, actorType: string): string | undefined {
+  const sought = normalizeText(actorType);
   if (!sought) return undefined;
-  return model.typesActeur.find((t) => normalizeText(t.type) === sought)?.icone || undefined;
+  return model.actorTypes.find((t) => normalizeText(t.type) === sought)?.icon || undefined;
 }
 
 export function nomEstExterne(model: ParsedModel, name: string): boolean {
@@ -235,7 +235,7 @@ export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
   return { byKey, byNomVersion, byNom, nomVersionAmbigu };
 }
 
-export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consommation): InterfaceCatalogue | undefined {
+export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consumption): InterfaceCatalogue | undefined {
   const parOnglet = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
   if (parOnglet) return parOnglet;
   // Le repli par le nom ne joue que si ce nom ne désigne qu'un seul exposant.
@@ -256,7 +256,7 @@ export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consomm
 // qui ne déclare aucun palier se comporte donc exactement comme avant.
 export function buildFlowInstances(model: ParsedModel, rank: number | null = null): FlowInstance[] {
   const actors = actorByName(model);
-  const sensParType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.sensRepresentation]));
+  const sensParType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.direction]));
   const lookup = buildInterfaceLookup(model);
   const flows: FlowInstance[] = [];
 
@@ -271,7 +271,7 @@ export function buildFlowInstances(model: ParsedModel, rank: number | null = nul
     const consommateurActeur = actors.get(consumption.consumerName.trim());
 
     if (rank !== null) {
-      const live = (v: ValiditePalier | undefined) =>
+      const live = (v: Validity | undefined) =>
         v === undefined || isLiveAt(lifespanOf(model, v), rank);
       if (!live(iface) || !live(consumption) || !live(exposantActeur) || !live(consommateurActeur)) {
         continue;

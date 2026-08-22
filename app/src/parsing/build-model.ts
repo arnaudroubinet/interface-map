@@ -2,13 +2,13 @@ import type {
   RawSheet,
   ParsedWorkbook,
   Actor,
-  Groupe,
-  TypeActeur,
-  TypeFlux,
+  Group,
+  ActorType,
+  FlowType,
   Milestone,
-  ValiditePalier,
+  Validity,
   InterfaceCatalogue,
-  Consommation,
+  Consumption,
   BuildModelResult,
   BlockingError,
 } from "./model";
@@ -121,7 +121,7 @@ function normOui(raw: string): boolean {
   return v === normalizeText("yes") || v === normalizeText("oui");
 }
 
-function validite(row: Record<string, string>, headerMap: Map<string, string>): ValiditePalier {
+function validite(row: Record<string, string>, headerMap: Map<string, string>): Validity {
   return {
     introducedAt: get(row, headerMap, "Introduced at"),
     retiredAt: get(row, headerMap, "Retired at"),
@@ -165,39 +165,39 @@ export function expectedFxSheet(providerName: string, flowType: string): string 
 }
 
 export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
-  const erreurs: BlockingError[] = [];
+  const errors: BlockingError[] = [];
 
   const feuilleActeurs = findSheet(workbook.sheets, "Actors");
   const feuilleTypesFlux = findSheet(workbook.sheets, "FlowTypes");
   const feuilleInterfaces = findSheet(workbook.sheets, "Interfaces");
 
-  if (!feuilleActeurs) erreurs.push({ message: 'Sheet "Actors" missing from the workbook.' });
-  if (!feuilleTypesFlux) erreurs.push({ message: 'Sheet "FlowTypes" missing from the workbook.' });
-  if (!feuilleInterfaces) erreurs.push({ message: 'Sheet "Interfaces" missing from the workbook.' });
+  if (!feuilleActeurs) errors.push({ message: 'Sheet "Actors" missing from the workbook.' });
+  if (!feuilleTypesFlux) errors.push({ message: 'Sheet "FlowTypes" missing from the workbook.' });
+  if (!feuilleInterfaces) errors.push({ message: 'Sheet "Interfaces" missing from the workbook.' });
 
   if (feuilleActeurs && !findHeader(feuilleActeurs.headers, "Name")) {
-    erreurs.push({ message: 'Key column "Name" missing from sheet "Actors".' });
+    errors.push({ message: 'Key column "Name" missing from sheet "Actors".' });
   }
   if (feuilleTypesFlux && !findHeader(feuilleTypesFlux.headers, "Flow type")) {
-    erreurs.push({ message: 'Key column "Flow type" missing from sheet "FlowTypes".' });
+    errors.push({ message: 'Key column "Flow type" missing from sheet "FlowTypes".' });
   }
   if (feuilleInterfaces && !findHeader(feuilleInterfaces.headers, "Flow name")) {
-    erreurs.push({ message: 'Key column "Flow name" missing from sheet "Interfaces".' });
+    errors.push({ message: 'Key column "Flow name" missing from sheet "Interfaces".' });
   }
 
-  if (!feuilleActeurs || !feuilleTypesFlux || !feuilleInterfaces || erreurs.length > 0) {
-    return { ok: false, erreurs };
+  if (!feuilleActeurs || !feuilleTypesFlux || !feuilleInterfaces || errors.length > 0) {
+    return { ok: false, errors };
   }
 
   const headersActeurs = feuilleActeurs.headers;
   const headersTypesFlux = feuilleTypesFlux.headers;
   const headersInterfaces = feuilleInterfaces.headers;
 
-  const colonnesOptionnellesAbsentes: { sheet: string; column: string }[] = [];
+  const missingOptionalColumns: { sheet: string; column: string }[] = [];
   function noterColonnesAbsentes(sheet: string, actualHeaders: string[], attendues: string[]) {
     for (const attendue of attendues) {
       if (!findHeader(actualHeaders, attendue)) {
-        colonnesOptionnellesAbsentes.push({ sheet, column: attendue });
+        missingOptionalColumns.push({ sheet, column: attendue });
       }
     }
   }
@@ -214,10 +214,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       row,
       name: get(r, headerMapActeurs, "Name"),
       group: get(r, headerMapActeurs, "Group"),
-      typeActeur: get(r, headerMapActeurs, "Actor type"),
-      responsable: get(r, headerMapActeurs, "Owner"),
+      actorType: get(r, headerMapActeurs, "Actor type"),
+      owner: get(r, headerMapActeurs, "Owner"),
       description: get(r, headerMapActeurs, "Description"),
-      commentaires: get(r, headerMapActeurs, "Comments"),
+      comments: get(r, headerMapActeurs, "Comments"),
       ...validite(r, headerMapActeurs),
     }))
     .filter((a) => a.name !== "");
@@ -227,10 +227,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   // vérités concurrentes sur la même question. Un contrôle d'intégrité réclame
   // l'onglet, et sans lui aucun acteur n'est situé.
   const feuilleGroupes = findSheet(workbook.sheets, "Groups");
-  let groups: Groupe[] = [];
-  let groupesAbsents = true;
+  let groups: Group[] = [];
+  let groupsSheetMissing = true;
   if (feuilleGroupes && findHeader(feuilleGroupes.headers, "Group")) {
-    groupesAbsents = false;
+    groupsSheetMissing = false;
     noterColonnesAbsentes("Groups", feuilleGroupes.headers, COLONNES_GROUPES.filter((c) => c !== "Group"));
     const headerMapGroupes = buildHeaderMap(feuilleGroupes.headers, COLONNES_GROUPES);
     groups = feuilleGroupes.rows
@@ -249,17 +249,17 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   // Optionnel, comme « Groupes » : sans lui, les nœuds portent le jeton neutre
   // et un contrôle d'intégrité le signale.
   const feuilleTypesActeur = findSheet(workbook.sheets, "ActorTypes");
-  let typesActeur: TypeActeur[] = [];
+  let actorTypes: ActorType[] = [];
   if (feuilleTypesActeur && findHeader(feuilleTypesActeur.headers, "Actor type")) {
     noterColonnesAbsentes("ActorTypes", feuilleTypesActeur.headers, COLONNES_TYPESACTEUR.filter((c) => c !== "Actor type"));
     const headerMapTypesActeur = buildHeaderMap(feuilleTypesActeur.headers, COLONNES_TYPESACTEUR);
-    typesActeur = feuilleTypesActeur.rows
+    actorTypes = feuilleTypesActeur.rows
       .filter(({ values: r }) => rowHasContent(r, headerMapTypesActeur, COLONNES_TYPESACTEUR))
       .map(({ row, values: r }) => ({
         sheet: feuilleTypesActeur.name,
         row,
         type: get(r, headerMapTypesActeur, "Actor type"),
-        icone: get(r, headerMapTypesActeur, "Icon"),
+        icon: get(r, headerMapTypesActeur, "Icon"),
         nature: get(r, headerMapTypesActeur, "Nature"),
       }))
       .filter((t) => t.type !== "");
@@ -267,14 +267,14 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
 
   const headerMapTypesFlux = buildHeaderMap(headersTypesFlux, COLONNES_TYPESFLUX);
   const colourHeader = COLONNES_COULEUR_FLUX.map((c) => findHeader(headersTypesFlux, c)).find(Boolean);
-  const flowTypes: TypeFlux[] = feuilleTypesFlux.rows
+  const flowTypes: FlowType[] = feuilleTypesFlux.rows
     .filter(({ values: r }) => rowHasContent(r, headerMapTypesFlux, COLONNES_TYPESFLUX))
     .map(({ row, values: r }) => ({
       sheet: feuilleTypesFlux.name,
       row,
       type: get(r, headerMapTypesFlux, "Flow type"),
-      sensRepresentation: normSens(get(r, headerMapTypesFlux, "Direction")),
-      sensRepresentationBrut: get(r, headerMapTypesFlux, "Direction"),
+      direction: normSens(get(r, headerMapTypesFlux, "Direction")),
+      rawDirection: get(r, headerMapTypesFlux, "Direction"),
       colour: colourHeader ? (r[colourHeader] ?? "").toString().trim() : "",
       description: get(r, headerMapTypesFlux, "Description"),
     }))
@@ -298,7 +298,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         name,
         rank: Number.isFinite(rank) ? rank : 0,
         label: get(r, headerMapPaliers, "Label"),
-        statut: get(r, headerMapPaliers, "Status"),
+        status: get(r, headerMapPaliers, "Status"),
         date: get(r, headerMapPaliers, "Date"),
         description: get(r, headerMapPaliers, "Description"),
       });
@@ -319,19 +319,19 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         row,
         flowName,
         version: get(r, headerMapInterfaces, "Version"),
-        etat: get(r, headerMapInterfaces, COLONNE_HERITEE_ETAT),
+        legacyState: get(r, headerMapInterfaces, COLONNE_HERITEE_ETAT),
         providerName,
         flowType,
         description: get(r, headerMapInterfaces, "Description"),
-        lienContrat: get(r, headerMapInterfaces, "Contract link"),
-        referenceContrat: get(r, headerMapInterfaces, "Contract reference"),
-        commentaires: get(r, headerMapInterfaces, "Comments"),
-        aConfirmer: normOui(get(r, headerMapInterfaces, "To confirm")),
+        contractLink: get(r, headerMapInterfaces, "Contract link"),
+        contractReference: get(r, headerMapInterfaces, "Contract reference"),
+        comments: get(r, headerMapInterfaces, "Comments"),
+        toConfirm: normOui(get(r, headerMapInterfaces, "To confirm")),
         expectedSheet,
         // Colonne de la v3, remplacée par « Republished as » sur la consommation.
         // On la lit encore -- et seulement ici -- pour que la mise à niveau puisse
         // déplacer l'information ; plus rien d'autre ne la consulte.
-        relais: (() => {
+        legacyRelays: (() => {
           const header = findHeader(feuilleInterfaces.headers, COLONNE_HERITEE_RELAIS);
           return header ? (r[header] ?? "").toString().trim() : "";
         })(),
@@ -348,7 +348,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   );
   const fxSheetNames = fxSheets.map((s) => s.name);
 
-  const consumptions: Consommation[] = [];
+  const consumptions: Consumption[] = [];
   for (const sheet of fxSheets) {
     const headersFx = sheet.headers;
     noterColonnesAbsentes(sheet.name, headersFx, COLONNES_FX);
@@ -364,10 +364,10 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         consumerName: get(r, headerMapFx, "Consumer"),
         usage: get(r, headerMapFx, "Usage"),
         criticality: get(r, headerMapFx, "Criticality for this consumer"),
-        statut: get(r, headerMapFx, COLONNE_HERITEE_STATUT),
+        legacyStatus: get(r, headerMapFx, COLONNE_HERITEE_STATUT),
         decision: get(r, headerMapFx, "Decision"),
         republishedAs: get(r, headerMapFx, COLONNE_REPUBLICATION),
-        commentaires: get(r, headerMapFx, "Comments"),
+        comments: get(r, headerMapFx, "Comments"),
         sheet: sheet.name,
         ...validite(r, headerMapFx),
       });
@@ -379,16 +379,16 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     model: {
       actors,
       groups,
-      groupesAbsents,
-      typesActeur,
+      groupsSheetMissing,
+      actorTypes,
       flowTypes,
       milestones,
       interfaces,
       consumptions,
       fxSheetNames,
-      colonnesOptionnellesAbsentes,
-      versionModele: readSchemaVersion(workbook.sheets),
-      fichierModifie: workbook.fichierModifie,
+      missingOptionalColumns,
+      schemaVersion: readSchemaVersion(workbook.sheets),
+      savedAt: workbook.savedAt,
     },
   };
 }

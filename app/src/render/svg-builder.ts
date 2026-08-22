@@ -538,7 +538,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const iconSize = 16;
   const shownName = nomTronque(node.label);
   const largeurNom = shownName.length * 8.2;
-  g.appendChild(buildIcon(node.icone ?? ICONE_PAR_DEFAUT, cx - largeurNom / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
+  g.appendChild(buildIcon(node.icon ?? ICONE_PAR_DEFAUT, cx - largeurNom / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
 
   const texteNom = el("text");
   texteNom.setAttribute("x", String(cx + iconSize / 2 + 3));

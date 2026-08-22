@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { toutesLesPlanches } from "./boards";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 // Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
@@ -14,8 +14,8 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ description: "d", ...o });
 }
 
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
@@ -25,19 +25,19 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
       { name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 },
       { name: "Partenaire", perimeter: "External", sheet: "Groups", row: 0 },
     ],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    groupsSheetMissing: false,
+    actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
       base.typeFlux({ type: "HTTP" }),
-      base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
+      base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
     ],
     interfaces: [iface({})],
     consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...o,
   };
 }
@@ -50,12 +50,12 @@ const titles = (m: ParsedModel, rank: number | null = null) =>
 // résout en un flux direct Tatooine → Naboo, Bus disparaît.
 function modeleAvecTechnique(): ParsedModel {
   return model({
-    actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", typeActeur: "Middleware" }), actor({ name: "Naboo" })],
-    typesActeur: [
-      { type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 },
-      { type: "Middleware", icone: "app-window", nature: "Technical", sheet: "ActorTypes", row: 0 },
+    actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", actorType: "Middleware" }), actor({ name: "Naboo" })],
+    actorTypes: [
+      { type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 },
+      { type: "Middleware", icon: "app-window", nature: "Technical", sheet: "ActorTypes", row: 0 },
     ],
-    interfaces: [iface({ flowName: "F1", providerName: "Tatooine" }), iface({ flowName: "F2", providerName: "Bus", relais: "F1" })],
+    interfaces: [iface({ flowName: "F1", providerName: "Tatooine" }), iface({ flowName: "F2", providerName: "Bus", legacyRelays: "F1" })],
     consumptions: [conso({ flowName: "F2", consumerName: "Naboo" })],
   });
 }
@@ -114,8 +114,8 @@ describe("toutesLesPlanches", () => {
   // mélanger deux états de la plateforme.
   it("reads every board at the same milestone", () => {
     const milestones = [
-      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
     const m = model({
       milestones,
@@ -158,8 +158,8 @@ describe("planches selon le mode", () => {
   // plus sur la carte, pas même seul.
   it("n'a pas de planche pour un acteur métier isolé retiré au palier affiché", () => {
     const milestones = [
-      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
     const m = modeleAvecTechnique();
     m.milestones = milestones;

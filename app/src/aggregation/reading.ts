@@ -1,4 +1,4 @@
-import type { Actor, ParsedModel, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { Actor, ParsedModel, InterfaceCatalogue, Consumption } from "../parsing/model";
 import {
   buildFlowInstances,
   interfaceLabel,
@@ -80,7 +80,7 @@ export interface Maillon {
   attenuated: boolean;
 }
 
-function hop(iface: InterfaceCatalogue, conso: Consommation): Maillon {
+function hop(iface: InterfaceCatalogue, conso: Consumption): Maillon {
   return {
     provider: iface.providerName.trim(),
     consumer: conso.consumerName.trim(),
@@ -96,7 +96,7 @@ function entreesDe(
   lookup: InterfaceLookup,
   republished: InterfaceCatalogue,
   rank: number | null
-): { iface: InterfaceCatalogue; conso: Consommation }[] {
+): { iface: InterfaceCatalogue; conso: Consumption }[] {
   const live = (v: { introducedAt: string; retiredAt: string }) =>
     rank === null || isLiveAt(lifespanOf(model, v), rank);
   const relay = republished.providerName.trim();
@@ -107,7 +107,7 @@ function entreesDe(
     normalizeText(interfaceLabel(republished.flowName, republished.version)),
   ]);
 
-  const inputs: { iface: InterfaceCatalogue; conso: Consommation }[] = [];
+  const inputs: { iface: InterfaceCatalogue; conso: Consumption }[] = [];
   for (const c of model.consumptions) {
     if (c.consumerName.trim() !== relay) continue;
     if (!designated.has(normalizeText(c.republishedAs))) continue;

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { modeleEnLikeC4 } from "./likec4-dsl";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 // Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
@@ -14,8 +14,8 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ description: "d", ...o });
 }
 
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
@@ -25,8 +25,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
       { name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 },
       { name: "Partenaire", perimeter: "External", sheet: "Groups", row: 0 },
     ],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    groupsSheetMissing: false,
+    actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
       base.typeFlux({ type: "HTTP" }),
@@ -34,9 +34,9 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     interfaces: [iface({})],
     consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...o,
   };
 }
@@ -79,7 +79,7 @@ describe("modeleEnLikeC4", () => {
   it("follows the flow type the other way round when it says so", () => {
     const m = model({
       flowTypes: [
-        base.typeFlux({ type: "HTTP", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
+        base.typeFlux({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
       ],
     });
     expect(modeleEnLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
@@ -98,8 +98,8 @@ describe("modeleEnLikeC4", () => {
   // qu'un consommateur en fait.
   it("carries both comment columns on the relationship", () => {
     const m = model({
-      interfaces: [iface({ commentaires: "Scope under review" })],
-      consumptions: [conso({ commentaires: "Migrating next quarter" })],
+      interfaces: [iface({ comments: "Scope under review" })],
+      consumptions: [conso({ comments: "Migrating next quarter" })],
     });
     const dsl = modeleEnLikeC4(m, null);
     expect(dsl).toContain('interfaceComments "Scope under review"');
@@ -107,7 +107,7 @@ describe("modeleEnLikeC4", () => {
   });
 
   it("flags an interface still to be confirmed, and only that one", () => {
-    const m = model({ interfaces: [iface({ aConfirmer: true })] });
+    const m = model({ interfaces: [iface({ toConfirm: true })] });
     expect(modeleEnLikeC4(m, null)).toContain('toConfirm "Yes"');
     expect(modeleEnLikeC4(model(), null)).not.toContain("toConfirm");
   });
@@ -130,8 +130,8 @@ describe("modeleEnLikeC4", () => {
 
   it("exports the platform as it stands at the milestone on show", () => {
     const milestones = [
-      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
     const m = model({
       milestones,
@@ -182,7 +182,7 @@ describe("modeleEnLikeC4", () => {
 // SEULE cible qui sache la dessiner.
 describe("modeleEnLikeC4 — la notation traverse l'export", () => {
   const estate = (direction: "consumer-to-provider" | "provider-to-consumer") =>
-    model({ flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentation: direction })] });
+    model({ flowTypes: [base.typeFlux({ type: "HTTP", direction: direction })] });
 
   it("pose une pointe ouverte sur une technologie tirée", () => {
     expect(modeleEnLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);

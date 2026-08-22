@@ -57,7 +57,7 @@ export function buildChainView(model: ParsedModel, chain: ChaineDisponible): Vie
       // Les deux bouts de la chaîne sont ce qu'on est venu voir ; ce qu'il y a
       // entre eux est la plomberie qu'on traverse.
       kind: name === actors[0] || name === actors[actors.length - 1] ? "focus-actor" : "actor",
-      subtitle: actor?.typeActeur.trim() || undefined,
+      subtitle: actor?.actorType.trim() || undefined,
       technique: actors.indexOf(name) > 0 && actors.indexOf(name) < actors.length - 1 ? true : undefined,
     };
   });

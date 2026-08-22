@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { calculerEcarts, buildEcartsView } from "./changes";
 import { VERSION_MODELE } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Tout est daté v1 dans ce fichier : c'est entre deux paliers qu'il compare.
 function actor(o: Partial<Actor> = {}): Actor {
@@ -11,29 +11,29 @@ function actor(o: Partial<Actor> = {}): Actor {
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ introducedAt: "v1", ...o });
 }
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ statut: "Actif", decision: "Keep", introducedAt: "v1", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ legacyStatus: "Actif", decision: "Keep", introducedAt: "v1", ...o });
 }
 
 const milestones = [
-  { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-  { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
 ];
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
   return {
     actors: [actor({ name: "A" }), actor({ name: "B" })],
     groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }],
-    groupesAbsents: false,
-    typesActeur: [],
+    groupsSheetMissing: false,
+    actorTypes: [],
     milestones,
-    flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentationBrut: "" })],
+    flowTypes: [base.typeFlux({ type: "HTTP", rawDirection: "" })],
     interfaces: [iface({})],
     consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...o,
   };
 }
@@ -211,12 +211,12 @@ function functionalEstate(): ParsedModel {
   return model({
     actors: [
       actor({ name: "Tatooine" }),
-      actor({ name: "Bus", typeActeur: "Middleware" }),
+      actor({ name: "Bus", actorType: "Middleware" }),
       actor({ name: "Naboo" }),
     ],
-    typesActeur: [
-      { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-      { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+    actorTypes: [
+      { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+      { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
     ],
     interfaces: [
       iface({ flowName: "Transactions", providerName: "Tatooine", expectedSheet: "FX_Tatooine_HTTP" }),

@@ -11,7 +11,7 @@ function estate(overrides: Partial<ParsedModel> = {}): ParsedModel {
       base.milestone({ name: "v3", rank: 3 }),
     ],
     groups: [base.group({ name: "G" })],
-    typesActeur: [base.typeActeur()],
+    actorTypes: [base.actorType()],
     flowTypes: [base.typeFlux()],
     fxSheetNames: ["FX_A_HTTP"],
     actors: [base.actor({ name: "A", group: "G", introducedAt: "v1" })],

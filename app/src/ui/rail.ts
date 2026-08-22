@@ -92,7 +92,7 @@ export interface RailCallbacks {
 // du planifié.
 function milestoneSelect(
   title: string,
-  milestones: readonly { name: string; label: string; statut: string }[],
+  milestones: readonly { name: string; label: string; status: string }[],
   choisi: string | null,
   onChange: (milestone: string) => void
 ): HTMLElement {
@@ -101,7 +101,7 @@ function milestoneSelect(
   const select = el("select", { class: "rail-select" });
   for (const p of milestones) {
     const suffixe = p.label.trim() ? ` — ${p.label.trim()}` : "";
-    const option = el("option", { value: p.name }, [`${p.name}${suffixe} (${p.statut || "?"})`]);
+    const option = el("option", { value: p.name }, [`${p.name}${suffixe} (${p.status || "?"})`]);
     if (p.name === choisi) option.selected = true;
     select.appendChild(option);
   }

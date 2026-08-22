@@ -4,15 +4,15 @@ import { ICONES_DISPONIBLES } from "../render/icons";
 const COULEUR_HEXA = /^#?[0-9a-f]{6}$/i;
 import type {
   Actor,
-  Consommation,
-  Emplacement,
-  Groupe,
+  Consumption,
+  Location,
+  Group,
   InterfaceCatalogue,
   Milestone,
   ParsedModel,
-  TypeActeur,
-  TypeFlux,
-  ValiditePalier,
+  ActorType,
+  FlowType,
+  Validity,
 } from "../parsing/model";
 import {
   buildInterfaceLookup,
@@ -43,38 +43,38 @@ export interface Anomaly {
   // Où aller corriger. Absent quand l'anomalie ne vise aucune ligne : un
   // onglet manquant, un classeur sans palier livré. Ces anomalies-là passent
   // en tête du rapport, elles concernent le fichier et non une saisie.
-  emplacement?: Emplacement;
+  emplacement?: Location;
 }
 
 // L'unique fabrique du sujet d'un message : ce dont on parle, puis où le
 // retrouver. Tout message qui vise une ligne passe par ici, sinon l'adresse
 // s'écrirait de trois façons selon la famille.
-function address(e: Emplacement): string {
+function address(e: Location): string {
   return `(${e.sheet}, row ${e.row})`;
 }
 
-function located(what: string, name: string, e: Emplacement): string {
+function located(what: string, name: string, e: Location): string {
   return `${what} "${name}" ${address(e)}`;
 }
 
 const nameActor = (a: Actor) => located("Actor", a.name, a);
 const nameInterface = (i: InterfaceCatalogue) => located("Interface", interfaceLabel(i.flowName, i.version), i);
-const nameConsumption = (c: Consommation) => located("Consumption", c.flowName, c);
-const nameGroup = (g: Groupe) => located("Group", g.name, g);
-const nameActorType = (t: TypeActeur) => located("Actor type", t.type, t);
-const nameFlowType = (t: TypeFlux) => located("Flow type", t.type, t);
+const nameConsumption = (c: Consumption) => located("Consumption", c.flowName, c);
+const nameGroup = (g: Group) => located("Group", g.name, g);
+const nameActorType = (t: ActorType) => located("Actor type", t.type, t);
+const nameFlowType = (t: FlowType) => located("Flow type", t.type, t);
 const nameMilestone = (p: Milestone) => located("Milestone", p.name, p);
 
 // Les éléments d'un bloc suivent le même ordre que les anomalies : la feuille,
 // puis la ligne. Ils portent leur adresse dans le texte, faute d'avoir, comme
 // une anomalie, un champ pour la loger.
-function locatedItems<T extends Emplacement>(rows: T[], text: (l: T) => string): string[] {
+function locatedItems<T extends Location>(rows: T[], text: (l: T) => string): string[] {
   return [...rows]
     .sort((a, b) => a.sheet.localeCompare(b.sheet, "fr") || a.row - b.row)
     .map(text);
 }
 
-function anomaly(message: string, e?: Emplacement): Anomaly {
+function anomaly(message: string, e?: Location): Anomaly {
   return e ? { message, emplacement: { sheet: e.sheet, row: e.row } } : { message };
 }
 
@@ -134,14 +134,14 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
 // l'interface que le diagramme lui associe réellement (aggregation/core.ts),
 // pas ignorée ici — sinon §7.3/§7.5 et le schéma se contrediraient sur la
 // même ligne mal rangée.
-function consommationsForInterface(lookup: InterfaceLookup, model: ParsedModel, iface: InterfaceCatalogue): Consommation[] {
+function consommationsForInterface(lookup: InterfaceLookup, model: ParsedModel, iface: InterfaceCatalogue): Consumption[] {
   return model.consumptions.filter((c) => findInterfaceForConsommation(lookup, c) === iface);
 }
 
-function citedBounds(where: string, v: ValiditePalier & Emplacement) {
+function citedBounds(where: string, v: Validity & Location) {
   return [v.introducedAt, v.retiredAt]
     .filter((value) => value.trim() !== "")
-    .map((value) => ({ where, value, emplacement: v as Emplacement }));
+    .map((value) => ({ where, value, emplacement: v as Location }));
 }
 
 function duplicates(values: string[]): string[] {
@@ -157,7 +157,7 @@ function duplicates(values: string[]): string[] {
 function checkStructure(model: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
 
-  for (const { sheet, column } of model.colonnesOptionnellesAbsentes) {
+  for (const { sheet, column } of model.missingOptionalColumns) {
     anomalies.push({ message: `Column "${column}" missing from sheet "${sheet}".` });
   }
 
@@ -241,7 +241,7 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   // Le périmètre est une propriété du groupe. Sans cet onglet, on le déduit des
   // acteurs -- un groupe mixte devient alors « Plateforme » dès qu'un seul de
   // ses membres l'est, ce qui fausse couleurs et décomptes.
-  if (model.typesActeur.length === 0) {
+  if (model.actorTypes.length === 0) {
     anomalies.push({
       message: 'Sheet "ActorTypes" missing or empty, so every actor wears the neutral icon. Add an "ActorTypes" sheet with the columns "Actor type" and "Icon".',
     });
@@ -250,7 +250,7 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   // Le périmètre est une propriété du groupe, et il ne se devine pas : sans cet
   // onglet, aucun acteur n'est situé dedans ou dehors, et les schémas cessent
   // de distinguer la plateforme de ce qui l'entoure.
-  if (model.groupesAbsents) {
+  if (model.groupsSheetMissing) {
     anomalies.push({
       message:
         'Sheet "Groups" missing, so no perimeter is known and the diagrams no longer tell the platform from its surroundings. Add a "Groups" sheet with the columns "Group" and "Perimeter".',
@@ -264,7 +264,7 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
       const names = model.milestones.filter((p) => String(p.rank) === rank).map((p) => p.name);
       anomalies.push(anomaly(`Milestones "${names.join('", "')}" share rank ${rank}, so their order is ambiguous.`));
     }
-    if (!model.milestones.some((p) => normalizeText(p.statut) === normalizeText("Delivered"))) {
+    if (!model.milestones.some((p) => normalizeText(p.status) === normalizeText("Delivered"))) {
       anomalies.push({
         message: 'No milestone is marked "Delivered", so the current one is undetermined; the views fall back on the first declared.',
       });
@@ -372,7 +372,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // Deux technologies de la même couleur donnent deux traits indiscernables,
   // légende comprise. Le classeur ne le montre nulle part : deux cellules
   // voisines d'un référentiel se comparent mal à l'œil.
-  const parCouleur = new Map<string, TypeFlux>();
+  const parCouleur = new Map<string, FlowType>();
   for (const t of model.flowTypes) {
     const brut = t.colour.trim();
     if (!COULEUR_HEXA.test(brut)) continue;
@@ -389,10 +389,10 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 
   // Le catalogue d'icônes est embarqué (livrable hors ligne) : un nom inventé
   // ne dessinerait rien, autant le dire avec la liste des noms valides.
-  for (const t of model.typesActeur) {
-    if (t.icone && !ICONES_DISPONIBLES.includes(t.icone.trim())) {
+  for (const t of model.actorTypes) {
+    if (t.icon && !ICONES_DISPONIBLES.includes(t.icon.trim())) {
       anomalies.push(
-        anomaly(`${nameActorType(t)}: icon "${t.icone}" unknown. Accepted values: ${ICONES_DISPONIBLES.join(", ")}.`, t)
+        anomaly(`${nameActorType(t)}: icon "${t.icon}" unknown. Accepted values: ${ICONES_DISPONIBLES.join(", ")}.`, t)
       );
     }
   }
@@ -400,25 +400,25 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // Un classeur vierge n'est pas incohérent, il est vide : sans un seul acteur,
   // une déclaration « inutilisée » ne signale rien. Sans cette garde, le modèle
   // téléchargé s'ouvrait sur six erreurs.
-  if (model.typesActeur.length > 0 && model.actors.length > 0) {
-    const declaredTypes = new Set(model.typesActeur.map((t) => normalizeText(t.type)));
+  if (model.actorTypes.length > 0 && model.actors.length > 0) {
+    const declaredTypes = new Set(model.actorTypes.map((t) => normalizeText(t.type)));
     const vus = new Set<string>();
     for (const a of model.actors) {
-      const type = a.typeActeur.trim();
+      const type = a.actorType.trim();
       if (!type) continue;
       vus.add(normalizeText(type));
       if (!declaredTypes.has(normalizeText(type))) {
         anomalies.push(anomaly(`${nameActor(a)}: actor type "${type}" missing from the "ActorTypes" sheet.`, a));
       }
     }
-    for (const t of model.typesActeur) {
+    for (const t of model.actorTypes) {
       if (!vus.has(normalizeText(t.type))) {
         anomalies.push(anomaly(`${nameActorType(t)} is declared but no actor carries it.`, t));
       }
     }
   }
 
-  if (!model.groupesAbsents && model.actors.length > 0) {
+  if (!model.groupsSheetMissing && model.actors.length > 0) {
     const declared = new Set(model.groups.map((g) => normalizeText(g.name)));
     const vus = new Set<string>();
     for (const a of model.actors) {
@@ -472,7 +472,7 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   // classeur prescrit -- « Obsolete row: do not delete it: give it a
   // retirement milestone. » Les compter ensemble reprochait au fichier de
   // suivre sa propre consigne.
-  const parFluxEtConsommateur = new Map<string, Consommation[]>();
+  const parFluxEtConsommateur = new Map<string, Consumption[]>();
   for (const c of model.consumptions) {
     const key = JSON.stringify([normalizeText(c.sheet), normalizeText(c.flowName), normalizeText(c.consumerName)]);
     parFluxEtConsommateur.set(key, [...(parFluxEtConsommateur.get(key) ?? []), c]);
@@ -515,7 +515,7 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
 
     function checkNesting(
       subject: string,
-      validite: ValiditePalier & Emplacement,
+      validite: Validity & Location,
       parents: { name: string; interval: Intervalle }[]
     ) {
       const interval = lifespanOf(model, validite);
@@ -654,10 +654,10 @@ function checkVocabulaires(model: ParsedModel): AnomalyFamily {
   }
 
   for (const t of model.flowTypes) {
-    if (horsVocabulaire(t.sensRepresentationBrut, VOCABULAIRES.direction)) {
+    if (horsVocabulaire(t.rawDirection, VOCABULAIRES.direction)) {
       anomalies.push(
         anomaly(
-          `${nameFlowType(t)}: direction "${t.sensRepresentationBrut}" unknown. Accepted values: ${VOCABULAIRES.direction.join(", ")}.`,
+          `${nameFlowType(t)}: direction "${t.rawDirection}" unknown. Accepted values: ${VOCABULAIRES.direction.join(", ")}.`,
           t
         )
       );
@@ -665,7 +665,7 @@ function checkVocabulaires(model: ParsedModel): AnomalyFamily {
   }
 
 
-  for (const t of model.typesActeur) {
+  for (const t of model.actorTypes) {
     if (horsVocabulaire(t.nature, VOCABULAIRES.nature)) {
       anomalies.push(
         anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULAIRES.nature.join(", ")}.`, t)
@@ -698,7 +698,7 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
     if (!iface.description.trim()) {
       anomalies.push(anomaly(`${nameInterface(iface)}: description empty.`, iface));
     }
-    if (!iface.lienContrat.trim() && !iface.referenceContrat.trim()) {
+    if (!iface.contractLink.trim() && !iface.contractReference.trim()) {
       anomalies.push(anomaly(`${nameInterface(iface)}: no contract, neither link nor reference.`, iface));
     }
   }
@@ -719,8 +719,8 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  for (const t of model.typesActeur) {
-    if (!t.icone.trim()) {
+  for (const t of model.actorTypes) {
+    if (!t.icon.trim()) {
       anomalies.push(anomaly(`${nameActorType(t)}: icon not filled in.`, t));
     }
   }
@@ -760,9 +760,9 @@ function checkCompletude(model: ParsedModel): AnomalyFamily {
 
   // Tant qu'aucun type ne déclare de nature, l'équipe n'a pas adopté la
   // distinction et l'outil n'en parle pas -- même règle que pour les paliers.
-  const natureAdoptee = model.typesActeur.some((t) => t.nature.trim() !== "");
+  const natureAdoptee = model.actorTypes.some((t) => t.nature.trim() !== "");
   if (natureAdoptee) {
-    for (const t of model.typesActeur) {
+    for (const t of model.actorTypes) {
       if (!t.nature.trim()) anomalies.push(anomaly(`${nameActorType(t)}: nature not filled in.`, t));
     }
   }
@@ -997,7 +997,7 @@ function interfacesAConfirmer(model: ParsedModel): InfoBlock {
     id: "a-confirmer",
     title: "Interfaces to confirm",
     description: "Interfaces whose To confirm column reads Yes — to confirm or to drop.",
-    items: locatedItems(model.interfaces.filter((i) => i.aConfirmer), (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`),
+    items: locatedItems(model.interfaces.filter((i) => i.toConfirm), (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`),
     level: "action",
   };
 }

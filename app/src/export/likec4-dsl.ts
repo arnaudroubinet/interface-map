@@ -97,7 +97,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     // aurait effacé la distinction que le pointillé porte chez nous, la
     // décision « Transform ».
     ...technos.flatMap((t) => {
-      const pulled = model.flowTypes.some((tf) => tf.type.trim() === t && tf.sensRepresentation === "consumer-to-provider");
+      const pulled = model.flowTypes.some((tf) => tf.type.trim() === t && tf.direction === "consumer-to-provider");
       return [
         `    relationship ${tags.get(t)} {`,
         `        technology "${text(t)}"`,
@@ -124,11 +124,11 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     if (groupIsExternal(model, a.group)) body.push(`${indent}    #external`);
     if (groupIsPlatform(model, a.group)) body.push(`${indent}    #platform`);
     if (a.description.trim()) body.push(`${indent}    description "${text(a.description)}"`);
-    if (a.typeActeur.trim()) body.push(`${indent}    technology "${text(a.typeActeur)}"`);
+    if (a.actorType.trim()) body.push(`${indent}    technology "${text(a.actorType)}"`);
     body.push(
       ...metadata(indent + "    ", [
-        ["owner", a.responsable],
-        ["comments", a.commentaires],
+        ["owner", a.owner],
+        ["comments", a.comments],
         ["introducedAt", a.introducedAt],
         ["retiredAt", a.retiredAt],
       ])
@@ -169,20 +169,20 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
     body.push(`        technology "${text(f.flowType)}"`);
     // Le contrat est une adresse : un clic depuis le schéma vaut mieux qu'une
     // recherche dans le classeur.
-    if (f.iface.lienContrat.trim()) body.push(`        link ${f.iface.lienContrat.trim()}`);
+    if (f.iface.contractLink.trim()) body.push(`        link ${f.iface.contractLink.trim()}`);
     body.push(
       ...metadata("        ", [
         ["usage", f.conso.usage],
         ["criticality", f.conso.criticality],
         ["decision", f.conso.decision],
-        ["contractReference", f.iface.referenceContrat],
+        ["contractReference", f.iface.contractReference],
         // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
         // ce drapeau, le fichier produit affirmerait plus que lui.
-        ["toConfirm", f.iface.aConfirmer ? "Yes" : ""],
+        ["toConfirm", f.iface.toConfirm ? "Yes" : ""],
         // Deux colonnes de commentaires, deux sujets : le contrat d'un côté,
         // l'usage qu'un consommateur en fait de l'autre.
-        ["interfaceComments", f.iface.commentaires],
-        ["consumptionComments", f.conso.commentaires],
+        ["interfaceComments", f.iface.comments],
+        ["consumptionComments", f.conso.comments],
         ["introducedAt", f.conso.introducedAt],
         ["retiredAt", f.conso.retiredAt],
       ])
@@ -267,7 +267,7 @@ function views(
 // Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui
 // qui a une forme à lui, dans les deux langues qu'un classeur peut porter.
 function estUnePersonne(a: Actor): boolean {
-  return ["person", "humain"].includes(normalizeText(a.typeActeur));
+  return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 
 // Ce que le schéma ne montre pas mais que le classeur sait. Un bloc vide ne se

@@ -4,7 +4,7 @@ import { runIntegrityChecks } from "./checks";
 import { buildFlowInstances } from "../aggregation/core";
 import { buildFunctionalFlows } from "../aggregation/reading";
 import { VERSION_MODELE, expectedFxSheet } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Un parc qui ne déclenche rien : chaque test n'introduit alors qu'une seule
 // faute, celle qu'il examine.
@@ -13,27 +13,27 @@ function actor(o: Partial<Actor> = {}): Actor {
 }
 
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
-  return base.iface({ description: "d", lienContrat: "lien", ...o });
+  return base.iface({ description: "d", contractLink: "lien", ...o });
 }
 
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 function model(overrides: Partial<ParsedModel>): ParsedModel {
   return {
     actors: [actor({ name: "A" }), actor({ name: "B" })],
     groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    groupsSheetMissing: false,
+    actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
   flowTypes: [base.typeFlux({ type: "HTTP" })],
     interfaces: [iface({})],
     consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...overrides,
   };
 }
@@ -45,7 +45,7 @@ describe("7.1 structure", () => {
   });
 
   it("flags a missing optional column", () => {
-    const report = runIntegrityChecks(model({ colonnesOptionnellesAbsentes: [{ sheet: "Actors", column: "Group" }] }));
+    const report = runIntegrityChecks(model({ missingOptionalColumns: [{ sheet: "Actors", column: "Group" }] }));
     expect(report.families.find((f) => f.id === "structure")!.anomalies).toHaveLength(1);
   });
 
@@ -158,7 +158,7 @@ describe("7.4 complétude", () => {
   });
 
   it("flags an interface with no contract at all", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ lienContrat: "", referenceContrat: "" })] }));
+    const report = runIntegrityChecks(model({ interfaces: [iface({ contractLink: "", contractReference: "" })] }));
     expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
   });
 
@@ -193,7 +193,7 @@ describe("7.4 complétude", () => {
 
 describe("7.6 onglet Groupes", () => {
   it("flags a missing Groupes sheet", () => {
-    const report = runIntegrityChecks(model({ groups: [], groupesAbsents: true }));
+    const report = runIntegrityChecks(model({ groups: [], groupsSheetMissing: true }));
     const messages = report.families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes('Sheet "Groups" missing'))).toBe(true);
   });
@@ -234,7 +234,7 @@ describe("7.5 candidats au décommissionnement", () => {
 
 describe("7.6 interfaces à confirmer", () => {
   it("lists interfaces flagged Oui", () => {
-    const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F", aConfirmer: true })] }));
+    const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F", toConfirm: true })] }));
     expect(report.infoBlocks.find((b) => b.id === "a-confirmer")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 });
@@ -283,7 +283,7 @@ describe("7.6 vocabulaires", () => {
     const report = runIntegrityChecks(
       model({
         flowTypes: [
-          base.typeFlux({ type: "HTTP", sensRepresentationBrut: "du client au serveur" }),
+          base.typeFlux({ type: "HTTP", rawDirection: "du client au serveur" }),
         ],
       })
     );
@@ -294,7 +294,7 @@ describe("7.6 vocabulaires", () => {
 
   it("flags an unknown nature", () => {
     const report = runIntegrityChecks(
-      model({ typesActeur: [{ type: "Application", icone: "app-window", nature: "Fonctionnelle", sheet: "ActorTypes", row: 0 }] })
+      model({ actorTypes: [{ type: "Application", icon: "app-window", nature: "Fonctionnelle", sheet: "ActorTypes", row: 0 }] })
     );
     expect(
       report.families.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("Fonctionnelle"))
@@ -302,7 +302,7 @@ describe("7.6 vocabulaires", () => {
   });
 
   it("stays silent on an empty value, which the complétude family already covers", () => {
-    const report = runIntegrityChecks(model({ consumptions: [conso({ statut: "", decision: "", criticality: "" })] }));
+    const report = runIntegrityChecks(model({ consumptions: [conso({ legacyStatus: "", decision: "", criticality: "" })] }));
     expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
   });
 });
@@ -331,7 +331,7 @@ describe("7.7 signaux non bloquants", () => {
       model({
         flowTypes: [
           base.typeFlux({ type: "HTTP" }),
-          base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
+          base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
         ],
       })
     );
@@ -440,9 +440,9 @@ describe("versions d'interface — bloc action des migrations", () => {
 });
 
 const milestones = [
-  { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-  { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-  { name: "v3", rank: 3, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v3", rank: 3, label: "", status: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
 ];
 
 function messagesCoherence(m: ParsedModel): string {
@@ -501,7 +501,7 @@ describe("paliers — contrôles temporels", () => {
   });
 
   it("reports duplicate ranks in the Paliers sheet", () => {
-    const m = model({ milestones: [...milestones, { name: "v4", rank: 2, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 }] });
+    const m = model({ milestones: [...milestones, { name: "v4", rank: 2, label: "", status: "Planned", date: "", description: "", sheet: "Milestones", row: 0 }] });
     const struct = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(struct.join(" ")).toContain("rank");
   });
@@ -509,7 +509,7 @@ describe("paliers — contrôles temporels", () => {
   // Sans palier livré, le palier courant est indéterminé : les vues se
   // rabattent sur le premier déclaré, autant le dire.
   it("reports a Paliers sheet without a single delivered palier", () => {
-    const m = model({ milestones: milestones.map((p) => ({ ...p, statut: "Planned" })) });
+    const m = model({ milestones: milestones.map((p) => ({ ...p, status: "Planned" })) });
     const struct = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(struct.join(" ")).toContain("Delivered");
   });
@@ -569,8 +569,8 @@ describe("paliers — complétude", () => {
 
 describe("paliers — le rapport suit le palier affiché", () => {
   const troisPaliers = [
-    { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-    { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+    { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
   ];
 
   // Un acteur retiré en v2 n'a évidemment plus de flux en v2 : le signaler
@@ -596,7 +596,7 @@ describe("paliers — le rapport suit le palier affiché", () => {
   it("keeps structural checks independent of the displayed palier", () => {
     const m = model({
       milestones: troisPaliers,
-      colonnesOptionnellesAbsentes: [{ sheet: "Actors", column: "Group" }],
+      missingOptionalColumns: [{ sheet: "Actors", column: "Group" }],
       actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
       interfaces: [iface({ introducedAt: "v1" })],
       consumptions: [conso({ introducedAt: "v1" })],
@@ -637,7 +637,7 @@ describe("emplacement des anomalies", () => {
   it("orders a family by sheet then by ascending row", () => {
     const m = model({
       actors: [actor({ name: "A", group: "" , row: 9 }), actor({ name: "B", group: "", row: 3 })],
-      interfaces: [iface({ description: "", lienContrat: "l", row: 5 })],
+      interfaces: [iface({ description: "", contractLink: "l", row: 5 })],
       consumptions: [],
     });
     const addresses = runIntegrityChecks(m)
@@ -649,7 +649,7 @@ describe("emplacement des anomalies", () => {
 
   it("puts what has no address first, since it points at the file rather than a line", () => {
     const m = model({
-      groupesAbsents: true,
+      groupsSheetMissing: true,
       groups: [],
       interfaces: [iface({ expectedSheet: "FX_A_MQTT", row: 4 })],
       consumptions: [],
@@ -669,7 +669,7 @@ describe("emplacement des blocs informatifs", () => {
   it("cites the address on every item that designates a line", () => {
     const m = model({
       actors: [actor({ name: "A", row: 2 }), actor({ name: "B", row: 3 }), actor({ name: "Seul", row: 8 })],
-      interfaces: [iface({ aConfirmer: true, row: 5 })],
+      interfaces: [iface({ toConfirm: true, row: 5 })],
       consumptions: [conso({ criticality: "", row: 6 })],
       flowTypes: [
         base.typeFlux({ type: "HTTP", row: 2 }),
@@ -780,8 +780,8 @@ describe("cycles de dépendance", () => {
 
 describe("nature et relais", () => {
   const TYPES = [
-    { type: "Application", icone: "app-window", nature: "Business", sheet: "ActorTypes", row: 2 },
-    { type: "Middleware", icone: "server", nature: "Technical", sheet: "ActorTypes", row: 3 },
+    { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 2 },
+    { type: "Middleware", icon: "server", nature: "Technical", sheet: "ActorTypes", row: 3 },
   ];
   const messages = (m: ParsedModel, family: string) =>
     runIntegrityChecks(m).families.find((f) => f.id === family)!.anomalies.map((a) => a.message).join(" | ");
@@ -790,8 +790,8 @@ describe("nature et relais", () => {
   // elle qui dit sous laquelle de SES interfaces l'entrée ressort.
   function relayEstate(republishedAs = "trx.norm"): ParsedModel {
     return model({
-      typesActeur: TYPES,
-      actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", typeActeur: "Middleware" }), actor({ name: "B" })],
+      actorTypes: TYPES,
+      actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", actorType: "Middleware" }), actor({ name: "B" })],
       interfaces: [
         iface({ flowName: "Transactions", providerName: "Tatooine" }),
         iface({ flowName: "trx.norm", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" }),
@@ -835,20 +835,20 @@ describe("nature et relais", () => {
 
   it("signale une nature hors vocabulaire", () => {
     const m = relayEstate();
-    m.typesActeur = [{ ...TYPES[0], nature: "Métier" }, TYPES[1]];
+    m.actorTypes = [{ ...TYPES[0], nature: "Métier" }, TYPES[1]];
     expect(messages(m, "vocabulaires")).toContain("Métier");
   });
 
   it("réclame la nature manquante dès qu'un type en déclare une", () => {
     const m = relayEstate();
-    m.typesActeur = [{ ...TYPES[0], nature: "" }, TYPES[1]];
+    m.actorTypes = [{ ...TYPES[0], nature: "" }, TYPES[1]];
     expect(messages(m, "completude")).toContain("nature");
   });
 
   // Tant que l'équipe n'a pas adopté la distinction, l'outil n'en parle pas.
   it("se tait sur un classeur où aucun type ne déclare de nature", () => {
     const m = relayEstate();
-    m.typesActeur = TYPES.map((t) => ({ ...t, nature: "" }));
+    m.actorTypes = TYPES.map((t) => ({ ...t, nature: "" }));
     expect(messages(m, "completude")).not.toContain("nature");
   });
 });
@@ -864,8 +864,8 @@ describe("rapport au palier — la chaîne entière, comme les schémas", () => 
     runIntegrityChecks(
       model({
         milestones: [
-          { name: "v1", rank: 1, label: "", statut: "", date: "", description: "", sheet: "Milestones", row: 0 },
-          { name: "v2", rank: 2, label: "", statut: "", date: "", description: "", sheet: "Milestones", row: 0 },
+          { name: "v1", rank: 1, label: "", status: "", date: "", description: "", sheet: "Milestones", row: 0 },
+          { name: "v2", rank: 2, label: "", status: "", date: "", description: "", sheet: "Milestones", row: 0 },
         ],
         actors: [actor({ name: "A", retiredAt: "v1" }), actor({ name: "B" })],
         interfaces: [iface({ providerName: "A" })],
@@ -896,7 +896,7 @@ describe("rapport au palier — la chaîne entière, comme les schémas", () => 
 // normalisé que toute ligne datée résout son rang.
 describe("frise des paliers", () => {
   const milestone = (name: string, rank: number) => ({
-    name, rank, label: "", statut: "Delivered", date: "", description: "",
+    name, rank, label: "", status: "Delivered", date: "", description: "",
     sheet: "Milestones", row: 0,
   });
   // Toute ligne datée doit porter sa borne d'introduction dès qu'une frise
@@ -937,8 +937,8 @@ describe("blocs informatifs — une interface se nomme avec sa version", () => {
   const deuxVersions = () =>
     model({
       interfaces: [
-        iface({ flowName: "F", version: "1.0", aConfirmer: true }),
-        iface({ flowName: "F", version: "2.0", aConfirmer: true, row: 1 }),
+        iface({ flowName: "F", version: "1.0", toConfirm: true }),
+        iface({ flowName: "F", version: "2.0", toConfirm: true, row: 1 }),
       ],
       consumptions: [],
     });
@@ -1040,17 +1040,17 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
 // jamais remonter jusqu'au rapport.
 describe("chaîne cassée en son milieu", () => {
   const TYPES = [
-    { type: "Application", icone: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
-    { type: "Middleware", icone: "server", nature: "Technical", sheet: "ActorTypes", row: 0 },
+    { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icon: "server", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ];
 
   it("signale l'interface fautive, pas celle par laquelle on est entré", () => {
     const m = model({
-      typesActeur: TYPES,
+      actorTypes: TYPES,
       actors: [
         actor({ name: "A" }),
-        actor({ name: "X", typeActeur: "Middleware" }),
-        actor({ name: "Y", typeActeur: "Middleware" }),
+        actor({ name: "X", actorType: "Middleware" }),
+        actor({ name: "Y", actorType: "Middleware" }),
         actor({ name: "C" }),
       ],
       interfaces: [
@@ -1165,8 +1165,8 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
   const fantome = () =>
     model({
       milestones: [
-        { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-        { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 1 },
+        { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+        { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 1 },
       ],
       // « Fantome » expose, mais ne figure pas dans l'onglet Actors.
       actors: [actor({ name: "B", introducedAt: "v1" })],
@@ -1192,7 +1192,7 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
   // de la règle, corrigée plus tôt, et elle ne doit pas se rouvrir.
   it("retire toujours les flux d'un acteur connu et retiré", () => {
     const m = model({
-      milestones: [{ name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 }],
+      milestones: [{ name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 }],
       actors: [actor({ name: "A", introducedAt: "v1", retiredAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
       interfaces: [iface({ providerName: "A", introducedAt: "v1" })],
       consumptions: [conso({ consumerName: "B", introducedAt: "v1" })],
@@ -1216,7 +1216,7 @@ const messagesRecette = (m: Parameters<typeof runIntegrityChecks>[0], rank: numb
 const PALIERS_RECETTE = [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 }), base.milestone({ name: "v3", rank: 3 })];
 const SOCLE_RECETTE = {
   groups: [base.group({ name: "G" })],
-  typesActeur: [base.typeActeur()],
+  actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
   milestones: PALIERS_RECETTE,
   fxSheetNames: ["FX_A_HTTP"],
@@ -1274,10 +1274,10 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
       groups: [base.group({ name: "G" })],
       actors: [
         base.actor({ name: "Src", introducedAt: "v1" }),
-        base.actor({ name: "Bus", typeActeur: "Infra", introducedAt: "v1" }),
+        base.actor({ name: "Bus", actorType: "Infra", introducedAt: "v1" }),
         base.actor({ name: "Dst", introducedAt: "v1" }),
       ],
-      typesActeur: [base.typeActeur({ nature: "Business" }), base.typeActeur({ type: "Infra", nature: "Technical" })],
+      actorTypes: [base.actorType({ nature: "Business" }), base.actorType({ type: "Infra", nature: "Technical" })],
       flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_Src_HTTP", "FX_Bus_HTTP"],
       interfaces: [
@@ -1298,7 +1298,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     const m = base.template({
       groups: [base.group({ name: "G" })],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
-      typesActeur: [base.typeActeur()],
+      actorTypes: [base.actorType()],
       flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_A_HTTP"],
       interfaces: [base.iface({ flowName: "Authent", providerName: "A", expectedSheet: "FX_A_HTTP" })],

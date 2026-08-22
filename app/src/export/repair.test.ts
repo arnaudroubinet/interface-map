@@ -33,7 +33,7 @@ function classeurLegacy(): ArrayBuffer {
   );
   XLSX.utils.book_append_sheet(
     wb,
-    XLSX.utils.json_to_sheet([{ Groupe: "G1", Nom: "Utapau", Description: "d", Commentaires: "" }]),
+    XLSX.utils.json_to_sheet([{ Group: "G1", Nom: "Utapau", Description: "d", Commentaires: "" }]),
     "Composants"
   );
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
@@ -64,7 +64,7 @@ function classeurActeursSansInterfaces(): ArrayBuffer {
   );
   XLSX.utils.book_append_sheet(
     wb,
-    XLSX.utils.json_to_sheet([{ Groupe: "G1", Nom: "Utapau", Description: "d", Commentaires: "" }]),
+    XLSX.utils.json_to_sheet([{ Group: "G1", Nom: "Utapau", Description: "d", Commentaires: "" }]),
     "Composants"
   );
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
@@ -103,7 +103,7 @@ describe("reparerClasseur", () => {
     expect(r.rapportLegacy).toBeNull();
     const relu = buildModel(parseWorkbook(writeTemplate(r.donnees)));
     if (!relu.ok) throw new Error("illisible");
-    expect(relu.model.versionModele).toBe(VERSION_MODELE);
+    expect(relu.model.schemaVersion).toBe(VERSION_MODELE);
   });
 
   // C'est ce qui remplace la macro : rendre un fichier où il ne manque aucun
@@ -134,8 +134,8 @@ function classeurFrancais(): ArrayBuffer {
   XLSX.utils.book_append_sheet(
     wb,
     XLSX.utils.json_to_sheet([
-      { Nom: "Endor", Groupe: "Socle", "Type d'acteur": "Application", "Usine responsable": "Corellia", Description: "d", Commentaires: "" },
-      { Nom: "Chandrila", Groupe: "Socle", "Type d'acteur": "Application", "Usine responsable": "", Description: "d", Commentaires: "" },
+      { Nom: "Endor", Group: "Socle", "Type d'acteur": "Application", "Usine responsable": "Corellia", Description: "d", Commentaires: "" },
+      { Nom: "Chandrila", Group: "Socle", "Type d'acteur": "Application", "Usine responsable": "", Description: "d", Commentaires: "" },
     ]),
     "RefActeur"
   );
@@ -172,7 +172,7 @@ describe("classeur au modèle actuel nommé en français", () => {
     expect(relu.ok).toBe(true);
     if (!relu.ok) return;
     expect(relu.model.actors.map((a) => a.name).sort()).toEqual(["Chandrila", "Endor"]);
-    expect(relu.model.actors.find((a) => a.name === "Endor")?.responsable).toBe("Corellia");
+    expect(relu.model.actors.find((a) => a.name === "Endor")?.owner).toBe("Corellia");
     expect(relu.model.interfaces.map((i) => i.flowName)).toEqual(["Transactions"]);
     expect(relu.model.consumptions).toHaveLength(1);
   });

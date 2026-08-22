@@ -161,7 +161,7 @@ export function initialState(): AppState {
 // une image amputée sans le dire -- le cas du jour où une nouvelle version
 // circule pendant qu'une ancienne page reste ouverte.
 export function vueAuChargement(fichier: FichierCharge): Vue {
-  if (fichier.model.versionModele !== VERSION_MODELE) return "upgrade";
+  if (fichier.model.schemaVersion !== VERSION_MODELE) return "upgrade";
   return fichier.report.totalAnomalies > 0 ? "checks" : "group-to-group";
 }
 

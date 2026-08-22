@@ -17,7 +17,7 @@ import {
 import { flowsForReading, reading as lectureDuMode } from "./reading";
 import type { Mode } from "./core";
 import { VERSION_MODELE } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
 // Les fabriques partagées ; ce fichier ne leur ajoute que ses deux groupes et
 // une consommation déjà décidée.
@@ -25,14 +25,14 @@ function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
 const iface = base.iface;
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 const baseModel: ParsedModel = base.template({
   actors: [actor({ name: "A", group: "G1" }), actor({ name: "B", group: "G2" })],
   groups: [base.group({ name: "G1" }), base.group({ name: "G2", perimeter: "External" })],
-  typesActeur: [base.typeActeur()],
+  actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
   interfaces: [iface()],
   consumptions: [conso()],
@@ -256,18 +256,18 @@ describe("mode fonctionnel", () => {
   function estate(): ParsedModel {
     return {
       actors: [
-        actor({ name: "Tatooine", typeActeur: "Application", group: "Socle" }),
-        actor({ name: "Bus", typeActeur: "Middleware", group: "Socle" }),
-        actor({ name: "Naboo", typeActeur: "Application", group: "Finance" }),
+        actor({ name: "Tatooine", actorType: "Application", group: "Socle" }),
+        actor({ name: "Bus", actorType: "Middleware", group: "Socle" }),
+        actor({ name: "Naboo", actorType: "Application", group: "Finance" }),
       ],
       groups: [
         { name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 },
         { name: "Finance", perimeter: "External", sheet: "Groups", row: 0 },
       ],
-      groupesAbsents: false,
-      typesActeur: [
-        { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-        { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+      groupsSheetMissing: false,
+      actorTypes: [
+        { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+        { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
       ],
       milestones: [],
       flowTypes: [
@@ -282,9 +282,9 @@ describe("mode fonctionnel", () => {
         conso({ flowName: "trx.norm", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
       ],
       fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
-      colonnesOptionnellesAbsentes: [],
-      versionModele: VERSION_MODELE,
-      fichierModifie: null,
+      missingOptionalColumns: [],
+      schemaVersion: VERSION_MODELE,
+      savedAt: null,
     };
   }
 
@@ -315,7 +315,7 @@ describe("mode fonctionnel", () => {
     const m = estate();
     m.interfaces.push(iface({ flowName: "Autre", providerName: "Tatooine", flowType: "Kafka", expectedSheet: "FX_Tatooine_Kafka" }));
     m.consumptions.push(conso({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
-    m.flowTypes.push(base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }));
+    m.flowTypes.push(base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }));
     m.fxSheetNames.push("FX_Tatooine_Kafka");
     const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
@@ -354,7 +354,7 @@ describe("mode fonctionnel", () => {
   describe("acteur métier isolé", () => {
     it("reste affiché, à travers son groupe, en groupe à groupe", () => {
       const m = estate();
-      m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Ops" }));
+      m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
       const view = buildGroupToGroupView(m, lect(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Ops");
@@ -362,7 +362,7 @@ describe("mode fonctionnel", () => {
 
     it("garde son propre nœud en plateforme détaillée quand c'est un composant de la plateforme", () => {
       const m = estate();
-      m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Socle" }));
+      m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
       const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
       const node = view.nodes.find((n) => n.id === "Isolé");
       expect(node?.kind).toBe("platform");
@@ -370,14 +370,14 @@ describe("mode fonctionnel", () => {
 
     it("reste affiché en plateforme seule quand c'est un composant de la plateforme", () => {
       const m = estate();
-      m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Socle" }));
+      m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
       const view = buildPlatformOnlyView(m, lect(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Isolé");
     });
 
     it("garde une ligne vide dans la matrix", () => {
       const m = estate();
-      m.actors.push(actor({ name: "Isolé", typeActeur: "Application", group: "Ops" }));
+      m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
       const matrix = buildMatrixView(m, lect(m, "functional"), { mode: "functional" });
       const row = matrix.rows.find((l) => l.actor === "Isolé");
@@ -390,14 +390,14 @@ describe("mode fonctionnel", () => {
     // qu'il vit, pas au-delà.
     describe("retiré à un palier", () => {
       const milestones = [
-        { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-        { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+        { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+        { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
       ];
       function withIsolatedRetired(): ParsedModel {
         const m = estate();
         m.milestones = milestones;
         m.actors.push(
-          actor({ name: "Isolé", typeActeur: "Application", group: "Socle", introducedAt: "v1", retiredAt: "v2" })
+          actor({ name: "Isolé", actorType: "Application", group: "Socle", introducedAt: "v1", retiredAt: "v2" })
         );
         return m;
       }
@@ -459,9 +459,9 @@ const pulledEstate = () =>
   base.template({
     actors: [base.actor({ name: "Fournisseur" }), base.actor({ name: "Consommateur" })],
     groups: [base.group({ name: "G" })],
-    typesActeur: [base.typeActeur()],
+    actorTypes: [base.actorType()],
     // HTTP est tiré : « consumer → provider ».
-    flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentation: "consumer-to-provider" })],
+    flowTypes: [base.typeFlux({ type: "HTTP", direction: "consumer-to-provider" })],
     interfaces: [base.iface({ flowName: "F", providerName: "Fournisseur" })],
     consumptions: [base.conso({ flowName: "F", consumerName: "Consommateur" })],
   });
@@ -508,7 +508,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
   const estate = () =>
     base.template({
       groups: [{ name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 }],
-      typesActeur: [base.typeActeur()],
+      actorTypes: [base.actorType()],
       flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [base.actor({ name: "A", group: "Socle" }), base.actor({ name: "B", group: "Socle" })],

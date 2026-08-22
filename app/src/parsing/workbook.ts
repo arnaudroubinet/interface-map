@@ -35,7 +35,7 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
   });
 
   const modifiedDate = wb.Props?.ModifiedDate;
-  const fichierModifie = modifiedDate instanceof Date ? modifiedDate : null;
+  const savedAt = modifiedDate instanceof Date ? modifiedDate : null;
 
-  return { sheets, fichierModifie };
+  return { sheets, savedAt };
 }

@@ -204,7 +204,7 @@ export const DONNEES_EXEMPLE: DonneesClasseur = {
   // Le référentiel des technologies se contente de l'amorce ; celui des types
   // d'acteur, non : il doit porter la nature.
   flowTypes: [],
-  typesActeur: TYPES_ACTEUR,
+  actorTypes: TYPES_ACTEUR,
   milestones: PALIERS,
   groups: GROUPES,
   actors: ACTEURS,

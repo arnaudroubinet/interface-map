@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { modeleEnStructurizr } from "./c4-dsl";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 // Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
@@ -14,8 +14,8 @@ function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ description: "d", ...o });
 }
 
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ usage: "u", criticality: "1 - Critical", statut: "Actif", decision: "Keep", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ usage: "u", criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", ...o });
 }
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
@@ -25,8 +25,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
       { name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 },
       { name: "Partenaire", perimeter: "External", sheet: "Groups", row: 0 },
     ],
-    groupesAbsents: false,
-    typesActeur: [{ type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
+    groupsSheetMissing: false,
+    actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
       base.typeFlux({ type: "HTTP" }),
@@ -34,9 +34,9 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     interfaces: [iface({})],
     consumptions: [conso({})],
     fxSheetNames: ["FX_A_HTTP"],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...o,
   };
 }
@@ -76,7 +76,7 @@ describe("modeleEnStructurizr", () => {
   it("keeps the same direction whichever way the flow type reads", () => {
     const m = model({
       flowTypes: [
-        base.typeFlux({ type: "HTTP", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider → consumer" }),
+        base.typeFlux({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
       ],
     });
     const dsl = modeleEnStructurizr(m, null, "carto.xlsx");
@@ -99,8 +99,8 @@ describe("modeleEnStructurizr", () => {
   // propriété perdrait de qui vient quoi.
   it("carries both comment columns on the relationship", () => {
     const m = model({
-      interfaces: [iface({ commentaires: "Scope under review" })],
-      consumptions: [conso({ commentaires: "Migrating next quarter" })],
+      interfaces: [iface({ comments: "Scope under review" })],
+      consumptions: [conso({ comments: "Migrating next quarter" })],
     });
     const dsl = modeleEnStructurizr(m, null, "carto.xlsx");
     expect(dsl).toContain('"Interface comments" "Scope under review"');
@@ -111,7 +111,7 @@ describe("modeleEnStructurizr", () => {
   // sinon le fichier produit affirme plus que le classeur. Une interface
   // confirmée n'a rien à en dire, elle ne porte donc pas la propriété.
   it("flags an interface still to be confirmed, and only that one", () => {
-    const m = model({ interfaces: [iface({ aConfirmer: true })] });
+    const m = model({ interfaces: [iface({ toConfirm: true })] });
     expect(modeleEnStructurizr(m, null, "carto.xlsx")).toContain('"To confirm" "Yes"');
     expect(modeleEnStructurizr(model(), null, "carto.xlsx")).not.toContain('"To confirm"');
   });
@@ -136,8 +136,8 @@ describe("modeleEnStructurizr", () => {
   // la plateforme à ce palier, pas l'histoire du classeur.
   it("exports the platform as it stands at the milestone on show", () => {
     const milestones = [
-      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     ];
     const m = model({
       milestones,
@@ -196,7 +196,7 @@ describe("modeleEnStructurizr", () => {
     const m = model({
       flowTypes: [
         ...model().flowTypes,
-        base.typeFlux({ type: "Kafka", sensRepresentation: "provider-to-consumer", sensRepresentationBrut: "provider \u2192 consumer" }),
+        base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider \u2192 consumer" }),
       ],
     });
     expect(modeleEnStructurizr(m, null, "carto.xlsx")).not.toContain("tech-kafka");
@@ -211,10 +211,10 @@ describe("modeleEnStructurizr", () => {
 // L'initiative n'est pas perdue : une relation C4 n'a qu'un sens, elle passe
 // donc en étiquette.
 describe("modeleEnStructurizr — sens de la relation", () => {
-  const estate = (sensRepresentation: "provider-to-consumer" | "consumer-to-provider") =>
+  const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "Fournisseur" }), actor({ name: "Appelant" })],
-      flowTypes: [base.typeFlux({ sensRepresentation, sensRepresentationBrut: "" })],
+      flowTypes: [base.typeFlux({ direction, rawDirection: "" })],
       interfaces: [iface({ providerName: "Fournisseur" })],
       consumptions: [conso({ consumerName: "Appelant" })],
     });
@@ -303,15 +303,15 @@ describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
   });
 
   it("ne style pas Pulled quand aucun flux ne l'est", () => {
-    const pushed = model({ flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentation: "provider-to-consumer" })] });
+    const pushed = model({ flowTypes: [base.typeFlux({ type: "HTTP", direction: "provider-to-consumer" })] });
     expect(modeleEnStructurizr(pushed, null, "carto.xlsx")).not.toContain('relationship "Pulled"');
   });
 
   it("donne une forme aux types d'acteur qu'il reconnaît, et laisse les autres en boîte", () => {
     const estate = model({
-      typesActeur: [
-        { type: "Queue", icone: "", nature: "", sheet: "ActorTypes", row: 0 },
-        { type: "Chose", icone: "", nature: "", sheet: "ActorTypes", row: 0 },
+      actorTypes: [
+        { type: "Queue", icon: "", nature: "", sheet: "ActorTypes", row: 0 },
+        { type: "Chose", icon: "", nature: "", sheet: "ActorTypes", row: 0 },
       ],
     });
     const dsl = modeleEnStructurizr(estate, null, "carto.xlsx");

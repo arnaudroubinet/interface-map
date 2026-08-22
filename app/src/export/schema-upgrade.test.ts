@@ -12,27 +12,27 @@ import type { ParsedModel } from "../parsing/model";
 function modeleOrigine(): ParsedModel {
   return base.template({
     actors: [
-      base.actor({ name: "Tatooine", group: "Socle", responsable: "Yavin", description: "d", commentaires: "c" }),
+      base.actor({ name: "Tatooine", group: "Socle", owner: "Yavin", description: "d", comments: "c" }),
       base.actor({ name: "Mygeeto", group: "Ryloth" }),
     ],
     groups: [base.group({ name: "Socle" }), base.group({ name: "Ryloth", perimeter: "External" })],
-    typesActeur: [base.typeActeur()],
+    actorTypes: [base.actorType()],
     flowTypes: [base.typeFlux()],
     interfaces: [
       base.iface({
         flowName: "Authent", providerName: "Tatooine", description: "Ouverture de session",
-        lienContrat: "https://c", referenceContrat: "CTR-1", commentaires: "note", aConfirmer: true,
+        contractLink: "https://c", contractReference: "CTR-1", comments: "note", toConfirm: true,
         expectedSheet: "FX_Tatooine_HTTP",
       }),
     ],
     consumptions: [
       base.conso({
         flowName: "Authent", consumerName: "Mygeeto", usage: "Ouverture",
-        criticality: "1 - Critical", statut: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP",
+        criticality: "1 - Critical", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP",
       }),
     ],
     fxSheetNames: ["FX_Tatooine_HTTP"],
-    versionModele: 0,
+    schemaVersion: 0,
   });
 }
 
@@ -52,7 +52,7 @@ describe("mise à niveau d'un classeur d'origine", () => {
   it("produit un classeur à la version courante", () => {
     const result = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleOrigine()))));
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
-    expect(result.model.versionModele).toBe(VERSION_MODELE);
+    expect(result.model.schemaVersion).toBe(VERSION_MODELE);
   });
 
   it("conserve acteurs, groupes, interfaces et consommations", () => {
@@ -60,12 +60,12 @@ describe("mise à niveau d'un classeur d'origine", () => {
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
     const m = result.model;
     expect(m.actors.map((a) => a.name).sort()).toEqual(["Mygeeto", "Tatooine"]);
-    expect(m.actors.find((a) => a.name === "Tatooine")!.responsable).toBe("Yavin");
+    expect(m.actors.find((a) => a.name === "Tatooine")!.owner).toBe("Yavin");
     expect(m.groups.find((g) => g.name === "Socle")!.perimeter).toBe("Platform");
     expect(m.interfaces).toHaveLength(1);
     expect(m.interfaces[0].providerName).toBe("Tatooine");
-    expect(m.interfaces[0].referenceContrat).toBe("CTR-1");
-    expect(m.interfaces[0].aConfirmer).toBe(true);
+    expect(m.interfaces[0].contractReference).toBe("CTR-1");
+    expect(m.interfaces[0].toConfirm).toBe(true);
     expect(m.consumptions).toHaveLength(1);
     expect(m.consumptions[0].consumerName).toBe("Mygeeto");
     expect(m.consumptions[0].criticality).toBe("1 - Critical");
@@ -77,7 +77,7 @@ describe("mise à niveau d'un classeur d'origine", () => {
     const result = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleOrigine()))));
     if (!result.ok) throw new Error("classeur mis à niveau illisible");
     expect(result.model.interfaces[0].version).toBe("");
-    expect(result.model.interfaces[0].etat).toBe("");
+    expect(result.model.interfaces[0].legacyState).toBe("");
     expect(result.model.consumptions[0].version).toBe("");
   });
 
@@ -93,13 +93,13 @@ function modeleDate(): ParsedModel {
   return {
     ...modeleOrigine(),
     interfaces: [
-      { ...modeleOrigine().interfaces[0], etat: "À décommissionner" },
-      { ...modeleOrigine().interfaces[0], flowName: "Autre", etat: "Retiré" },
-      { ...modeleOrigine().interfaces[0], flowName: "Vivant", etat: "Actif" },
+      { ...modeleOrigine().interfaces[0], legacyState: "À décommissionner" },
+      { ...modeleOrigine().interfaces[0], flowName: "Autre", legacyState: "Retiré" },
+      { ...modeleOrigine().interfaces[0], flowName: "Vivant", legacyState: "Actif" },
     ],
     consumptions: [
-      { ...modeleOrigine().consumptions[0], statut: "Actif" },
-      { ...modeleOrigine().consumptions[0], flowName: "Autre", statut: "En projet" },
+      { ...modeleOrigine().consumptions[0], legacyStatus: "Actif" },
+      { ...modeleOrigine().consumptions[0], flowName: "Autre", legacyStatus: "En projet" },
       { ...modeleOrigine().consumptions[0], flowName: "Vivant", decision: "À supprimer" },
     ],
   };
@@ -188,7 +188,7 @@ describe("classeur produit — onglets attendus", () => {
     const template: ParsedModel = {
       ...modeleDate(),
       interfaces: [
-        { ...modeleDate().interfaces[0], flowName: "Sans conso", expectedSheet: "FX_Tatooine_Kafka", etat: "" },
+        { ...modeleDate().interfaces[0], flowName: "Sans conso", expectedSheet: "FX_Tatooine_Kafka", legacyState: "" },
       ],
       consumptions: [],
     };
@@ -238,9 +238,9 @@ describe("mise à niveau — le classeur passe en anglais", () => {
     return {
       ...modeleDate(),
       groups: [{ name: "Socle", perimeter: "Plateforme", sheet: "Groups", row: 0 }, { name: "Lothal", perimeter: "Externe", sheet: "Groups", row: 0 }],
-      flowTypes: [base.typeFlux({ type: "HTTP", sensRepresentationBrut: "consommateur → exposant" })],
+      flowTypes: [base.typeFlux({ type: "HTTP", rawDirection: "consommateur → exposant" })],
       consumptions: [{ ...modeleDate().consumptions[0], criticality: "1 - Vitale", decision: "À transformer" }],
-      interfaces: [{ ...modeleDate().interfaces[0], etat: "" }],
+      interfaces: [{ ...modeleDate().interfaces[0], legacyState: "" }],
     };
   }
 
@@ -248,8 +248,8 @@ describe("mise à niveau — le classeur passe en anglais", () => {
     const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(frenchModel(), LE_JOUR))));
     if (!r.ok) throw new Error("illisible");
     expect(r.model.groups.map((g) => g.perimeter)).toEqual(["Platform", "External"]);
-    expect(r.model.flowTypes[0].sensRepresentationBrut).toBe("consumer → provider");
-    expect(r.model.milestones[0].statut).toBe("Delivered");
+    expect(r.model.flowTypes[0].rawDirection).toBe("consumer → provider");
+    expect(r.model.milestones[0].status).toBe("Delivered");
     expect(r.model.consumptions[0].criticality).toBe("1 - Critical");
     expect(r.model.consumptions[0].decision).toBe("Transform");
   });
@@ -268,7 +268,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
   it("keeps the workbook's own flow types rather than reseeding them", () => {
     const template = {
       ...frenchModel(),
-      flowTypes: [base.typeFlux({ type: "Saleucami", sensRepresentationBrut: "consommateur → exposant", description: "Protocole interne" })],
+      flowTypes: [base.typeFlux({ type: "Saleucami", rawDirection: "consommateur → exposant", description: "Protocole interne" })],
     };
     const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(template, LE_JOUR))));
     if (!r.ok) throw new Error("illisible");
@@ -281,19 +281,19 @@ describe("mise à niveau — le classeur passe en anglais", () => {
 // quoi les classeurs déjà distribués gardent leurs liaisons fantômes.
 describe("mise à niveau — le v1 déjà distribué", () => {
   function modeleV1(): ParsedModel {
-    return { ...modeleOrigine(), versionModele: 1, milestones: [
-      { name: "Origin", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 2 },
+    return { ...modeleOrigine(), schemaVersion: 1, milestones: [
+      { name: "Origin", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 2 },
     ] };
   }
 
   it("est reconnu comme périmé par la version courante", () => {
-    expect(modeleV1().versionModele).toBeLessThan(VERSION_MODELE);
+    expect(modeleV1().schemaVersion).toBeLessThan(VERSION_MODELE);
   });
 
   it("ressort au format courant, son contenu intact", () => {
     const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleV1(), LE_JOUR))));
     if (!r.ok) throw new Error("illisible");
-    expect(r.model.versionModele).toBe(VERSION_MODELE);
+    expect(r.model.schemaVersion).toBe(VERSION_MODELE);
     expect(r.model.actors.map((a) => a.name)).toEqual(modeleV1().actors.map((a) => a.name));
     expect(r.model.milestones.map((p) => p.name)).toEqual(["Origin"]);
   });
@@ -309,17 +309,17 @@ describe("mise à niveau — le v1 déjà distribué", () => {
 
 describe("mise à niveau — le v2 déjà distribué", () => {
   function modeleV2(): ParsedModel {
-    return { ...modeleOrigine(), versionModele: 2 };
+    return { ...modeleOrigine(), schemaVersion: 2 };
   }
 
   it("est reconnu comme périmé", () => {
-    expect(modeleV2().versionModele).toBeLessThan(VERSION_MODELE);
+    expect(modeleV2().schemaVersion).toBeLessThan(VERSION_MODELE);
   });
 
   it("ressort au format courant, son contenu intact", () => {
     const r = buildModel(parseWorkbook(writeTemplate(mettreANiveau(modeleV2(), LE_JOUR))));
     if (!r.ok) throw new Error("illisible");
-    expect(r.model.versionModele).toBe(VERSION_MODELE);
+    expect(r.model.schemaVersion).toBe(VERSION_MODELE);
     expect(r.model.actors.map((a) => a.name)).toEqual(modeleV2().actors.map((a) => a.name));
   });
 
@@ -402,12 +402,12 @@ describe("mise à niveau — onglets homonymes à la casse près", () => {
 // tout ce que le parseur d'alors ne sait pas lire.
 describe("mise à niveau — classeur plus récent que l'outil", () => {
   it("refuse de rétrograder plutôt que de réécrire en silence", () => {
-    const futur = { ...modeleOrigine(), versionModele: VERSION_MODELE + 1 };
+    const futur = { ...modeleOrigine(), schemaVersion: VERSION_MODELE + 1 };
     expect(() => mettreANiveau(futur)).toThrow(/newer|récent/i);
   });
 
   it("laisse passer un classeur à la version de l'outil", () => {
-    expect(() => mettreANiveau({ ...modeleOrigine(), versionModele: VERSION_MODELE })).not.toThrow();
+    expect(() => mettreANiveau({ ...modeleOrigine(), schemaVersion: VERSION_MODELE })).not.toThrow();
   });
 });
 
@@ -422,7 +422,7 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
     return {
       ...base,
       groups: [],
-      groupesAbsents: true,
+      groupsSheetMissing: true,
       actors: base.actors.map((a, i) => ({ ...a, group: i === 0 ? "Socle" : "Partenaires" })),
     };
   };
@@ -450,18 +450,18 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
 // retrouve pas disparaissait de la conversion sans un mot, et le classeur
 // converti ne disait plus nulle part qu'un relais avait été déclaré.
 describe("mise à niveau — les relais de la v3", () => {
-  const modeleV3 = (relais: string): ParsedModel => {
+  const modeleV3 = (legacyRelays: string): ParsedModel => {
     const b = modeleOrigine();
     return {
       ...b,
-      versionModele: 3,
+      schemaVersion: 3,
       milestones: [base.milestone({ name: "v1", rank: 1 })],
       actors: [...b.actors, base.actor({ name: "Bus", group: "Socle" })],
       interfaces: [
         ...b.interfaces,
         base.iface({
           flowName: "Republié", version: "1.0", providerName: "Bus",
-          expectedSheet: "FX_Bus_HTTP", commentaires: "note", relais,
+          expectedSheet: "FX_Bus_HTTP", comments: "note", legacyRelays,
         }),
       ],
       consumptions: [
@@ -488,7 +488,7 @@ describe("mise à niveau — les relais de la v3", () => {
     const m = relire(modeleV3("Introuvable"));
     expect(m.consumptions.every((c) => c.republishedAs === "")).toBe(true);
     const iface = m.interfaces.find((i) => i.flowName === "Republié")!;
-    expect(iface.commentaires).toContain("note");
-    expect(iface.commentaires).toContain("Introuvable");
+    expect(iface.comments).toContain("note");
+    expect(iface.comments).toContain("Introuvable");
   });
 });

@@ -6,15 +6,15 @@ import { VERSION_MODELE } from "../parsing/build-model";
 // L'axe du temps n'avait aucun test à lui : il n'était éprouvé qu'à travers
 // ses appelants, qui ne visitent pas ses cas limites.
 
-function milestone(name: string, rank: number, statut = "Delivered"): Milestone {
-  return { name, rank, label: "", statut, date: "", description: "", sheet: "Milestones", row: 0 };
+function milestone(name: string, rank: number, status = "Delivered"): Milestone {
+  return { name, rank, label: "", status, date: "", description: "", sheet: "Milestones", row: 0 };
 }
 
 function model(milestones: Milestone[]): ParsedModel {
   return {
-    actors: [], typesActeur: [], groups: [], groupesAbsents: false, milestones,
+    actors: [], actorTypes: [], groups: [], groupsSheetMissing: false, milestones,
     flowTypes: [], interfaces: [], consumptions: [], fxSheetNames: [],
-    colonnesOptionnellesAbsentes: [], versionModele: VERSION_MODELE, fichierModifie: null,
+    missingOptionalColumns: [], schemaVersion: VERSION_MODELE, savedAt: null,
   };
 }
 

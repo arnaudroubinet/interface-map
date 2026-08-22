@@ -1,4 +1,4 @@
-import type { Consommation, InterfaceCatalogue, ParsedModel } from "../parsing/model";
+import type { Consumption, InterfaceCatalogue, ParsedModel } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsommation } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
@@ -59,7 +59,7 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     name: PALIER_AVANT,
     rank: 1,
     label: "Before tracking",
-    statut: "Delivered",
+    status: "Delivered",
     date: "",
     description: "What had already gone before the timeline was kept.",
   };
@@ -67,7 +67,7 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     name: PALIER_ORIGINE,
     rank: 2,
     label: "Initial state",
-    statut: "Delivered",
+    status: "Delivered",
     date: jour(contexte.dateMigration),
     description: "Everything the workbook held when it moved onto milestones.",
   };
@@ -75,7 +75,7 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
     name: PALIER_SUIVANT,
     rank: 3,
     label: "Changes already announced",
-    statut: "Planned",
+    status: "Planned",
     date: "",
     description: "What the workbook declared as going or coming before the move.",
   };
@@ -88,12 +88,12 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
   const interfaces = model.interfaces.map((i) => {
     // Retiré : déjà parti avant la bascule, donc vivant « avant » et retiré à
     // l'origine. À décommissionner : annoncé, donc partant au palier suivant.
-    const alreadyGone = est(i.etat, "Retiré");
+    const alreadyGone = est(i.legacyState, "Retiré");
     return {
       ...i,
       ...bounds(
         i,
-        alreadyGone ? PALIER_ORIGINE : est(i.etat, "À décommissionner") ? PALIER_SUIVANT : "",
+        alreadyGone ? PALIER_ORIGINE : est(i.legacyState, "À décommissionner") ? PALIER_SUIVANT : "",
         alreadyGone ? PALIER_AVANT : PALIER_ORIGINE
       ),
     };
@@ -103,13 +103,13 @@ function seedMilestones(model: ParsedModel, contexte: ContexteMiseANiveau): Pars
   // passer de cette consommation, jamais quand elle part. Seul le statut porte
   // du temps.
   const consumptions = model.consumptions.map((c) => {
-    const alreadyGone = est(c.statut, "Décommissionné");
+    const alreadyGone = est(c.legacyStatus, "Décommissionné");
     return {
       ...c,
       ...bounds(
         c,
         alreadyGone ? PALIER_ORIGINE : "",
-        alreadyGone ? PALIER_AVANT : est(c.statut, "En projet") ? PALIER_SUIVANT : PALIER_ORIGINE
+        alreadyGone ? PALIER_AVANT : est(c.legacyStatus, "En projet") ? PALIER_SUIVANT : PALIER_ORIGINE
       ),
     };
   });
@@ -174,7 +174,7 @@ function traduireLesValeurs(model: ParsedModel): ParsedModel {
   return {
     ...model,
     groups: model.groups.map((g) => ({ ...g, perimeter: traduire(g.perimeter) })),
-    flowTypes: model.flowTypes.map((t) => ({ ...t, sensRepresentationBrut: traduire(t.sensRepresentationBrut) })),
+    flowTypes: model.flowTypes.map((t) => ({ ...t, rawDirection: traduire(t.rawDirection) })),
     consumptions: model.consumptions.map((c) => ({
       ...c,
       criticality: traduire(c.criticality),
@@ -192,13 +192,13 @@ function traduireLesValeurs(model: ParsedModel): ParsedModel {
 // Le périmètre, lui, ne se déduit de rien : il reste vide et la complétude le
 // réclame. L'inventer rendrait un classeur d'apparence complète et faux.
 function deriveGroups(model: ParsedModel): ParsedModel {
-  if (!model.groupesAbsents) return model;
+  if (!model.groupsSheetMissing) return model;
   const names = [...new Set(model.actors.map((a) => a.group.trim()).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
   return {
     ...model,
-    groupesAbsents: false,
+    groupsSheetMissing: false,
     groups: names.map((name, i) => ({ name, perimeter: "", sheet: "Groups", row: i })),
   };
 }
@@ -249,10 +249,10 @@ export const ETAPES_MISE_A_NIVEAU: EtapeMiseANiveau[] = [
 // l'interface. Sans cette ligne, la case disparaissait à la conversion et
 // personne n'apprenait jamais ce que le classeur disait avant.
 function moveRelays(model: ParsedModel): ParsedModel {
-  const republications = new Map<Consommation, string>();
+  const republications = new Map<Consumption, string>();
   const perdus = new Map<InterfaceCatalogue, string[]>();
   for (const iface of model.interfaces) {
-    for (const target of iface.relais.split(";").map((c) => c.trim()).filter(Boolean)) {
+    for (const target of iface.legacyRelays.split(";").map((c) => c.trim()).filter(Boolean)) {
       const input = model.consumptions.find(
         (c) =>
           c.consumerName.trim() === iface.providerName.trim() &&
@@ -270,7 +270,7 @@ function moveRelays(model: ParsedModel): ParsedModel {
       const names = perdus.get(i);
       if (!names) return i;
       const note = `Schema v3 relayed: ${names.join(", ")} — no consumption of "${i.providerName}" matched, set "Republished as" by hand.`;
-      return { ...i, commentaires: [i.commentaires.trim(), note].filter(Boolean).join(" ") };
+      return { ...i, comments: [i.comments.trim(), note].filter(Boolean).join(" ") };
     }),
     consumptions: model.consumptions.map((c) => ({ ...c, republishedAs: republications.get(c) ?? c.republishedAs })),
   };
@@ -312,7 +312,7 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
     const rows = parOnglet.get(tab) ?? [];
     rows.push([
       c.flowName, c.version, c.consumerName, c.usage, c.criticality,
-      c.decision, c.commentaires, c.republishedAs, c.introducedAt, c.retiredAt,
+      c.decision, c.comments, c.republishedAs, c.introducedAt, c.retiredAt,
     ]);
     parOnglet.set(tab, rows);
   }
@@ -320,12 +320,12 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
   return {
     // Les référentiels du classeur sont repris tels quels : les remplacer par
     // l'amorce effacerait les types déclarés par l'équipe.
-    flowTypes: model.flowTypes.map((t) => [t.type, t.sensRepresentationBrut, t.description]),
-    typesActeur: model.typesActeur.map((t) => [t.type, t.icone, t.nature]),
-    milestones: model.milestones.map((p) => [p.name, String(p.rank), p.label, p.statut, p.date, p.description]),
+    flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description]),
+    actorTypes: model.actorTypes.map((t) => [t.type, t.icon, t.nature]),
+    milestones: model.milestones.map((p) => [p.name, String(p.rank), p.label, p.status, p.date, p.description]),
     groups: model.groups.map((g) => [g.name, g.perimeter]),
     actors: model.actors.map((a) => [
-      a.name, a.group, a.typeActeur, a.responsable, a.description, a.commentaires,
+      a.name, a.group, a.actorType, a.owner, a.description, a.comments,
       a.introducedAt, a.retiredAt,
     ]),
     interfaces: model.interfaces.map((i) => [
@@ -334,10 +334,10 @@ export function donneesDepuisModele(model: ParsedModel): DonneesClasseur {
       i.providerName,
       i.flowType,
       i.description,
-      i.lienContrat,
-      i.referenceContrat,
-      i.commentaires,
-      oui(i.aConfirmer),
+      i.contractLink,
+      i.contractReference,
+      i.comments,
+      oui(i.toConfirm),
       i.introducedAt,
       i.retiredAt,
     ]),
@@ -355,16 +355,16 @@ export function mettreANiveau(model: ParsedModel, dateMigration: Date = new Date
   // étiqueté à la version de l'outil : une rétrogradation silencieuse, qui perd
   // tout ce que ce parseur-là ne sait pas encore lire. Mieux vaut refuser et le
   // dire que rendre un fichier appauvri qui a l'air correct.
-  if (model.versionModele > VERSION_MODELE) {
+  if (model.schemaVersion > VERSION_MODELE) {
     throw new Error(
-      `This workbook is newer than the tool (schema ${model.versionModele}, tool ${VERSION_MODELE}). Update the tool rather than downgrade the file.`
+      `This workbook is newer than the tool (schema ${model.schemaVersion}, tool ${VERSION_MODELE}). Update the tool rather than downgrade the file.`
     );
   }
 
   const contexte: ContexteMiseANiveau = { dateMigration };
   let courant = model;
   for (const step of ETAPES_MISE_A_NIVEAU) {
-    if (step.de < model.versionModele) continue;
+    if (step.de < model.schemaVersion) continue;
     if (step.vers > VERSION_MODELE) break;
     courant = step.appliquer(courant, contexte);
   }

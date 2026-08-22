@@ -46,12 +46,12 @@ function tronquer(text: string, max: number): string {
 function actorDetails(
   model: ParsedModel,
   name: string
-): { subtitle?: string; description?: string; external?: boolean; icone?: string; technique?: boolean } {
+): { subtitle?: string; description?: string; external?: boolean; icon?: string; technique?: boolean } {
   const actor = model.actors.find((a) => a.name === name);
   if (!actor) return {};
   return {
-    subtitle: actor.typeActeur.trim() || undefined,
-    icone: iconForActorType(model, actor.typeActeur),
+    subtitle: actor.actorType.trim() || undefined,
+    icon: iconForActorType(model, actor.actorType),
     description: actor.description.trim() ? tronquer(actor.description.trim(), LONGUEUR_DESCRIPTION_MAX) : undefined,
     external: groupIsExternal(model, actor.group) || undefined,
     // La nature se décide ICI, où le modèle est connu : le rendu applique une

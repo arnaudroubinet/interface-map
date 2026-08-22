@@ -159,18 +159,18 @@ export function mountApp(root: HTMLElement): void {
 
       const built = buildModel(parsed);
       if (!built.ok) {
-        setState(withMessageBandeau(state, built.erreurs.map((e) => e.message).join(" ")));
+        setState(withMessageBandeau(state, built.errors.map((e) => e.message).join(" ")));
         return;
       }
 
       // Un classeur venu d'une version plus récente n'est pas lu du tout :
       // deviner la forme d'un format qu'on ne connaît pas produirait des
       // schémas faux, ce qui est pire que de ne rien afficher.
-      if (built.model.versionModele > VERSION_MODELE) {
+      if (built.model.schemaVersion > VERSION_MODELE) {
         setState(
           withMessageBandeau(
             state,
-            `This workbook follows model v${built.model.versionModele}, produced by a newer version of the tool. Update the tool to open it.`
+            `This workbook follows model v${built.model.schemaVersion}, produced by a newer version of the tool. Update the tool to open it.`
           )
         );
         return;
@@ -190,7 +190,7 @@ export function mountApp(root: HTMLElement): void {
           name: file.name,
           model: built.model,
           report,
-          dateModification: parsed.fichierModifie,
+          dateModification: parsed.savedAt,
         })
       );
       if (loaded.fichier) loaded = withVue(loaded, vueAuChargement(loaded.fichier));
@@ -246,7 +246,7 @@ export function mountApp(root: HTMLElement): void {
   // gestionnaire câblé au premier rendu doit lire l'état du clic, pas celui de
   // sa construction.
   const exportHandlers = handlersExport({
-    etat: () => state,
+    legacyState: () => state,
     setState,
     svgCourant: currentSvg,
     matriceCourante: () => matriceCourante,
@@ -309,7 +309,7 @@ export function mountApp(root: HTMLElement): void {
 
     if (state.view === "upgrade") {
       zoneRendu.appendChild(
-        buildEcranMiseANiveau(model.versionModele, VERSION_MODELE, () => {
+        buildEcranMiseANiveau(model.schemaVersion, VERSION_MODELE, () => {
           const name = fichier.name.replace(/\.(xlsx|xlsm)$/i, "");
           downloadTemplateXlsx(`${name}-v${VERSION_MODELE}.xlsx`, mettreANiveau(model));
         })

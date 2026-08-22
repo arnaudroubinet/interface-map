@@ -66,26 +66,26 @@ export function renderBanner(
   const title = el("span", { class: "banner-title" }, ["Interface Map"]);
   root.appendChild(title);
 
-  const etat = el("span", { class: "banner-state" });
+  const legacyState = el("span", { class: "banner-state" });
   if (state.messageBandeau) {
-    etat.classList.add("banner-error");
-    etat.textContent = state.messageBandeau;
+    legacyState.classList.add("banner-error");
+    legacyState.textContent = state.messageBandeau;
   } else if (state.fichier) {
     // Un classeur fraîchement produit n'a pas encore de date d'enregistrement :
     // le dire plutôt que d'afficher « saved » suivi d'un vide.
     const date = state.fichier.dateModification
       ? `saved ${state.fichier.dateModification.toLocaleString("en-GB")}`
       : "save date unknown";
-    etat.appendChild(el("strong", {}, [state.fichier.name]));
-    etat.appendChild(
+    legacyState.appendChild(el("strong", {}, [state.fichier.name]));
+    legacyState.appendChild(
       document.createTextNode(
         ` — ${state.fichier.model.actors.length} actors, ${state.fichier.model.interfaces.length} interfaces, ${state.fichier.model.consumptions.length} consumptions — ${date}`
       )
     );
   } else {
-    etat.textContent = "No workbook loaded.";
+    legacyState.textContent = "No workbook loaded.";
   }
-  root.appendChild(etat);
+  root.appendChild(legacyState);
 
   for (const format of EXPORTS) {
     const bouton = el("button", { class: "export-button" }, [format.label]);

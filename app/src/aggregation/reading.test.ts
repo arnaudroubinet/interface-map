@@ -1,17 +1,17 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { buildFunctionalFlows, chainesCoupees, lectureUnion } from "./reading";
-import type { ParsedModel, Actor, TypeActeur, InterfaceCatalogue, Consommation, Milestone } from "../parsing/model";
+import type { ParsedModel, Actor, ActorType, InterfaceCatalogue, Consumption, Milestone } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
 // Fabriques positionnelles : dans ce fichier ce sont les CHAÎNES qu'on lit, et
 // une chaîne se raconte mieux en « qui expose quoi vers qui » qu'en surcharges.
-function actor(name: string, typeActeur: string): Actor {
-  return base.actor({ name, typeActeur });
+function actor(name: string, actorType: string): Actor {
+  return base.actor({ name, actorType });
 }
 
-function iface(flowName: string, providerName: string, relais = ""): InterfaceCatalogue {
-  return base.iface({ flowName, providerName, relais, expectedSheet: `FX_${providerName}_HTTP` });
+function iface(flowName: string, providerName: string, legacyRelays = ""): InterfaceCatalogue {
+  return base.iface({ flowName, providerName, legacyRelays, expectedSheet: `FX_${providerName}_HTTP` });
 }
 
 // Le quatrième argument est la nouveauté de la v4 : la consommation dit sous
@@ -19,17 +19,17 @@ function iface(flowName: string, providerName: string, relais = ""): InterfaceCa
 // remplace la case Relais, et ce qu'une liste déroulante peut guider.
 // Le quatrième argument est la nouveauté de la v4 : la consommation dit sous
 // laquelle des interfaces de son consommateur elle est republiée.
-function conso(flowName: string, consumerName: string, provider: string, republishedAs = ""): Consommation {
+function conso(flowName: string, consumerName: string, provider: string, republishedAs = ""): Consumption {
   return base.conso({ flowName, consumerName, republishedAs, sheet: `FX_${provider}_HTTP` });
 }
 
-const TYPES: TypeActeur[] = [
-  { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-  { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+const TYPES: ActorType[] = [
+  { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+  { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
 ];
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
-  return base.template({ typesActeur: TYPES, flowTypes: [base.typeFlux()], ...o });
+  return base.template({ actorTypes: TYPES, flowTypes: [base.typeFlux()], ...o });
 }
 
 // Tatooine ─► Bus ─► Naboo, le bus étant technique.
@@ -42,8 +42,8 @@ function unRelais(): ParsedModel {
 }
 
 const PALIERS: Milestone[] = [
-  { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-  { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+  { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
 ];
 
 // Alderaan ─► Bus ─► ETL ─► Coruscant, le segment porté par le Bus (cmd.raw) retiré en v2.
@@ -333,7 +333,7 @@ describe("lectureUnion", () => {
     base.template({
       milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
       groups: [base.group({ name: "G" })],
-      typesActeur: [base.typeActeur()],
+      actorTypes: [base.actorType()],
       flowTypes: [base.typeFlux()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [

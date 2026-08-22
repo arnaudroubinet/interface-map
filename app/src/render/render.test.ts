@@ -409,8 +409,8 @@ describe("buildAide — le vocabulaire des deux lectures", () => {
 describe("buildFriseSvg", () => {
   const timeline = {
     milestones: [
-      { name: "v1", rank: 1, label: "Initial", statut: "Delivered", date: "2026-01-01", description: "", sheet: "Milestones", row: 2 },
-      { name: "v2", rank: 2, label: "Partners", statut: "Delivered", date: "2026-06-01", description: "", sheet: "Milestones", row: 3 },
+      { name: "v1", rank: 1, label: "Initial", status: "Delivered", date: "2026-01-01", description: "", sheet: "Milestones", row: 2 },
+      { name: "v2", rank: 2, label: "Partners", status: "Delivered", date: "2026-06-01", description: "", sheet: "Milestones", row: 3 },
     ],
     segments: [
       { label: "Member lookup 1.0", grouping: "A", start: 1, end: 2, ouvertADroite: false, ouvertAGauche: false },

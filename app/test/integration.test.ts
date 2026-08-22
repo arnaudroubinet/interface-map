@@ -95,9 +95,9 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
 
   it("déclare les trois relais techniques, deux sur la plateforme et un dehors", () => {
     const m = template();
-    const relais = ["Kafka", "Dagobah", "ESB"].map((name) => m.actors.find((a) => a.name === name)!);
-    expect(relais.every((a) => isTechnicalActor(m, a.name))).toBe(true);
-    expect(relais.filter((a) => actorIsPlatform(m, a)).map((a) => a.name)).toEqual(["Kafka", "Dagobah"]);
+    const legacyRelays = ["Kafka", "Dagobah", "ESB"].map((name) => m.actors.find((a) => a.name === name)!);
+    expect(legacyRelays.every((a) => isTechnicalActor(m, a.name))).toBe(true);
+    expect(legacyRelays.filter((a) => actorIsPlatform(m, a)).map((a) => a.name)).toEqual(["Kafka", "Dagobah"]);
   });
 
   it("dessine les quatre segments en architecture", () => {

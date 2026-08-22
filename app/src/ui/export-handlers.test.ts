@@ -39,7 +39,7 @@ const report: IntegrityReport = {
 const template = base.template({
   actors: [base.actor({ name: "Tatooine" })],
   groups: [base.group()],
-  typesActeur: [base.typeActeur()],
+  actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
   interfaces: [base.iface({ providerName: "Tatooine" })],
   consumptions: [base.conso()],
@@ -49,7 +49,7 @@ const template = base.template({
 function contexte(state: AppState, svg: SVGSVGElement | null = document.createElementNS("http://www.w3.org/2000/svg", "svg")) {
   let courant = state;
   const ctx: ContexteExport = {
-    etat: () => courant,
+    legacyState: () => courant,
     setState: (s) => void (courant = s),
     svgCourant: () => svg,
     matriceCourante: () => base.matrix({ columns: ["B"], rows: [] }),

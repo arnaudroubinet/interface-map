@@ -1,4 +1,4 @@
-import type { ParsedModel, Milestone, ValiditePalier } from "../parsing/model";
+import type { ParsedModel, Milestone, Validity } from "../parsing/model";
 import { interfaceLabel } from "./core";
 import { lifespanOf } from "./milestones";
 
@@ -30,7 +30,7 @@ export interface Frise {
 function segment(
   label: string,
   grouping: string,
-  validite: ValiditePalier,
+  validite: Validity,
   model: ParsedModel,
   bounds: { min: number; max: number }
 ): SegmentFrise {

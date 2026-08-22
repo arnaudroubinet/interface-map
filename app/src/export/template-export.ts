@@ -87,9 +87,9 @@ function feuilleVide(columns: readonly string[]): XLSX.WorkSheet {
 export const FEUILLE_LISTES = "Lists";
 
 export function formuleApercu(row: number): string {
-  const icone = colonneDeListe("Icon");
+  const icon = colonneDeListe("Icon");
   const preview = colonneDeListe("Preview");
-  return `IFERROR(INDEX(${FEUILLE_LISTES}!$${preview}:$${preview},MATCH(B${row},${FEUILLE_LISTES}!$${icone}:$${icone},0)),"")`;
+  return `IFERROR(INDEX(${FEUILLE_LISTES}!$${preview}:$${preview},MATCH(B${row},${FEUILLE_LISTES}!$${icon}:$${icon},0)),"")`;
 }
 
 // Seul onglet pré-rempli : sans lui, tous les acteurs porteraient le jeton
@@ -102,11 +102,11 @@ function feuilleTypesActeur(declared: readonly (readonly string[])[]): XLSX.Work
   // aurait écrasé la colonne voisine au lieu de la formule attendue.
   const colonneApercu = XLSX.utils.encode_col(COLONNES_TYPESACTEUR.length);
   const ws = sheet([headers, ...rows], [22, 18, 14, 12]);
-  rows.forEach(([, icone], rank) => {
+  rows.forEach(([, icon], rank) => {
     // La valeur en cache est celle qu'Excel recalculera de toute façon : elle
     // sert à ce que l'aperçu s'affiche juste dès l'ouverture, avant le premier
     // recalcul.
-    ws[`${colonneApercu}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: APERCU_ICONES[icone] ?? "" };
+    ws[`${colonneApercu}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: APERCU_ICONES[icon] ?? "" };
   });
   ws["!ref"] = `A1:${colonneApercu}${rows.length + 1}`;
   return ws;
@@ -271,7 +271,7 @@ export interface DonneesClasseur {
   // à niveau qui les remplacerait par l'amorce effacerait les types que
   // l'équipe a déclarés, et briserait toutes les interfaces qui s'y réfèrent.
   flowTypes: readonly (readonly string[])[];
-  typesActeur: readonly (readonly string[])[];
+  actorTypes: readonly (readonly string[])[];
   milestones: readonly (readonly string[])[];
   groups: readonly (readonly string[])[];
   actors: readonly (readonly string[])[];
@@ -279,7 +279,7 @@ export interface DonneesClasseur {
   fx: readonly { name: string; rows: readonly (readonly string[])[] }[];
 }
 
-const CLASSEUR_VIDE: DonneesClasseur = { flowTypes: [], typesActeur: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
+const CLASSEUR_VIDE: DonneesClasseur = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
 // Un onglet FX_<exposant>_<type> de plus de 31 caractères, ou portant un
 // caractère qu'Excel refuse dans un nom de feuille, ferait échouer l'écriture
@@ -331,7 +331,7 @@ export function buildTemplateWorkbook(donnees: DonneesClasseur = CLASSEUR_VIDE):
     "Milestones"
   );
 
-  XLSX.utils.book_append_sheet(wb, feuilleTypesActeur(donnees.typesActeur), "ActorTypes");
+  XLSX.utils.book_append_sheet(wb, feuilleTypesActeur(donnees.actorTypes), "ActorTypes");
 
   XLSX.utils.book_append_sheet(
     wb,
@@ -376,7 +376,7 @@ export function tableauxDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): Tabl
     {
       sheet: "ActorTypes",
       columns: [...COLONNES_TYPESACTEUR, COLONNE_APERCU_ICONE],
-      rows: writtenRows(donnees.typesActeur, ICONES_PAR_DEFAUT),
+      rows: writtenRows(donnees.actorTypes, ICONES_PAR_DEFAUT),
       // Colonne calculée : Excel la remplit tout seul sur les lignes ajoutées.
       // La formule stockée dans le tableau est celle de la première ligne de
       // données : Excel la décale lui-même sur les lignes suivantes.

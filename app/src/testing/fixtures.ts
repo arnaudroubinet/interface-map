@@ -1,13 +1,13 @@
 import type { MatrixResult, MatrixRow, MatrixCell } from "../aggregation/views";
 import type {
   Actor,
-  Consommation,
-  Groupe,
+  Consumption,
+  Group,
   InterfaceCatalogue,
   Milestone,
   ParsedModel,
-  TypeActeur,
-  TypeFlux,
+  ActorType,
+  FlowType,
 } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
@@ -31,10 +31,10 @@ export function actor(o: Partial<Actor> = {}): Actor {
   return {
     name: "A",
     group: "G",
-    typeActeur: "Application",
-    responsable: "",
+    actorType: "Application",
+    owner: "",
     description: "",
-    commentaires: "",
+    comments: "",
     introducedAt: "",
     retiredAt: "",
     sheet: "Actors",
@@ -43,19 +43,19 @@ export function actor(o: Partial<Actor> = {}): Actor {
   };
 }
 
-export function group(o: Partial<Groupe> = {}): Groupe {
+export function group(o: Partial<Group> = {}): Group {
   return { name: "G", perimeter: "Platform", sheet: "Groups", row: 0, ...o };
 }
 
-export function typeActeur(o: Partial<TypeActeur> = {}): TypeActeur {
-  return { type: "Application", icone: "app-window", nature: "", sheet: "ActorTypes", row: 0, ...o };
+export function actorType(o: Partial<ActorType> = {}): ActorType {
+  return { type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0, ...o };
 }
 
-export function typeFlux(o: Partial<TypeFlux> = {}): TypeFlux {
+export function typeFlux(o: Partial<FlowType> = {}): FlowType {
   return {
     type: "HTTP",
-    sensRepresentation: "consumer-to-provider",
-    sensRepresentationBrut: "consumer → provider",
+    direction: "consumer-to-provider",
+    rawDirection: "consumer → provider",
     description: "",
     colour: "",
     sheet: "FlowTypes",
@@ -69,7 +69,7 @@ export function milestone(o: Partial<Milestone> = {}): Milestone {
     name: "v1",
     rank: 1,
     label: "",
-    statut: "Delivered",
+    status: "Delivered",
     date: "",
     description: "",
     sheet: "Milestones",
@@ -82,15 +82,15 @@ export function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return {
     flowName: "F",
     version: "",
-    etat: "",
+    legacyState: "",
     providerName: "A",
     flowType: "HTTP",
     description: "",
-    lienContrat: "",
-    referenceContrat: "",
-    commentaires: "",
-    aConfirmer: false,
-    relais: "",
+    contractLink: "",
+    contractReference: "",
+    comments: "",
+    toConfirm: false,
+    legacyRelays: "",
     expectedSheet: "FX_A_HTTP",
     introducedAt: "",
     retiredAt: "",
@@ -100,16 +100,16 @@ export function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   };
 }
 
-export function conso(o: Partial<Consommation> = {}): Consommation {
+export function conso(o: Partial<Consumption> = {}): Consumption {
   return {
     flowName: "F",
     version: "",
     consumerName: "B",
     usage: "",
     criticality: "",
-    statut: "",
+    legacyStatus: "",
     decision: "",
-    commentaires: "",
+    comments: "",
     republishedAs: "",
     sheet: "FX_A_HTTP",
     introducedAt: "",
@@ -126,16 +126,16 @@ export function template(o: Partial<ParsedModel> = {}): ParsedModel {
   return {
     actors: [],
     groups: [],
-    groupesAbsents: false,
-    typesActeur: [],
+    groupsSheetMissing: false,
+    actorTypes: [],
     flowTypes: [],
     milestones: [],
     interfaces: [],
     consumptions: [],
     fxSheetNames: [],
-    colonnesOptionnellesAbsentes: [],
-    versionModele: VERSION_MODELE,
-    fichierModifie: null,
+    missingOptionalColumns: [],
+    schemaVersion: VERSION_MODELE,
+    savedAt: null,
     ...o,
   };
 }

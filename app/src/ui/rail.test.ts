@@ -5,7 +5,7 @@ import { initialState, withFichierCharge, withMode, withVue, withSelectionActeur
 import { runIntegrityChecks } from "../integrity/checks";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consommation } from "../parsing/model";
+import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 
 // Le flux, résolu comme au point d'entrée réel (app.ts) : un test qui
@@ -15,16 +15,16 @@ function flows(state: AppState): ReturnType<typeof reading> {
   return state.fichier ? reading(state.fichier.model, null, state.mode) : { flows: [], actors: [] };
 }
 
-function actor(name: string, typeActeur: string): Actor {
-  return base.actor({ name, typeActeur });
+function actor(name: string, actorType: string): Actor {
+  return base.actor({ name, actorType });
 }
 
 function iface(o: Partial<InterfaceCatalogue> = {}): InterfaceCatalogue {
   return base.iface({ providerName: "Tatooine", expectedSheet: "FX_Tatooine_HTTP", ...o });
 }
 
-function conso(o: Partial<Consommation> = {}): Consommation {
-  return base.conso({ consumerName: "Bus", statut: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
+function conso(o: Partial<Consumption> = {}): Consumption {
+  return base.conso({ consumerName: "Bus", legacyStatus: "Actif", decision: "Keep", sheet: "FX_Tatooine_HTTP", ...o });
 }
 
 // Tatooine expose F vers Bus (Middleware, Technical), qui la relaie sous F2 vers
@@ -34,10 +34,10 @@ function conso(o: Partial<Consommation> = {}): Consommation {
 const modelAvecFlux: ParsedModel = {
   actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware"), actor("Naboo", "Application")],
   groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
-  groupesAbsents: false,
-  typesActeur: [
-    { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-    { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+  groupsSheetMissing: false,
+  actorTypes: [
+    { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ],
   flowTypes: [base.typeFlux({ type: "HTTP" })],
   milestones: [],
@@ -51,27 +51,27 @@ const modelAvecFlux: ParsedModel = {
     conso({ flowName: "F2", consumerName: "Naboo", sheet: "FX_Bus_HTTP" }),
   ],
   fxSheetNames: ["FX_Tatooine_HTTP", "FX_Bus_HTTP"],
-  colonnesOptionnellesAbsentes: [],
-  versionModele: VERSION_MODELE,
-  fichierModifie: null,
+  missingOptionalColumns: [],
+  schemaVersion: VERSION_MODELE,
+  savedAt: null,
 };
 
 const model: ParsedModel = {
   actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
   groups: [{ name: "G", perimeter: "Platform", sheet: "Groups", row: 0 }],
-  groupesAbsents: false,
-  typesActeur: [
-    { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-    { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+  groupsSheetMissing: false,
+  actorTypes: [
+    { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+    { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ],
   flowTypes: [],
   milestones: [],
   interfaces: [],
   consumptions: [],
   fxSheetNames: [],
-  colonnesOptionnellesAbsentes: [],
-  versionModele: VERSION_MODELE,
-  fichierModifie: null,
+  missingOptionalColumns: [],
+  schemaVersion: VERSION_MODELE,
+  savedAt: null,
 };
 
 const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalAvertissements: 0 };
@@ -136,7 +136,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
 // pas les afficher tant que le classeur n'est pas à niveau.
 describe("renderRail — badge d'anomalies sur l'écran de mise à niveau", () => {
   it("n'affiche pas le compteur d'anomalies quand le classeur est bloqué en mise à niveau", () => {
-    const modelAncien: ParsedModel = { ...model, versionModele: VERSION_MODELE - 1 };
+    const modelAncien: ParsedModel = { ...model, schemaVersion: VERSION_MODELE - 1 };
     const reportAvecAnomalies: IntegrityReport = {
       families: [],
       infoBlocks: [],
@@ -199,7 +199,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
       base.actor({ name: "Bbb", introducedAt: "v1" }),
     ],
     groups: [base.group({ name: "G" })],
-    typesActeur: [base.typeActeur()],
+    actorTypes: [base.actorType()],
     flowTypes: [base.typeFlux()],
     milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
     interfaces: [base.iface({ flowName: "F", providerName: "Bbb", expectedSheet: "FX_Bbb_HTTP" })],

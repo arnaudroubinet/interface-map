@@ -28,7 +28,7 @@ import { downloadText } from "../export/download";
 // rendu, et un gestionnaire câblé une fois doit lire l'état du moment où on
 // clique, pas celui d'où on l'a construit.
 export interface ContexteExport {
-  etat: () => AppState;
+  legacyState: () => AppState;
   setState: (state: AppState) => void;
   // Le schéma à l'écran. Absent sur la matrix, le rapport et l'aide.
   svgCourant: () => SVGSVGElement | null;
@@ -58,7 +58,7 @@ function shownRank(state: AppState): number | null {
 
 export function handlersExport(ctx: ContexteExport): BannerCallbacks {
   const nomDeFichier = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
-    const state = ctx.etat();
+    const state = ctx.legacyState();
     return buildExportFilename(
       LIBELLE_VUE[state.view],
       selectionDuNom(state),
@@ -71,18 +71,18 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
   return {
     onExportSvg() {
       const svg = ctx.svgCourant();
-      if (!svg || !ctx.etat().fichier) return;
+      if (!svg || !ctx.legacyState().fichier) return;
       downloadSvg(svg, nomDeFichier("svg"), "#ffffff");
     },
 
     async onExportPng() {
       const svg = ctx.svgCourant();
-      if (!svg || !ctx.etat().fichier) return;
-      const result = await exportPng(svg, "#ffffff", ctx.etat().options.echellePng);
+      if (!svg || !ctx.legacyState().fichier) return;
+      const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.echellePng);
       if (!result.ok) {
         // Le message vient de l'export : il en distingue deux, et le recopier
         // ici en avait effacé un.
-        ctx.setState(withMessageBandeau(ctx.etat(), result.error));
+        ctx.setState(withMessageBandeau(ctx.legacyState(), result.error));
         return;
       }
       downloadPngBlob(result.blob, nomDeFichier("png"));
@@ -90,12 +90,12 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
 
     onExportXlsx() {
       const matrix = ctx.matriceCourante();
-      if (!matrix || !ctx.etat().fichier) return;
+      if (!matrix || !ctx.legacyState().fichier) return;
       downloadMatrixXlsx(matrix, nomDeFichier("xlsx"));
     },
 
     onExportMarkdown() {
-      const state = ctx.etat();
+      const state = ctx.legacyState();
       if (!state.fichier) return;
       // Pas de mode ici : le rapport juge le CLASSEUR, pas une lecture du
       // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
@@ -111,7 +111,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     // une soixantaine de planches tient en moins d'une seconde, et les garder
     // au chaud obligerait à les refaire à chaque changement de palier.
     async onExportDrawio() {
-      const state = ctx.etat();
+      const state = ctx.legacyState();
       if (!state.fichier) return;
       const model = state.fichier.model;
       const colours = couleursDuModele(model);
@@ -145,7 +145,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     },
 
     onExportStructurizr() {
-      const state = ctx.etat();
+      const state = ctx.legacyState();
       if (!state.fichier) return;
       downloadText(
         modeleEnStructurizr(state.fichier.model, shownRank(state), state.fichier.name, state.shownMilestone, state.mode),
@@ -154,7 +154,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
     },
 
     onExportLikeC4() {
-      const state = ctx.etat();
+      const state = ctx.legacyState();
       if (!state.fichier) return;
       downloadText(
         modeleEnLikeC4(state.fichier.model, shownRank(state), state.mode),

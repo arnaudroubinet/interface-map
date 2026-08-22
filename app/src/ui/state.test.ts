@@ -75,7 +75,7 @@ describe("withGranulariteMatrice", () => {
 });
 
 describe("withFichierCharge — classeur d'une version antérieure", () => {
-  const ancien = { ...model, versionModele: 0 };
+  const ancien = { ...model, schemaVersion: 0 };
 
   it("ouvre sur l'écran de mise à niveau plutôt que sur une vue", () => {
     const loaded = withFichierCharge(initialState(), {
@@ -110,9 +110,9 @@ describe("withFichierCharge — palier d'ouverture", () => {
   const avecPaliers = {
     ...model,
     milestones: [
-      { name: "v1", rank: 1, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v2", rank: 2, label: "", statut: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
-      { name: "v3", rank: 3, label: "", statut: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
+      { name: "v3", rank: 3, label: "", status: "Planned", date: "", description: "", sheet: "Milestones", row: 0 },
     ],
   };
 
@@ -155,13 +155,13 @@ describe("mode de lecture", () => {
     expect(withMode(s, "functional").view).toBe("matrix");
   });
 
-  const actor = (name: string, typeActeur: string) => base.actor({ name, typeActeur });
+  const actor = (name: string, actorType: string) => base.actor({ name, actorType });
   const modelMixte: ParsedModel = {
     ...model,
     actors: [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
-    typesActeur: [
-      { type: "Application", icone: "", nature: "Business", sheet: "ActorTypes", row: 0 },
-      { type: "Middleware", icone: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
+    actorTypes: [
+      { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
+      { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
     ],
   };
 
@@ -214,8 +214,8 @@ describe("withPalierAffiche — la sélection suit ce que le palier montre", () 
 // normalement -- la condition ne regardait que le retard. L'outil en dessinait
 // une image amputée de tout ce qu'il ne sait pas encore lire, sans le dire.
 describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
-  const at = (versionModele: number) => ({
-    name: "c.xlsx", model: { ...model, versionModele }, report, dateModification: null,
+  const at = (schemaVersion: number) => ({
+    name: "c.xlsx", model: { ...model, schemaVersion }, report, dateModification: null,
   });
 
   it("bloque sur un classeur en retard", () => {

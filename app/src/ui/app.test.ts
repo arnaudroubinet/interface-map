@@ -11,7 +11,7 @@ import { downloadText } from "../export/download";
 
 const donnees: DonneesClasseur = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
-  typesActeur: [],
+  actorTypes: [],
   milestones: [],
   groups: [["Core", "Platform"]],
   actors: [
@@ -74,7 +74,7 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
 // fonctionnel. §5.2 : il doit rester affiché, seul.
 const donneesAvecActeurIsole: DonneesClasseur = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
-  typesActeur: [
+  actorTypes: [
     ["Application", "", "Business"],
     ["Middleware", "", "Technical"],
   ],
@@ -140,7 +140,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
 // palier courant.
 const donneesAvecAnomalieRetiree: DonneesClasseur = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
-  typesActeur: [["Application", "box", "Business"]],
+  actorTypes: [["Application", "box", "Business"]],
   milestones: [
     ["V1", "1", "", "Delivered", "", ""],
     ["V2", "2", "", "Delivered", "", ""],
@@ -177,7 +177,7 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
 // axe du temps -- le dire autrement le contredirait.
 const donneesAvecUnSeulPalier: DonneesClasseur = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
-  typesActeur: [],
+  actorTypes: [],
   milestones: [["V1", "1", "", "Delivered", "", ""]],
   groups: [["Core", "Platform"]],
   actors: [["Tatooine", "Core", "Application", "", "", "", "", ""]],
@@ -215,7 +215,7 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   // même en réutilisant le placement de l'autre chaîne.
   const deuxChaines: DonneesClasseur = {
     flowTypes: [["Kafka", "provider → consumer", ""]],
-    typesActeur: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
+    actorTypes: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
     milestones: [],
     groups: [["Core", "Platform"]],
     actors: [
