@@ -4,8 +4,8 @@ import { modelToLikeC4 } from "./likec4-dsl";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
-// Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
-// donc les champs qu'ils lisent doivent être remplis.
+// A filled-in estate: these files check what the exports CARRY, so the fields
+// they read must be filled in.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "Socle", description: "d", ...o });
 }
@@ -48,8 +48,8 @@ describe("modeleEnLikeC4", () => {
     expect(dsl.indexOf("specification {")).toBeLessThan(dsl.indexOf("model {"));
   });
 
-  // LikeC4 dit l'appartenance par l'imbrication : c'est ce qui donne au groupe
-  // sa frontière sur la planche.
+  // LikeC4 says belonging through nesting: that is what gives the group its
+  // boundary on the board.
   it("nests the actors inside their group", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toMatch(/socle = group "Socle" \{\s+a = system "A" \{/);
@@ -61,15 +61,15 @@ describe("modeleEnLikeC4", () => {
     expect(dsl).toContain('technology "Application"');
   });
 
-  // Le périmètre du groupe devient une étiquette : c'est ce qui distingue le
-  // parc qu'on tient de celui qu'on subit.
+  // The group's perimeter becomes a tag: that is what tells the estate one owns
+  // apart from the one one puts up with.
   it("tags what sits outside the platform", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toMatch(/b = system "B" \{\s+#external/);
   });
 
-  // Une relation nommée depuis la racine désigne les deux bouts par leur
-  // chemin complet, sans quoi LikeC4 ne les retrouve pas.
+  // A relationship named from the root designates both ends by their full path,
+  // failing which LikeC4 does not find them.
   it("names both ends by their full path", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toContain('socle.a -[http]-> partenaire.b "F"');
@@ -85,17 +85,17 @@ describe("modeleEnLikeC4", () => {
     expect(modelToLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
   });
 
-  // LikeC4 a un champ de description sur la relation, distinct du libellé : ce
-  // que l'échange transporte s'y écrit là où l'outil l'affiche, plutôt qu'en
-  // métadonnée.
+  // LikeC4 has a description field on the relationship, distinct from the label:
+  // what the exchange carries is written where the tool shows it, rather than as
+  // metadata.
   it("carries the interface description on the relationship", () => {
     const m = model({ interfaces: [iface({ description: "What the exchange carries" })] });
     expect(modelToLikeC4(m, null)).toMatch(/-> partenaire\.b "F" \{[^}]*description "What the exchange carries"/s);
   });
 
-  // Les deux colonnes de commentaires ne disent pas la même chose : celle de
-  // l'interface porte sur le contrat, celle de la consommation sur l'usage
-  // qu'un consommateur en fait.
+  // The two comment columns do not say the same thing: the interface's is about
+  // the contract, the consumption's about the use a consumer makes of it.
+  //
   it("carries both comment columns on the relationship", () => {
     const m = model({
       interfaces: [iface({ comments: "Scope under review" })],
@@ -112,17 +112,17 @@ describe("modeleEnLikeC4", () => {
     expect(modelToLikeC4(model(), null)).not.toContain("toConfirm");
   });
 
-  // Un acteur qui consomme l'interface qu'il expose lui-même : LikeC4 refuse le
-  // fichier entier sur une relation d'un élément vers lui-même -- « Invalid
-  // parent-child relationship ». Les vues agrégées la masquent déjà (§4.3).
+  // An actor consuming the interface it publishes itself: LikeC4 refuses the
+  // whole file on a relationship from an element to itself -- "Invalid
+  // parent-child relationship". The aggregated views already hide it (§4.3).
   it("leaves out an actor consuming the interface it exposes itself", () => {
     const m = model({ actors: [actor({ name: "A" })], consumptions: [consumption({ consumerName: "A" })] });
     const dsl = modelToLikeC4(m, null);
     expect(dsl).not.toContain("socle.a -> socle.a");
   });
 
-  // Un acteur sans groupe existe quand même : le rapport le réclame déjà, ce
-  // n'est pas à l'export de le faire disparaître.
+  // An actor with no group still exists: the report already asks for it, and it
+  // is not the export's place to make it vanish.
   it("keeps an actor that belongs to no group, at the root", () => {
     const m = model({ actors: [actor({ name: "Seul", group: "" })], interfaces: [], consumptions: [] });
     expect(modelToLikeC4(m, null)).toContain('seul = system "Seul"');
@@ -152,16 +152,16 @@ describe("modeleEnLikeC4", () => {
     expect(dsl).toContain("include *");
   });
 
-  // Une vue par schema, comme dans l'outil : la vue d'un acteur porte sur cet
-  // acteur, d'ou le « of ».
+  // One view per diagram, as in the tool: an actor's view is about that actor,
+  // hence the "of".
   it("declares a view for each actor, scoped to it", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toContain("view actor_a of socle.a {");
     expect(dsl).toContain("view actor_b of partenaire.b {");
   });
 
-  // La technologie se lit sur les traits : sans etiquette sur la relation, la
-  // vue n'a rien sur quoi filtrer. L'etiquette doit etre declaree d'abord.
+  // The technology reads on the lines: with no tag on the relationship, the view
+  // has nothing to filter on. The tag must be declared first.
   it("tags each relationship with its technology, and gives it a view", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toContain("tag http");
@@ -177,36 +177,36 @@ describe("modeleEnLikeC4", () => {
   });
 });
 
-// --- §2.13 : trois kinds pour N types d'acteur, aucune légende, et notre
-// convention de pointe réduite à une étiquette -- alors que LikeC4 est la
-// SEULE cible qui sache la dessiner.
-describe("modeleEnLikeC4 — la notation traverse l'export", () => {
+// --- §2.13: three kinds for N actor types, no legend, and our arrowhead
+// convention reduced to a tag -- although LikeC4 is the ONLY target that can
+// draw it.
+describe("modelToLikeC4 — the notation survives the export", () => {
   const estate = (direction: "consumer-to-provider" | "provider-to-consumer") =>
     model({ flowTypes: [base.flowType({ type: "HTTP", direction: direction })] });
 
-  it("pose une pointe ouverte sur une technologie tirée", () => {
+  it("sets an open head on a pulled technology", () => {
     expect(modelToLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
   });
 
-  it("pose une pointe pleine sur une technologie poussée", () => {
+  it("sets a solid head on a pushed technology", () => {
     expect(modelToLikeC4(estate("provider-to-consumer"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
   });
 
-  // Le style de trait par défaut de LikeC4 est `dashed` : sans `line solid`,
-  // TOUS nos traits sortent en pointillé et « Transform » ne se distingue plus.
-  it("écrit line solid explicitement", () => {
+  // LikeC4's default stroke style is `dashed`: without `line solid`, ALL our
+  // lines come out dashed and "Transform" can no longer be told apart.
+  it("writes line solid explicitly", () => {
     expect(modelToLikeC4(estate("provider-to-consumer"), null)).toContain("line solid");
   });
 
-  it("donne à la relation la couleur que la technologie a dans l'outil", () => {
+  it("gives the relationship the colour the technology has in the tool", () => {
     const m = model({ flowTypes: [base.flowType({ type: "HTTP", colour: "#1f5fae" })] });
     expect(modelToLikeC4(m, null)).toMatch(/relationship http \{[\s\S]*?color #1f5fae/);
   });
 
-  // Les groupes sont DÉJÀ des éléments du modèle exporté : il ne manquait que
-  // les vues. Cité sans son `.*` un groupe est une boîte, avec son `.*` il est
-  // ouvert -- soit exactement nos deux vues agrégées.
-  it("produit la vue groupe à groupe et la vue plateforme détaillée", () => {
+  // The groups ARE ALREADY elements of the exported model: only the views were
+  // missing. Quoted without its `.*` a group is a box, with its `.*` it is opened
+  // -- which is exactly our two aggregated views.
+  it("produces the group-to-group view and the platform-detail view", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toContain("view group_to_group {");
     expect(dsl).toContain("view platform_detail {");
@@ -214,12 +214,12 @@ describe("modeleEnLikeC4 — la notation traverse l'export", () => {
   });
 });
 
-describe("modeleEnLikeC4 — la lecture fonctionnelle", () => {
-  it("annonce la lecture en tête du fichier", () => {
+describe("modelToLikeC4 — the functional reading", () => {
+  it("announces the reading at the head of the file", () => {
     expect(modelToLikeC4(model(), null, "functional")).toContain("functional reading");
   });
 
-  it("ne l'annonce pas en lecture d'architecture", () => {
+  it("does not announce it in the architecture reading", () => {
     expect(modelToLikeC4(model(), null)).not.toContain("functional reading");
   });
 });

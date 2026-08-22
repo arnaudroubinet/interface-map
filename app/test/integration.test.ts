@@ -9,13 +9,13 @@ import { actorIsPlatform } from "../src/aggregation/core";
 import { writeTemplate } from "../src/export/template-export";
 import { SAMPLE_DATA } from "../src/export/sample-data";
 
-// Le classeur d'exemple, écrit par l'outil puis relu par lui : c'est le seul
-// test qui fait tourner toute la chaîne d'un bout à l'autre. Il portait
-// autrefois sur un classeur réel déposé dans le dépôt ; celui-ci en est parti
-// avec les données de l'entreprise, et l'exemple embarqué le remplace. On y
-// perd le désordre du terrain -- accents, onglets nommés à la main, colonnes
-// surnuméraires -- et rien ne le compense ici.
-describe("chaîne complète sur le classeur d'exemple", () => {
+// The sample workbook, written by the tool then reread by it: this is the only
+// test that runs the whole chain end to end. It used to be about a real
+// workbook kept in the repository; that one left along with the company's data,
+// and the embedded sample replaces it. The field's untidiness is lost -- accents,
+// hand-named sheets, spare columns -- and nothing here makes up for it.
+//
+describe("the full chain on the sample workbook", () => {
   it("parses end to end without throwing and yields plausible counts", async () => {
     const workbook = parseWorkbook(writeTemplate(SAMPLE_DATA));
     const built = buildModel(workbook);
@@ -32,12 +32,12 @@ describe("chaîne complète sur le classeur d'exemple", () => {
     const report = runIntegrityChecks(built.model);
     expect(report.families).toHaveLength(5);
     expect(report.infoBlocks).toHaveLength(11);
-    // Les identifiants, pas seulement le compte : un bloc qui disparaît en
-    // même temps qu'un autre arrive laisserait le compte intact.
+    // The identifiers, not merely the count: a block disappearing at the same time
+    // as another arrives would leave the count intact.
     expect(new Set(report.infoBlocks.map((b) => b.id)).size).toBe(report.infoBlocks.length);
-    // L'exemple est construit pour ne déclencher aucune anomalie (voir le
-    // commentaire d'exemple-donnees.ts) : un décalage de colonne dans
-    // l'exemple, le gabarit ou le modèle fait aussitôt rougir cette ligne.
+    // The sample is built to trigger no anomaly (see sample-data.ts's comment): a
+    // column shift in the sample, the template or the model turns this line red at
+    // once.
     expect(report.totalAnomalies).toBe(0);
 
     const view = buildGroupToGroupView(
@@ -50,25 +50,25 @@ describe("chaîne complète sur le classeur d'exemple", () => {
   });
 });
 
-// --- QA : l'exemple livré ne portait ni nature ni relais, si bien que les deux
-// modes rendaient exactement le même dessin. Il ne pouvait donc ni montrer la
-// lecture métier à qui découvre l'outil, ni protéger la traversée d'une
-// régression -- et rien ne le disait, tout était vert.
-describe("le classeur d'exemple exerce la lecture métier", () => {
+// --- QA: the shipped sample carried neither nature nor relay, so both modes
+// returned exactly the same drawing. It could therefore neither show the
+// business reading to a newcomer, nor protect the walk from a regression -- and
+// nothing said so, everything was green.
+describe("the sample workbook exercises the business reading", () => {
   const template = () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
 
-  it("déclare au moins un acteur technique et le fait disparaître en fonctionnel", () => {
+  it("declares at least one technical actor and makes it disappear in the functional reading", () => {
     const m = template();
     const archi = reading(m, null, "architecture").actors.length;
     const business = reading(m, null, "functional").actors.length;
     expect(business).toBeLessThan(archi);
   });
 
-  it("raboute une chaîne : deux acteurs métier que seul le mode fonctionnel relie", () => {
+  it("joins a chain up: two business actors only the functional mode links", () => {
     const m = template();
     const paires = (mode: "architecture" | "functional") =>
       new Set(reading(m, null, mode).flows.map((f) => `${f.provider} → ${f.consumer}`));
@@ -77,56 +77,56 @@ describe("le classeur d'exemple exerce la lecture métier", () => {
     expect(nouvelles.length).toBeGreaterThan(0);
   });
 
-  it("ne casse aucune chaîne", () => {
+  it("breaks no chain", () => {
     expect(chainesCoupees(template(), null)).toHaveLength(0);
   });
 });
 
-// --- Une chaîne à TROIS relais successifs, dont un hors plateforme. Les cas à
-// un seul saut ne prouvent pas grand-chose : la remontée descend
-// récursivement, et c'est sur plusieurs sauts qu'elle peut s'arrêter trop tôt,
-// se perdre, ou franchir la frontière de la plateforme sans le dire.
-describe("le classeur d'exemple porte une chaîne à trois relais", () => {
+// --- A chain with THREE successive relays, one of them off-platform.
+// Single-hop cases prove little: the walk-up recurses, and it is over several
+// hops that it can stop too early, get lost, or cross the platform boundary
+// without saying so.
+describe("the sample workbook carries a three-relay chain", () => {
   const template = () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     return built.model;
   };
 
-  it("déclare les trois relais techniques, deux sur la plateforme et un dehors", () => {
+  it("declares the three technical relays, two on the platform and one outside", () => {
     const m = template();
     const legacyRelays = ["Kafka", "Dagobah", "ESB"].map((name) => m.actors.find((a) => a.name === name)!);
     expect(legacyRelays.every((a) => isTechnicalActor(m, a.name))).toBe(true);
     expect(legacyRelays.filter((a) => actorIsPlatform(m, a)).map((a) => a.name)).toEqual(["Kafka", "Dagobah"]);
   });
 
-  it("dessine les quatre segments en architecture", () => {
+  it("draws the four segments in the architecture reading", () => {
     const segments = reading(template(), null, "architecture")
       .flows.filter((f) => f.interfaceName === "Policy notice" || f.interfaceName.startsWith("notice."))
       .map((f) => `${f.provider}→${f.consumer}`);
     expect(segments).toEqual(["Chandrila→Kafka", "Kafka→Dagobah", "Dagobah→ESB", "ESB→Bracca"]);
   });
 
-  // Le même relais sert deux chaînes qui ne se ressemblent pas : l'une sort du
-  // périmètre par deux relais de plus, l'autre s'arrête au premier et reste
-  // interne. Rien dans la ligne d'interface du bus ne les distingue -- c'est la
-  // ligne de consommation qui le dit, une par entrée.
-  it("fait servir le même relais à deux chaînes sans les confondre", () => {
+  // The same relay serves two chains that are not alike: one leaves the perimeter
+  // through two more relays, the other stops at the first and stays internal.
+  // Nothing in the bus's interface row tells them apart -- it is the consumption
+  // row that says so, one per input.
+  it("makes the same relay serve two chains without conflating them", () => {
     const m = template();
     const business = reading(m, null, "functional").flows;
     const target = (name: string) =>
       business.filter((f) => f.provider === "Chandrila" && f.consumer === name).map((f) => f.interfaceName);
 
-    // vers l'extérieur, par trois relais
+    // outwards, through three relays
     expect(target("Bracca")).toContain("Policy notice");
     expect(actorIsPlatform(m, m.actors.find((a) => a.name === "Bracca")!)).toBe(false);
 
-    // et vers la plateforme, par le seul Kafka
+    // and towards the platform, through Kafka alone
     expect(target("Takodana")).toEqual(["Policy events"]);
     expect(actorIsPlatform(m, m.actors.find((a) => a.name === "Takodana")!)).toBe(true);
   });
 
-  it("les raboute en un seul lien métier, les trois relais retirés", () => {
+  it("joins them into a single business link, the three relays removed", () => {
     const m = template();
     const business = reading(m, null, "functional");
     expect(business.actors.map((a) => a.name)).not.toContain("Dagobah");
@@ -136,19 +136,19 @@ describe("le classeur d'exemple porte une chaîne à trois relais", () => {
   });
 });
 
-// --- Le tracé suit la DONNÉE, du fournisseur vers le consommateur, quelle que
-// soit la technologie. La chaîne se lit donc comme un tuyau même quand un
-// maillon est tiré : le troisième segment est en HTTP, et sa pointe -- posée à
-// son départ -- dit que c'est le bus qui interroge la passerelle.
-describe("la chaîne à trois relais se lit dans un seul sens", () => {
-  it("enchaîne les quatre segments de bout en bout", () => {
+// --- The line follows the DATA, from provider to consumer, whatever the
+// technology. The chain therefore reads as a pipe even when a hop is pulled:
+// the third segment is over HTTP, and its head -- set at its start -- says it
+// is the bus that queries the gateway.
+describe("the three-relay chain reads in a single direction", () => {
+  it("chains the four segments end to end", () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
     if (!built.ok) throw new Error("exemple illisible");
     const m = built.model;
     const view = buildPlatformDetailView(m, reading(m, null, "architecture"), { counters: true });
 
-    // « Support » est le groupe qui porte l'ESB : hors plateforme, il est
-    // dessiné replié sur son groupe.
+    // "Support" is the group carrying the ESB: off-platform, it is drawn folded
+    // onto its group.
     const chaining: [string, string][] = [
       ["Chandrila", "Kafka"],
       ["Kafka", "Dagobah"],

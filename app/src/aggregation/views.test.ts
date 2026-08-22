@@ -19,8 +19,8 @@ import type { Mode } from "./core";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
-// Les fabriques partagées ; ce fichier ne leur ajoute que ses deux groupes et
-// une consommation déjà décidée.
+// The shared factories; this file adds nothing to them but its two groups and
+// a consumption already decided.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", ...o });
 }
@@ -40,8 +40,8 @@ const baseModel: ParsedModel = base.template({
 });
 
 
-// Deux acteurs dans le groupe Plateforme : c'est ce qui rend visible la
-// différence entre les trois granularités de la matrix.
+// Two actors in the Platform group: that is what makes the difference between
+// the matrix's three grains visible.
 const modelTwoPerGroup: ParsedModel = {
   ...baseModel,
   actors: [actor({ name: "A", group: "G1" }), actor({ name: "A2", group: "G1" }), actor({ name: "B", group: "G2" })],
@@ -50,15 +50,15 @@ const modelTwoPerGroup: ParsedModel = {
   fxSheetNames: ["FX_A_HTTP", "FX_A2_HTTP"],
 };
 
-// Flux résolus une fois par test, comme au point d'entrée réel (app.ts) : ce
-// fichier ne doit pas réinventer sa propre façon d'aller du modèle aux flux.
+// Flows resolved once per test, as at the real entry point (app.ts): this file
+// must not reinvent its own way of going from model to flows.
 function flows(model: ParsedModel, mode: Mode = "architecture"): ReturnType<typeof flowsForReading> {
   return flowsForReading(model, null, mode);
 }
 
-// La Lecture (flux + acteurs) que reçoivent désormais les vues qui peuvent
-// dessiner un acteur isolé. `rang` par défaut à `null` : la plupart des tests
-// d'ici ne portent pas sur l'axe des paliers.
+// The Reading (flows + actors) the views that can draw an isolated actor now
+// receive. `rank` defaults to `null`: most of the tests here are not about the
+// milestone axis.
 function read(model: ParsedModel, mode: Mode = "architecture", rank: number | null = null): ReturnType<typeof readingOfMode> {
   return readingOfMode(model, rank, mode);
 }
@@ -78,10 +78,10 @@ describe("buildPlatformDetailView", () => {
     expect(view.nodes.find((n) => n.id === "G2")).toBeDefined();
   });
 
-  // Le titre promettait la tolérance à la casse et aux accents, mais le modèle
-  // construit ici écrivait « Platform » à l'identique : le test passait encore
-  // en retirant la normalisation de groupeEstPlateforme. Le périmètre est donc
-  // écrit autrement, et le nom du groupe aussi -- il se résout par la même voie.
+  // The title promised tolerance to case and accents, but the model built here
+  // wrote "Platform" identically: the test still passed with groupIsPlatform's
+  // normalisation removed. So the perimeter is written differently, and so is
+  // the group's name -- it resolves through the same route.
   it("recognizes the platform perimeter regardless of case or accents", () => {
     const model: ParsedModel = {
       ...baseModel,
@@ -123,10 +123,10 @@ describe("buildByActorView", () => {
 });
 
 describe("buildMatrixView", () => {
-  // La matrix dit « qui alimente qui », comme les schémas et comme le mode
-  // fonctionnel : la ligne est le FOURNISSEUR, quelle que soit la technologie.
-  // Elle portait autrefois le sens de l'appel, si bien qu'un flux HTTP y
-  // apparaissait à l'envers d'un flux Kafka entre les deux mêmes acteurs.
+  // The matrix says "who feeds whom", like the diagrams and like the functional
+  // mode: the row is the PROVIDER, whatever the technology. It used to carry the
+  // call's direction, so that an HTTP flow appeared there the wrong way round
+  // from a Kafka flow between the same two actors.
   it("keeps a row only for what provides and a column only for what consumes", () => {
     const matrix = buildMatrixView(baseModel, read(baseModel), { mode: "architecture" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A"]);
@@ -137,7 +137,7 @@ describe("buildMatrixView", () => {
   it("judges each axis on its own: what both emits and receives keeps a row and a column", () => {
     const model: ParsedModel = {
       ...modelTwoPerGroup,
-      // A expose F (donc reçoit de B) et consomme F2 (donc émet vers B).
+      // A publishes F (hence receives from B) and consumes F2 (hence sends to B).
       interfaces: [iface({}), iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_A2_HTTP" })],
       consumptions: [consumption({}), consumption({ flowName: "F2", sheet: "FX_A2_HTTP", consumerName: "A" })],
     };
@@ -153,7 +153,7 @@ describe("buildMatrixView", () => {
     expect(rowA.cells.get("A")).toBeDefined();
   });
 
-  it("collapses actors onto their groupe when granularité is 'group'", () => {
+  it("collapses actors onto their group when the grain is 'group'", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), { mode: "architecture", grain: "group" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["G1"]);
     expect(matrix.columns).toEqual(["G2"]);
@@ -161,7 +161,7 @@ describe("buildMatrixView", () => {
     expect(rowG1.cells.get("G2")).toEqual([{ technology: "HTTP", count: 2, attenuated: false, names: ["F", "F2"] }]);
   });
 
-  it("details plateforme actors and collapses the rest when granularité is 'platform'", () => {
+  it("details platform actors and collapses the rest when the grain is 'platform'", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), { mode: "architecture", grain: "platform" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "A2"]);
     expect(matrix.columns).toEqual(["G2"]);
@@ -169,7 +169,7 @@ describe("buildMatrixView", () => {
     expect(matrix.rows.find((l) => l.actor === "A2")!.cells.get("G2")).toHaveLength(1);
   });
 
-  it("puts an intra-groupe flow on the diagonal when granularité is 'group'", () => {
+  it("puts an intra-group flow on the diagonal when the grain is 'group'", () => {
     const model: ParsedModel = {
       ...modelTwoPerGroup,
       consumptions: [consumption({ flowName: "F", consumerName: "A2" })],
@@ -179,7 +179,7 @@ describe("buildMatrixView", () => {
     expect(rowG1.cells.get("G1")).toBeDefined();
   });
 
-  it("hides an externe groupe wholesale when granularité is 'group'", () => {
+  it("hides an external group wholesale when the grain is 'group'", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), {
       mode: "architecture",
       grain: "group",
@@ -189,7 +189,7 @@ describe("buildMatrixView", () => {
     expect(matrix.rows).toEqual([]);
   });
 
-  it("masks a whole groupe by its own name when granularité is 'group'", () => {
+  it("masks a whole group by its own name when the grain is 'group'", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), {
       mode: "architecture",
       grain: "group",
@@ -201,11 +201,11 @@ describe("buildMatrixView", () => {
 });
 
 describe("optionsFiltreMatrice", () => {
-  it("lists actors when granularité is 'actor'", () => {
+  it("lists actors when the grain is 'actor'", () => {
     expect(matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "actor" })).toEqual(["A", "A2", "B"]);
   });
 
-  it("lists groupes when granularité is 'group'", () => {
+  it("lists groups when the grain is 'group'", () => {
     expect(matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "group" })).toEqual(["G1", "G2"]);
   });
 
@@ -216,29 +216,29 @@ describe("optionsFiltreMatrice", () => {
   });
 });
 
-describe("buildByActorView — version au libellé", () => {
+describe("buildByActorView — the version in the label", () => {
   const modelVersionne: ParsedModel = {
     ...baseModel,
     interfaces: [iface({ version: "1.0" })],
     consumptions: [consumption({ version: "1.0" })],
   };
 
-  it("nomme le contrat exposé avec sa version", () => {
+  it("names the published contract with its version", () => {
     const view = buildByActorView(modelVersionne, flows(modelVersionne), "A", {});
     expect(view.edges[0].label).toBe("F 1.0");
   });
 
-  // Un classeur qui ne versionne pas ne doit pas se mettre à afficher un
-  // espace en trop derrière chaque nom.
-  it("s'en tient au nom quand la version est vide", () => {
+  // A workbook that does not version must not start showing a spare space after
+  // every name.
+  it("sticks to the name when the version is empty", () => {
     const view = buildByActorView(baseModel, flows(baseModel), "A", {});
     expect(view.edges[0].label).toBe("F");
   });
 
-  // Le rattachement tolère la casse et les espaces, mais le libellé affiche
-  // l'orthographe du CATALOGUE : c'est le contrat exposé qu'on désigne, pas la
-  // façon dont un consommateur l'a recopié.
-  it("affiche l'orthographe du catalogue, pas celle saisie côté consommation", () => {
+  // Matching tolerates case and spaces, but the label shows the CATALOGUE's
+  // spelling: it is the published contract that is named, not the way a consumer
+  // copied it out.
+  it("shows the catalogue's spelling, not the one entered on the consumption side", () => {
     const model: ParsedModel = {
       ...baseModel,
       interfaces: [iface({ version: "V2 " })],
@@ -250,9 +250,9 @@ describe("buildByActorView — version au libellé", () => {
 });
 
 describe("mode fonctionnel", () => {
-  // Tatooine expose Transactions ; Bus (Middleware, Technical) la relaie sous
-  // trx.norm vers Naboo : la chaîne fonctionnelle relie Tatooine à
-  // Naboo, Bus retiré.
+  // Tatooine publishes Transactions; Bus (Middleware, Technical) relays it as
+  // trx.norm towards Naboo: the functional chain links Tatooine to Naboo, with
+  // Bus removed.
   function estate(): ParsedModel {
     return {
       actors: [
@@ -290,7 +290,7 @@ describe("mode fonctionnel", () => {
 
   const options = (mode: Mode) => ({ counters: true, mode });
 
-  it("laisse le mode architecture inchangé", () => {
+  it("leaves the architecture mode unchanged", () => {
     const m = estate();
     const view = buildPlatformDetailView(m, read(m, "architecture"), options("architecture"));
     expect(view.nodes.map((n) => n.id)).toContain("Bus");
@@ -302,16 +302,16 @@ describe("mode fonctionnel", () => {
     expect(view.nodes.map((n) => n.id)).not.toContain("Bus");
   });
 
-  it("relie la source au consommateur en mode fonctionnel", () => {
+  it("links the source to the consumer in functional mode", () => {
     const m = estate();
     const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
     expect([view.edges[0].from, view.edges[0].to]).toEqual(["Tatooine", "Finance"]);
   });
 
-  // Sans technologie, deux échanges entre les mêmes applications fusionnent en
-  // un seul trait, quel que soit le médium qui les portait.
-  it("fusionne les traits sans distinguer les technologies", () => {
+  // With no technology, two exchanges between the same applications merge into a
+  // single line, whatever medium carried them.
+  it("merges the lines without telling the technologies apart", () => {
     const m = estate();
     m.interfaces.push(iface({ flowName: "Autre", providerName: "Tatooine", flowType: "Kafka", expectedSheet: "FX_Tatooine_Kafka" }));
     m.consumptions.push(consumption({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
@@ -322,13 +322,13 @@ describe("mode fonctionnel", () => {
     expect(view.edges[0].count).toBe(2);
   });
 
-  // La matrix est la seule vue où la cellule montre encore la technologie :
-  // en fonctionnel elle doit se vider comme partout ailleurs, et le rendu
-  // (matrix-table.ts) n'a de sens que si cette donnée lui arrive bien vide.
-  it("vide la technologie des cellules de la matrix en mode fonctionnel", () => {
+  // The matrix is the only view where the cell still shows the technology: in
+  // the functional reading it must empty like everywhere else, and the rendering
+  // (matrix-table.ts) only makes sense if that field really arrives empty.
+  it("empties the technology from the matrix's cells in functional mode", () => {
     const m = estate();
-    // Tatooine fournit, le Bus consomme : la ligne est donc celle du fournisseur,
-    // même en HTTP où c'est le Bus qui passe l'appel.
+    // Tatooine supplies, the Bus consumes: so the row is the provider's, even over
+    // HTTP where it is the Bus that makes the call.
     const architecture = buildMatrixView(m, read(m, "architecture"), { mode: "architecture" });
     const tatooineArchiRow = architecture.rows.find((l) => l.actor === "Tatooine")!;
     expect(tatooineArchiRow.cells.get("Bus")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["Transactions"] }]);
@@ -339,20 +339,20 @@ describe("mode fonctionnel", () => {
     expect(tatooineRow.cells.get("Naboo")).toEqual([{ technology: "", count: 1, attenuated: false, names: ["Transactions"] }]);
   });
 
-  // Une technologie vide n'en est pas une : la proposer comme filtre produit
-  // une case sans étiquette, qui vide tout le schéma en un clic sans rien
+  // An empty technology is not one: offering it as a filter produces an
+  // unlabelled checkbox that empties the whole diagram in one click without
   // expliquer.
-  it("ne propose aucune technologie à filtrer en mode fonctionnel", () => {
+  it("offers no technology to filter in functional mode", () => {
     const m = estate();
     const options = actorFilterOptions(flows(m, "functional"), "Tatooine");
     expect(options.technologies).toEqual([]);
   });
 
-  // §5.2 : un acteur métier devenu isolé -- dont les échanges passaient tous
-  // par des chaînes coupées -- reste affiché, seul. Le faire disparaître
-  // retirerait de l'information sans le dire.
-  describe("acteur métier isolé", () => {
-    it("reste affiché, à travers son groupe, en groupe à groupe", () => {
+  // §5.2: a business actor left isolated -- whose exchanges all went through
+  // broken chains -- stays displayed, alone. Making it vanish would remove
+  // information without saying so.
+  describe("an isolated business actor", () => {
+    it("stays displayed, through its group, at group to group", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
@@ -360,7 +360,7 @@ describe("mode fonctionnel", () => {
       expect(view.nodes.map((n) => n.id)).toContain("Ops");
     });
 
-    it("garde son propre nœud en plateforme détaillée quand c'est un composant de la plateforme", () => {
+    it("keeps its own node at platform detail when it is a platform component", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
       const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
@@ -368,14 +368,14 @@ describe("mode fonctionnel", () => {
       expect(node?.kind).toBe("platform");
     });
 
-    it("reste affiché en plateforme seule quand c'est un composant de la plateforme", () => {
+    it("stays displayed at platform only when it is a platform component", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
       const view = buildPlatformOnlyView(m, read(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Isolé");
     });
 
-    it("garde une ligne vide dans la matrix", () => {
+    it("keeps an empty row in the matrix", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
@@ -385,10 +385,10 @@ describe("mode fonctionnel", () => {
       expect(row?.cells.size).toBe(0);
     });
 
-    // Un acteur isolé retiré au palier affiché n'est plus un acteur métier
-    // isolé : il n'est plus DU TOUT sur la carte. §5.2 garde sa boîte tant
-    // qu'il vit, pas au-delà.
-    describe("retiré à un palier", () => {
+    // An isolated actor retired at the displayed milestone is no longer an
+    // isolated business actor: it is no longer on the map AT ALL. §5.2 keeps its
+    // box as long as it lives, not beyond.
+    describe("retired at a milestone", () => {
       const milestones = [
         { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
         { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
@@ -402,25 +402,25 @@ describe("mode fonctionnel", () => {
         return m;
       }
 
-      it("garde sa boîte au palier où il vit encore", () => {
+      it("keeps its box at the milestone where it is still alive", () => {
         const m = withIsolatedRetired();
         const view = buildPlatformDetailView(m, read(m, "functional", 1), options("functional"));
         expect(view.nodes.map((n) => n.id)).toContain("Isolé");
       });
 
-      it("perd sa boîte en plateforme détaillée au palier où il est retiré", () => {
+      it("loses its box at platform detail at the milestone where it is retired", () => {
         const m = withIsolatedRetired();
         const view = buildPlatformDetailView(m, read(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
-      it("perd sa boîte en plateforme seule au palier où il est retiré", () => {
+      it("loses its box at platform only at the milestone where it is retired", () => {
         const m = withIsolatedRetired();
         const view = buildPlatformOnlyView(m, read(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
-      it("perd sa ligne de matrix au palier où il est retiré", () => {
+      it("loses its matrix row at the milestone where it is retired", () => {
         const m = withIsolatedRetired();
         const matrix = buildMatrixView(m, read(m, "functional", 2), { mode: "functional" });
         expect(matrix.rows.map((l) => l.actor)).not.toContain("Isolé");
@@ -429,13 +429,13 @@ describe("mode fonctionnel", () => {
   });
 });
 
-// --- Le cadre de la plateforme portait « Plateforme » en français dans une
-// interface entièrement anglaise, reste d'avant la traduction. Aucun test ne le
-// regardait, d'où sa survie.
-describe("frontière de la plateforme", () => {
-  // Le cadre n'existe qu'à partir de deux composants de plateforme : en dessous
-  // il n'apporterait rien.
-  it("porte son nom dans la langue de l'interface", () => {
+// --- The platform frame carried "Plateforme" in French inside an entirely
+// English interface, a leftover from before the translation. No test looked at
+// it, hence its survival.
+describe("the platform boundary", () => {
+  // The frame exists only from two platform components upwards: below that it
+  // would add nothing.
+  it("carries its name in the interface's language", () => {
     const m: ParsedModel = {
       ...baseModel,
       actors: [actor({ name: "A", group: "G1" }), actor({ name: "C", group: "G1" }), actor({ name: "B", group: "G2" })],
@@ -445,14 +445,14 @@ describe("frontière de la plateforme", () => {
   });
 });
 
-// --- QA : le trait suit la DONNÉE, du fournisseur vers le consommateur, et la
-// pointe dit qui appelle. buildByActorView fabrique ses arêtes sans passer par
-// groupFlows : elle avait gardé l'ancienne convention et inversait le trait
-// sur un flux tiré. Ces planches partent dans le fichier draw.io -- un seul
-// fichier racontait donc deux architectures selon l'onglet ouvert.
+// --- QA: the line follows the DATA, from provider to consumer, and the head
+// says who calls. buildByActorView builds its edges without going through
+// groupFlows: it had kept the old convention and reversed the line on a pulled
+// flow. Those boards go into the draw.io file -- so one file told two different
+// architectures depending on which tab was open.
 // ---------------------------------------------------------------------------
-// 1. Le sens du trait, dans la vue « By actor » et dans les onglets draw.io
-//    qu'elle produit.
+// 1. The line's direction, in the "By actor" view and in the draw.io tabs it
+//    produces.
 // ---------------------------------------------------------------------------
 
 const pulledEstate = () =>
@@ -460,14 +460,14 @@ const pulledEstate = () =>
     actors: [base.actor({ name: "Fournisseur" }), base.actor({ name: "Consommateur" })],
     groups: [base.group({ name: "G" })],
     actorTypes: [base.actorType()],
-    // HTTP est tiré : « consumer → provider ».
+    // HTTP is pulled: "consumer → provider".
     flowTypes: [base.flowType({ type: "HTTP", direction: "consumer-to-provider" })],
     interfaces: [base.iface({ flowName: "F", providerName: "Fournisseur" })],
     consumptions: [base.consumption({ flowName: "F", consumerName: "Consommateur" })],
   });
 
-describe("le trait va du fournisseur au consommateur, partout", () => {
-  it("les vues agrégées et la matrix suivent la donnée", () => {
+describe("the line goes from provider to consumer, everywhere", () => {
+  it("the aggregated views and the matrix follow the data", () => {
     const m = pulledEstate();
     const g = groupFlows(buildFlowInstances(m), identityNodeKey, true)[0];
     expect([g.from, g.to, g.pulled]).toEqual(["Fournisseur", "Consommateur", true]);
@@ -475,13 +475,13 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
     expect(mat.rows.map((l) => l.actor)).toEqual(["Fournisseur"]);
   });
 
-  it("la vue « By actor » aussi, alors qu'elle fabrique ses arêtes elle-même", () => {
+  it("the \"By actor\" view too, although it builds its edges itself", () => {
     const m = pulledEstate();
     const edge = buildByActorView(m, buildFlowInstances(m), "Fournisseur", {}).edges[0];
     expect([edge.from, edge.to, edge.pulled]).toEqual(["Fournisseur", "Consommateur", true]);
   });
 
-  it("toutes les planches d'un même fichier draw.io racontent la même architecture", async () => {
+  it("every board of one draw.io file tells the same architecture", async () => {
     const m = pulledEstate();
     const placed = [];
     for (const p of allBoards(m, null, "architecture")) {
@@ -501,10 +501,10 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
   });
 });
 
-// --- QA : la criticité se perdait entre l'agrégation et le rendu. Le réglage
-// « épaisseur par criticité » était donc coché et sans effet -- un réglage qui
-// ne fait rien est pire qu'un réglage absent.
-describe("les vues transportent la criticité jusqu'au trait", () => {
+// --- QA: the criticality was lost between the aggregation and the rendering.
+// The "weight by criticality" setting was therefore ticked and had no effect --
+// a setting that does nothing is worse than an absent one.
+describe("the views carry the criticality all the way to the line", () => {
   const estate = () =>
     base.template({
       groups: [{ name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 }],
@@ -518,15 +518,15 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
       ],
     });
 
-  it("la porte à travers les vues agrégées", () => {
+  it("carries it through the aggregated views", () => {
     const m = estate();
     const view = buildPlatformDetailView(m, readingOfMode(m, null, "architecture"), { counters: true });
     expect(view.edges[0].criticality).toBe("1 - Critical");
   });
 
-  // Cette vue fabrique ses arêtes elle-même, sans passer par l'agrégation :
-  // c'est exactement là qu'un champ nouveau se perd.
-  it("la porte aussi dans la vue par acteur, qui fabrique ses arêtes à part", () => {
+  // This view builds its edges itself, without going through the aggregation:
+  // that is exactly where a new field gets lost.
+  it("carries it in the by-actor view too, which builds its edges separately", () => {
     const m = estate();
     const view = buildByActorView(m, readingOfMode(m, null, "architecture").flows, "A", {});
     expect(view.edges[0].criticality).toBe("1 - Critical");
