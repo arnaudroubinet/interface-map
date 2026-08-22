@@ -133,7 +133,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const state = ctx.etat();
       if (!state.fichier) return;
       téléchargerTexte(
-        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.nom),
+        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.nom, state.palierAffiche),
         buildExportFilename("model", null, state.palierAffiche, "dsl")
       );
     },

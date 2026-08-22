@@ -72,7 +72,7 @@ describe("modeleEnLikeC4", () => {
   // chemin complet, sans quoi LikeC4 ne les retrouve pas.
   it("names both ends by their full path", () => {
     const dsl = modeleEnLikeC4(model(), null);
-    expect(dsl).toContain('socle.a -> partenaire.b "F"');
+    expect(dsl).toContain('socle.a -[http]-> partenaire.b "F"');
     expect(dsl).toContain('technology "HTTP"');
   });
 
@@ -82,7 +82,7 @@ describe("modeleEnLikeC4", () => {
         base.typeFlux({ type: "HTTP", sensRepresentation: "exposant-consommateur", sensRepresentationBrut: "provider → consumer" }),
       ],
     });
-    expect(modeleEnLikeC4(m, null)).toContain('socle.a -> partenaire.b "F"');
+    expect(modeleEnLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
   });
 
   // LikeC4 a un champ de description sur la relation, distinct du libellé : ce
@@ -174,5 +174,42 @@ describe("modeleEnLikeC4", () => {
     const dsl = modeleEnLikeC4(model(), null);
     expect(dsl).toContain("view platform_only {");
     expect(dsl).toContain("include * where tag is #platform");
+  });
+});
+
+// --- §2.13 : trois kinds pour N types d'acteur, aucune légende, et notre
+// convention de pointe réduite à une étiquette -- alors que LikeC4 est la
+// SEULE cible qui sache la dessiner.
+describe("modeleEnLikeC4 — la notation traverse l'export", () => {
+  const parc = (sens: "consommateur-exposant" | "exposant-consommateur") =>
+    model({ typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentation: sens })] });
+
+  it("pose une pointe ouverte sur une technologie tirée", () => {
+    expect(modeleEnLikeC4(parc("consommateur-exposant"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
+  });
+
+  it("pose une pointe pleine sur une technologie poussée", () => {
+    expect(modeleEnLikeC4(parc("exposant-consommateur"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
+  });
+
+  // Le style de trait par défaut de LikeC4 est `dashed` : sans `line solid`,
+  // TOUS nos traits sortent en pointillé et « Transform » ne se distingue plus.
+  it("écrit line solid explicitement", () => {
+    expect(modeleEnLikeC4(parc("exposant-consommateur"), null)).toContain("line solid");
+  });
+
+  it("donne à la relation la couleur que la technologie a dans l'outil", () => {
+    const m = model({ typesFlux: [base.typeFlux({ type: "HTTP", couleur: "#1f5fae" })] });
+    expect(modeleEnLikeC4(m, null)).toMatch(/relationship http \{[\s\S]*?color #1f5fae/);
+  });
+
+  // Les groupes sont DÉJÀ des éléments du modèle exporté : il ne manquait que
+  // les vues. Cité sans son `.*` un groupe est une boîte, avec son `.*` il est
+  // ouvert -- soit exactement nos deux vues agrégées.
+  it("produit la vue groupe à groupe et la vue plateforme détaillée", () => {
+    const dsl = modeleEnLikeC4(model(), null);
+    expect(dsl).toContain("view group_to_group {");
+    expect(dsl).toContain("view platform_detail {");
+    expect(dsl).toMatch(/view platform_detail \{[\s\S]*?socle\.\*/);
   });
 });

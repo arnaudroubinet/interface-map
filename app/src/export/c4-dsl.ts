@@ -41,6 +41,26 @@ function sensDuFlux(f: FlowInstance): { de: string; vers: string } {
 }
 
 const ETIQUETTE_TIRE = "Pulled";
+
+// Une forme par type d'acteur, pour les mots les plus courants seulement : le
+// classeur nomme ses types librement, et un type inconnu reste une boîte
+// plutôt que de recevoir une forme au hasard. Les valeurs sont celles que
+// Structurizr accepte (Box, RoundedBox, Circle, Ellipse, Hexagon, Diamond,
+// Cylinder, Bucket, Pipe, Person, Robot, Folder, WebBrowser, Window,
+// Terminal, Shell, MobileDevicePortrait, MobileDeviceLandscape, Component).
+const FORME_PAR_TYPE: Record<string, string> = {
+  queue: "Pipe",
+  topic: "Pipe",
+  broker: "Pipe",
+  bus: "Pipe",
+  database: "Cylinder",
+  storage: "Cylinder",
+  person: "Person",
+  humain: "Person",
+  batch: "Robot",
+  screen: "Window",
+  browser: "WebBrowser",
+};
 const estTire = (f: FlowInstance) => f.sens === "consommateur-exposant";
 
 // Un acteur qui consomme l'interface qu'il expose lui-même donnerait une
@@ -53,12 +73,24 @@ function fluxExportables(model: ParsedModel, rang: number | null): FlowInstance[
   return buildFlowInstances(model, rang).filter((f) => f.exposant.trim() !== f.consommateur.trim());
 }
 
-export function modeleEnStructurizr(model: ParsedModel, rang: number | null, nomClasseur: string): string {
+export function modeleEnStructurizr(
+  model: ParsedModel,
+  rang: number | null,
+  nomClasseur: string,
+  palier: string | null = null
+): string {
   const acteurs = acteursVivants(model, rang);
   const ids = identifiants(acteurs.map((a) => a.nom.trim()));
   const nom = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
 
-  const lignes: string[] = [`workspace "${texte(nom)}" "Interface map, exported from the workbook."`, "", "    model {"];
+  const lignes: string[] = [
+    `workspace "${texte(nom)}" "Interface map, exported from the workbook."`,
+    "",
+    "    model {",
+    // Un acteur imbriqué se désigne alors par son chemin complet, ce qui rend
+    // le fichier relisible quand deux groupes portent un même nom court.
+    "        !identifiers hierarchical",
+  ];
 
   const déclaration = (a: Acteur, indent: string) => {
     // Un humain n'est pas un système : C4 a un mot pour ça, et le classeur le
@@ -141,13 +173,33 @@ export function modeleEnStructurizr(model: ParsedModel, rang: number | null, nom
   }
   lignes.push(...[...liens].sort((a, b) => a.localeCompare(b, "fr")));
 
-  lignes.push("    }", "", "    views {", ...vues(model, acteurs, ids, flux), "", "        styles {");
-  lignes.push('            element "External" {', "                background #999999", "            }");
+  lignes.push("    }", "", "    views {", ...vues(model, acteurs, ids, flux, palier), "", "        styles {");
+  lignes.push('            element "External" {', "                background #6E6579", "                color #ffffff", "            }");
+  // La plateforme n'avait AUCUN style : seul l'externe en portait un, si bien
+  // que le fichier ouvert dans l'outil cible ne distinguait plus les deux
+  // périmètres que notre schéma oppose depuis toujours.
+  lignes.push('            element "Platform" {', "                background #0E7DAD", "                color #ffffff", "            }");
+  // Une forme par type d'acteur déclaré. La table ne propose un défaut que
+  // pour les mots les plus courants : c'est le classeur qui nomme ses types,
+  // et un type inconnu reste une boîte plutôt que de recevoir une forme au
+  // hasard.
+  for (const t of model.typesActeur) {
+    const forme = FORME_PAR_TYPE[normalizeText(t.type)];
+    if (!forme) continue;
+    lignes.push(`            element "${texte(t.type)}" {`, `                shape ${forme}`, "            }");
+  }
   // Chaque technologie garde la couleur qu'elle a dans l'outil : deux lectures
   // du même parc, sur deux outils, ne doivent pas changer de code couleur.
   const couleurs = couleursDuModele(model);
   for (const techno of [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
     lignes.push(`            relationship "${texte(techno)}" {`, `                color ${couleurs.get(techno) ?? "#000000"}`, "            }");
+  }
+  // Sans style, l'étiquette « Pulled » ne changeait RIEN dans l'outil cible :
+  // notre convention de pointe y était invisible, alors que le tag est posé
+  // depuis toujours. Structurizr ne sait pas inverser une pointe -- il sait
+  // changer le trait, ce qui distingue au moins les deux cas.
+  if (flux.some(estTire)) {
+    lignes.push(`            relationship "${ETIQUETTE_TIRE}" {`, "                style dashed", "            }");
   }
   lignes.push("        }", "    }", "}", "");
 
@@ -163,29 +215,40 @@ function vues(
   model: ParsedModel,
   acteurs: Acteur[],
   ids: Map<string, string>,
-  flux: FlowInstance[]
+  flux: FlowInstance[],
+  palier: string | null
 ): string[] {
-  const vue = (entête: string, inclusion: string) => [
+  // `title` est une INSTRUCTION du bloc. Le second argument positionnel de
+  // `systemLandscape` est la DESCRIPTION, pas le titre : posé là, il aurait
+  // laissé les vues nommées par leur clé technique -- « tech-rest-esb » --
+  // dans la liste que l'outil cible présente.
+  const vue = (entête: string, titre: string, inclusion: string) => [
     `        ${entête} {`,
+    `            title "${texte(titre)}"`,
     `            include ${inclusion}`,
     "            autolayout lr",
     "        }",
   ];
 
-  const lignes = [...vue('systemLandscape "landscape"', "*")];
+  const auPalier = palier ? ` — milestone ${palier}` : "";
+  const lignes = [...vue('systemLandscape "landscape"', `System landscape${auPalier}`, "*")];
 
   // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
   // « platform » était une plateforme à l'écran et n'en était plus une dans le
   // fichier C4, où la vue dédiée disparaissait sans un mot.
   if (model.groupes.some((g) => groupeEstPlateforme(model, g.nom))) {
-    lignes.push(...vue('systemLandscape "platform-only"', '"element.tag==Platform"'));
+    lignes.push(...vue('systemLandscape "platform-only"', `Platform only${auPalier}`, '"element.tag==Platform"'));
   }
 
   const technos = [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
   const clés = identifiants(technos);
   for (const techno of technos) {
     lignes.push(
-      ...vue(`systemLandscape "tech-${clés.get(techno)!.replace(/_/g, "-")}"`, `"relationship.tag==${texte(techno)}"`)
+      ...vue(
+        `systemLandscape "tech-${clés.get(techno)!.replace(/_/g, "-")}"`,
+        `${techno} flows${auPalier}`,
+        `"relationship.tag==${texte(techno)}"`
+      )
     );
   }
 
@@ -198,7 +261,9 @@ function vues(
   const touchés = new Set(flux.flatMap((f) => [f.exposant.trim(), f.consommateur.trim()]));
   for (const a of acteurs.filter((x) => touchés.has(x.nom.trim()) && !estUnePersonne(x))) {
     const id = ids.get(a.nom.trim())!;
-    lignes.push(...vue(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, "*"));
+    lignes.push(
+      ...vue(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.nom.trim()} — inbound and outbound${auPalier}`, "*")
+    );
   }
 
   return lignes;

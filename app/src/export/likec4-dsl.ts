@@ -7,6 +7,7 @@ import {
   type FlowInstance,
 } from "../aggregation/core";
 import { acteursVivants } from "../aggregation/paliers";
+import { couleursDuModele } from "../render/colors";
 import { identifiants } from "./identifiants";
 import { normalizeText } from "../shared/text";
 
@@ -61,6 +62,7 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
   // des identifiants, là où le classeur écrit « REST + ESB ».
   const technos = [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort(parNom);
   const étiquettes = identifiants(technos);
+  const couleurs = couleursDuModele(model);
 
   const lignes: string[] = [
     "specification {",
@@ -80,6 +82,31 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
     // ne coûte rien, un fichier invalide coûte tout.
     `    tag ${ETIQUETTE_TIRE.toLowerCase()}`,
     ...technos.map((t) => `    tag ${étiquettes.get(t)}`),
+    // Un kind de relation par technologie. LikeC4 est la seule cible qui sache
+    // dessiner notre convention : la pointe au bout CONSOMMATEUR quand le
+    // fournisseur pousse, au bout FOURNISSEUR quand le consommateur tire. On
+    // le lui dit enfin, au lieu de réduire la chose à une étiquette.
+    //
+    // `line solid` est explicite : le style de trait par défaut de LikeC4 est
+    // `dashed`, et tous nos traits seraient sortis en pointillé -- ce qui
+    // aurait effacé la distinction que le pointillé porte chez nous, la
+    // décision « Transform ».
+    ...technos.flatMap((t) => {
+      const tiré = model.typesFlux.some((tf) => tf.type.trim() === t && tf.sensRepresentation === "consommateur-exposant");
+      return [
+        `    relationship ${étiquettes.get(t)} {`,
+        `        technology "${texte(t)}"`,
+        "        style {",
+        "            line solid",
+        `            color ${couleurs.get(t) ?? "#000000"}`,
+        // `vee` est la pointe ouverte, `normal` la pleine : le même couple que
+        // nos schémas, et celui qu'UML emploie sur ses messages.
+        tiré ? "            head vee" : "            head normal",
+        tiré ? "            tail none" : "            tail none",
+        "        }",
+        "    }",
+      ];
+    }),
     "}",
     "",
     "model {",
@@ -120,9 +147,12 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
     const cible = chemins.get(vers.trim());
     if (!source || !cible) continue;
     const libellé = texte(libelleInterface(f.interfaceNom, f.version));
+    const kind = étiquettes.get(f.typeDeFlux.trim());
     const corps = [
-      `    ${source} -> ${cible} "${libellé}" {`,
-      `        #${étiquettes.get(f.typeDeFlux.trim())}`,
+      // `-[kind]->` plutôt qu'une flèche nue : c'est le kind qui porte la
+      // pointe, la couleur et le style déclarés plus haut.
+      `    ${source} -[${kind}]-> ${cible} "${libellé}" {`,
+      `        #${kind}`,
     ];
     // L'initiative, en étiquette : LikeC4 sait filtrer dessus, et sans elle le
     // fichier perdrait ce que la pointe porte sur nos schémas.
@@ -157,22 +187,23 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
   }
   for (const clé of [...liens.keys()].sort((a, b) => a.localeCompare(b, "fr"))) lignes.push(...liens.get(clé)!);
 
-  lignes.push("}", "", "views {", ...vues(model, acteurs, chemins, technos, étiquettes, flux), "}", "");
+  lignes.push("}", "", "views {", ...vues(model, acteurs, chemins, technos, étiquettes, flux, ids), "}", "");
 
   return lignes.join("\n");
 }
 
-// Une vue par schéma que l'outil sait dessiner. Manquent « groupe à groupe » et
-// « plateforme détaillée », qui AGRÈGENT des acteurs en une boîte : ni LikeC4
-// ni Structurizr ne savent l'exprimer, et la vue d'ensemble porte la même
-// matière, l'imbrication dessinant déjà les groupes.
+// Une vue par schéma que l'outil sait dessiner, les deux vues agrégées
+// comprises. Le commentaire qui les déclarait inexprimables valait pour
+// Structurizr, pas pour LikeC4 : les groupes sont DÉJÀ des éléments du modèle
+// exporté, et les inclure SANS leur `.*` donne une boîte par groupe.
 function vues(
   model: ParsedModel,
   acteurs: Acteur[],
   chemins: Map<string, string>,
   technos: string[],
   étiquettes: Map<string, string>,
-  flux: FlowInstance[]
+  flux: FlowInstance[],
+  ids: Map<string, string>
 ): string[] {
   // Le nom d'une vue est un identifiant -- « tech_rest_esb » -- que personne ne
   // veut lire dans une liste. Le titre porte le vrai nom.
@@ -185,6 +216,25 @@ function vues(
   ];
 
   const lignes = [...vue("index", "Everything the workbook holds", "*")];
+
+  // Les deux vues agrégées, que le commentaire précédent déclarait
+  // inexprimables : un groupe cité SANS son `.*` est une boîte, avec son `.*`
+  // il est ouvert. C'est exactement l'opposition « groupe à groupe » et
+  // « plateforme détaillée ».
+  const groupes = [...new Set(acteurs.map((a) => a.groupe.trim()).filter(Boolean))].sort(parNom);
+  if (groupes.length > 1) {
+    lignes.push(
+      ...vue("group_to_group", "Group to group", groupes.map((g) => ids.get(g)!).join(", "))
+    );
+  }
+  const plateforme = groupes.filter((g) => groupeEstPlateforme(model, g));
+  if (plateforme.length > 0 && groupes.length > plateforme.length) {
+    const inclusion = [
+      ...plateforme.map((g) => `${ids.get(g)}.*`),
+      ...groupes.filter((g) => !groupeEstPlateforme(model, g)).map((g) => ids.get(g)!),
+    ];
+    lignes.push(...vue("platform_detail", "Platform detail", inclusion.join(", ")));
+  }
 
   // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
   // « platform » était une plateforme à l'écran et n'en était plus une dans le

@@ -269,3 +269,57 @@ describe("modeleEnStructurizr — périmètre écrit autrement", () => {
     expect(modeleEnStructurizr(parc("External"), null, "c.xlsx")).not.toContain('"platform-only"');
   });
 });
+
+// --- §2.12 : 21 vues sans titre. Ouvert dans Structurizr, le fichier
+// présentait une liste de clés techniques -- « tech-rest-esb » -- que
+// personne ne peut lire.
+describe("modeleEnStructurizr — les vues portent un titre", () => {
+  it("écrit `title` DANS le bloc de la vue, pas en second argument", () => {
+    const dsl = modeleEnStructurizr(model(), null, "carto.xlsx", "v2");
+    expect(dsl).toMatch(/systemLandscape "landscape" \{\s*\n\s*title "System landscape — milestone v2"/);
+  });
+
+  it("titre chaque vue de technologie du nom de la technologie", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).toContain('title "HTTP flows"');
+  });
+
+  // Sans palier affiché, pas de mention : « milestone null » serait pire que
+  // rien.
+  it("ne mentionne le palier que lorsqu'il y en a un", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).not.toContain("milestone");
+  });
+});
+
+describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
+  it("style la plateforme, et pas seulement l'externe", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).toMatch(/element "Platform" \{\s*\n\s*background/);
+  });
+
+  // Sans style, l'étiquette « Pulled » ne changeait rien dans l'outil cible :
+  // notre convention de pointe y était invisible.
+  // Le terrain par défaut est TIRÉ (HTTP, « consumer → provider »).
+  it("donne un style au tag Pulled quand un flux est tiré", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).toMatch(/relationship "Pulled" \{\s*\n\s*style dashed/);
+  });
+
+  it("ne style pas Pulled quand aucun flux ne l'est", () => {
+    const poussé = model({ typesFlux: [base.typeFlux({ type: "HTTP", sensRepresentation: "exposant-consommateur" })] });
+    expect(modeleEnStructurizr(poussé, null, "carto.xlsx")).not.toContain('relationship "Pulled"');
+  });
+
+  it("donne une forme aux types d'acteur qu'il reconnaît, et laisse les autres en boîte", () => {
+    const parc = model({
+      typesActeur: [
+        { type: "Queue", icone: "", nature: "", feuille: "ActorTypes", ligne: 0 },
+        { type: "Chose", icone: "", nature: "", feuille: "ActorTypes", ligne: 0 },
+      ],
+    });
+    const dsl = modeleEnStructurizr(parc, null, "carto.xlsx");
+    expect(dsl).toMatch(/element "Queue" \{\s*\n\s*shape Pipe/);
+    expect(dsl).not.toContain('element "Chose"');
+  });
+
+  it("déclare les identifiants hiérarchiques en tête du modèle", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).toContain("!identifiers hierarchical");
+  });
+});
