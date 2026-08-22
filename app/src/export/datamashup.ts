@@ -17,6 +17,7 @@
 // with no queries at all.
 
 import * as XLSX from "xlsx";
+import { REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET } from "../parsing/build-model";
 
 export interface ReferentialUrls {
   // Where the actors are published. Empty means "this workbook has none",
@@ -31,7 +32,13 @@ export function hasReferential(urls: ReferentialUrls): boolean {
   return urls.actors.trim() !== "" || urls.technologies.trim() !== "";
 }
 
-export const MASHUP_QUERIES = ["RefActors", "RefTechnologies"] as const;
+// A query's name IS the name of the sheet it fills. template-export puts that
+// sheet constant into the table's `query`, from where it becomes the
+// connection's `Location=` and its `SELECT * FROM [...]`: were the two
+// declarations to drift apart, Excel would carry a connection naming a query
+// that does not exist, and nothing in the package would say so. Deriving them
+// from the sheet names makes the drift impossible rather than detectable.
+export const MASHUP_QUERIES = [REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET] as const;
 
 const BOM = "﻿";
 
