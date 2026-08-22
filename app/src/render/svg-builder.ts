@@ -398,7 +398,11 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   g.appendChild(boîte);
 
   const blanc = "#ffffff";
-  const grisDesc = "#cccccc";
+  // Blanc, pas gris. #cccccc tombait à 1,81:1 ; une demi-teinte ne suffit pas
+  // non plus -- #e8eef2 ne donne que 3,94:1. La hiérarchie visuelle est déjà
+  // portée par la taille (16 px gras, 12 px, 11 px), la couleur n'a pas à la
+  // porter en plus.
+  const grisDesc = "#ffffff";
   const cx = node.x;
 
   // Bloc de texte centré dans la boîte : nom en 16 gras, [Type] en dessous,

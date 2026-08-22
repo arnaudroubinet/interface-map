@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { ICONES, ICONE_PAR_DEFAUT } from "./icones";
 import { buildGraphSvg } from "./svg-builder";
+import { styleDuNoeud } from "./styles-noeud";
 import { computeLayout } from "../layout/graph-layout";
 import { colorForTechnologies } from "./colors";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
@@ -49,11 +50,14 @@ describe("buildGraphSvg", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
     const boîtes = [...svg.querySelectorAll(".fx-noeuds rect")];
 
-    // Couleurs du gabarit C4 de draw.io : conteneur en scope, externe en gris.
-    const bleu = boîtes.find((r) => r.getAttribute("fill") === "#23A2D9");
-    const gris = boîtes.find((r) => r.getAttribute("fill") === "#8C8496");
+    // Les teintes viennent de styleDuNoeud, seule source : les recopier ici
+    // ferait échouer ce test au premier ajustement de contraste, sans que rien
+    // n'ait cessé de fonctionner.
+    const bleu = boîtes.find((r) => r.getAttribute("fill") === styleDuNoeud({ kind: "plateforme", externe: false }).fond);
+    const gris = boîtes.find((r) => r.getAttribute("fill") === styleDuNoeud({ kind: "acteur", externe: true }).fond);
     expect(bleu).not.toBeUndefined();
     expect(gris).not.toBeUndefined();
+    expect(bleu!.getAttribute("fill")).not.toBe(gris!.getAttribute("fill"));
     // L'externe se distingue aussi par la forme, pas seulement par la couleur.
     expect(gris!.getAttribute("stroke-dasharray")).toBe("8 5");
   });
