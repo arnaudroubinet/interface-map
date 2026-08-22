@@ -523,8 +523,24 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
   ];
 }
 
-export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE): ArrayBuffer {
-  const brut = XLSX.write(construireClasseurModele(donnees), { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe: Date = new Date()): ArrayBuffer {
+  const classeur = construireClasseurModele(donnees);
+  // Les propriétés de document, que l'outil ne posait pas : un classeur qu'il
+  // venait de produire se relisait donc SANS date de sauvegarde, et le
+  // cartouche de chaque schéma annonçait « save date unknown » sur des données
+  // fraîches. Excel remplit ModifiedDate à chaque enregistrement ; nous devons
+  // en faire autant, sans quoi c'est l'outil qui a l'air de mal lire.
+  //
+  // La date est injectée plutôt que lue de l'horloge, pour que l'écriture reste
+  // reproductible et testable -- comme la migration le fait déjà.
+  classeur.Props = {
+    ...classeur.Props,
+    Title: "Interface map",
+    Application: "Interface Map",
+    CreatedDate: écritLe,
+    ModifiedDate: écritLe,
+  };
+  const brut = XLSX.write(classeur, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
   const complété = poserLesTableaux(brut, {
     tableaux: tableauxDuModele(donnees),
     listes: listesDuModele(),

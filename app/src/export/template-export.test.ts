@@ -831,3 +831,33 @@ describe("modèle de classeur — le plancher des validations", () => {
     expect(Math.min(...jusquÀ)).toBeGreaterThanOrEqual(1000);
   });
 });
+
+// --- QA : l'outil ne posait aucune propriété de document. Un classeur qu'il
+// venait de produire se relisait donc SANS date de sauvegarde, et le cartouche
+// de chaque schéma annonçait « save date unknown » sur des données fraîches --
+// ce qui donne à l'outil l'air de mal lire les fichiers Excel.
+describe("écrireModele — les propriétés du document", () => {
+  const LE_JOUR = new Date("2026-08-22T09:00:00Z");
+
+  it("écrit la date de sauvegarde, et la relecture la retrouve", () => {
+    expect(parseWorkbook(écrireModele(DONNEES_EXEMPLE, LE_JOUR)).fichierModifie?.toISOString()).toBe(
+      "2026-08-22T09:00:00.000Z"
+    );
+  });
+
+  // La date est injectée, pas lue de l'horloge : c'est ce qui rend l'écriture
+  // reproductible, comme la mise à niveau le fait déjà.
+  it("prend la date qu'on lui donne plutôt que l'heure courante", () => {
+    const autre = new Date("2020-01-02T03:04:05Z");
+    expect(parseWorkbook(écrireModele(DONNEES_EXEMPLE, autre)).fichierModifie?.toISOString()).toBe(autre.toISOString());
+  });
+
+  // Les tableaux structurés, les listes et les validations sont posés APRÈS
+  // l'écriture SheetJS, en réécrivant le zip : ils ne doivent pas emporter
+  // docProps/core.xml au passage.
+  it("garde la date malgré la réécriture du classeur", () => {
+    const relu = parseWorkbook(écrireModele(DONNEES_EXEMPLE, LE_JOUR));
+    expect(relu.fichierModifie).not.toBeNull();
+    expect(relu.sheets.some((f) => f.name === "Interfaces")).toBe(true);
+  });
+});
