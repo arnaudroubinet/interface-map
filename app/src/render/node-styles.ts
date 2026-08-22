@@ -2,8 +2,8 @@ import type { LayoutNode } from "../layout/graph-layout";
 
 // Fixe, indépendant du thème de l'appli : un export doit rester lisible
 // ouvert seul, hors de toute page qui l'habillerait en clair/sombre (§8).
-export const PAPIER = "#ffffff";
-export const ENCRE = "#14181f";
+export const PAPER = "#ffffff";
+export const INK = "#14181f";
 
 // Épaisseur uniforme pour tous les traits. Faire varier l'épaisseur avec le
 // nombre de flux agrégés produisait un effet de gras sur les troncs fusionnés,
@@ -19,11 +19,11 @@ export const CHANGE_COLOUR: Record<"added" | "removed", string> = {
   removed: "#d03b3b",
 };
 
-export interface StyleNoeud {
+export interface NodeStyle {
   fill: string;
   stroke: string;
-  texteClair: boolean;
-  épaisseurBord: number;
+  lightText: boolean;
+  strokeWidth: number;
 }
 
 // Palette par kind, dans l'esprit C4 (Structurizr) : gris-bleu neutre pour un
@@ -41,15 +41,15 @@ export interface StyleNoeud {
 // #8C8496 3,59:1, pour un seuil de 4,5:1. Chacun reprend la teinte de sa
 // PROPRE BORDURE ou son équivalent : la famille de couleur ne change pas,
 // seule sa clarté descend. #0E7DAD donne 4,61:1 et #6E6579 donne 5,53:1.
-export function styleDuNoeud(node: Pick<LayoutNode, "kind" | "external">): StyleNoeud {
+export function styleOfNode(node: Pick<LayoutNode, "kind" | "external">): NodeStyle {
   if (node.kind === "focus-actor") {
-    return { fill: "#083F75", stroke: "#06315C", texteClair: true, épaisseurBord: 2 };
+    return { fill: "#083F75", stroke: "#06315C", lightText: true, strokeWidth: 2 };
   }
   if (node.external) {
-    return { fill: "#6E6579", stroke: "#514A5A", texteClair: true, épaisseurBord: 1 };
+    return { fill: "#6E6579", stroke: "#514A5A", lightText: true, strokeWidth: 1 };
   }
   if (node.kind === "platform") {
-    return { fill: "#0E7DAD", stroke: "#0A5E82", texteClair: true, épaisseurBord: 1 };
+    return { fill: "#0E7DAD", stroke: "#0A5E82", lightText: true, strokeWidth: 1 };
   }
-  return { fill: "#1061B0", stroke: "#0D5091", texteClair: true, épaisseurBord: 1 };
+  return { fill: "#1061B0", stroke: "#0D5091", lightText: true, strokeWidth: 1 };
 }

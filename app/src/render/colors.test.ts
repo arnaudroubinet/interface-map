@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { colourForTechnologies, coloursOfModel, PALETTE } from "./colors";
-import { ratioDeContraste } from "./contrast";
+import { contrastRatio } from "./contrast";
 import type { ParsedModel, InterfaceCatalogue, FlowType } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -140,7 +140,7 @@ describe("couleursDuModele — une technologie non déclarée ne prend pas de te
 // comme texte -- et le libellé d'arête s'écrit dans cette couleur.
 describe("la palette de repli est lisible", () => {
   it("place chaque teinte au-dessus de 4,5:1 sur blanc", () => {
-    for (const c of PALETTE) expect(ratioDeContraste(c, "#ffffff"), c).toBeGreaterThanOrEqual(4.5);
+    for (const c of PALETTE) expect(contrastRatio(c, "#ffffff"), c).toBeGreaterThanOrEqual(4.5);
   });
 
   // Huit teintes qui passent le contraste mais se ressemblent ne valent rien :
@@ -159,7 +159,7 @@ describe("couleursDuModele — garde-fou de contraste", () => {
   });
 
   it("assombrit une couleur déclarée illisible plutôt que de la dessiner telle quelle", () => {
-    expect(ratioDeContraste(coloursOfModel(estate("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
+    expect(contrastRatio(coloursOfModel(estate("#ffee00")).get("HTTP")!, "#ffffff")).toBeGreaterThanOrEqual(3);
   });
 
   it("respecte telle quelle une couleur déclarée qui passe le seuil", () => {

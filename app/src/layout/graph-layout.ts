@@ -44,20 +44,20 @@ export interface LayoutResult {
 // Gabarit C4 de draw.io, relevé dans sa source (Sidebar-C4.js) :
 //   géométrie 240 x 120, texte centré, nom 16px gras, [Type] en dessous,
 //   ligne vide, puis description 11px en #cccccc.
-export const LARGEUR_NOEUD = 240;
-export const HAUTEUR_MIN_NOEUD = 120;
+export const NODE_WIDTH = 240;
+export const MIN_NODE_HEIGHT = 120;
 
 export const PAD_NOEUD = 14;
 export const NAME_LINE_HEIGHT = 21;
 export const HAUTEUR_LIGNE_TYPE = 16;
-export const HAUTEUR_LIGNE_VIDE = 8;
-export const HAUTEUR_LIGNE_DESC = 14;
+export const EMPTY_LINE_HEIGHT = 8;
+export const DESC_LINE_HEIGHT = 14;
 
 // Largeur utile pour la description, et approximation de la largeur d'un
 // caractère à sa taille de rendu (9.5px).
-const LARGEUR_UTILE = LARGEUR_NOEUD - 2 * PAD_NOEUD;
-const LARGEUR_CARACTERE_DESC = 5.6;
-const MAX_LIGNES_DESC = 3;
+const LARGEUR_UTILE = NODE_WIDTH - 2 * PAD_NOEUD;
+const DESC_CHAR_WIDTH = 5.6;
+const MAX_DESC_LINES = 3;
 
 // Le nom, ramené à ce qui tient dans la boîte. Sa largeur est fixe
 // (LARGEUR_NOEUD) et le nom n'était ni mesuré ni tronqué, contrairement à la
@@ -65,10 +65,10 @@ const MAX_LIGNES_DESC = 3;
 // faisait couper par le cadre du dessin. L'icône et son écart se réservent
 // leur place au passage.
 const NAME_CHAR_WIDTH = 8.2;
-const PLACE_ICONE = 16 + 9;
+const ICON_SLOT = 16 + 9;
 
 export function truncatedName(label: string): string {
-  const parCaractere = Math.max(4, Math.floor((LARGEUR_UTILE - PLACE_ICONE) / NAME_CHAR_WIDTH));
+  const parCaractere = Math.max(4, Math.floor((LARGEUR_UTILE - ICON_SLOT) / NAME_CHAR_WIDTH));
   return label.length <= parCaractere ? label : `${label.slice(0, parCaractere - 1).trimEnd()}…`;
 }
 
@@ -76,7 +76,7 @@ export function truncatedName(label: string): string {
 // un mot. Au-delà du nombre de lignes admis, la dernière est tronquée.
 export function lignesDescription(text: string | undefined): string[] {
   if (!text) return [];
-  const parCaractere = Math.max(1, Math.floor(LARGEUR_UTILE / LARGEUR_CARACTERE_DESC));
+  const parCaractere = Math.max(1, Math.floor(LARGEUR_UTILE / DESC_CHAR_WIDTH));
   const rows: string[] = [];
   let courante = "";
   for (const mot of text.split(/\s+/)) {
@@ -89,9 +89,9 @@ export function lignesDescription(text: string | undefined): string[] {
     courante = mot;
   }
   if (courante) rows.push(courante);
-  if (rows.length <= MAX_LIGNES_DESC) return rows;
-  const kept = rows.slice(0, MAX_LIGNES_DESC);
-  kept[MAX_LIGNES_DESC - 1] = kept[MAX_LIGNES_DESC - 1].slice(0, parCaractere - 1).trimEnd() + "…";
+  if (rows.length <= MAX_DESC_LINES) return rows;
+  const kept = rows.slice(0, MAX_DESC_LINES);
+  kept[MAX_DESC_LINES - 1] = kept[MAX_DESC_LINES - 1].slice(0, parCaractere - 1).trimEnd() + "…";
   return kept;
 }
 
@@ -107,7 +107,7 @@ const HAUTEUR_SOUS_LIGNE = 12;
 // réservée -- c'est ICI que la taille du texte se paie.
 const LABEL_CHAR_WIDTH = 6.2;
 
-export function largeurPastille(text: string): number {
+export function chipWidth(text: string): number {
   return text.length * LABEL_CHAR_WIDTH + 14;
 }
 
@@ -122,29 +122,29 @@ export function subLabel(label: string | undefined, technology: string): string 
 // Le disque de rappel de la technologie vit devant le texte : sa place se
 // réserve ICI, avant le placement. Réservée trop courte, l'étiquette déborde
 // de la boîte qu'ELK lui a gardée.
-const LARGEUR_DISQUE = 11;
+const DISC_WIDTH = 11;
 
 export function taillePastille(label: string | undefined, technology: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
   const sous = subLabel(label, technology);
-  const disque = technology.trim() !== "" ? LARGEUR_DISQUE : 0;
+  const disque = technology.trim() !== "" ? DISC_WIDTH : 0;
   return {
-    width: Math.max(largeurPastille(label) + disque, sous ? largeurPastille(sous) : 0),
+    width: Math.max(chipWidth(label) + disque, sous ? chipWidth(sous) : 0),
     height: HAUTEUR_PASTILLE + (sous ? HAUTEUR_SOUS_LIGNE : 0),
   };
 }
 
-export function hauteurTexteNoeud(node: GraphNode): number {
+export function nodeTextHeight(node: GraphNode): number {
   const rows = lignesDescription(node.description).length;
   return (
     NAME_LINE_HEIGHT +
     (node.subtitle ? HAUTEUR_LIGNE_TYPE : 0) +
-    (rows ? HAUTEUR_LIGNE_VIDE + rows * HAUTEUR_LIGNE_DESC : 0)
+    (rows ? EMPTY_LINE_HEIGHT + rows * DESC_LINE_HEIGHT : 0)
   );
 }
 
 export function hauteurNoeud(node: GraphNode): number {
-  return Math.max(HAUTEUR_MIN_NOEUD, 2 * PAD_NOEUD + hauteurTexteNoeud(node));
+  return Math.max(MIN_NODE_HEIGHT, 2 * PAD_NOEUD + nodeTextHeight(node));
 }
 
 // elk-worker.min.js sait déjà se comporter en repli sans Worker : sa toute
@@ -159,14 +159,14 @@ export function hauteurNoeud(node: GraphNode): number {
 // déjà inlinée pour le Blob du vrai Worker, avec un `module` local pour
 // déclencher la branche CommonJS, Node/jsdom obtient le même repli sans
 // jamais dupliquer l'algorithme.
-function workerDeRepliNode(): new (url?: string) => Worker {
+function nodeFallbackWorker(): new (url?: string) => Worker {
   const module = { exports: {} as { Worker?: new (url?: string) => Worker } };
   new Function("module", "exports", elkWorkerSource)(module, module.exports);
-  const FauxWorker = module.exports.Worker;
-  if (!FauxWorker) {
+  const FakeWorker = module.exports.Worker;
+  if (!FakeWorker) {
     throw new Error("elk-worker.min.js n'a pas exposé de Worker de repli (environnement inattendu).");
   }
-  return FauxWorker;
+  return FakeWorker;
 }
 
 // Sans Worker, elkjs calcule sur le thread principal et tranche son travail
@@ -182,13 +182,13 @@ function workerDeRepliNode(): new (url?: string) => Worker {
 // contrainte d'un livrable en un seul .html. Le code source du worker GWT
 // d'elkjs est donc inliné dans le bundle (import ci-dessus) et transformé en
 // Blob URL au runtime : aucune requête réseau, aucun fichier annexe.
-function fabriqueElk() {
+function elkFactory() {
   if (typeof Worker === "undefined" || typeof URL === "undefined" || !URL.createObjectURL) {
     // Node/jsdom (tests) : aucun Worker natif utilisable. On rejoue le repli
     // qu'elkjs sait construire lui-même pour ce cas (workerDeRepliNode) plutôt
     // que d'embarquer une seconde copie de l'algorithme pour l'obtenir.
-    const FauxWorker = workerDeRepliNode();
-    return new ELK({ workerFactory: (u) => new FauxWorker(u) });
+    const FakeWorker = nodeFallbackWorker();
+    return new ELK({ workerFactory: (u) => new FakeWorker(u) });
   }
   // elk-api.js (contrairement à l'ELKNode d'elk.bundled.js) construit lui-même
   // un vrai Worker dès qu'on lui fournit workerUrl, sans détection foireuse à
@@ -197,7 +197,7 @@ function fabriqueElk() {
   return new ELK({ workerUrl: url });
 }
 
-const elk = fabriqueElk();
+const elk = elkFactory();
 
 const MARGE = 20;
 
@@ -268,15 +268,15 @@ interface PortElk {
 }
 
 // Place qu'occupe un trait sur la façade d'une boîte.
-const TAILLE_ACCROCHE = 4;
+const PORT_SIZE = 4;
 
 // Pas minimal entre deux accroches, et air réservée en haut et en bas de la face.
-const PAS_ACCROCHE = 14;
-const MARGE_ACCROCHES = 10;
+const PORT_STEP = 14;
+const PORT_MARGIN = 10;
 
 // Hauteur nécessaire pour aligner n traits sur une face.
-function hauteurPourAccroches(n: number): number {
-  return n <= 0 ? 0 : 2 * MARGE_ACCROCHES + n * TAILLE_ACCROCHE + (n - 1) * PAS_ACCROCHE;
+function heightForPorts(n: number): number {
+  return n <= 0 ? 0 : 2 * PORT_MARGIN + n * PORT_SIZE + (n - 1) * PORT_STEP;
 }
 
 
@@ -290,14 +290,14 @@ function inputKey(edge: GraphEdge): string {
   return JSON.stringify([edge.to, edge.technology, edge.attenuated]);
 }
 
-interface NoeudElk {
+interface ElkNode {
   id: string;
   width: number;
   height: number;
   x?: number;
   y?: number;
   ports?: PortElk[];
-  children?: NoeudElk[];
+  children?: ElkNode[];
   layoutOptions?: Record<string, string>;
 }
 
@@ -330,11 +330,11 @@ interface AreteElk {
   container?: string;
 }
 
-interface GrapheElk {
+interface ElkGraph {
   id: string;
   layoutOptions?: Record<string, string>;
   ports?: PortElk[];
-  children?: NoeudElk[];
+  children?: ElkNode[];
   edges?: AreteElk[];
   width?: number;
   height?: number;
@@ -343,7 +343,7 @@ interface GrapheElk {
 // ELK positionne par le coin haut-gauche ; le reste du code raisonne en
 // centre de boîte, plus commode pour exprimer un ancrage (vecteur depuis le
 // centre) ou une borne (distance au centre) qu'un décalage depuis un coin.
-function centre(n: NoeudElk): { x: number; y: number } {
+function centre(n: ElkNode): { x: number; y: number } {
   return { x: (n.x ?? 0) + n.width / 2, y: (n.y ?? 0) + n.height / 2 };
 }
 
@@ -383,7 +383,7 @@ function croisements(traces: Point[][]): number {
   });
   const side = (a: Point, b: Point, c: Point) =>
     Math.sign((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x));
-  const seCroisent = (a: Point, b: Point, c: Point, d: Point) =>
+  const cross = (a: Point, b: Point, c: Point, d: Point) =>
     side(a, b, c) !== side(a, b, d) && side(c, d, a) !== side(c, d, b);
 
   let total = 0;
@@ -397,7 +397,7 @@ function croisements(traces: Point[][]): number {
       let found = false;
       for (let k = 0; k + 1 < P.length && !found; k++) {
         for (let l = 0; l + 1 < Q.length; l++) {
-          if (seCroisent(P[k], P[k + 1], Q[l], Q[l + 1])) { found = true; break; }
+          if (cross(P[k], P[k + 1], Q[l], Q[l + 1])) { found = true; break; }
         }
       }
       if (found) total++;
@@ -421,15 +421,15 @@ function edgeKey(e: { from: string; to: string; technology: string }): string {
 // sont PAS recalculées : c'est tout l'objet -- une boîte présente aux deux
 // paliers ne bouge pas d'un pixel. Les libellés, eux, viennent de la vue du
 // palier : « HTTP ×2 » à v1 n'est pas « HTTP ×3 » à v2.
-export function restreindreLayout(union: LayoutResult, view: { nodes: GraphNode[]; edges: GraphEdge[] }): LayoutResult {
-  const idsVivants = new Set(view.nodes.map((n) => n.id));
+export function restrictLayout(union: LayoutResult, view: { nodes: GraphNode[]; edges: GraphEdge[] }): LayoutResult {
+  const liveIds = new Set(view.nodes.map((n) => n.id));
   const liveEdges = new Map(view.edges.map((e) => [edgeKey(e), e]));
   return {
     // La taille reste celle de l'UNION : c'est ce qui garde le cadre immobile
     // d'un palier à l'autre, et donc les boîtes à la même place à l'écran.
     width: union.width,
     height: union.height,
-    nodes: union.nodes.filter((n) => idsVivants.has(n.id) || n.kind === "boundary"),
+    nodes: union.nodes.filter((n) => liveIds.has(n.id) || n.kind === "boundary"),
     edges: union.edges
       .filter((e) => liveEdges.has(edgeKey(e)))
       .map((e) => {
@@ -452,7 +452,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // contourner le nœud source -- une arête de retour étant inversée au cycle
   // breaking, son port de sortie est un port « inversé ». La précondition des
   // deux est la même : « nodes have fixed port sides », d'où FIXED_SIDE.
-  const buildElkNode = (node: GraphNode, retours: Map<number, ReturnSide>): NoeudElk => {
+  const buildElkNode = (node: GraphNode, retours: Map<number, ReturnSide>): ElkNode => {
       // Seules les arêtes de retour portent des ports. Les déclarer sur TOUTES
       // les arêtes a été essayé et mesuré : la vue groupe y gagne 6 croisements,
       // mais « Par acteur » en prend 10 de plus et la vue détaillée 30, pour
@@ -460,19 +460,19 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
       const ports: PortElk[] = [];
       for (const [i, side] of retours) {
         if (edges[i].to === node.id) {
-          ports.push({ id: `pe${i}`, width: TAILLE_ACCROCHE, height: TAILLE_ACCROCHE, layoutOptions: { "elk.port.side": side } });
+          ports.push({ id: `pe${i}`, width: PORT_SIZE, height: PORT_SIZE, layoutOptions: { "elk.port.side": side } });
         }
 
       }
       // La hauteur est celle du côté le PLUS chargé, pas la somme des deux.
       // Laissée à ELK (nodeSize.constraints PORTS), elle additionnait les deux
       // façades : la boîte doublait de hauteur, aux deux tiers vide.
-      const nOuest = new Set(edges.filter((e) => e.to === node.id).map(inputKey)).size;
-      const nEst = edges.filter((e) => e.from === node.id).length;
-      const height = Math.max(hauteurNoeud(node), hauteurPourAccroches(Math.max(nOuest, nEst)));
+      const nWest = new Set(edges.filter((e) => e.to === node.id).map(inputKey)).size;
+      const nEast = edges.filter((e) => e.from === node.id).length;
+      const height = Math.max(hauteurNoeud(node), heightForPorts(Math.max(nWest, nEast)));
       return {
         id: node.id,
-        width: LARGEUR_NOEUD,
+        width: NODE_WIDTH,
         height: height,
         // Option NODALE : posée sur le graphe, elle ne descendrait pas
         // jusqu'aux nœuds. Une boîte C4 fait 56 à 68 px de haut ; un moyeu qui
@@ -482,26 +482,26 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
         layoutOptions: {
           ...(ports.length ? { "elk.portConstraints": "FIXED_SIDE" } : {}),
           "elk.nodeSize.constraints": "MINIMUM_SIZE",
-          "elk.nodeSize.minimum": `(${LARGEUR_NOEUD},${height})`,
+          "elk.nodeSize.minimum": `(${NODE_WIDTH},${height})`,
         },
       };
   };
 
-  const enfantsDe = new Map<string, GraphNode[]>();
+  const childrenOf = new Map<string, GraphNode[]>();
   for (const node of nodes) {
     if (!node.parent) continue;
-    const list = enfantsDe.get(node.parent) ?? [];
+    const list = childrenOf.get(node.parent) ?? [];
     list.push(node);
-    enfantsDe.set(node.parent, list);
+    childrenOf.set(node.parent, list);
   }
 
-  const buildElkGraph = (retours: Map<number, ReturnSide>): GrapheElk => ({
+  const buildElkGraph = (retours: Map<number, ReturnSide>): ElkGraph => ({
     id: "root",
     layoutOptions: OPTIONS,
     children: nodes
       .filter((node) => !node.parent)
       .map((node) => {
-        const enfants = enfantsDe.get(node.id);
+        const enfants = childrenOf.get(node.id);
         if (!enfants) return buildElkNode(node, retours);
         // Une frontière n'a pas de taille propre : ELK la dimensionne d'après
         // ses enfants. On réserve seulement la marge et la hauteur du libellé.
@@ -513,7 +513,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
             "elk.padding": `[top=${BOUNDARY_HEADER + BOUNDARY_PAD},left=${BOUNDARY_PAD},bottom=${BOUNDARY_PAD},right=${BOUNDARY_PAD}]`,
           },
           children: enfants.map((enfant) => buildElkNode(enfant, retours)),
-        } as NoeudElk;
+        } as ElkNode;
       }),
     // Un identifiant par arête, indépendant du couple (from, to) : deux flux
     // de technologies différentes relient les mêmes nœuds et doivent rester
@@ -555,13 +555,13 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // Les types publiés par elkjs décrivent mal le graphe d'entrée/sortie ; on
   // passe par unknown plutôt que de plier notre modèle aux leurs.
   const apply = async (retours: Map<number, ReturnSide>) =>
-    (await elk.layout(buildElkGraph(retours) as unknown as never)) as unknown as GrapheElk;
+    (await elk.layout(buildElkGraph(retours) as unknown as never)) as unknown as ElkGraph;
 
   // ELK place un enfant RELATIVEMENT à son parent : on cumule les décalages
   // pour ramener tout le monde dans le même repère que les arêtes.
-  const aplatirEn = (r: GrapheElk) => {
-    const m = new Map<string, NoeudElk>();
-    const walk = (list: NoeudElk[] | undefined, dx: number, dy: number) => {
+  const aplatirEn = (r: ElkGraph) => {
+    const m = new Map<string, ElkNode>();
+    const walk = (list: ElkNode[] | undefined, dx: number, dy: number) => {
       for (const n of list ?? []) {
         const absolu = { ...n, x: (n.x ?? 0) + dx, y: (n.y ?? 0) + dy };
         m.set(n.id, absolu);
@@ -586,7 +586,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   // Face par laquelle une arête aboutit sur sa cible, dans une disposition
   // donnée. Seule « EAST » nous intéresse : c'est la face réservée aux sorties.
-  const entreParLEst = (r: GrapheElk, ids: Map<string, NoeudElk>, i: number): boolean => {
+  const entersFromEast = (r: ElkGraph, ids: Map<string, ElkNode>, i: number): boolean => {
     const arete = (r.edges ?? []).find((e) => e.id === `e${i}`);
     const end = arete?.sections?.[0]?.endPoint;
     const target = ids.get(edges[i].to);
@@ -602,7 +602,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   // Polyligne de chaque arête, dans le repère du graphe : de quoi comparer deux
   // dispositions avant d'en choisir une.
-  const traces = (r: GrapheElk, ids: Map<string, NoeudElk>): Point[][] =>
+  const traces = (r: ElkGraph, ids: Map<string, ElkNode>): Point[][] =>
     (r.edges ?? []).map((arete) => {
       const section = arete.sections?.[0];
       if (!section) return [];
@@ -617,7 +617,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   const retours = new Map<number, ReturnSide>();
   edges.forEach((edge, i) => {
-    if (!entreParLEst(libre, idsLibre, i)) return;
+    if (!entersFromEast(libre, idsLibre, i)) return;
     const source = idsLibre.get(edge.from);
     const target = idsLibre.get(edge.to);
     if (!source || !target) return;
@@ -644,7 +644,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   const layoutNodes: LayoutNode[] = nodes.map((node) => {
     const n = parId.get(node.id);
-    const width = n?.width ?? LARGEUR_NOEUD;
+    const width = n?.width ?? NODE_WIDTH;
     const height = n?.height ?? hauteurNoeud(node);
     const c = n ? centre(n) : { x: 0, y: 0 };
     return { ...node, x: c.x, y: c.y, width: width, height: height };
@@ -657,7 +657,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // conteneur quand ELK l'y a reparentée, l'origine du graphe sinon. Sans ce
   // décalage, un flux interne à la frontière était dessiné à côté de ses deux
   // nœuds -- un trait qui part et arrive dans le vide.
-  const origineDe = (arete: AreteElk | undefined): { x: number; y: number } => {
+  const originOf = (arete: AreteElk | undefined): { x: number; y: number } => {
     const conteneur = arete?.container ? parId.get(arete.container) : undefined;
     return conteneur ? { x: conteneur.x ?? 0, y: conteneur.y ?? 0 } : { x: 0, y: 0 };
   };
@@ -667,7 +667,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const arrival = noeudsParId.get(edge.to);
     if (!start || !arrival) return { ...edge, points: [] };
     const arete = edgesById.get(`e${i}`);
-    const offset = origineDe(arete);
+    const offset = originOf(arete);
     const tag = arete?.labels?.[0];
     return {
       ...edge,

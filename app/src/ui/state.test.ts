@@ -186,14 +186,14 @@ describe("mode de lecture", () => {
 // n'affichait qu'une boîte fantôme, sans un mot pour l'expliquer.
 describe("withPalierAffiche — la sélection suit ce que le palier montre", () => {
   const actor = (name: string, retiredAt = "") => base.actor({ name, retiredAt });
-  const avecFrise: ParsedModel = {
+  const withRoadmap: ParsedModel = {
     ...model,
     milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
     actors: [actor("Tatooine", "v2"), actor("Chandrila")],
   };
   const loaded = () =>
     withActorSelection(
-      withLoadedFile(initialState(), { name: "c.xlsx", model: avecFrise, report, dateModification: null }),
+      withLoadedFile(initialState(), { name: "c.xlsx", model: withRoadmap, report, dateModification: null }),
       "Tatooine"
     );
 

@@ -19,16 +19,16 @@ export type Point = { x: number; y: number };
 //
 // Une pastille posée à côté du trait, même opaque, laisse toujours la question
 // « laquelle va avec laquelle » quand plusieurs flux sont voisins.
-export const JEU_INTERRUPTION = 5;
+export const BREAK_PLAY = 5;
 
 // Ce qu'un libellé ne mange jamais à l'abord de la cible : de quoi poser la
 // pointe sur un morceau qui aborde vraiment la boîte.
-export const RESTE_AVANT_CIBLE = 14;
+export const GAP_BEFORE_TARGET = 14;
 
 // Portion d'un segment située dans un rectangle, sous forme d'intervalle de
 // paramètre [0,1], ou null si le segment l'évite. Le segment étant orthogonal,
 // on traite les deux axes séparément (algorithme de la tranche).
-export function traverseeDuRect(a: Point, b: Point, r: Rect): [number, number] | null {
+export function rectCrossing(a: Point, b: Point, r: Rect): [number, number] | null {
   let t0 = 0;
   let t1 = 1;
   for (const [from, arrivee, min, max] of [
@@ -53,7 +53,7 @@ export const surSegment = (a: Point, b: Point, t: number): Point => ({ x: a.x + 
 
 // Découpe un tracé en morceaux visibles, en retirant ce qui tombe dans un
 // rectangle, plus un jeu de part et d'autre.
-export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][] {
+export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
   const morceaux: Point[][] = [];
   let current: Point[] = [points[0]];
 
@@ -62,7 +62,7 @@ export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][
     const b = points[i + 1];
     const longueur = Math.hypot(b.x - a.x, b.y - a.y);
     if (longueur < 1e-9) continue;
-    const jeu = JEU_INTERRUPTION / longueur;
+    const jeu = BREAK_PLAY / longueur;
 
     // Coupures sur ce segment, ordonnées, fusionnées quand elles se touchent.
     //
@@ -71,10 +71,10 @@ export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][
     // devenait celui d'AVANT le libellé -- la flèche s'arrêtait à son étiquette
     // au lieu de la boîte visée.
     const plafond =
-      i === points.length - 2 ? 1 - Math.min(0.5, RESTE_AVANT_CIBLE / longueur) : 1;
+      i === points.length - 2 ? 1 - Math.min(0.5, GAP_BEFORE_TARGET / longueur) : 1;
     const cuts: [number, number][] = [];
     for (const r of obstacles) {
-      const t = traverseeDuRect(a, b, r);
+      const t = rectCrossing(a, b, r);
       if (!t) continue;
       const start = Math.max(0, t[0] - jeu);
       const end = Math.min(plafond, t[1] + jeu);
@@ -149,7 +149,7 @@ export function orientation(a: Point, b: Point, c: Point): number {
   return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
 }
 
-export function segmentsSeCroisent(a: Point, b: Point, c: Point, d: Point): boolean {
+export function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
   const d1 = orientation(c, d, a);
   const d2 = orientation(c, d, b);
   const d3 = orientation(a, b, c);
@@ -157,7 +157,7 @@ export function segmentsSeCroisent(a: Point, b: Point, c: Point, d: Point): bool
   return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 }
 
-export function segmentIntersecteRect(a: Point, b: Point, r: Rect): boolean {
+export function segmentIntersectsRect(a: Point, b: Point, r: Rect): boolean {
   if (pointDansRect(a, r) || pointDansRect(b, r)) return true;
   const coins: [Point, Point][] = [
     [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }],
@@ -165,7 +165,7 @@ export function segmentIntersecteRect(a: Point, b: Point, r: Rect): boolean {
     [{ x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }],
     [{ x: r.x0, y: r.y1 }, { x: r.x0, y: r.y0 }],
   ];
-  return coins.some(([c, d]) => segmentsSeCroisent(a, b, c, d));
+  return coins.some(([c, d]) => segmentsCross(a, b, c, d));
 }
 
 // Le marker-end s'ancre au point final du tracé et se dessine par-dessus,

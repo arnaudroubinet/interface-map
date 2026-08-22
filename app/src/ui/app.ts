@@ -16,12 +16,12 @@ import {
   type MatrixResult,
 } from "../aggregation/views";
 import { businessActors } from "../aggregation/nature";
-import { computeLayout, restreindreLayout, type LayoutResult } from "../layout/graph-layout";
+import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
 import { toutesLesPlanches } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { brancherZoom } from "../render/zoom";
-import { conseilDEchelle } from "./scale";
+import { scaleHint } from "./scale";
 import { availableChains, buildChainView } from "../aggregation/chain";
 import { buildRoadmap } from "../aggregation/roadmap";
 import { buildRoadmapSvg } from "../render/roadmap";
@@ -360,13 +360,13 @@ export function mountApp(root: HTMLElement): void {
     } else if (state.view === "roadmap") {
       // Pas d'ELK : une frise est une grille, un axe et une ligne par sujet.
       // Le moteur de placement n'y aurait rien à placer.
-      const timeline = buildRoadmap(model, state.sujetFrise);
+      const timeline = buildRoadmap(model, state.roadmapSubject);
       if (timeline.segments.length === 0) {
         zoneRendu.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
       } else {
         const svg = buildRoadmapSvg(timeline, state.shownMilestone, {
           ...diagramContext(state, file, { nodes: [], edges: [] }),
-          detail: `${timeline.segments.length} ${state.sujetFrise === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
+          detail: `${timeline.segments.length} ${state.roadmapSubject === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
         });
         zoneRendu.appendChild(svg);
         zoneRendu.appendChild(buildZoomControls(brancherZoom(svg)));
@@ -465,10 +465,10 @@ export function mountApp(root: HTMLElement): void {
       } else {
         // Une planche qui a dépassé ce que le nœud-lien sert bien doit le
         // DIRE, et proposer où aller. Jamais bloquer, jamais tronquer.
-        const conseil = conseilDEchelle(view.nodes.filter((n) => n.kind !== "boundary").length, view.edges.length);
-        if (conseil) {
-          const bandeauEchelle = el("div", { class: "scale-hint" }, [conseil.message]);
-          for (const target of conseil.views) {
+        const hint = scaleHint(view.nodes.filter((n) => n.kind !== "boundary").length, view.edges.length);
+        if (hint) {
+          const bandeauEchelle = el("div", { class: "scale-hint" }, [hint.message]);
+          for (const target of hint.views) {
             const bouton = el("button", { type: "button" }, [VIEW_LABEL[target]]);
             bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), target)));
             bandeauEchelle.appendChild(bouton);
@@ -496,7 +496,7 @@ export function mountApp(root: HTMLElement): void {
         placement
           .then((union) => {
             if (generation !== renderGeneration) return;
-            const positioned = restreindreLayout(union, vueDuCalcul);
+            const positioned = restrictLayout(union, vueDuCalcul);
             const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, vueDuCalcul), {
               weightByCriticality: state.options.weightByCriticality,
             });
@@ -521,7 +521,7 @@ export function mountApp(root: HTMLElement): void {
       onVue: (view) => setState(withVue(withMessageBandeau(state, null), view)),
       onActorSelection: (name) => setState(withActorSelection(withMessageBandeau(state, null), name)),
       onWeightByCriticality: (value) => setState(withOptions(withMessageBandeau(state, null), { weightByCriticality: value })),
-      onSujetFrise: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
+      onRoadmapSubject: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
       onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onChainSelection: (chain) => setState(withChainSelection(withMessageBandeau(state, null), chain)),
       onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),

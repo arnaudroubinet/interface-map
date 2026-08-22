@@ -1,4 +1,4 @@
-import { ENCRE } from "./node-styles";
+import { INK } from "./node-styles";
 
 // Ce qu'un schéma doit dire de lui-même. C4 en fait sa règle première : un
 // diagramme collé dans un dossier, un ticket ou une présentation ne disait ni
@@ -61,7 +61,7 @@ export function buildTitleBlock(c: DiagramContext, x: number, y: number): SVGGEl
     t.textContent = text;
     g.appendChild(t);
   };
-  row(title, 14, 14, true, ENCRE);
+  row(title, 14, 14, true, INK);
   row(subtitle, 31, 11.5, false, GRIS_SOUS_TITRE);
   return g;
 }

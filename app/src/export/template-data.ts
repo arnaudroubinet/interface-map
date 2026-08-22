@@ -5,7 +5,7 @@ import {
   VOCABULARY_NATURE,
   VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
-import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
+import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 
 // Ce que le classeur produit contient AVANT toute saisie : ses vocabulaires,
 // ses icônes, ses seize technologies, et le mode d'emploi que porte son premier
@@ -31,13 +31,13 @@ export const LISTES: Record<string, string[]> = {
   Nature: VOCABULARY_NATURE,
   // Les noms d'icône acceptés, pour que la colonne Icône de TypesActeur se
   // remplisse par recopie plutôt que de mémoire, avec un aperçu en regard.
-  Icon: ICONES_DISPONIBLES,
-  Preview: ICONES_DISPONIBLES.map((n) => APERCU_ICONES[n] ?? ""),
+  Icon: AVAILABLE_ICONS,
+  Preview: AVAILABLE_ICONS.map((n) => ICON_PREVIEWS[n] ?? ""),
 };
 
 // Correspondance de départ entre type d'acteur et icône. Rien n'y est figé :
 // c'est précisément ce que l'onglet TypesActeur sert à changer.
-export const ICONES_PAR_DEFAUT: [string, string][] = [
+export const DEFAULT_ICONS: [string, string][] = [
   ["Application", "app-window"],
   ["Service", "cog"],
   ["Packaged product", "package"],

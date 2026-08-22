@@ -82,7 +82,7 @@ export function buildMatrixTable(
         // La liste entière au hover : l'étiquette n'en nomme que les premiers.
         if (cell.names.length > 0) span.title = cell.names.join("\n");
         if (cell.attenuated) {
-          span.dataset.attenue = "true";
+          span.dataset.dimmed = "true";
           span.style.opacity = "0.5";
         }
         td.appendChild(span);

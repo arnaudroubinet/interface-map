@@ -14,24 +14,24 @@ function composantes(hex: string): [number, number, number] {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
-export function luminanceRelative(hex: string): number {
+export function relativeLuminance(hex: string): number {
   const [r, v, b] = composantes(hex);
   return 0.2126 * canal(r) + 0.7152 * canal(v) + 0.0722 * canal(b);
 }
 
-export function ratioDeContraste(a: string, b: string): number {
-  const [haut, bas] = [luminanceRelative(a), luminanceRelative(b)].sort((x, y) => y - x);
+export function contrastRatio(a: string, b: string): number {
+  const [haut, bas] = [relativeLuminance(a), relativeLuminance(b)].sort((x, y) => y - x);
   return (haut + 0.05) / (bas + 0.05);
 }
 
 // Assombrit par pas de 2 % jusqu'à atteindre la cible. On ne change JAMAIS la
 // teinte : une couleur déclarée au référentiel appartient à celui qui tient le
 // classeur, on ne fait que la rendre lisible.
-export function assombrirJusquA(hex: string, target: number, sur = "#ffffff"): string {
+export function darkenTo(hex: string, target: number, sur = "#ffffff"): string {
   let [r, v, b] = composantes(hex);
   for (let i = 0; i < 200; i += 1) {
     const current = `#${[r, v, b].map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
-    if (ratioDeContraste(current, sur) >= target) return current;
+    if (contrastRatio(current, sur) >= target) return current;
     [r, v, b] = [r * 0.98, v * 0.98, b * 0.98];
   }
   return "#000000";

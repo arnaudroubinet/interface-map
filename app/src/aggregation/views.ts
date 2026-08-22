@@ -36,9 +36,9 @@ export interface ViewResult {
   edges: GraphEdge[];
 }
 
-const LONGUEUR_DESCRIPTION_MAX = 60;
+const MAX_DESCRIPTION_LENGTH = 60;
 
-function tronquer(text: string, max: number): string {
+function truncate(text: string, max: number): string {
   return text.length > max ? text.slice(0, max - 1).trimEnd() + "…" : text;
 }
 
@@ -52,7 +52,7 @@ function actorDetails(
   return {
     subtitle: actor.actorType.trim() || undefined,
     icon: iconForActorType(model, actor.actorType),
-    description: actor.description.trim() ? tronquer(actor.description.trim(), LONGUEUR_DESCRIPTION_MAX) : undefined,
+    description: actor.description.trim() ? truncate(actor.description.trim(), MAX_DESCRIPTION_LENGTH) : undefined,
     external: groupIsExternal(model, actor.group) || undefined,
     // The nature is decided HERE, where the model is known: the rendering
     // applies a shape, it does not go looking for one.
@@ -68,12 +68,12 @@ function groupDetails(
   model: ParsedModel,
   group: string,
   actors: readonly Actor[]
-): { subtitle?: string; external?: boolean; agrégat?: number } {
+): { subtitle?: string; external?: boolean; aggregate?: number } {
   const membres = actors.filter((a) => a.group === group);
   if (membres.length === 0) return {};
   return {
     subtitle: `${membres.length} actor${membres.length > 1 ? "s" : ""}`,
-    agrégat: membres.length,
+    aggregate: membres.length,
     // The group's perimeter, and it alone: this is what makes the colour code
     // work on aggregated views, where the nodes are not actors.
     external: groupIsExternal(model, group) || undefined,
@@ -90,7 +90,7 @@ const ID_FRONTIERE = "__frontiere__";
 // information silently. `nodeKey` is the same resolution that built the view's
 // edges, so the actor reappears at the same scale (its group, or itself) as
 // the rest.
-function nodesIsoles(
+function isolatedNodes(
   candidates: Actor[],
   nodeKey: NodeKeyFn,
   présents: ReadonlySet<NodeId>,
@@ -113,7 +113,7 @@ export function buildGroupToGroupView(model: ParsedModel, reading: Reading, opti
   const kindFor = () => "group" as const;
   const detailsFor = (id: NodeId) => groupDetails(model, id, reading.actors);
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  const isolated = isolatedNodes(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   return { nodes: [...nodes, ...isolated], edges };
 }
 
@@ -126,7 +126,7 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Reading, op
   const kindFor = (id: NodeId) => (platformIds.has(id) ? "platform" as const : "group" as const);
   const detailsFor = (id: NodeId) => (platformIds.has(id) ? actorDetails(model, id) : groupDetails(model, id, reading.actors));
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  const isolated = isolatedNodes(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   const nodesTotal = [...nodes, ...isolated];
 
   // The platform's components go inside the boundary; everything else orbits
@@ -151,7 +151,7 @@ export function buildPlatformOnlyView(model: ParsedModel, reading: Reading, opti
   const kindFor = () => "platform" as const;
   const detailsFor = (id: NodeId) => actorDetails(model, id);
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolated = nodesIsoles(acteursPlateforme, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  const isolated = isolatedNodes(acteursPlateforme, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   return { nodes: [...nodes, ...isolated], edges };
 }
 
@@ -294,7 +294,7 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
     // Dimmed by distance: one hop at full, two at 70%, beyond at 45%. This is
     // degree-of-interest -- what is far stays visible but stops competing for
     // attention with the starting point.
-    ...(neighbourhood === "direct" ? {} : { attenuation: attenuationDeDistance(distances.get(id) ?? 0) }),
+    ...(neighbourhood === "direct" ? {} : { dimming: attenuationDeDistance(distances.get(id) ?? 0) }),
   }));
 
   return { nodes, edges };

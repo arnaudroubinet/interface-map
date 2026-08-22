@@ -22,11 +22,11 @@ export interface GraphNode {
   // `technical`: the actor is plumbing (Technical nature).
   // `aggregate`: the node folds several actors, and how many.
   technical?: boolean;
-  agrégat?: number;
+  aggregate?: number;
   // The node's opacity, when the view wants to push back without making it
   // vanish: what is far from the point of interest stays visible but stops
   // competing with it for attention.
-  attenuation?: number;
+  dimming?: number;
   // Icon name, resolved from the workbook's ActorTypes sheet. The rendering no
   // longer decides which icon goes with which type: it applies it.
   icon?: string;

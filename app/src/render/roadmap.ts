@@ -1,5 +1,5 @@
 import type { Roadmap } from "../aggregation/roadmap";
-import { ENCRE, PAPIER, styleDuNoeud } from "./node-styles";
+import { INK, PAPER, styleOfNode } from "./node-styles";
 import { buildTitleBlock, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -12,8 +12,8 @@ const MARGE = 24;
 const LARGEUR_LIBELLE = 300;
 const LARGEUR_PALIER = 150;
 const HAUTEUR_LIGNE = 26;
-const HAUTEUR_ENTETE = 44;
-const GRIS_SECONDAIRE = "#39424f";
+const HEADER_HEIGHT = 44;
+const SECONDARY_GREY = "#39424f";
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] {
   return document.createElementNS(SVG_NS, tag);
@@ -42,9 +42,9 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   const columns = ranks.length ? Math.max(...ranks) - rangMin + 2 : 1;
   const x = (rank: number) => MARGE + LARGEUR_LIBELLE + (rank - rangMin) * LARGEUR_PALIER;
 
-  const hautDesLignes = MARGE + (context ? HAUTEUR_CARTOUCHE : 0) + HAUTEUR_ENTETE;
+  const topOfLines = MARGE + (context ? HAUTEUR_CARTOUCHE : 0) + HEADER_HEIGHT;
   const width = MARGE * 2 + LARGEUR_LIBELLE + columns * LARGEUR_PALIER;
-  const height = hautDesLignes + timeline.segments.length * HAUTEUR_LIGNE + MARGE;
+  const height = topOfLines + timeline.segments.length * HAUTEUR_LIGNE + MARGE;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
@@ -52,7 +52,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   const fill = el("rect");
   fill.setAttribute("width", String(width));
   fill.setAttribute("height", String(height));
-  fill.setAttribute("fill", PAPIER);
+  fill.setAttribute("fill", PAPER);
   svg.appendChild(fill);
 
   if (context) svg.appendChild(buildTitleBlock(context, MARGE, MARGE));
@@ -63,22 +63,22 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
     const px = x(milestone.rank);
     const line = el("line");
     line.setAttribute("x1", String(px));
-    line.setAttribute("y1", String(hautDesLignes - 22));
+    line.setAttribute("y1", String(topOfLines - 22));
     line.setAttribute("x2", String(px));
     line.setAttribute("y2", String(height - MARGE));
     line.setAttribute("stroke", milestone.name === shownMilestone ? "#0E7DAD" : "#dde1e7");
     line.setAttribute("stroke-width", milestone.name === shownMilestone ? "2" : "1");
     svg.appendChild(line);
 
-    svg.appendChild(text(px + 6, hautDesLignes - 26, milestone.name, 12, ENCRE, true));
+    svg.appendChild(text(px + 6, topOfLines - 26, milestone.name, 12, INK, true));
     const subtitle = [milestone.label?.trim(), milestone.date?.trim()].filter(Boolean).join(" · ");
-    if (subtitle) svg.appendChild(text(px + 6, hautDesLignes - 11, subtitle, 11, GRIS_SECONDAIRE));
+    if (subtitle) svg.appendChild(text(px + 6, topOfLines - 11, subtitle, 11, SECONDARY_GREY));
   }
 
-  const style = styleDuNoeud({ kind: "actor", external: false });
+  const style = styleOfNode({ kind: "actor", external: false });
   timeline.segments.forEach((s, i) => {
-    const y = hautDesLignes + i * HAUTEUR_LIGNE;
-    svg.appendChild(text(MARGE, y + 14, s.label, 12, ENCRE));
+    const y = topOfLines + i * HAUTEUR_LIGNE;
+    svg.appendChild(text(MARGE, y + 14, s.label, 12, INK));
 
     const gauche = x(s.start);
     const droite = x(s.end);

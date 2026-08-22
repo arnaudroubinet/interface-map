@@ -26,7 +26,7 @@ import {
   FLOW_TYPE_COLUMNS,
 } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
-import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
+import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { SAMPLE_DATA } from "./sample-data";
 
 // On relit le fichier écrit, pas l'objet en mémoire : c'est celui-là que
@@ -110,7 +110,7 @@ describe("modèle de classeur", () => {
 
     expect(result.model.actorTypes.length).toBeGreaterThan(0);
     for (const t of result.model.actorTypes) {
-      expect(ICONES_DISPONIBLES).toContain(t.icon);
+      expect(AVAILABLE_ICONS).toContain(t.icon);
     }
   });
 
@@ -146,10 +146,10 @@ describe("modèle de classeur", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const lists = XLSX.utils.sheet_to_json<Record<string, string>>(wb.Sheets.Lists, { defval: "" });
     const offered = lists.map((l) => l.Icon).filter(Boolean);
-    expect(offered).toEqual(ICONES_DISPONIBLES);
+    expect(offered).toEqual(AVAILABLE_ICONS);
     // Chaque nom a son repère visuel en regard, sur la même ligne.
     for (const row of lists.filter((l) => l.Icon)) {
-      expect(row["Preview"]).toBe(APERCU_ICONES[row.Icon]);
+      expect(row["Preview"]).toBe(ICON_PREVIEWS[row.Icon]);
       expect(row["Preview"]).not.toBe("");
     }
   });

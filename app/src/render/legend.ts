@@ -1,5 +1,5 @@
 import type { LayoutNode } from "../layout/graph-layout";
-import { CHANGE_COLOUR, ENCRE, styleDuNoeud } from "./node-styles";
+import { CHANGE_COLOUR, INK, styleOfNode } from "./node-styles";
 import { normalizeText } from "../shared/text";
 
 // Ce que la légende annonce doit être ce que le dessin utilise. Elle vit ici,
@@ -8,20 +8,20 @@ import { normalizeText } from "../shared/text";
 // schéma sont précisément ce qu'on veut rendre impossible.
 export type LegendSample =
   | { shape: "line"; colour: string; dashed?: boolean; head?: "start" | "end"; thickness?: number }
-  | { shape: "box"; fill: string; stroke: string; dashed?: boolean; coinCoupé?: boolean; pile?: boolean };
+  | { shape: "box"; fill: string; stroke: string; dashed?: boolean; cutCorner?: boolean; pile?: boolean };
 
-export interface EntreeLegende {
+export interface LegendEntry {
   sample: LegendSample;
   text: string;
 }
 
 // Le strict nécessaire pour décider d'une entrée : la légende ne connaît pas
 // le type interne du constructeur SVG, et n'a pas à le connaître.
-export interface NoeudLegendable {
+export interface LegendableNode {
   kind: LayoutNode["kind"];
   external?: boolean;
   technical?: boolean;
-  agrégat?: number;
+  aggregate?: number;
 }
 
 export interface LegendableEdge {
@@ -43,13 +43,13 @@ const CHANGE_LABEL: Record<"added" | "removed", string> = {
   removed: "−n : flows removed",
 };
 
-export function entreesDeLegende(
+export function legendEntries(
   edges: readonly LegendableEdge[],
-  nodes: readonly NoeudLegendable[],
+  nodes: readonly LegendableNode[],
   colorFor: (tech: string) => string,
   weightByCriticality = false
-): EntreeLegende[] {
-  const inputs: EntreeLegende[] = [];
+): LegendEntry[] {
+  const inputs: LegendEntry[] = [];
 
   for (const change of ["added", "removed"] as const) {
     if (edges.some((e) => e.change === change)) {
@@ -77,11 +77,11 @@ export function entreesDeLegende(
   const dessin = edges.filter((e) => !e.change && e.arrow);
   if (dessin.some((e) => e.pulled === true)) {
     inputs.push({
-      sample: { shape: "line", colour: ENCRE, head: "end" },
+      sample: { shape: "line", colour: INK, head: "end" },
       text: "provider pushes",
     });
     inputs.push({
-      sample: { shape: "line", colour: ENCRE, head: "start" },
+      sample: { shape: "line", colour: INK, head: "start" },
       text: "consumer pulls",
     });
   }
@@ -94,13 +94,13 @@ export function entreesDeLegende(
       ["3 - Standard", 1],
     ] as [string, number][]) {
       if (!edges.some((e) => normalizeText(e.criticality ?? "") === normalizeText(value))) continue;
-      inputs.push({ sample: { shape: "line", colour: ENCRE, thickness }, text: `criticality: ${value}` });
+      inputs.push({ sample: { shape: "line", colour: INK, thickness }, text: `criticality: ${value}` });
     }
   }
 
   if (edges.some((e) => !e.change && e.attenuated === true)) {
     inputs.push({
-      sample: { shape: "line", colour: ENCRE, dashed: true },
+      sample: { shape: "line", colour: INK, dashed: true },
       text: "decision: Transform — content changes on the way",
     });
   }
@@ -123,14 +123,14 @@ export function entreesDeLegende(
   // Une forme non annoncée est une notation muette de plus, exactement ce que
   // la pointe était avant.
   if (dessinables.some((n) => n.technical)) {
-    const style = styleDuNoeud({ kind: "actor", external: false });
+    const style = styleOfNode({ kind: "actor", external: false });
     inputs.push({
-      sample: { shape: "box", fill: style.fill, stroke: style.stroke, coinCoupé: true },
+      sample: { shape: "box", fill: style.fill, stroke: style.stroke, cutCorner: true },
       text: "cut corner: technical component",
     });
   }
-  if (dessinables.some((n) => (n.agrégat ?? 0) > 1)) {
-    const style = styleDuNoeud({ kind: "actor", external: false });
+  if (dessinables.some((n) => (n.aggregate ?? 0) > 1)) {
+    const style = styleOfNode({ kind: "actor", external: false });
     inputs.push({
       sample: { shape: "box", fill: style.fill, stroke: style.stroke, pile: true },
       text: "stacked box: several components",
@@ -139,7 +139,7 @@ export function entreesDeLegende(
 
   if (dessinables.some((n) => n.external) && dessinables.some((n) => !n.external)) {
     for (const [text, external] of [["Platform", false], ["External", true]] as [string, boolean][]) {
-      const style = styleDuNoeud({ kind: "actor", external });
+      const style = styleOfNode({ kind: "actor", external });
       inputs.push({ sample: { shape: "box", fill: style.fill, stroke: style.stroke, dashed: external }, text });
     }
   }

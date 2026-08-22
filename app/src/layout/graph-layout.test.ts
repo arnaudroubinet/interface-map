@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { restreindreLayout, computeLayout, lignesDescription, truncatedName, LARGEUR_NOEUD } from "./graph-layout";
+import { restrictLayout, computeLayout, lignesDescription, truncatedName, NODE_WIDTH } from "./graph-layout";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "./graph-layout";
 
@@ -136,7 +136,7 @@ describe("ce qui tient dans une boîte", () => {
     const truncated = truncatedName(long);
     // La largeur estimée du nom, icône comprise, doit tenir dans la boîte :
     // c'est la seule chose qui compte, et elle dépend des deux constantes.
-    expect(truncated.length * 8.2 + 25).toBeLessThanOrEqual(LARGEUR_NOEUD);
+    expect(truncated.length * 8.2 + 25).toBeLessThanOrEqual(NODE_WIDTH);
     expect(truncated).toMatch(/…$/);
   });
 
@@ -173,14 +173,14 @@ describe("restreindreLayout", () => {
   };
 
   it("ne garde que les nœuds et arêtes du palier", () => {
-    const restreint = restreindreLayout(union(), auPalier);
+    const restreint = restrictLayout(union(), auPalier);
     expect(restreint.nodes.map((n) => n.id)).toEqual(["A", "B"]);
     expect(restreint.edges).toHaveLength(1);
   });
 
   // Le point qui justifie tout : les positions ne sont PAS recalculées.
   it("laisse chaque boîte exactement où l'union l'a posée", () => {
-    const restreint = restreindreLayout(union(), auPalier);
+    const restreint = restrictLayout(union(), auPalier);
     expect(restreint.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
     expect([restreint.width, restreint.height]).toEqual([100, 100]);
   });
@@ -188,7 +188,7 @@ describe("restreindreLayout", () => {
   // Le libellé, lui, appartient au PALIER : « HTTP ×3 » sur l'union n'est pas
   // ce qu'on lit à un palier où deux flux seulement sont vivants.
   it("reprend du palier le libellé et le compteur, pas ceux de l'union", () => {
-    const edge = restreindreLayout(union(), auPalier).edges[0];
+    const edge = restrictLayout(union(), auPalier).edges[0];
     expect([edge.label, edge.count]).toEqual(["HTTP ×2", 2]);
   });
 
@@ -197,6 +197,6 @@ describe("restreindreLayout", () => {
   it("garde la frontière de plateforme, qu'aucune vue ne liste", () => {
     const avecFrontiere = union();
     avecFrontiere.nodes.push({ id: "__frontiere__", label: "Platform", kind: "boundary", x: 0, y: 0, width: 100, height: 100 });
-    expect(restreindreLayout(avecFrontiere, auPalier).nodes.map((n) => n.id)).toContain("__frontiere__");
+    expect(restrictLayout(avecFrontiere, auPalier).nodes.map((n) => n.id)).toContain("__frontiere__");
   });
 });

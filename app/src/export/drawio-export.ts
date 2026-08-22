@@ -1,5 +1,5 @@
 import type { LayoutResult, LayoutNode, LayoutEdge } from "../layout/graph-layout";
-import { entreesDeLegende } from "../render/legend";
+import { legendEntries } from "../render/legend";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { subLabel } from "../layout/graph-layout";
 
@@ -26,15 +26,15 @@ function content(n: LayoutNode): string {
   return morceaux.join("<div></div>");
 }
 
-const REMPLISSAGE: Record<string, { fill: string; line: string; text: string }> = {
+const FILL: Record<string, { fill: string; line: string; text: string }> = {
   boundary: { fill: "none", line: "#7f8c9a", text: "#14181f" },
   external: { fill: "#8d9aa8", line: "#6b7684", text: "#ffffff" },
   normal: { fill: "#2a6fbb", line: "#1c4f88", text: "#ffffff" },
 };
 
-function styleNoeud(n: LayoutNode): string {
+function nodeStyle(n: LayoutNode): string {
   const key = n.kind === "boundary" ? "boundary" : n.external ? "external" : "normal";
-  const c = REMPLISSAGE[key];
+  const c = FILL[key];
   const frame = n.kind === "boundary";
   return [
     "rounded=1",
@@ -116,7 +116,7 @@ function blocsExplicatifs(
     text("cartouche_s", header.subtitle, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
   }
 
-  const inputs = entreesDeLegende(layout.edges, layout.nodes, technologyColour);
+  const inputs = legendEntries(layout.edges, layout.nodes, technologyColour);
   inputs.forEach((input, i) => {
     const y = bas + 48 + i * 22;
     const e = input.sample;
@@ -191,7 +191,7 @@ function diagramme(
     ].filter(Boolean);
     cellules.push(
       `        <UserObject ${attributs.join(" ")}>`,
-      `          <mxCell style="${styleNoeud(n)}" vertex="1" parent="${parent ? cellule(parent.id) : cellule("1")}">`,
+      `          <mxCell style="${nodeStyle(n)}" vertex="1" parent="${parent ? cellule(parent.id) : cellule("1")}">`,
       `            <mxGeometry x="${x}" y="${y}" width="${n.width}" height="${n.height}" as="geometry" />`,
       "          </mxCell>",
       "        </UserObject>"

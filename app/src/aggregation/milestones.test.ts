@@ -18,32 +18,32 @@ function model(milestones: Milestone[]): ParsedModel {
   };
 }
 
-const FRISE = model([milestone("v1", 1), milestone("Étape 2", 2), milestone("v3", 3, "Planned")]);
+const ROADMAP = model([milestone("v1", 1), milestone("Étape 2", 2), milestone("v3", 3, "Planned")]);
 
 describe("rangDuPalier", () => {
   it("résout un palier quelle que soit la casse, les accents et les espaces", () => {
-    expect(rankOfMilestone(FRISE, " V1 ")).toBe(1);
-    expect(rankOfMilestone(FRISE, "etape 2")).toBe(2);
-    expect(rankOfMilestone(FRISE, "ÉTAPE 2")).toBe(2);
+    expect(rankOfMilestone(ROADMAP, " V1 ")).toBe(1);
+    expect(rankOfMilestone(ROADMAP, "etape 2")).toBe(2);
+    expect(rankOfMilestone(ROADMAP, "ÉTAPE 2")).toBe(2);
   });
 
   it("rend undefined pour un palier inconnu ou vide", () => {
-    expect(rankOfMilestone(FRISE, "v9")).toBeUndefined();
-    expect(rankOfMilestone(FRISE, "   ")).toBeUndefined();
+    expect(rankOfMilestone(ROADMAP, "v9")).toBeUndefined();
+    expect(rankOfMilestone(ROADMAP, "   ")).toBeUndefined();
   });
 });
 
 describe("intervalleDeVie", () => {
   it("ouvre la borne qu'aucun palier ne nomme", () => {
-    expect(lifespanOf(FRISE, { introducedAt: "", retiredAt: "" })).toEqual(ALWAYS);
-    expect(lifespanOf(FRISE, { introducedAt: "v1", retiredAt: "" }).end).toBe(Infinity);
-    expect(lifespanOf(FRISE, { introducedAt: "", retiredAt: "v3" }).start).toBe(-Infinity);
+    expect(lifespanOf(ROADMAP, { introducedAt: "", retiredAt: "" })).toEqual(ALWAYS);
+    expect(lifespanOf(ROADMAP, { introducedAt: "v1", retiredAt: "" }).end).toBe(Infinity);
+    expect(lifespanOf(ROADMAP, { introducedAt: "", retiredAt: "v3" }).start).toBe(-Infinity);
   });
 
   // Un palier cité mais absent de la frise laisse la borne ouverte plutôt que
   // de la résoudre au hasard -- un contrôle d'intégrité le réclame par ailleurs.
   it("laisse la borne ouverte quand le palier cité est inconnu", () => {
-    expect(lifespanOf(FRISE, { introducedAt: "v9", retiredAt: "" }).start).toBe(-Infinity);
+    expect(lifespanOf(ROADMAP, { introducedAt: "v9", retiredAt: "" }).start).toBe(-Infinity);
   });
 });
 
@@ -51,7 +51,7 @@ describe("estVivant", () => {
   // Le retrait est EXCLU : « retiré en v3 » signifie qu'en v3 la ligne n'est
   // déjà plus là. L'introduction, elle, est incluse.
   it("inclut le palier d'arrivée et exclut celui de retrait", () => {
-    const interval = lifespanOf(FRISE, { introducedAt: "v1", retiredAt: "v3" });
+    const interval = lifespanOf(ROADMAP, { introducedAt: "v1", retiredAt: "v3" });
     expect(isLiveAt(interval, 0)).toBe(false);
     expect(isLiveAt(interval, 1)).toBe(true);
     expect(isLiveAt(interval, 2)).toBe(true);
@@ -61,7 +61,7 @@ describe("estVivant", () => {
 
 describe("palierCourant", () => {
   it("rend le livré de rang le plus haut", () => {
-    expect(currentMilestone(FRISE)?.name).toBe("Étape 2");
+    expect(currentMilestone(ROADMAP)?.name).toBe("Étape 2");
   });
 
   it("sans aucun livré, rend le rang le plus haut déclaré", () => {

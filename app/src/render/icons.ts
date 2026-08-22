@@ -1,6 +1,6 @@
 // Catalogue d'icônes, isolé du rendu : les contrôles d'intégrité doivent citer
 // les noms valides sans dépendre du module qui dessine.
-export interface IconeElem {
+export interface IconElem {
   tag: "path" | "rect" | "circle" | "line" | "polyline" | "ellipse";
   attrs: Record<string, string>;
 }
@@ -10,7 +10,7 @@ export interface IconeElem {
 // aller chercher une icône par son nom sur un CDN, donc le catalogue est fini.
 // Ce qui vient du classeur, c'est le CHOIX -- quel type d'acteur porte quelle
 // icône -- et non le dessin.
-export const ICONES: Record<string, IconeElem[]> = {
+export const ICONS: Record<string, IconElem[]> = {
   "app-window": [
       { tag: "rect", attrs: { x: "2", y: "4", width: "20", height: "16", rx: "2" } },
       { tag: "path", attrs: { d: "M10 4v4" } },
@@ -160,14 +160,14 @@ export const ICONES: Record<string, IconeElem[]> = {
 // Les noms utilisables dans la colonne « Icône » de l'onglet TypesActeur.
 // Exposé pour que les contrôles d'intégrité puissent citer la liste au lieu de
 // se contenter de dire « inconnu ».
-export const ICONES_DISPONIBLES: string[] = Object.keys(ICONES).sort();
+export const AVAILABLE_ICONS: string[] = Object.keys(ICONS).sort();
 
 // Approximation en emoji de chaque icône, pour que la colonne « Icône » du
 // classeur se lise dans Excel. Ce n'est PAS l'icône dessinée -- celle-ci est
 // vectorielle et vit dans le schéma ; c'est un repère visuel pour choisir un
 // nom sans avoir à l'essayer. Excel ne sait pas afficher nos tracés SVG, et
 // SheetJS n'écrit ni image ni forme.
-export const APERCU_ICONES: Record<string, string> = {
+export const ICON_PREVIEWS: Record<string, string> = {
   "app-window": "🪟",
   bot: "🤖",
   box: "🧰",
@@ -197,4 +197,4 @@ export const APERCU_ICONES: Record<string, string> = {
 
 // Repli quand le classeur ne dit rien : un jeton neutre, qui ne prétend pas
 // connaître la nature de l'acteur.
-export const ICONE_PAR_DEFAUT = "layers";
+export const DEFAULT_ICON = "layers";

@@ -1,4 +1,4 @@
-import { ICONES_DISPONIBLES } from "../render/icons";
+import { AVAILABLE_ICONS } from "../render/icons";
 
 // Le même format que celui qu'accepte la palette (render/colors.ts).
 const COULEUR_HEXA = /^#?[0-9a-f]{6}$/i;
@@ -24,8 +24,8 @@ import {
   type InterfaceLookup,
 } from "../aggregation/core";
 import { lifespanOf, isLiveAt, intervalsMeet, ALWAYS, type Interval } from "../aggregation/milestones";
-import { HEXA, SEUIL_TRAIT } from "../render/colors";
-import { ratioDeContraste } from "../render/contrast";
+import { HEXA, LINE_THRESHOLD } from "../render/colors";
+import { contrastRatio } from "../render/contrast";
 import { LONGUEUR_MAX_ONGLET } from "../parsing/build-model";
 import { isTechnicalActor } from "../aggregation/nature";
 import {
@@ -390,9 +390,9 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // Le catalogue d'icônes est embarqué (livrable hors ligne) : un nom inventé
   // ne dessinerait rien, autant le dire avec la liste des noms valides.
   for (const t of model.actorTypes) {
-    if (t.icon && !ICONES_DISPONIBLES.includes(t.icon.trim())) {
+    if (t.icon && !AVAILABLE_ICONS.includes(t.icon.trim())) {
       anomalies.push(
-        anomaly(`${nameActorType(t)}: icon "${t.icon}" unknown. Accepted values: ${ICONES_DISPONIBLES.join(", ")}.`, t)
+        anomaly(`${nameActorType(t)}: icon "${t.icon}" unknown. Accepted values: ${AVAILABLE_ICONS.join(", ")}.`, t)
       );
     }
   }
@@ -976,8 +976,8 @@ function unreadableColours(model: ParsedModel): InfoBlock {
     const declared = HEXA.exec(t.colour.trim());
     if (!declared) continue;
     const hex = `#${declared[1].toLowerCase()}`;
-    const ratio = ratioDeContraste(hex, "#ffffff");
-    if (ratio < SEUIL_TRAIT) {
+    const ratio = contrastRatio(hex, "#ffffff");
+    if (ratio < LINE_THRESHOLD) {
       items.push(
         `${t.type} ${address(t)}: colour ${hex} only reaches ${ratio.toFixed(2)}:1 on white; it is darkened on screen so the line stays visible.`
       );

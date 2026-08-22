@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { zoomBy, panBy, type Cadre } from "./zoom";
+import { zoomBy, panBy, type Frame } from "./zoom";
 
-const initial: Cadre = { x: 0, y: 0, width: 100, height: 100 };
+const initial: Frame = { x: 0, y: 0, width: 100, height: 100 };
 
 describe("zoomer", () => {
   it("réduit le cadre quand on zoome, l'agrandit quand on dézoome", () => {
@@ -12,15 +12,15 @@ describe("zoomer", () => {
   // Le point sous le curseur ne doit pas bouger : c'est ce qui distingue un
   // zoom utilisable d'un zoom qui perd son lecteur.
   it("garde le point d'ancrage immobile", () => {
-    const ancre = { x: 25, y: 75 };
-    const after = zoomBy(initial, 2, ancre, initial);
+    const anchor = { x: 25, y: 75 };
+    const after = zoomBy(initial, 2, anchor, initial);
     expect(after.x).toBeCloseTo(12.5);
     expect(after.y).toBeCloseTo(37.5);
     // Formulé autrement : la position RELATIVE de l'ancre dans le cadre est la
     // même avant et après. C'est la propriété qui compte, les deux nombres
     // ci-dessus n'en sont qu'une lecture.
-    expect((ancre.x - after.x) / after.width).toBeCloseTo((ancre.x - initial.x) / initial.width);
-    expect((ancre.y - after.y) / after.height).toBeCloseTo((ancre.y - initial.y) / initial.height);
+    expect((anchor.x - after.x) / after.width).toBeCloseTo((anchor.x - initial.x) / initial.width);
+    expect((anchor.y - after.y) / after.height).toBeCloseTo((anchor.y - initial.y) / initial.height);
   });
 
   it("conserve le rapport de forme", () => {

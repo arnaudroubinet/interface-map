@@ -21,7 +21,7 @@ import {
   LONGUEUR_MAX_ONGLET,
   FX_SHEET_SEPARATOR,
 } from "../parsing/build-model";
-import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
+import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import {
   VOCABULARY_DIRECTION,
   VOCABULARY_DECISION,
@@ -36,7 +36,7 @@ import {
   type ValidationToApply,
   type StyleToApply,
 } from "./xlsx-tables";
-import { ICONES_PAR_DEFAUT, LISTES, MODE_EMPLOI, TYPES_FLUX, type RowRole } from "./template-data";
+import { DEFAULT_ICONS, LISTES, MODE_EMPLOI, TYPES_FLUX, type RowRole } from "./template-data";
 
 // Les vocabulaires et le mode d'emploi vivent dans modele-donnees.ts ; ce
 // module-ci n'est plus que la machinerie qui les assemble en classeur.
@@ -95,7 +95,7 @@ export function formuleApercu(row: number): string {
 // Seul onglet pré-rempli : sans lui, tous les acteurs porteraient le jeton
 // neutre et un contrôle d'intégrité s'allumerait sur un classeur neuf.
 function actorTypesSheet(declared: readonly (readonly string[])[]): XLSX.WorkSheet {
-  const rows = declared.length > 0 ? declared.map((l) => [...l]) : ICONES_PAR_DEFAUT.map(([t, i]) => [t, i]);
+  const rows = declared.length > 0 ? declared.map((l) => [...l]) : DEFAULT_ICONS.map(([t, i]) => [t, i]);
   const headers = [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN];
   // La colonne Aperçu suit COLONNES_TYPESACTEUR au lieu d'une lettre écrite en
   // dur : l'ajout de "Nature" l'a décalée de C à D, et une lettre figée
@@ -106,7 +106,7 @@ function actorTypesSheet(declared: readonly (readonly string[])[]): XLSX.WorkShe
     // La valeur en cache est celle qu'Excel recalculera de toute façon : elle
     // sert à ce que l'aperçu s'affiche juste dès l'ouverture, avant le premier
     // recalcul.
-    ws[`${previewColumn}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: APERCU_ICONES[icon] ?? "" };
+    ws[`${previewColumn}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: ICON_PREVIEWS[icon] ?? "" };
   });
   ws["!ref"] = `A1:${previewColumn}${rows.length + 1}`;
   return ws;
@@ -376,7 +376,7 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
     {
       sheet: "ActorTypes",
       columns: [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN],
-      rows: writtenRows(data.actorTypes, ICONES_PAR_DEFAUT),
+      rows: writtenRows(data.actorTypes, DEFAULT_ICONS),
       // Colonne calculée : Excel la remplit tout seul sur les lignes ajoutées.
       // La formule stockée dans le tableau est celle de la première ligne de
       // données : Excel la décale lui-même sur les lignes suivantes.

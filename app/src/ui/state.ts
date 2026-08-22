@@ -125,7 +125,7 @@ export interface AppState {
   // fonctionnelle, où la plomberie est justement ce qu'on traverse.
   chainSelection: string | null;
   // Ce que la frise met en ligne : les acteurs ou les interfaces.
-  sujetFrise: RoadmapSubject;
+  roadmapSubject: RoadmapSubject;
   messageBandeau: string | null;
 }
 
@@ -143,7 +143,7 @@ export function initialState(): AppState {
     actorSelection: null,
     technologySelection: null,
     chainSelection: null,
-    sujetFrise: "interfaces",
+    roadmapSubject: "interfaces",
     messageBandeau: null,
   };
 }
@@ -186,7 +186,7 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
     actorSelection: null,
     technologySelection: null,
     chainSelection: null,
-    sujetFrise: "interfaces",
+    roadmapSubject: "interfaces",
     messageBandeau: null,
   };
 }
@@ -267,7 +267,7 @@ export function withActeurMasque(state: AppState, actor: string, hidden: boolean
 // Le voisinage ne touche pas aux masquages : élargir le regard ne révèle ni ne
 // cache personne de plus que ce que le rayon apporte.
 export function withSujetFrise(state: AppState, subject: RoadmapSubject): AppState {
-  return { ...state, sujetFrise: subject };
+  return { ...state, roadmapSubject: subject };
 }
 
 export function withVoisinage(state: AppState, neighbourhood: Neighbourhood): AppState {

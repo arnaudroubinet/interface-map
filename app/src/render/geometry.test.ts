@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { interrompreLeTrace } from "./geometry";
+import { breakTheLine } from "./geometry";
 
 // La géométrie se vérifie sur des nombres, sans monter un SVG : c'est
 // justement ce que sa sortie du constructeur SVG rend possible.
@@ -18,14 +18,14 @@ describe("interrompreLeTrace", () => {
   it("garde un reste après un libellé qui recouvre l'arrivée", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
     const labelOnArrival = { x0: 150, y0: -10, x1: 210, y1: 10 };
-    const morceaux = interrompreLeTrace(trace, [labelOnArrival]);
+    const morceaux = breakTheLine(trace, [labelOnArrival]);
     expect(morceaux.length).toBeGreaterThan(0);
     expect(dernierPoint(morceaux).x).toBeCloseTo(200, 5);
   });
 
   it("coupe toujours au milieu quand le libellé est au milieu", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
-    const morceaux = interrompreLeTrace(trace, [{ x0: 90, y0: -10, x1: 110, y1: 10 }]);
+    const morceaux = breakTheLine(trace, [{ x0: 90, y0: -10, x1: 110, y1: 10 }]);
     expect(morceaux).toHaveLength(2);
     expect(dernierPoint(morceaux).x).toBeCloseTo(200, 5);
   });

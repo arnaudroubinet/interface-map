@@ -67,7 +67,7 @@ export interface RailCallbacks {
   onTechnologySelection: (type: string) => void;
   onChainSelection: (chain: string) => void;
   onVoisinage: (value: Neighbourhood) => void;
-  onSujetFrise: (value: RoadmapSubject) => void;
+  onRoadmapSubject: (value: RoadmapSubject) => void;
   onWeightByCriticality: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
@@ -345,10 +345,10 @@ export function renderRail(
     const select = el("select", { class: "rail-select rail-roadmap" });
     for (const [value, label] of [["interfaces", "Interfaces"], ["actors", "Actors"]] as const) {
       const option = el("option", { value: value }, [label]);
-      if (value === state.sujetFrise) option.selected = true;
+      if (value === state.roadmapSubject) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onSujetFrise(select.value as RoadmapSubject));
+    select.addEventListener("change", () => callbacks.onRoadmapSubject(select.value as RoadmapSubject));
     root.appendChild(select);
   }
 

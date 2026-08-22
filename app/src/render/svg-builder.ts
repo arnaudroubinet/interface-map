@@ -1,30 +1,30 @@
-import { ICONES, ICONE_PAR_DEFAUT } from "./icons";
+import { ICONS, DEFAULT_ICON } from "./icons";
 import type { LayoutResult, LayoutEdge, LayoutNode } from "../layout/graph-layout";
 import {
   lignesDescription,
   truncatedName,
-  hauteurTexteNoeud,
+  nodeTextHeight,
   NAME_LINE_HEIGHT,
   HAUTEUR_LIGNE_TYPE,
-  HAUTEUR_LIGNE_VIDE,
-  HAUTEUR_LIGNE_DESC,
+  EMPTY_LINE_HEIGHT,
+  DESC_LINE_HEIGHT,
   HAUTEUR_PASTILLE,
-  largeurPastille,
+  chipWidth,
   subLabel as subLabelOf,
   taillePastille,
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
 import {
   cheminArrondi,
-  interrompreLeTrace,
+  breakTheLine,
   reculerPourLaPointe,
-  segmentIntersecteRect,
+  segmentIntersectsRect,
   RAYON_ANGLE,
   type Point,
   type Rect,
 } from "./geometry";
-import { PAPIER, ENCRE, STROKE_WIDTH, CHANGE_COLOUR, styleDuNoeud } from "./node-styles";
-import { entreesDeLegende, type EntreeLegende, type LegendSample } from "./legend";
+import { PAPER, INK, STROKE_WIDTH, CHANGE_COLOUR, styleOfNode } from "./node-styles";
+import { legendEntries, type LegendEntry, type LegendSample } from "./legend";
 import { buildTitleBlock, descriptionAccessible, titleBlockText, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -204,7 +204,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
 //
 // On la rétrécit par paliers plutôt que continûment : une taille par arête
 // ferait autant de définitions de marqueur que d'arêtes.
-const TAILLES_POINTE = [12, 8, 5, 3] as const;
+const HEAD_SIZES = [12, 8, 5, 3] as const;
 
 // L'écart avant contact suit la pointe : gardé à 4 px sous une pointe de 3, il
 // mangerait plus que la pointe elle-même.
@@ -212,8 +212,8 @@ function arrowGapFor(size: number): number {
   return Math.min(ARROW_GAP, size / 3);
 }
 
-function tailleDePointe(longueurApproche: number): number {
-  return TAILLES_POINTE.find((t) => longueurApproche >= t + arrowGapFor(t)) ?? TAILLES_POINTE[TAILLES_POINTE.length - 1];
+function tailleDePointe(approachLength: number): number {
+  return HEAD_SIZES.find((t) => approachLength >= t + arrowGapFor(t)) ?? HEAD_SIZES[HEAD_SIZES.length - 1];
 }
 
 // La longueur DROITE réellement disponible au bout du trait pour y poser la
@@ -228,7 +228,7 @@ function longueurDApproche(edge: RenderEdge): number {
   return brute - Math.min(RAYON_ANGLE, brute / 2);
 }
 
-function arrowMarkerId(colour: string, hollow = false, size = TAILLE_POINTE): string {
+function arrowMarkerId(colour: string, hollow = false, size = HEAD_SIZE): string {
   return `${hollow ? "arrow-hollow" : "arrow"}-${size}-${colour.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
@@ -258,25 +258,25 @@ function buildEdgeLabel(
   cx: number,
   cy: number,
   text: string,
-  sousTexte: string | undefined,
+  subText: string | undefined,
   colour: string,
   attenuated: boolean,
-  pastilleCouleur: boolean
+  colourChip: boolean
 ): SVGGElement {
   const g = el("g");
-  const height = HAUTEUR_PASTILLE + (sousTexte ? 10 : 0);
-  const yTexte = sousTexte ? cy - height / 2 + 9 : cy + 3.5;
-  const offset = pastilleCouleur ? LARGEUR_DISQUE : 0;
+  const height = HAUTEUR_PASTILLE + (subText ? 10 : 0);
+  const textY = subText ? cy - height / 2 + 9 : cy + 3.5;
+  const offset = colourChip ? DISC_WIDTH : 0;
 
-  const apply = (content: string, y: number, size: string, remplissage: string, gras: boolean) => {
+  const apply = (content: string, y: number, size: string, fill: string, gras: boolean) => {
     const t = el("text");
     t.setAttribute("x", String(cx + offset / 2));
     t.setAttribute("y", String(y));
     t.setAttribute("text-anchor", "middle");
     t.setAttribute("font-size", size);
     if (gras) t.setAttribute("font-weight", "600");
-    t.setAttribute("fill", remplissage);
-    t.setAttribute("stroke", PAPIER);
+    t.setAttribute("fill", fill);
+    t.setAttribute("stroke", PAPER);
     t.setAttribute("stroke-width", "3");
     t.setAttribute("stroke-linejoin", "round");
     t.setAttribute("paint-order", "stroke");
@@ -285,22 +285,22 @@ function buildEdgeLabel(
     g.appendChild(t);
   };
 
-  if (pastilleCouleur) {
+  if (colourChip) {
     const disque = el("circle");
-    disque.setAttribute("cx", String(cx - largeurPastille(text) / 2 - offset / 2 + RAYON_DISQUE + 7));
-    disque.setAttribute("cy", String(yTexte - 3.5));
-    disque.setAttribute("r", String(RAYON_DISQUE));
+    disque.setAttribute("cx", String(cx - chipWidth(text) / 2 - offset / 2 + DISC_RADIUS + 7));
+    disque.setAttribute("cy", String(textY - 3.5));
+    disque.setAttribute("r", String(DISC_RADIUS));
     disque.setAttribute("fill", colour);
-    disque.setAttribute("stroke", PAPIER);
+    disque.setAttribute("stroke", PAPER);
     disque.setAttribute("stroke-width", "1.5");
     if (attenuated) disque.setAttribute("opacity", "0.7");
     g.appendChild(disque);
   }
 
-  apply(text, yTexte, "11", pastilleCouleur ? ENCRE : colour, true);
+  apply(text, textY, "11", colourChip ? INK : colour, true);
   // 8,5 px en gris pâle : le plus petit texte du schéma était aussi le moins
   // contrasté. 10 px et un ardoise franc (10,16:1 contre 4,74:1).
-  if (sousTexte) apply(sousTexte, yTexte + 11, "10", GRIS_SECONDAIRE, false);
+  if (subText) apply(subText, textY + 11, "10", SECONDARY_GREY, false);
   return g;
 }
 
@@ -353,11 +353,11 @@ function buildEdgeElement(
     g.appendChild(infobulle);
   }
 
-  const taillePointe = tailleDePointe(longueurDApproche(edge));
+  const headSize = tailleDePointe(longueurDApproche(edge));
   const drawnPoints = edge.arrow
-    ? reculerPourLaPointe(edge.points, taillePointe + arrowGapFor(taillePointe), edge.pulled === true)
+    ? reculerPourLaPointe(edge.points, headSize + arrowGapFor(headSize), edge.pulled === true)
     : edge.points;
-  const morceaux = interrompreLeTrace(drawnPoints, labelRect ? [labelRect] : []);
+  const morceaux = breakTheLine(drawnPoints, labelRect ? [labelRect] : []);
 
   morceaux.forEach((morceau, i) => {
     const path = el("path");
@@ -370,8 +370,8 @@ function buildEdgeElement(
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
     // définition sert les deux.
     if (edge.arrow) {
-      if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${arrowMarkerId(colour, true, taillePointe)})`);
-      if (!edge.pulled && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, taillePointe)})`);
+      if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${arrowMarkerId(colour, true, headSize)})`);
+      if (!edge.pulled && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, headSize)})`);
     }
     if (edge.attenuated) {
       path.setAttribute("stroke-dasharray", "6 4");
@@ -409,7 +409,7 @@ function buildIcon(name: string, x: number, y: number, size: number, colour: str
   // Un nom inconnu retombe sur le jeton neutre plutôt que de ne rien dessiner :
   // une boîte sans icône se lirait comme un oubli, pas comme une erreur de
   // saisie -- que les contrôles d'intégrité signalent par ailleurs.
-  for (const element of ICONES[name] ?? ICONES[ICONE_PAR_DEFAUT]) {
+  for (const element of ICONS[name] ?? ICONS[DEFAULT_ICON]) {
     const e = el(element.tag);
     for (const [attr, val] of Object.entries(element.attrs)) e.setAttribute(attr, val);
     g.appendChild(e);
@@ -463,7 +463,7 @@ function buildBoundaryElement(node: LayoutNode): SVGGElement {
   label.setAttribute("font-size", "11");
   label.setAttribute("font-weight", "600");
   label.setAttribute("letter-spacing", "0.4");
-  label.setAttribute("fill", GRIS_SECONDAIRE);
+  label.setAttribute("fill", SECONDARY_GREY);
   label.textContent = node.label;
   g.appendChild(label);
 
@@ -472,20 +472,20 @@ function buildBoundaryElement(node: LayoutNode): SVGGElement {
 
 function buildNodeElement(node: LayoutNode): SVGGElement {
   const g = el("g");
-  if (node.attenuation !== undefined) g.setAttribute("opacity", String(node.attenuation));
+  if (node.dimming !== undefined) g.setAttribute("opacity", String(node.dimming));
   const x = node.x - node.width / 2;
   const y = node.y - node.height / 2;
-  const style = styleDuNoeud(node);
+  const style = styleOfNode(node);
   const isExternal = !!node.external;
 
   // Un groupe replié se dessine en PILE : deux boîtes décalées derrière la
   // sienne. Le lecteur voit d'un coup d'œil que ce nœud en contient plusieurs,
   // là où seul le sous-titre « 4 actors » le disait.
-  if (node.agrégat && node.agrégat > 1) {
+  if (node.aggregate && node.aggregate > 1) {
     const pile = el("g");
     pile.setAttribute("class", "fx-stack");
     for (const offset of [8, 4]) {
-      const behind = rect(x + offset, y - offset, node.width, node.height, style.fill, style.stroke, style.épaisseurBord);
+      const behind = rect(x + offset, y - offset, node.width, node.height, style.fill, style.stroke, style.strokeWidth);
       behind.setAttribute("rx", "10");
       behind.setAttribute("opacity", "0.55");
       pile.appendChild(behind);
@@ -509,11 +509,11 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     );
     path.setAttribute("fill", style.fill);
     path.setAttribute("stroke", style.stroke);
-    path.setAttribute("stroke-width", String(style.épaisseurBord));
+    path.setAttribute("stroke-width", String(style.strokeWidth));
     path.setAttribute("stroke-linejoin", "round");
     box = path;
   } else {
-    const r = rect(x, y, node.width, node.height, style.fill, style.stroke, style.épaisseurBord);
+    const r = rect(x, y, node.width, node.height, style.fill, style.stroke, style.strokeWidth);
     r.setAttribute("rx", "10"); // arcSize=10 dans le gabarit draw.io
     box = r;
   }
@@ -527,22 +527,22 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   // non plus -- #e8eef2 ne donne que 3,94:1. La hiérarchie visuelle est déjà
   // portée par la taille (16 px gras, 12 px, 11 px), la couleur n'a pas à la
   // porter en plus.
-  const grisDesc = "#ffffff";
+  const descGrey = "#ffffff";
   const cx = node.x;
 
   // Bloc de texte centré dans la boîte : nom en 16 gras, [Type] en dessous,
   // ligne vide, puis description en 11 gris clair -- la maquette draw.io.
   const rows = lignesDescription(node.description);
-  let curseur = node.y - hauteurTexteNoeud(node) / 2;
+  let cursor = node.y - nodeTextHeight(node) / 2;
 
   const iconSize = 16;
   const shownName = truncatedName(node.label);
   const nameWidth = shownName.length * 8.2;
-  g.appendChild(buildIcon(node.icon ?? ICONE_PAR_DEFAUT, cx - nameWidth / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
+  g.appendChild(buildIcon(node.icon ?? DEFAULT_ICON, cx - nameWidth / 2 - iconSize - 6, cursor + 1, iconSize, blanc));
 
   const nameText = el("text");
   nameText.setAttribute("x", String(cx + iconSize / 2 + 3));
-  nameText.setAttribute("y", String(curseur + 14));
+  nameText.setAttribute("y", String(cursor + 14));
   nameText.setAttribute("text-anchor", "middle");
   nameText.setAttribute("font-size", "16");
   nameText.setAttribute("font-weight", "700");
@@ -557,31 +557,31 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     infobulle.textContent = node.label;
     g.appendChild(infobulle);
   }
-  curseur += NAME_LINE_HEIGHT;
+  cursor += NAME_LINE_HEIGHT;
 
   if (node.subtitle) {
-    const texteType = el("text");
-    texteType.setAttribute("x", String(cx));
-    texteType.setAttribute("y", String(curseur + 12));
-    texteType.setAttribute("text-anchor", "middle");
-    texteType.setAttribute("font-size", "12");
-    texteType.setAttribute("fill", blanc);
-    texteType.textContent = `[${node.subtitle}${isExternal ? " · External" : ""}]`;
-    g.appendChild(texteType);
-    curseur += HAUTEUR_LIGNE_TYPE;
+    const typeText = el("text");
+    typeText.setAttribute("x", String(cx));
+    typeText.setAttribute("y", String(cursor + 12));
+    typeText.setAttribute("text-anchor", "middle");
+    typeText.setAttribute("font-size", "12");
+    typeText.setAttribute("fill", blanc);
+    typeText.textContent = `[${node.subtitle}${isExternal ? " · External" : ""}]`;
+    g.appendChild(typeText);
+    cursor += HAUTEUR_LIGNE_TYPE;
   }
 
-  if (rows.length) curseur += HAUTEUR_LIGNE_VIDE;
+  if (rows.length) cursor += EMPTY_LINE_HEIGHT;
   for (const row of rows) {
-    const texteDesc = el("text");
-    texteDesc.setAttribute("x", String(cx));
-    texteDesc.setAttribute("y", String(curseur + 11));
-    texteDesc.setAttribute("text-anchor", "middle");
-    texteDesc.setAttribute("font-size", "11");
-    texteDesc.setAttribute("fill", grisDesc);
-    texteDesc.textContent = row;
-    g.appendChild(texteDesc);
-    curseur += HAUTEUR_LIGNE_DESC;
+    const descText = el("text");
+    descText.setAttribute("x", String(cx));
+    descText.setAttribute("y", String(cursor + 11));
+    descText.setAttribute("text-anchor", "middle");
+    descText.setAttribute("font-size", "11");
+    descText.setAttribute("fill", descGrey);
+    descText.textContent = row;
+    g.appendChild(descText);
+    cursor += DESC_LINE_HEIGHT;
   }
 
   return g;
@@ -600,7 +600,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
 // jusqu'à 6) faisait 48px de large -- elle écrasait le nœud visé, mangeait
 // l'écart avant contact et recouvrait les pointes voisines. Taille fixe : la
 // force d'un flux se lit à l'épaisseur du trait, pas à la taille de sa pointe.
-const TAILLE_POINTE = 12;
+const HEAD_SIZE = 12;
 
 // Deux pointes, et c'est ELLES qui disent qui appelle : un DARD PLEIN quand le
 // fournisseur pousse, un V OUVERT quand le consommateur tire. La position de
@@ -612,7 +612,7 @@ const TAILLE_POINTE = 12;
 // qu'UML emploie sur ses messages -- triangle plein pour un appel synchrone, V
 // ouvert pour un message asynchrone -- et les deux DSL cibles savent l'écrire
 // (normal / vee en LikeC4).
-function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, size = TAILLE_POINTE): void {
+function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, size = HEAD_SIZE): void {
   const marker = el("marker");
   marker.setAttribute("id", arrowMarkerId(colour, hollow, size));
   marker.setAttribute("viewBox", "0 0 10 10");
@@ -653,16 +653,16 @@ const MARGE_CADRE = 24;
 
 // Le gris de tout ce qui est secondaire. Pas un gris pâle : #6b7480 tenait
 // 4,74:1 sur blanc, à la limite du seuil et inconfortable en petit corps.
-const GRIS_SECONDAIRE = "#39424f";
+const SECONDARY_GREY = "#39424f";
 
-const RAYON_DISQUE = 3.5;
+const DISC_RADIUS = 3.5;
 // Le disque plus son écart au texte : la place que taillePastille doit réserver.
-const LARGEUR_DISQUE = RAYON_DISQUE * 2 + 4;
+const DISC_WIDTH = DISC_RADIUS * 2 + 4;
 
 const ID_TITRE = "fx-titre";
-const ID_DESC = "fx-desc";
+const DESC_ID = "fx-desc";
 
-function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<RenderEdge, Point>): { x0: number; y0: number; x1: number; y1: number } {
+function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<RenderEdge, Point>): { x0: number; y0: number; x1: number; y1: number } {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -686,8 +686,8 @@ function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Re
       // La pointe s'étale autour de l'extrémité du tracé, dans une direction
       // qui dépend de l'orientation du trait : on réserve son gabarit entier.
       const bout = e.points[e.points.length - 1];
-      expand(bout.x - TAILLE_POINTE, bout.y - TAILLE_POINTE);
-      expand(bout.x + TAILLE_POINTE, bout.y + TAILLE_POINTE);
+      expand(bout.x - HEAD_SIZE, bout.y - HEAD_SIZE);
+      expand(bout.x + HEAD_SIZE, bout.y + HEAD_SIZE);
     }
     // La pastille d'un libellé déborde largement de son seul point d'ancrage
     // (ex. "Fichier + ETL (dépôt)") -- compter sa vraie largeur, pas juste ce point.
@@ -712,35 +712,35 @@ function calculerBornes(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Re
 // douzaine d'entrées là où il y en avait cinq. À 10 px elle était le plus
 // petit texte de la planche, celui qu'on lit en dernier alors qu'il explique
 // tout le reste.
-const LEGENDE_TAILLE_TEXTE = 12;
-const LEGENDE_LIGNE = 19;
-const LEGENDE_PAD = 12;
-const LEGENDE_ECHANTILLON = 26;
+const LEGEND_TEXT_SIZE = 12;
+const LEGEND_LINE = 19;
+const LEGEND_PAD = 12;
+const LEGEND_SAMPLE = 26;
 // Largeur moyenne d'un caractère à cette taille, dans la pile de polices du
 // schéma. Sous-estimée, le texte déborde du cadre.
-const LEGENDE_LARGEUR_CAR = 6.7;
+const LEGEND_CHAR_WIDTH = 6.7;
 
-function largeurLegende(inputs: string[]): number {
-  const text = Math.max(0, ...inputs.map((e) => e.length * LEGENDE_LARGEUR_CAR));
-  return LEGENDE_PAD * 2 + LEGENDE_ECHANTILLON + 10 + text;
+function widthOfLegend(inputs: string[]): number {
+  const text = Math.max(0, ...inputs.map((e) => e.length * LEGEND_CHAR_WIDTH));
+  return LEGEND_PAD * 2 + LEGEND_SAMPLE + 10 + text;
 }
 
-function buildLegend(inputs: readonly EntreeLegende[], x: number, y: number, width: number, height: number): SVGGElement {
+function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width: number, height: number): SVGGElement {
   const g = el("g");
   g.setAttribute("class", "fx-legend");
-  g.appendChild(rect(x, y, width, height, PAPIER, "#c8cdd5", 1));
+  g.appendChild(rect(x, y, width, height, PAPER, "#c8cdd5", 1));
 
-  let row = y + LEGENDE_PAD + LEGENDE_LIGNE / 2;
+  let row = y + LEGEND_PAD + LEGEND_LINE / 2;
 
   const line = (e: Extract<LegendSample, { shape: "line" }>): SVGElement => {
     const l = el("line");
     // La pointe DÉBORDE du bout du trait, de TAILLE_POINTE. Sans ce
     // raccourcissement elle empiétait sur le texte de l'entrée -- une légende
     // qui se chevauche elle-même.
-    const margin = e.head ? TAILLE_POINTE : 0;
-    l.setAttribute("x1", String(x + LEGENDE_PAD + (e.head === "start" ? margin : 0)));
+    const margin = e.head ? HEAD_SIZE : 0;
+    l.setAttribute("x1", String(x + LEGEND_PAD + (e.head === "start" ? margin : 0)));
     l.setAttribute("y1", String(row));
-    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON - (e.head === "end" ? margin : 0)));
+    l.setAttribute("x2", String(x + LEGEND_PAD + LEGEND_SAMPLE - (e.head === "end" ? margin : 0)));
     l.setAttribute("y2", String(row));
     l.setAttribute("stroke", e.colour);
     l.setAttribute("stroke-width", String(e.thickness ?? STROKE_WIDTH));
@@ -754,9 +754,9 @@ function buildLegend(inputs: readonly EntreeLegende[], x: number, y: number, wid
   // « cut corner » serait une entrée de légende aussi muette que le signe
   // qu'elle prétend expliquer.
   const boite = (e: Extract<LegendSample, { shape: "box" }>): SVGElement => {
-    const x0 = x + LEGENDE_PAD;
+    const x0 = x + LEGEND_PAD;
     const y0 = row - 5;
-    const l = LEGENDE_ECHANTILLON;
+    const l = LEGEND_SAMPLE;
     const h = 10;
     if (e.pile) {
       const g2 = el("g");
@@ -767,7 +767,7 @@ function buildLegend(inputs: readonly EntreeLegende[], x: number, y: number, wid
       }
       return g2;
     }
-    if (e.coinCoupé) {
+    if (e.cutCorner) {
       const coupe = 4;
       const p2 = el("path");
       p2.setAttribute("d", `M${x0} ${y0} H${x0 + l - coupe} L${x0 + l} ${y0 + coupe} V${y0 + h} H${x0} Z`);
@@ -784,13 +784,13 @@ function buildLegend(inputs: readonly EntreeLegende[], x: number, y: number, wid
   for (const input of inputs) {
     g.appendChild(input.sample.shape === "line" ? line(input.sample) : boite(input.sample));
     const t = el("text");
-    t.setAttribute("x", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON + 10));
+    t.setAttribute("x", String(x + LEGEND_PAD + LEGEND_SAMPLE + 10));
     t.setAttribute("y", String(row + 4));
-    t.setAttribute("font-size", String(LEGENDE_TAILLE_TEXTE));
-    t.setAttribute("fill", ENCRE);
+    t.setAttribute("font-size", String(LEGEND_TEXT_SIZE));
+    t.setAttribute("fill", INK);
     t.textContent = input.text;
     g.appendChild(t);
-    row += LEGENDE_LIGNE;
+    row += LEGEND_LINE;
   }
 
   return g;
@@ -810,7 +810,7 @@ export function buildGraphSvg(
   const renderEdges = fusionnerParTechnologieVersCible(layout.edges);
   const labels = placeLabels(renderEdges);
 
-  const bounds = calculerBornes(layout.nodes, renderEdges, labels);
+  const bounds = computeBounds(layout.nodes, renderEdges, labels);
 
   // La légende occupe un coin réservé sous le dessin : on l'ajoute aux bornes
   // plutôt que de la poser par-dessus le schéma.
@@ -819,9 +819,9 @@ export function buildGraphSvg(
   // Et une technologie vide n'en est pas une -- le mode fonctionnel vide
   // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
   // qu'un code couleur introuvable sur le dessin.
-  const inputs = entreesDeLegende(renderEdges, layout.nodes, colorFor, options?.weightByCriticality === true);
-  const legendWidth = inputs.length ? largeurLegende(inputs.map((e) => e.text)) : 0;
-  const legendHeight = inputs.length ? LEGENDE_PAD * 2 + inputs.length * LEGENDE_LIGNE : 0;
+  const inputs = legendEntries(renderEdges, layout.nodes, colorFor, options?.weightByCriticality === true);
+  const legendWidth = inputs.length ? widthOfLegend(inputs.map((e) => e.text)) : 0;
+  const legendHeight = inputs.length ? LEGEND_PAD * 2 + inputs.length * LEGEND_LINE : 0;
 
   if (inputs.length) {
     bounds.y1 += MARGE_CADRE + legendHeight;
@@ -856,13 +856,13 @@ export function buildGraphSvg(
   // notoirement peu fiable en NVDA + Firefox.
   if (context) {
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-labelledby", `${ID_TITRE} ${ID_DESC}`);
+    svg.setAttribute("aria-labelledby", `${ID_TITRE} ${DESC_ID}`);
     const title = el("title");
     title.setAttribute("id", ID_TITRE);
     title.textContent = titleBlockText(context).title;
     svg.appendChild(title);
     const desc = el("desc");
-    desc.setAttribute("id", ID_DESC);
+    desc.setAttribute("id", DESC_ID);
     desc.textContent = descriptionAccessible(context);
     svg.appendChild(desc);
   }
@@ -882,12 +882,12 @@ export function buildGraphSvg(
   // assez long pour la taille pleine.
   for (const e of inputs) {
     if (e.sample.shape !== "line" || !e.sample.head) continue;
-    declare(e.sample.colour, e.sample.head === "start", TAILLE_POINTE);
+    declare(e.sample.colour, e.sample.head === "start", HEAD_SIZE);
   }
   for (const m of marqueurs.values()) addArrowMarker(defs, m.colour, m.hollow, m.size);
   svg.appendChild(defs);
 
-  const background = rect(bounds.x0, bounds.y0, width, height, PAPIER, "none", 0);
+  const background = rect(bounds.x0, bounds.y0, width, height, PAPER, "none", 0);
   svg.appendChild(background);
 
   if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
@@ -930,12 +930,12 @@ export function buildGraphSvg(
   const labelLayer = el("g");
   labelLayer.setAttribute("class", "fx-labels");
   for (const edge of renderEdges) {
-    const ancre = labels.get(edge);
-    if (!edge.label || !ancre) continue;
+    const anchor = labels.get(edge);
+    if (!edge.label || !anchor) continue;
     labelLayer.appendChild(
       buildEdgeLabel(
-        ancre.x,
-        ancre.y,
+        anchor.x,
+        anchor.y,
         edge.label,
         subLabelOf(edge.label, edge.technology),
         edgeColour(edge, colorFor),

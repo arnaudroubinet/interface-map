@@ -1,5 +1,5 @@
 import { normalizeText } from "../shared/text";
-import { assombrirJusquA, ratioDeContraste } from "./contrast";
+import { darkenTo, contrastRatio } from "./contrast";
 
 // Palette catégorielle, ordre fixe. Les huit teintes passent 4,5:1 sur blanc :
 // elles servent d'ENCRE autant que de trait, et l'ancienne palette échouait des
@@ -33,13 +33,13 @@ export const HEXA = /^#?([0-9a-f]{6})$/i;
 // reste jaune, mais assez foncé pour qu'on voie le trait. Sans ce garde-fou, le
 // classeur pouvait rendre un flux invisible sans que rien ne le dise -- et le
 // rapport d'intégrité l'annonce désormais.
-export const SEUIL_TRAIT = 3;
+export const LINE_THRESHOLD = 3;
 
 function declaredColourOf(brut: string): string | undefined {
   const m = HEXA.exec(brut.trim());
   if (!m) return undefined;
   const brute = `#${m[1].toLowerCase()}`;
-  return ratioDeContraste(brute, "#ffffff") >= SEUIL_TRAIT ? brute : assombrirJusquA(brute, SEUIL_TRAIT);
+  return contrastRatio(brute, "#ffffff") >= LINE_THRESHOLD ? brute : darkenTo(brute, LINE_THRESHOLD);
 }
 
 export function coloursOfModel(model: {

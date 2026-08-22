@@ -8,7 +8,7 @@ import { describe, it, expect } from "vitest";
 // lui. C'est au test de tenir les deux bouts.
 import { VUES } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
-import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icons";
+import { AVAILABLE_ICONS, ICON_PREVIEWS } from "./icons";
 import { buildAide, vuesDocumentees, exportsDocumentes } from "./help";
 import { buildRoadmapSvg } from "./roadmap";
 import { buildMatrixTable } from "./matrix-table";
@@ -41,7 +41,7 @@ describe("buildMatrixTable", () => {
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
 
-    expect(table.querySelector("[data-attenue='true']")).not.toBeNull();
+    expect(table.querySelector("[data-dimmed='true']")).not.toBeNull();
   });
 
   // Lignes et colonnes n'ont plus le même ordre depuis qu'elles sont élaguées
@@ -213,7 +213,7 @@ describe("catalogue d'icônes", () => {
   // Ajouter une icône sans son aperçu laisserait une case vide dans le classeur,
   // sans rien pour le signaler.
   it("donne un aperçu à chaque icône du catalogue, et rien de plus", () => {
-    expect(Object.keys(APERCU_ICONES).sort()).toEqual(ICONES_DISPONIBLES);
+    expect(Object.keys(ICON_PREVIEWS).sort()).toEqual(AVAILABLE_ICONS);
   });
 });
 

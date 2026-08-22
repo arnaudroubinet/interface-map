@@ -8,20 +8,20 @@ import type { Vue } from "./state";
 // Sur le classeur d'exemple : |V| = 15 et d = 27/225 = 0,12, donc rien ne
 // s'affiche. C'est le bon comportement : un avertissement qui crie sur un
 // petit parc apprend surtout à être ignoré.
-const SEUIL_NOEUDS = 20;
-const SEUIL_DENSITE = 0.15;
+const NODE_THRESHOLD = 20;
+const DENSITY_THRESHOLD = 0.15;
 
-export interface ConseilEchelle {
+export interface ScaleHint {
   message: string;
   views: Vue[];
 }
 
-export function conseilDEchelle(nbNoeuds: number, nbAretes: number): ConseilEchelle | null {
-  if (nbNoeuds <= SEUIL_NOEUDS) return null;
-  const density = nbAretes / (nbNoeuds * nbNoeuds);
-  const dense = density > SEUIL_DENSITE;
+export function scaleHint(nodeCount: number, edgeCount: number): ScaleHint | null {
+  if (nodeCount <= NODE_THRESHOLD) return null;
+  const density = edgeCount / (nodeCount * nodeCount);
+  const dense = density > DENSITY_THRESHOLD;
   return {
-    message: `${nbNoeuds} components and ${nbAretes} flows on one board — ${
+    message: `${nodeCount} components and ${edgeCount} flows on one board — ${
       dense ? "the Matrix view" : "a By-actor view"
     } will read better.`,
     // On ne bloque ni ne tronque jamais : on dit, et on propose.

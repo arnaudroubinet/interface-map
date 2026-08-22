@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { entreesDeLegende } from "../render/legend";
+import { legendEntries } from "../render/legend";
 import type { PlacedBoard } from "./drawio-export";
 import { buildDrawio } from "./drawio-export";
 import { computeLayout, type LayoutResult } from "../layout/graph-layout";
@@ -50,7 +50,7 @@ function geometrie(xml: string, id: string): Rect {
 // Ce que draw.io dessinera dans la PAGE : la géométrie d'un enfant se lit dans
 // le repère de son cadre, il faut donc remonter la chaîne des parents pour
 // retrouver le rectangle que l'œil verra.
-function rectAbsolu(xml: string, id: string): Rect {
+function absoluteRect(xml: string, id: string): Rect {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   const rect = geometrie(xml, id);
   let current = doc.querySelector(`UserObject[id="${id}"]`);
@@ -65,7 +65,7 @@ function rectAbsolu(xml: string, id: string): Rect {
   return rect;
 }
 
-const memeRect = (a: Rect, b: Rect) =>
+const sameRect = (a: Rect, b: Rect) =>
   ["x", "y", "width", "height"].every((c) => Math.abs(a[c as keyof Rect] - b[c as keyof Rect]) < 1e-6);
 
 describe("construireDrawio", () => {
@@ -235,7 +235,7 @@ describe("construireDrawio", () => {
     const l = await computeLayout(nodes, edges);
     const xml = buildDrawio(board(l, "Platform detail"), colour);
 
-    const rectsPeints = [...buildGraphSvg(l, colour).querySelectorAll("rect")].map((r) => ({
+    const paintedRects = [...buildGraphSvg(l, colour).querySelectorAll("rect")].map((r) => ({
       x: Number(r.getAttribute("x")),
       y: Number(r.getAttribute("y")),
       width: Number(r.getAttribute("width")),
@@ -243,10 +243,10 @@ describe("construireDrawio", () => {
     }));
 
     for (const n of l.nodes) {
-      const declared = rectAbsolu(xml, `p0_${n.id}`);
+      const declared = absoluteRect(xml, `p0_${n.id}`);
       const peint = { x: n.x - n.width / 2, y: n.y - n.height / 2, width: n.width, height: n.height };
       expect(
-        rectsPeints.some((r) => memeRect(r, declared)),
+        paintedRects.some((r) => sameRect(r, declared)),
         `${n.label} : draw.io ${JSON.stringify(declared)}, écran ${JSON.stringify(peint)}`
       ).toBe(true);
     }
@@ -308,7 +308,7 @@ describe("construireDrawio — chaque page se décrit", () => {
   it("reprend la MÊME légende que le SVG, entrée pour entrée", () => {
     const p = board();
     const xml = buildDrawio([p], () => "#111");
-    for (const e of entreesDeLegende(p.layout.edges, p.layout.nodes, () => "#111")) {
+    for (const e of legendEntries(p.layout.edges, p.layout.nodes, () => "#111")) {
       expect(xml, `input « ${e.text} » absente`).toContain(e.text);
     }
   });
