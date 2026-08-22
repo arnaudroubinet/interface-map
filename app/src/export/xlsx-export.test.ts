@@ -92,3 +92,28 @@ describe("export Excel de la matrice — mode fonctionnel (technologie vide)", (
     expect(grille[1][2]).toBe("3");
   });
 });
+
+// --- « Ce qui est à l'écran est ce qui s'exporte » : l'ordre des lignes se
+// décide dans buildMatrixView, une fois, et l'export ne doit surtout pas le
+// retrier -- sinon le classeur emporté n'est pas le tableau qu'on avait sous
+// les yeux.
+describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () => {
+  const cellule = { technologie: "HTTP", count: 1, atténué: false, noms: [] };
+  const nonAlphabetique = base.matrice({
+    colonnes: ["Zeffo", "Bracca"],
+    lignes: [
+      { acteur: "Zeffo", cellules: new Map([["Bracca", [cellule]]]) },
+      { acteur: "Bracca", cellules: new Map([["Zeffo", [cellule]]]) },
+    ],
+  });
+
+  it("écrit les lignes dans l'ordre du tableau, pas dans l'ordre alphabétique", () => {
+    const feuille = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    expect([feuille.A2.v, feuille.A3.v]).toEqual(["Zeffo", "Bracca"]);
+  });
+
+  it("écrit les colonnes dans l'ordre du tableau", () => {
+    const feuille = construireClasseurMatrice(nonAlphabetique).Sheets["Matrix"];
+    expect([feuille.B1.v, feuille.C1.v]).toEqual(["Zeffo", "Bracca"]);
+  });
+});

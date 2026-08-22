@@ -87,6 +87,7 @@ const callbacks: RailCallbacks = {
   onPalierCompare: noop,
   onOptionCompteurs: noop,
   onLibelléArête: noop,
+  onOrdreMatrice: noop,
   onTechnoMasquee: noop,
   onActeurMasque: noop,
   onMasquerExternes: noop,

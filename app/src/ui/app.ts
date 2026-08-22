@@ -19,7 +19,7 @@ import { acteursMetier } from "../aggregation/nature";
 import { computeLayout, restreindreLayout, type LayoutResult } from "../layout/graph-layout";
 import { toutesLesPlanches } from "../aggregation/planches";
 import { buildGraphSvg } from "../render/svg-builder";
-import type { ContexteSchema } from "../render/cartouche";
+import { libelléCartouche, type ContexteSchema } from "../render/cartouche";
 import { brancherZoom } from "../render/zoom";
 import { conseilDEchelle } from "./echelle";
 import type { Lecture } from "../aggregation/fonctionnel";
@@ -63,6 +63,7 @@ import {
   withMasquerExternesMatrice,
   withActeurMasqueMatrice,
   withGranulariteMatrice,
+  withOrdreMatrice,
   withPalierAffiche,
   withPalierCompare,
   withMessageBandeau,
@@ -354,6 +355,7 @@ export function mountApp(root: HTMLElement): void {
       const matrix = buildMatrixView(model, lecture, {
         mode: state.mode,
         granularite: state.filtresMatrice.granularite,
+        ordre: state.filtresMatrice.ordre,
         masquerExternes: state.filtresMatrice.masquerExternes,
         acteursMasques: state.filtresMatrice.acteursMasques,
       });
@@ -364,7 +366,9 @@ export function mountApp(root: HTMLElement): void {
       // filtrage : sinon une technologie changerait de couleur d'un filtre à
       // l'autre, et entre la matrice et les schémas.
       const couleurs = couleursDuModele(model);
-      zoneRendu.appendChild(buildMatrixTable(matrix, (t) => couleurs.get(t) ?? "#000"));
+      zoneRendu.appendChild(
+        buildMatrixTable(matrix, (t) => couleurs.get(t) ?? "#000", libelléCartouche(contexteDuSchema(state, fichier, { nodes: [], edges: [] })).titre)
+      );
     } else {
       // La MÊME construction pour le palier affiché et pour l'union de tous
       // les paliers : c'est ce qui garantit que les deux vues se correspondent
@@ -496,6 +500,7 @@ export function mountApp(root: HTMLElement): void {
       onMasquerExternesMatrice: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
       onActeurMasqueMatrice: (acteur, masqué) =>
         setState(withActeurMasqueMatrice(withMessageBandeau(state, null), acteur, masqué)),
+      onOrdreMatrice: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
       onGranulariteMatrice: (granularite) => setState(withGranulariteMatrice(withMessageBandeau(state, null), granularite)),
     });
   }

@@ -2,6 +2,7 @@ import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, LibelléArête } from "../aggregation/core";
+import type { OrdreMatrice } from "../aggregation/seriation";
 
 // L'ordre de lecture va du plus court au plus complet.
 const LIBELLES_ARETE: [LibelléArête, string][] = [
@@ -38,6 +39,14 @@ const GRANULARITES_MATRICE: { id: GranulariteMatrice; label: string; titreFiltre
   { id: "plateforme", label: "Platform to group", titreFiltre: "Actors and groups" },
 ];
 
+// Les quatre ordres proposés, du plus neutre au plus interprétatif.
+const ORDRES_MATRICE: { id: OrdreMatrice; label: string }[] = [
+  { id: "alphabetique", label: "Order: alphabetical" },
+  { id: "groupe", label: "Order: by group" },
+  { id: "degre", label: "Order: by degree" },
+  { id: "blocs", label: "Order: blocks" },
+];
+
 export interface RailCallbacks {
   onMode: (mode: Mode) => void;
   onVue: (vue: Vue) => void;
@@ -47,6 +56,7 @@ export interface RailCallbacks {
   onPalierCompare: (palier: string) => void;
   onOptionCompteurs: (value: boolean) => void;
   onLibelléArête: (value: LibelléArête) => void;
+  onOrdreMatrice: (value: OrdreMatrice) => void;
   onTechnoMasquee: (techno: string, masquée: boolean) => void;
   onActeurMasque: (acteur: string, masqué: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
@@ -287,6 +297,18 @@ export function renderRail(
     }
     select.addEventListener("change", () => callbacks.onGranulariteMatrice(select.value as GranulariteMatrice));
     root.appendChild(select);
+
+    // L'ordre : c'est le levier de lecture le plus fort de la matrice, et il
+    // était inutilisé. L'alphabétique reste le défaut -- une seriation ne doit
+    // jamais s'imposer en silence.
+    const ordre = el("select", { class: "rail-selecteur rail-ordre-matrice" });
+    for (const o of ORDRES_MATRICE) {
+      const option = el("option", { value: o.id }, [o.label]);
+      if (o.id === state.filtresMatrice.ordre) option.selected = true;
+      ordre.appendChild(option);
+    }
+    ordre.addEventListener("change", () => callbacks.onOrdreMatrice(ordre.value as OrdreMatrice));
+    root.appendChild(ordre);
 
     root.appendChild(basculeExternes(state.filtresMatrice.masquerExternes, callbacks.onMasquerExternesMatrice));
     const dispo = optionsFiltreMatrice(state.fichier.model, flux, {

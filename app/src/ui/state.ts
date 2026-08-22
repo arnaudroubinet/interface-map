@@ -1,6 +1,7 @@
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 import type { GranulariteMatrice } from "../aggregation/views";
+import type { OrdreMatrice } from "../aggregation/seriation";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { palierCourant, rangDuPalier } from "../aggregation/paliers";
@@ -79,6 +80,11 @@ export interface FiltresVueTechnologie {
 // : acteur par acteur, replié sur les groupes, ou plateforme détaillée.
 export interface FiltresVueMatrice extends FiltresVueTechnologie {
   granularite: GranulariteMatrice;
+  // L'ordre des lignes et des colonnes. Alphabétique par défaut : une
+  // seriation ne doit jamais être le défaut silencieux -- la revue de
+  // référence prévient que RCM produit volontiers une bande diagonale qui
+  // n'apprend rien, et il faut pouvoir y revenir d'un clic.
+  ordre: OrdreMatrice;
 }
 
 export interface AppState {
@@ -111,7 +117,7 @@ export function initialState(): AppState {
     options: { compteurs: true, libelléArête: "technology" },
     filtresActeur: { technosMasquees: [], acteursMasques: [] },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
-    filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur" },
+    filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
     selectionTechnologie: null,
     messageBandeau: null,
@@ -152,7 +158,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     palierCompare: précédent?.nom ?? null,
     filtresActeur: { technosMasquees: [], acteursMasques: [] },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
-    filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur" },
+    filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
     selectionTechnologie: null,
     messageBandeau: null,
@@ -251,6 +257,12 @@ export function withMasquerExternesMatrice(state: AppState, masquer: boolean): A
 export function withGranulariteMatrice(state: AppState, granularite: GranulariteMatrice): AppState {
   if (granularite === state.filtresMatrice.granularite) return state;
   return { ...state, filtresMatrice: { ...state.filtresMatrice, granularite, acteursMasques: [] } };
+}
+
+// L'ordre ne touche pas aux filtres : changer d'ordre ne cache ni ne révèle
+// personne, contrairement à un changement de granularité.
+export function withOrdreMatrice(state: AppState, ordre: OrdreMatrice): AppState {
+  return { ...state, filtresMatrice: { ...state.filtresMatrice, ordre } };
 }
 
 export function withActeurMasqueMatrice(state: AppState, acteur: string, masqué: boolean): AppState {

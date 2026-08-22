@@ -27,7 +27,8 @@ describe("buildMatrixTable", () => {
 
     expect(table.tagName.toLowerCase()).toBe("table");
     expect(table.querySelectorAll("tbody tr")).toHaveLength(1);
-    expect(table.querySelectorAll("thead th")).toHaveLength(2);
+    // Coin, une colonne, et la marge des totaux.
+    expect(table.querySelectorAll("thead th")).toHaveLength(3);
     expect(table.textContent).toContain("HTTP ×2");
   });
 
@@ -45,6 +46,9 @@ describe("buildMatrixTable", () => {
   // Lignes et colonnes n'ont plus le même ordre depuis qu'elles sont élaguées
   // chacune de son côté : une case « soi à soi » n'est plus sur une diagonale,
   // et la griser ne produisait qu'un bloc gris flottant au milieu du tableau.
+  // Le fond des cases vient du thème, jamais du tableau : sur un thème sombre,
+  // un fond posé ici rendait la donnée illisible. Les cases de TOTAUX portent
+  // une classe, mais aucune couleur en propre.
   it("marks no cell with a background of its own", () => {
     const matrix: MatrixResult = base.matrice({
       colonnes: ["A", "B"],
@@ -56,7 +60,8 @@ describe("buildMatrixTable", () => {
 
     const table = buildMatrixTable(matrix, () => "#2a78d6");
 
-    expect(table.querySelector("td[class]")).toBeNull();
+    expect([...table.querySelectorAll("td[class]")].filter((td) => td.className !== "matrice-total")).toEqual([]);
+    expect([...table.querySelectorAll("td")].every((td) => td.style.backgroundColor === "")).toBe(true);
   });
 
   // En mode fonctionnel la technologie est vidée (§4.5) ; la cellule ne doit
@@ -335,5 +340,47 @@ describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
       const table = buildMatrixTable(matrice(techno), () => "#7a2e3b");
       expect(table.textContent).toContain("F");
     }
+  });
+});
+
+// --- §2.10 : 143 cases, aucun total, aucun titre, et rien qui dise à un
+// lecteur d'écran de quelle case un en-tête est le titre.
+describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
+  const parc = () =>
+    base.matrice({
+      colonnes: ["A", "B"],
+      lignes: [
+        { acteur: "A", cellules: new Map([["B", [{ technologie: "HTTP", count: 3, atténué: false, noms: [] }]]]) },
+        { acteur: "B", cellules: new Map([["A", [{ technologie: "HTTP", count: 1, atténué: false, noms: [] }]]]) },
+      ],
+    });
+
+  it("porte le titre du tableau dans un caption", () => {
+    const table = buildMatrixTable(parc(), () => "#111", "Matrix — architecture reading, milestone v2");
+    expect(table.querySelector("caption")?.textContent).toContain("milestone v2");
+  });
+
+  it("n'invente pas de caption quand aucun titre n'est fourni", () => {
+    expect(buildMatrixTable(parc(), () => "#111").querySelector("caption")).toBeNull();
+  });
+
+  // Sans `scope`, une matrice de 143 cases se lit comme 143 nombres sans
+  // adresse.
+  it("dit de quelle case chaque en-tête est le titre", () => {
+    const table = buildMatrixTable(parc(), () => "#111");
+    // Le coin n'est le titre de rien : il annonce le sens de lecture des deux
+    // axes, et lui donner une portée le rattacherait à l'un des deux.
+    const enTetes = [...table.querySelectorAll("thead th")].filter((th) => !th.classList.contains("matrice-coin"));
+    expect(enTetes.length).toBeGreaterThan(0);
+    expect(enTetes.every((th) => th.getAttribute("scope") === "col")).toBe(true);
+    expect([...table.querySelectorAll("tbody th")].every((th) => th.getAttribute("scope") === "row")).toBe(true);
+  });
+
+  it("compte les flux sortants en bout de ligne et les entrants en pied de colonne", () => {
+    const table = buildMatrixTable(parc(), () => "#111");
+    const finDeLigne = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
+    expect(finDeLigne).toEqual(["3", "1"]);
+    const pied = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
+    expect(pied.slice(0, 2)).toEqual(["1", "3"]);
   });
 });
