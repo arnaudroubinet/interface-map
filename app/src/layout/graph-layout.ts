@@ -99,11 +99,16 @@ export function lignesDescription(texte: string | undefined): string[] {
 // Déclarées à ELK, les tailles doivent être connues avant le placement : c'est
 // lui qui positionne les libellés, en leur réservant de la place le long du
 // tracé. Le rendu importe ces mesures pour dessiner exactement la même boîte.
-export const HAUTEUR_PASTILLE = 15;
-const HAUTEUR_SOUS_LIGNE = 10;
+export const HAUTEUR_PASTILLE = 16;
+const HAUTEUR_SOUS_LIGNE = 12;
+
+// Largeur moyenne d'un caractère à la taille du libellé, dans la pile de
+// polices du schéma. Sous-estimée, le texte déborde de la place qu'ELK lui a
+// réservée -- c'est ICI que la taille du texte se paie.
+const LARGEUR_CAR_LIBELLE = 6.2;
 
 export function largeurPastille(texte: string): number {
-  return texte.length * 5.6 + 14;
+  return texte.length * LARGEUR_CAR_LIBELLE + 14;
 }
 
 // La technologie n'est rappelée sous le libellé que si celui-ci dit autre

@@ -293,8 +293,10 @@ function construireLibelléArête(
     g.appendChild(disque);
   }
 
-  poser(texte, yTexte, "10", pastilleCouleur ? ENCRE : couleur, true);
-  if (sousTexte) poser(sousTexte, yTexte + 10, "8.5", "#6b7480", false);
+  poser(texte, yTexte, "11", pastilleCouleur ? ENCRE : couleur, true);
+  // 8,5 px en gris pâle : le plus petit texte du schéma était aussi le moins
+  // contrasté. 10 px et un ardoise franc (10,16:1 contre 4,74:1).
+  if (sousTexte) poser(sousTexte, yTexte + 11, "10", GRIS_SECONDAIRE, false);
   return g;
 }
 
@@ -436,7 +438,7 @@ function buildFrontiereElement(node: LayoutNode): SVGGElement {
   libellé.setAttribute("font-size", "11");
   libellé.setAttribute("font-weight", "600");
   libellé.setAttribute("letter-spacing", "0.4");
-  libellé.setAttribute("fill", "#6b7480");
+  libellé.setAttribute("fill", GRIS_SECONDAIRE);
   libellé.textContent = node.label;
   g.appendChild(libellé);
 
@@ -622,6 +624,10 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = 
 // enveloppe (jusque sur les faces haut/bas) et détournés, le dessin peut
 // largement déborder de ce cadre-là.
 const MARGE_CADRE = 24;
+
+// Le gris de tout ce qui est secondaire. Pas un gris pâle : #6b7480 tenait
+// 4,74:1 sur blanc, à la limite du seuil et inconfortable en petit corps.
+const GRIS_SECONDAIRE = "#39424f";
 
 const RAYON_DISQUE = 3.5;
 // Le disque plus son écart au texte : la place que taillePastille doit réserver.

@@ -253,12 +253,20 @@ export interface MiseEnFormeÀPoser {
 // Les polices et remplissages ajoutés, dans l'ordre. Les index de départ se
 // lisent dans le styles.xml existant : on AJOUTE, on ne remplace pas, sans
 // quoi les index déjà posés par SheetJS deviendraient faux.
+// La police par défaut du classeur est Calibri 12 : rien ne doit descendre
+// SOUS elle. Un corps à 11 et des notes à 10, comme posés d'abord, écrivaient
+// l'explication en plus petit que les données qu'elle explique.
+//
+// Et pas de gris pâle sur blanc : #5B6472 tenait le seuil WCAG (5,98:1) sans
+// être confortable pour autant, surtout en italique et en petit corps. Les
+// notes passent donc à un ardoise franc, 10,16:1, et gardent l'italique pour
+// se distinguer -- c'est la FORME qui les met en retrait, pas la pâleur.
 const POLICES_AJOUTEES: Record<RôleDeStyle, string> = {
-  titre: '<font><b/><sz val="16"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
-  section: '<font><b/><sz val="12"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
-  corps: '<font><sz val="11"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
-  discret: '<font><i/><sz val="10"/><color rgb="FF5B6472"/><name val="Calibri"/><family val="2"/></font>',
-  entete: '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
+  titre: '<font><b/><sz val="18"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
+  section: '<font><b/><sz val="14"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
+  corps: '<font><sz val="12"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
+  discret: '<font><i/><sz val="12"/><color rgb="FF39424F"/><name val="Calibri"/><family val="2"/></font>',
+  entete: '<font><b/><sz val="12"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
 };
 
 const REMPLISSAGES_AJOUTES: Record<RôleDeStyle, string | null> = {

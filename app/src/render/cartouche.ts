@@ -36,11 +36,13 @@ export function descriptionAccessible(c: ContexteSchema): string {
   );
 }
 
-export const HAUTEUR_CARTOUCHE = 40;
+export const HAUTEUR_CARTOUCHE = 44;
 
-// #5b6472 sur blanc donne 5,05:1. Ne pas l'éclaircir « pour la hiérarchie » :
-// celle-ci est déjà portée par la taille et la graisse.
-const GRIS_SOUS_TITRE = "#5b6472";
+// Un gris pâle sur blanc se lit mal, même au-dessus du seuil : #5b6472 tenait
+// 5,98:1 et restait inconfortable en petit corps. L'ardoise franc donne
+// 10,16:1, et la hiérarchie reste portée par la taille et la graisse -- pas
+// par la pâleur.
+const GRIS_SOUS_TITRE = "#39424f";
 
 export function construireCartouche(c: ContexteSchema, x: number, y: number): SVGGElement {
   const ns = "http://www.w3.org/2000/svg";
@@ -58,6 +60,6 @@ export function construireCartouche(c: ContexteSchema, x: number, y: number): SV
     g.appendChild(t);
   };
   ligne(titre, 14, 14, true, ENCRE);
-  ligne(sousTitre, 30, 10, false, GRIS_SOUS_TITRE);
+  ligne(sousTitre, 31, 11.5, false, GRIS_SOUS_TITRE);
   return g;
 }
