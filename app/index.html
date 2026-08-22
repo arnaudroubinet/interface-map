@@ -377,6 +377,10 @@
      Aucune règle n'existait : la page sortait avec son rail, son banner et
      un schéma coupé. */
   @page { size: A4 landscape; margin: 10mm; }
+  /* Le document imprimable est assemblé pour l'occasion, posé dans la page le
+     temps de l'impression, puis retiré. Il ne se voit jamais à l'écran : c'est
+     un livrable, pas une vue. */
+  .print-document { display: none; }
   @media print {
     .banner, .rail, .zoom-controls, .scale-hint { display: none; }
     .render-area { overflow: visible; padding: 0; background: none; }
@@ -392,7 +396,33 @@
        les suivantes sortent sans en-têtes et deviennent illisibles. */
     table.matrix thead { display: table-header-group; }
     table.matrix tr { page-break-inside: avoid; }
-    body { background: #ffffff; }
+    /* Le papier est blanc, l'encre ne l'est pas. Les schémas portent leurs
+       couleurs en clair (PAPER/INK) parce qu'un export ne suit pas le thème de
+       qui l'affiche ; le texte de la page, lui, héritait encore de --ink --
+       donc du blanc cassé sur un thème sombre, c'est-à-dire d'un dossier
+       imprimé vide pour quiconque travaille en sombre. */
+    body { background: #ffffff; color: #14181f; }
+    .print-document, .print-document * { color: #14181f; }
+
+    /* L'impression du dossier : une planche par page, le rapport en annexe.
+       La page de l'application est masquée le temps de l'impression plutôt
+       que quittée -- le classeur vit en mémoire, la quitter le perdrait. */
+    body.printing > #app { display: none; }
+    body.printing .print-document { display: block; }
+    .print-page {
+      page-break-inside: avoid;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    /* La dernière page ne la porte pas : avec elle, le PDF sort sur une page
+       blanche finale. */
+    .print-break { page-break-after: always; }
+    .print-page > svg { max-width: 100%; height: auto; }
+    .print-appendix h1 { font-size: 18px; margin: 0 0 8px 0; }
+    /* Un titre de section ne reste pas seul en bas de page. */
+    .print-appendix h2 { font-size: 14px; margin: 14px 0 4px 0; page-break-after: avoid; }
+    .print-appendix ul { margin: 0; padding-left: 18px; }
+    .print-appendix li { font-size: 12px; page-break-inside: avoid; }
+    .print-document .print-scope { font-size: 12px; color: #39424f; margin: 0 0 12px 0; }
   }
 </style>
 </head>

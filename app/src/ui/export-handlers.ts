@@ -1,4 +1,4 @@
-import type { AppState } from "./state";
+import type { AppState, LoadedFile } from "./state";
 import { VIEW_LABEL, withMessageBandeau } from "./state";
 import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
@@ -15,8 +15,9 @@ import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadText } from "../export/download";
+import { buildPrintableDocument } from "../export/pdf-export";
 
-// The seven exports, outside mountApp's closure.
+// The eight exports, outside mountApp's closure.
 //
 // They used to live in there among eighteen nested functions, and none could
 // be exercised without mounting the whole DOM. Yet they depend on only four
@@ -68,6 +69,37 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     );
   };
 
+  // Every board of the workbook, laid out and described. Two exports carry
+  // them all -- draw.io and the PDF -- and a board must describe itself the
+  // same way in both: a page torn from the folder and a tab in draw.io say
+  // the same thing about the same drawing.
+  async function allPlacedBoards(state: AppState, file: LoadedFile) {
+    const placed = [];
+    for (const board of allBoards(file.model, shownRank(state), state.mode)) {
+      placed.push({
+        title: board.title,
+        actor: board.actor,
+        layout: await computeLayout(board.nodes, board.edges),
+        context: {
+          title: board.title,
+          reading: state.mode === "functional" ? "functional" : "architecture",
+          milestone: state.shownMilestone,
+          source: file.name,
+          date: file.dateModification ? file.dateModification.toISOString().slice(0, 10) : "save date unknown",
+          components: board.nodes.filter((n) => n.kind !== "boundary").length,
+          flows: board.edges.length,
+          technologies: new Set(board.edges.map((e) => e.technology).filter(Boolean)).size,
+          // An actor's board is the C4 context view, wherever it is carried:
+          // the page in the folder and the tab in draw.io must say what the
+          // screen says, or the note is only true where someone happened to
+          // add it.
+          layoutNote: board.actor ? "inbound left, outbound right" : undefined,
+        },
+      });
+    }
+    return placed;
+  }
+
   return {
     onExportSvg() {
       const svg = ctx.svgCourant();
@@ -113,35 +145,53 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     async onExportDrawio() {
       const state = ctx.legacyState();
       if (!state.file) return;
-      const model = state.file.model;
-      const colours = coloursOfModel(model);
-      const placed = [];
-      for (const board of allBoards(model, shownRank(state), state.mode)) {
-        const layout = await computeLayout(board.nodes, board.edges);
-        placed.push({
-          title: board.title,
-          actor: board.actor,
-          layout,
-          // Each page describes itself, like each SVG: draw.io is the format meant to
-          // CIRCULATE, and its pages used to leave with neither title nor legend.
-          context: {
-            title: board.title,
-            reading: state.mode === "functional" ? "functional" : "architecture",
-            milestone: state.shownMilestone,
-            source: state.file.name,
-            date: state.file.dateModification
-              ? state.file.dateModification.toISOString().slice(0, 10)
-              : "save date unknown",
-            components: board.nodes.filter((n) => n.kind !== "boundary").length,
-            flows: board.edges.length,
-            technologies: new Set(board.edges.map((e) => e.technology).filter(Boolean)).size,
-          },
-        });
-      }
+      const colours = coloursOfModel(state.file.model);
+      // Each page describes itself, like each SVG: draw.io is the format meant
+      // to CIRCULATE, and its pages used to leave with neither title nor legend.
+      const placed = await allPlacedBoards(state, state.file);
       downloadText(
         buildDrawio(placed, (t) => colours.get(t) ?? "#000"),
         buildExportFilename("boards", null, state.shownMilestone, "drawio", state.mode)
       );
+    },
+
+    // The folder one attaches to an architecture review: every board, one per
+    // page, and the report in appendix. The browser makes the PDF -- a library
+    // that did it would weigh more than the whole application, in a deliverable
+    // that must stay one file.
+    async onExportPdf() {
+      const state = ctx.legacyState();
+      if (!state.file) return;
+      const file = state.file;
+      const colours = coloursOfModel(file.model);
+      const placed = await allPlacedBoards(state, file);
+      const document_ = buildPrintableDocument(
+        placed,
+        file.report,
+        {
+          title: "Interface map",
+          reading: state.mode === "functional" ? "functional" : "architecture",
+          milestone: state.shownMilestone,
+          source: file.name,
+          date: file.dateModification ? file.dateModification.toISOString().slice(0, 10) : "save date unknown",
+          components: 0,
+          flows: 0,
+          technologies: 0,
+        },
+        (t) => colours.get(t) ?? "#000"
+      );
+
+      // The application's own page is hidden for the duration rather than
+      // navigated away from: the workbook lives in memory, and leaving the page
+      // would lose it.
+      document.body.appendChild(document_);
+      document.body.classList.add("printing");
+      try {
+        window.print();
+      } finally {
+        document.body.classList.remove("printing");
+        document_.remove();
+      }
     },
 
     onExportStructurizr() {

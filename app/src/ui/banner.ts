@@ -7,11 +7,12 @@ export interface BannerCallbacks {
   onExportXlsx: () => void;
   onExportMarkdown: () => void;
   onExportDrawio: () => void;
+  onExportPdf: () => void;
   onExportStructurizr: () => void;
   onExportLikeC4: () => void;
 }
 
-// The exports table. Seven today, and an eighth should not force anyone to
+// The exports table. Eight today, and a ninth should not force anyone to
 // hunt, through eighty lines of buttons, for which of the four disabling rules
 // resembles it. They are here, side by side, in one column: the question
 // "which one applies to me" is answered by reading its neighbours.
@@ -51,6 +52,9 @@ export const EXPORTS: FormatExport[] = [
   // case. What is forbidden is delivering a file that tells something other than
   // the screen -- so it is enough for the file to SAY what it is, which it now
   // does.
+  // The PDF carries every board and the report, like draw.io: it does not
+  // depend on the view that is open either.
+  { label: "PDF", rappel: "onExportPdf", active: surTout },
   { label: "Structurizr", rappel: "onExportStructurizr", active: surTout },
   { label: "LikeC4", rappel: "onExportLikeC4", active: surTout },
 ];

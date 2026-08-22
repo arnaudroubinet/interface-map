@@ -110,6 +110,7 @@ const SECTIONS: Section[] = [
       ["Excel", "The matrix as a sheet, to sort and filter it where you already do that."],
       ["Markdown", "The integrity report, ready to paste into a ticket, each line with its address."],
       ["draw.io", "Every diagram, one per tab, following the reading mode."],
+      ["PDF", "Every diagram, one per page, with the integrity report in appendix — printed by the browser."],
       ["Structurizr", "The whole park as a Structurizr DSL model — architecture only."],
       ["LikeC4", "The same park as a LikeC4 model — architecture only."],
     ],

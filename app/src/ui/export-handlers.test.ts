@@ -166,3 +166,43 @@ describe("onExportPng — the scale is chosen", () => {
     expect(dernierScalePng()).toBe(4);
   });
 });
+
+// --- A7 / A5: an actor's board is the C4 context view wherever it is carried.
+// The note lived only in the on-screen title block, so the same drawing said
+// two different things depending on which door it left by.
+describe("exports — a board says the same thing on every door it leaves by", () => {
+  // The shared fixture has one actor and a consumer that is not one, so it
+  // produces no actor board at all: the note needs two actors that exchange.
+  const twoActors = withLoadedFile(initialState(), {
+    name: "carto.xlsx",
+    model: base.template({
+      actors: [base.actor({ name: "Tatooine" }), base.actor({ name: "B" })],
+      groups: [base.group()],
+      actorTypes: [base.actorType()],
+      flowTypes: [base.flowType()],
+      interfaces: [base.iface({ providerName: "Tatooine" })],
+      consumptions: [base.consumption({ consumerName: "B" })],
+      fxSheetNames: ["FX_A_HTTP"],
+    }),
+    report,
+    dateModification: null,
+  });
+
+  it("carries the context note on an actor's board, in the draw.io file", async () => {
+    const { handlers } = context(twoActors);
+    await handlers.onExportDrawio();
+    const drawio = downloads.find((d) => d.name.endsWith(".drawio"))?.content ?? "";
+    expect(drawio).toContain("(actor)");
+    expect(drawio).toContain("inbound left, outbound right");
+  });
+
+  // The three fixed boards are not context views: the note there would claim a
+  // reading the drawing does not support.
+  it("does not carry it on a board that is not one actor's context", async () => {
+    const { handlers } = context(twoActors);
+    await handlers.onExportDrawio();
+    const drawio = downloads.find((d) => d.name.endsWith(".drawio"))?.content ?? "";
+    const groupToGroup = drawio.slice(0, drawio.indexOf("(actor)"));
+    expect(groupToGroup).not.toContain("inbound left, outbound right");
+  });
+});
