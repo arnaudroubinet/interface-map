@@ -11,6 +11,8 @@ import type {
   Consumption,
   BuildModelResult,
   BlockingError,
+  ReferentialActor,
+  ReferentialTechnology,
 } from "./model";
 import { matchesSheetName, hasPrefix, findHeader } from "./headers";
 import { normalizeText } from "../shared/text";
@@ -75,7 +77,7 @@ export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Critica
 // The workbook's schema number, written on a hidden sheet. A monotonic
 // integer, not a semver: it serves only to know which transformations to
 // apply, and in what order.
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 
@@ -288,6 +290,31 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     }))
     .filter((t) => t.type !== "");
 
+  // The two referential sheets. Absent, they yield nothing: a workbook that
+  // declares no referential is not incomplete, it simply has none.
+  const refActorsSheet = findSheet(workbook.sheets, REF_ACTORS_SHEET);
+  const headerMapRefActors = buildHeaderMap(refActorsSheet?.headers ?? [], REF_ACTOR_COLUMNS);
+  const referentialActors: ReferentialActor[] = (refActorsSheet?.rows ?? [])
+    .map(({ values: r }) => ({
+      name: get(r, headerMapRefActors, "Name"),
+      group: get(r, headerMapRefActors, "Group"),
+      actorType: get(r, headerMapRefActors, "Actor type"),
+      owner: get(r, headerMapRefActors, "Owner"),
+      description: get(r, headerMapRefActors, "Description"),
+    }))
+    .filter((a) => a.name !== "");
+
+  const refTechnologiesSheet = findSheet(workbook.sheets, REF_TECHNOLOGIES_SHEET);
+  const headerMapRefTechnologies = buildHeaderMap(refTechnologiesSheet?.headers ?? [], REF_TECHNOLOGY_COLUMNS);
+  const referentialTechnologies: ReferentialTechnology[] = (refTechnologiesSheet?.rows ?? [])
+    .map(({ values: r }) => ({
+      type: get(r, headerMapRefTechnologies, "Flow type"),
+      direction: get(r, headerMapRefTechnologies, "Direction"),
+      description: get(r, headerMapRefTechnologies, "Description"),
+      colour: get(r, headerMapRefTechnologies, "Colour"),
+    }))
+    .filter((t) => t.type !== "");
+
   const milestonesSheet = findSheet(workbook.sheets, "Milestones");
   const milestones: Milestone[] = [];
   if (milestonesSheet) {
@@ -397,6 +424,8 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       missingOptionalColumns,
       schemaVersion: readSchemaVersion(workbook.sheets),
       savedAt: workbook.savedAt,
+      referentialActors,
+      referentialTechnologies,
     },
   };
 }

@@ -54,6 +54,8 @@ const modelWithFlows: ParsedModel = {
   missingOptionalColumns: [],
   schemaVersion: SCHEMA_VERSION,
   savedAt: null,
+  referentialActors: [],
+  referentialTechnologies: [],
 };
 
 const model: ParsedModel = {
@@ -72,6 +74,8 @@ const model: ParsedModel = {
   missingOptionalColumns: [],
   schemaVersion: SCHEMA_VERSION,
   savedAt: null,
+  referentialActors: [],
+  referentialTechnologies: [],
 };
 
 const report: IntegrityReport = { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 };

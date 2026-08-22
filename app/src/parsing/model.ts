@@ -145,6 +145,26 @@ export interface Consumption extends Validity, Location {
   sheet: string;
 }
 
+// A row of the external referential. It carries no Location: nothing points at
+// it in the report -- an anomaly is reported where the value is USED, on the
+// Actors or FlowTypes sheet, which is where it can be corrected.
+export interface ReferentialActor {
+  name: string;
+  group: string;
+  actorType: string;
+  owner: string;
+  description: string;
+}
+
+export interface ReferentialTechnology {
+  type: string;
+  direction: string;
+  description: string;
+  // Hexadecimal, as the workbook's own Colour column carries it. Empty when the
+  // referential declares none.
+  colour: string;
+}
+
 export interface ParsedModel {
   actors: Actor[];
   groups: Group[];
@@ -164,6 +184,11 @@ export interface ParsedModel {
   // introduction. Decides whether the tool can read this file as it stands.
   schemaVersion: number;
   savedAt: Date | null;
+  // What the external referential publishes, when the workbook carries one.
+  // Empty otherwise -- and an empty referential is not a fault: the workbook
+  // must work without one.
+  referentialActors: ReferentialActor[];
+  referentialTechnologies: ReferentialTechnology[];
 }
 
 export interface BlockingError {

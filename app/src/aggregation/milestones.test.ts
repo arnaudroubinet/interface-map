@@ -15,6 +15,7 @@ function model(milestones: Milestone[]): ParsedModel {
     actors: [], actorTypes: [], groups: [], groupsSheetMissing: false, milestones,
     flowTypes: [], interfaces: [], consumptions: [], fxSheetNames: [],
     missingOptionalColumns: [], schemaVersion: SCHEMA_VERSION, savedAt: null,
+    referentialActors: [], referentialTechnologies: [],
   };
 }
 

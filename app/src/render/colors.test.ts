@@ -25,6 +25,7 @@ describe("couleursDuModele", () => {
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,
+    referentialActors: [], referentialTechnologies: [],
   });
 
   const SEIZE = ["Kafka", "SFTP", "HTTP", "File", "SMTP", "JMS", "LDAP", "NTP",
@@ -70,6 +71,7 @@ describe("coloursOfModel — a colour declared by the referential", () => {
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,
+    referentialActors: [], referentialTechnologies: [],
   });
 
   it("honours the declared colour", () => {
@@ -120,6 +122,7 @@ describe("coloursOfModel — an undeclared technology takes no hue", () => {
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,
+    referentialActors: [], referentialTechnologies: [],
   });
 
   it("ignores a technology absent from the referential", () => {

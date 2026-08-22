@@ -37,6 +37,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION,
     savedAt: null,
+    referentialActors: [],
+    referentialTechnologies: [],
     ...o,
   };
 }

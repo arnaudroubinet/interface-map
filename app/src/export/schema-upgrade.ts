@@ -3,6 +3,7 @@ import { SCHEMA_VERSION } from "../parsing/build-model";
 import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsumption } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
 import type { WorkbookData } from "./template-export";
+import { NO_REFERENTIAL } from "./datamashup";
 
 // The anchor point of every converted workbook: "all of this already existed
 // at the moment of the switch". It does not claim to say when each object
@@ -240,6 +241,12 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // be guided by a drop-down, which a cell holding several names could not.
   //
   { de: 3, vers: 4, appliquer: (model) => moveRelays(model) },
+  // The workbook gains its two referential sheets and the queries that fill
+  // them. The model itself has nothing to convert -- they are born at writing
+  // time, like the formulas of v2. The step exists so that the workbooks
+  // already distributed are recognised as stale and go back through the
+  // rebuild, which is what writes the queries.
+  { de: 4, vers: 5, appliquer: (model) => model },
 ];
 
 // Each v3 relay finds the consumption it named again: the relayer's one
@@ -347,6 +354,7 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // Excel refuses is dropped -- the integrity check already reports it, and
     // manufacturing an unreadable workbook would help nobody.
     fx: [...byTab.entries()].map(([name, rows]) => ({ name, rows })),
+    referentials: NO_REFERENTIAL,
   };
 }
 

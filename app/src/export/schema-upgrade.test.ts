@@ -46,6 +46,12 @@ describe("the upgrade chain", () => {
     }
     expect(expected).toBe(SCHEMA_VERSION);
   });
+
+  it("takes a v4 workbook to v5 without transforming the model", () => {
+    expect(SCHEMA_VERSION).toBe(5);
+    const step = UPGRADE_STEPS.find((s) => s.de === 4);
+    expect(step?.vers).toBe(5);
+  });
 });
 
 describe("upgrading a workbook in the original format", () => {

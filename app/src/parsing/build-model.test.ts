@@ -375,3 +375,42 @@ describe("expectedFxSheet — a name Excel always accepts", () => {
     }
   });
 });
+
+describe("external referential", () => {
+  it("reads both referential sheets when they carry rows", () => {
+    const refActors = sheet("RefActors", [
+      { Name: "Tatooine", Group: "Core", "Actor type": "Application", Owner: "Ada", Description: "The mothership" },
+    ]);
+    const refTechnologies = sheet("RefTechnologies", [
+      { "Flow type": "HTTP", Direction: "provider to consumer", Description: "Synchronous", Colour: "#1f5fae" },
+    ]);
+    const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk, refActors, refTechnologies]));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.model.referentialActors).toEqual([
+      { name: "Tatooine", group: "Core", actorType: "Application", owner: "Ada", description: "The mothership" },
+    ]);
+    expect(result.model.referentialTechnologies).toEqual([
+      { type: "HTTP", direction: "provider to consumer", description: "Synchronous", colour: "#1f5fae" },
+    ]);
+  });
+
+  it("leaves both lists empty when the sheets are absent, without complaining", () => {
+    const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk]));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.model.referentialActors).toEqual([]);
+    expect(result.model.referentialTechnologies).toEqual([]);
+  });
+
+  it("drops a nameless referential row rather than carrying a blank entry", () => {
+    const refActors = sheet("RefActors", [
+      { Name: "", Group: "Core" },
+      { Name: "Alderaan", Group: "Core" },
+    ]);
+    const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk, refActors]));
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.model.referentialActors.map((a) => a.name)).toEqual(["Alderaan"]);
+  });
+});

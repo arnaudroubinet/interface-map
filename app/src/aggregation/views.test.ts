@@ -285,6 +285,8 @@ describe("mode fonctionnel", () => {
       missingOptionalColumns: [],
       schemaVersion: SCHEMA_VERSION,
       savedAt: null,
+      referentialActors: [],
+      referentialTechnologies: [],
     };
   }
 
