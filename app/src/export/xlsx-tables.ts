@@ -1,60 +1,60 @@
 import * as XLSX from "xlsx";
 
-// SheetJS n'écrit pas les tableaux structurés d'Excel : dans son writer,
-// « tableParts » n'est qu'un commentaire. Mais il expose CFB, qui sait relire
-// le paquet .xlsx comme un zip, y ajouter des entrées et le réécrire. On
-// complète donc le fichier après coup, sans dépendance supplémentaire.
+// SheetJS does not write Excel's structured tables: in its writer,
+// "tableParts" is nothing but a comment. But it exposes CFB, which can reread
+// the .xlsx package as a zip, add entries to it and write it back. The file is
+// therefore completed afterwards, with no extra dependency.
 //
-// Un vrai tableau apporte ce qu'un simple autofiltre ne donne pas : la plage
-// s'étend d'elle-même quand on ajoute une ligne (les formats, les validations
-// et les formules suivent), les lignes sont zébrées, et les colonnes se
-// désignent par leur nom.
+// A real table gives what a plain autofilter does not: the range extends by
+// itself when a row is added (formats, validations and formulas follow), the
+// rows are banded, and the columns are named.
+//
 
-// La colonne d'un tableau structuré, visée par sa référence -- Tbl<Feuille>
-// [Intitulé] -- plutôt que par une plage OFFSET/COUNTA : le tableau s'étend
-// de lui-même quand on ajoute un acteur ou un type de flux, la formule n'a
-// plus rien à recalculer. Un utilisateur réel avait vu l'ancienne formule
-// déclencher, dans son classeur, l'avertissement Excel de « liaisons avec une
-// ou plusieurs sources externes » -- le même symptôme qu'un renvoi vers un
-// AUTRE CLASSEUR -- et l'a remplacée à la main par une référence de tableau,
-// qui fonctionne. C'est cette forme qu'on reprend ici.
+// A structured table's column, targeted by its reference -- Tbl<Sheet>[Heading]
+// -- rather than by an OFFSET/COUNTA range: the table extends by itself when
+// an actor or a flow type is added, and the formula has nothing left to
+// recompute. A real user had seen the old formula trigger, in their workbook,
+// Excel's warning about "links to one or more external sources" -- the same
+// symptom as a reference to ANOTHER WORKBOOK -- and had replaced it by hand
+// with a table reference, which works. That is the form taken up here.
+//
 export interface NamedList {
   name: string;
   sheet: string;
   heading: string;
 }
 
-// Une colonne de saisie contrainte par une liste. La formule est le plus
-// souvent un simple nom de plage -- qui en est une -- mais elle peut aussi
-// calculer sa liste, pour les listes dépendantes des onglets FX_.
+// An entry column constrained by a list. The formula is most often a plain
+// range name -- which is one -- but it may also compute its list, for the FX_
+// sheets' dependent lists.
 export interface ValidationToApply {
   sheet: string;
   column: string;
-  // Absente sur une colonne de saisie libre : Excel accepte une validation
-  // sans contrainte, dont le seul effet est l'infobulle. C'est ce qui permet
-  // d'expliquer AUSSI les colonnes qu'aucune liste ne guide -- elles étaient
-  // les seules à ne rien dire, alors que ce sont celles où l'on hésite.
+  // Absent on a free-entry column: Excel accepts a validation with no
+  // constraint, whose only effect is the tooltip. That is what makes it
+  // possible to explain the columns no list guides AS WELL -- they were the
+  // only ones saying nothing, although they are the ones people hesitate over.
   formule?: string;
-  // La bulle qu'Excel affiche à la sélection d'une cellule de la colonne. Le
-  // drapeau showInputMessage était posé depuis toujours, sans texte à montrer.
+  // The bubble Excel shows when a cell of the column is selected. The
+  // showInputMessage flag had been set since day one, with no text to show.
   prompt?: { title: string; text: string };
 }
 
 export interface TableToApply {
-  // Nom de la feuille, tel qu'il apparaît dans le classeur.
+  // The sheet's name, as it appears in the workbook.
   sheet: string;
-  // Intitulés de colonnes, dans l'ordre. Ils doivent reprendre exactement la
-  // première ligne : Excel refuse un tableau dont l'en-tête déclaré diffère.
+  // Column headings, in order. They must reproduce the first row exactly: Excel
+  // refuses a table whose declared header differs.
   columns: readonly string[];
-  // Nombre de lignes de données déjà présentes.
+  // The number of data rows already present.
   rows: number;
-  // Colonnes calculées, par intitulé : Excel recopie la formule sur chaque
-  // ligne ajoutée au tableau, et la restaure si on la remplace par une saisie.
+  // Calculated columns, by heading: Excel copies the formula onto every row
+  // added to the table, and restores it if it is replaced by a typed value.
   formulaByColumn?: Readonly<Record<string, string>>;
-  // Position (0 = A) de la première colonne du tableau sur la feuille. Permet
-  // à plusieurs tableaux de cohabiter côte à côte sur une même feuille --
-  // Listes en pose un par vocabulaire, chacun dimensionné à son seul contenu,
-  // plutôt qu'un tableau unique rembourré à la hauteur du plus long.
+  // The position (0 = A) of the table's first column on the sheet. Lets several
+  // tables live side by side on one sheet -- Lists puts one per vocabulary,
+  // each sized to its own content, rather than a single table padded to the
+  // height of the longest.
   startColumn?: number;
 }
 
@@ -71,11 +71,11 @@ function escapeXml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// Empreinte déterministe (djb2) d'une chaîne, en base36. Sert à départager
-// deux tableaux dont le nom assaini coïncide, à partir du nom de feuille
-// D'ORIGINE plutôt que d'un compteur de position : le résultat ne dépend donc
-// pas de l'ordre dans lequel les feuilles sont fournies, qui peut varier d'une
-// génération à l'autre pour les mêmes données.
+// A deterministic fingerprint (djb2) of a string, in base36. Used to separate
+// two tables whose sanitised names coincide, from the ORIGINAL sheet name
+// rather than from a positional counter: the result therefore does not depend
+// on the order the sheets are supplied in, which can vary from one generation
+// to the next for the same data.
 function fingerprint(text: string): string {
   let h = 5381;
   for (let i = 0; i < text.length; i++) h = (h * 33) ^ text.charCodeAt(i);
@@ -89,15 +89,15 @@ function sanitise(text: string): string {
     .replace(/[^A-Za-z0-9]/g, "_");
 }
 
-// Un nom de tableau est un nom défini Excel : ni espace, ni ponctuation, et il
-// ne commence pas par un chiffre.
+// A table name is an Excel defined name: no space, no punctuation, and it does
+// not start with a digit.
 //
-// Le préfixe « Tbl » nommait les tableaux pour la macro GenererOngletsManquants
-// cherche « TblInterfaces » sur la feuille Interfaces. Un autre nom et elle
-// s'arrête sur « Tableau TblInterfaces introuvable ».
+// The "Tbl" prefix named the tables for the GenererOngletsManquants macro,
+// which looks for "TblInterfaces" on the Interfaces sheet. Under another name
+// it stops on "Tableau TblInterfaces introuvable".
 //
-// `colonne`, quand elle est fournie, distingue plusieurs tableaux posés sur la
-// même feuille -- Listes en porte un par vocabulaire.
+// `column`, when supplied, tells apart several tables laid on the same sheet
+// -- Lists carries one per vocabulary.
 export function nomDeTableau(sheet: string, column?: string): string {
   const base = `Tbl${sanitise(sheet)}`;
   return column ? `${base}_${sanitise(column)}` : base;
@@ -138,8 +138,8 @@ function xmlDesRelations(idTable: number): string {
   );
 }
 
-// Les types publiés par SheetJS ne décrivent pas le conteneur CFB : on le
-// manipule via une forme minimale plutôt que de plier le code à leurs lacunes.
+// The types SheetJS publishes do not describe the CFB container: it is handled
+// through a minimal shape rather than bending the code to their gaps.
 export type Conteneur = Parameters<typeof XLSX.CFB.write>[0];
 
 export function readPart(cfb: Conteneur, path: string): string | null {
@@ -153,15 +153,15 @@ export function writePart(cfb: Conteneur, path: string, content: string): void {
   XLSX.CFB.utils.cfb_add(cfb, path, bytes as unknown as number[]);
 }
 
-// Jusqu'où porter les validations d'une feuille : au moins de quoi saisir
-// confortablement dans un classeur neuf, et toujours au-delà de la dernière
-// ligne réellement écrite. Figée à 1000, la validation lâchait en silence sur
-// un classeur plus gros -- la 1001e saisie n'était plus contrôlée du tout.
+// How far a sheet's validations reach: at least enough to type comfortably in
+// a brand-new workbook, and always beyond the last row actually written.
+// Frozen at 1000, the validation gave up silently on a bigger workbook -- the
+// 1001st entry was no longer checked at all.
 const PLANCHER_VALIDATION = 1000;
 
-// N'ajoute que les <row> manquantes : la dimension de la feuille se règle à
-// part (poserLesTableaux), une fois connue l'étendue de TOUS les tableaux
-// qu'elle porte -- une feuille comme Listes en reçoit plusieurs.
+// Adds only the missing <row>s: the sheet's dimension is set separately
+// (applyTheTables), once the extent of ALL the tables it carries is known --
+// a sheet like Lists receives several.
 function materialiseRows(sheet: string, upTo: number): string {
   const present = new Set(
     [...sheet.matchAll(/<row r="(\d+)"/g)].map((m) => Number(m[1]))
@@ -173,9 +173,9 @@ function materialiseRows(sheet: string, upTo: number): string {
   return sheet.replace("</sheetData>", `${missing.join("")}</sheetData>`);
 }
 
-// La dernière colonne et la dernière ligne d'une référence de dimension --
-// une plage ("A1:N1000") ou, sur une feuille à une seule cellule, une cellule
-// nue ("A1").
+// The last column and the last row of a dimension reference -- a range
+// ("A1:N1000") or, on a single-cell sheet, a bare cell ("A1").
+//
 function declaredExtent(ref: string): { columnIdx: number; row: number } {
   const last = ref.split(":").pop()!;
   const m = last.match(/^([A-Z]+)(\d+)$/);
@@ -183,10 +183,10 @@ function declaredExtent(ref: string): { columnIdx: number; row: number } {
   return { columnIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
 }
 
-// La référence de chaque nom défini vise le tableau réellement posé pour la
-// liste concernée -- pas nomDeTableau(feuille) recalculé à côté, qui ignorait
-// qu'une feuille comme Listes en porte plusieurs et se serait mépris sur
-// lequel.
+// Each defined name's reference targets the table actually laid down for the
+// list concerned -- not tableName(sheet) recomputed alongside, which ignored
+// that a sheet like Lists carries several and would have got the wrong one.
+//
 function definedNamesXml(
   lists: readonly NamedList[],
   tables: readonly TableToApply[],
@@ -197,10 +197,10 @@ function definedNamesXml(
     .map((l) => {
       const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.heading));
       if (!table) throw new Error(`list "${l.name}" : aucun table sur "${l.sheet}" ne porte "${l.heading}"`);
-      // Un tableau couvre toujours au moins une ligne de données (voir
-      // poserLesTableaux plus bas), même sur un classeur vierge : la référence
-      // vise donc une plage d'une cellule vide plutôt qu'une plage nulle, ce
-      // qu'Excel refuse dans une validation.
+      // A table always covers at least one data row (see applyTheTables below),
+      // even on a blank workbook: the reference therefore targets a one-cell
+      // empty range rather than a null range, which Excel refuses in a
+      // validation.
       const reference = `${nomParTableau.get(table)}[${escapeXml(l.heading)}]`;
       return `<definedName name="${l.name}">${reference}</definedName>`;
     })
@@ -217,8 +217,8 @@ function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: n
         ? `promptTitle="${escapeXml(v.prompt.title)}" prompt="${escapeXml(v.prompt.text)}" `
         : "";
       const plage = `sqref="${v.column}2:${v.column}${upTo}"`;
-      // Sans formule, une validation « none » : aucune contrainte, seulement
-      // l'infobulle. Excel l'accepte et n'affiche aucune alerte.
+      // With no formula, a "none" validation: no constraint, only the tooltip.
+      // Excel accepts it and shows no alert.
       if (!v.formule) {
         return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${prompt}${plage}/>`;
       }
@@ -231,36 +231,36 @@ function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: n
   return `<dataValidations count="${validations.length}">${items}</dataValidations>`;
 }
 
-// La mise en forme d'une feuille. SheetJS en version communautaire SUPPRIME
-// les styles de cellule à l'écriture -- vérifié : la cellule ressort sans
-// attribut `s` et styles.xml sans police ajoutée. Le classeur n'avait donc
-// aucune présentation, et l'onglet d'explication se lisait comme un pavé de
-// texte brut.
+// A sheet's formatting. SheetJS in its community build DROPS cell styles on
+// write -- verified: the cell comes out with no `s` attribute and styles.xml
+// with no added font. The workbook therefore had no presentation at all, and
+// the explanation sheet read like a slab of raw text.
 //
-// On les pose donc ici, dans la même passe que les tableaux : quatre rôles,
-// pas davantage. Un jeu ouvert de styles deviendrait un moteur de style, ce
-// qu'un classeur de saisie n'a pas à contenir.
+//
+// So they are applied here, in the same pass as the tables: four roles, no
+// more. An open set of styles would become a styling engine, which an entry
+// workbook has no business containing.
 export type StyleRole = "title" | "section" | "body" | "aside" | "header";
 
 export interface StyleToApply {
   sheet: string;
-  // Adresses de cellules (« A1 », « B12 »), pas des plages : on ne stylise que
-  // ce qui existe, et l'appelant sait exactement quelles lignes il a écrites.
+  // Cell addresses ("A1", "B12"), not ranges: only what exists is styled, and
+  // the caller knows exactly which rows it wrote.
   cells: readonly string[];
   role: StyleRole;
 }
 
-// Les polices et remplissages ajoutés, dans l'ordre. Les index de départ se
-// lisent dans le styles.xml existant : on AJOUTE, on ne remplace pas, sans
-// quoi les index déjà posés par SheetJS deviendraient faux.
-// La police par défaut du classeur est Calibri 12 : rien ne doit descendre
-// SOUS elle. Un corps à 11 et des notes à 10, comme posés d'abord, écrivaient
-// l'explication en plus petit que les données qu'elle explique.
+// The fonts and fills added, in order. The starting indexes are read from the
+// existing styles.xml: this ADDS, it does not replace, failing which the
+// indexes SheetJS already set would become wrong.
+// The workbook's default font is Calibri 12: nothing must go BELOW it. A body
+// at 11 and notes at 10, as first set, wrote the explanation smaller than the
+// data it explains.
 //
-// Et pas de gris pâle sur blanc : #5B6472 tenait le seuil WCAG (5,98:1) sans
-// être confortable pour autant, surtout en italique et en petit corps. Les
-// notes passent donc à un ardoise franc, 10,16:1, et gardent l'italique pour
-// se distinguer -- c'est la FORME qui les met en retrait, pas la pâleur.
+// And no pale grey on white: #5B6472 held the WCAG threshold (5.98:1) without
+// being comfortable for all that, especially in italic and at small sizes. The
+// notes therefore move to a frank slate, 10.16:1, and keep the italic to stand
+// apart -- it is the SHAPE that sets them back, not the paleness.
 const ADDED_FONTS: Record<StyleRole, string> = {
   title: '<font><b/><sz val="18"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
   section: '<font><b/><sz val="14"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
@@ -279,9 +279,9 @@ const ADDED_FILLS: Record<StyleRole, string | null> = {
 
 const ROLES: StyleRole[] = ["title", "section", "body", "aside", "header"];
 
-// Le texte long doit REVENIR À LA LIGNE dans sa cellule. Sans ça il faut
-// couper les phrases à la main dans le code -- ce que faisait l'onglet
-// d'explication, et qui se défait dès qu'on élargit la colonne.
+// Long text must WRAP inside its cell. Without that, sentences have to be
+// broken by hand in the code -- which is what the explanation sheet did, and
+// which comes undone as soon as the column is widened.
 function xfForRole(role: StyleRole, fontId: number, fillId: number | null): string {
   const result = role === "body" || role === "section" ? ' applyAlignment="1"' : "";
   const alignment =
@@ -290,7 +290,7 @@ function xfForRole(role: StyleRole, fontId: number, fillId: number | null): stri
   return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${result}>${alignment}</xf>`;
 }
 
-// Ajoute nos styles à ceux de SheetJS et rend l'index de chacun.
+// Adds our styles to SheetJS's and returns the index of each.
 function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
   const count = (tag: string) => Number(new RegExp(`<${tag} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
   const nbPolices = count("fonts");
@@ -330,7 +330,7 @@ function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, n
   return { xml, index };
 }
 
-// Pose l'attribut `s` sur les cellules visées d'une feuille déjà écrite.
+// Sets the `s` attribute on the targeted cells of an already-written sheet.
 function applyTheStyles(sheet: string, parCellule: Map<string, number>): string {
   return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, ref: string, attributs: string, closed: string) => {
     const style = parCellule.get(ref);
@@ -345,8 +345,8 @@ export interface OoxmlExtras {
   lists?: readonly NamedList[];
   validations?: readonly ValidationToApply[];
   styles?: readonly StyleToApply[];
-  // Les feuilles dont la ligne d'en-tête reste visible au défilement. Une
-  // feuille de saisie de trente lignes se remplit à l'aveugle sans ça.
+  // The sheets whose header row stays visible while scrolling. A thirty-row
+  // entry sheet is filled in blind without it.
   panes?: readonly string[];
 }
 
@@ -365,7 +365,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   const workbook = readPart(cfb, "/xl/workbook.xml");
   if (!workbook) throw new Error("classeur illisible : xl/workbook.xml absent");
 
-  // Ordre des feuilles dans workbook.xml = ordre des fichiers sheetN.xml.
+  // The order of sheets in workbook.xml = the order of the sheetN.xml files.
   const names = [...workbook.matchAll(/<sheet name="([^"]*)"/g)].map((m) =>
     m[1].replace(/&apos;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&")
   );
@@ -373,10 +373,10 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   let contentTypes = readPart(cfb, "/[Content_Types].xml");
   if (!contentTypes) throw new Error("classeur illisible : [Content_Types].xml absent");
 
-  // Plusieurs tableaux peuvent cohabiter sur une même feuille -- Listes en
-  // pose un par vocabulaire (colonneDépart) -- et ne doivent y laisser qu'un
-  // seul <tableParts>, qu'un seul jeu de relations : on groupe donc par
-  // feuille plutôt que de traiter chaque tableau isolément.
+  // Several tables can live on one sheet -- Lists puts one per vocabulary
+  // (startColumn) -- and must leave only one <tableParts> there, only one set
+  // of relations: so they are grouped by sheet rather than each table being
+  // handled in isolation.
   const bySheet = new Map<string, TableToApply[]>();
   for (const table of tables) {
     const list = bySheet.get(table.sheet) ?? [];
@@ -397,11 +397,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     let sheet = readPart(cfb, sheetPath);
     if (!sheet) throw new Error(`sheet "${sheetName}" absente du paquet`);
 
-    // Ce que SheetJS avait déjà déclaré avant qu'on y touche : sur Listes,
-    // c'est la zone d'appoint (colonnes J à Q, jusqu'à la ligne 1000) ; sur un
-    // onglet FX_, c'est la colonne qui porte la cellule nommant l'onglet. La
-    // dimension finale de la feuille est le maximum de cette étendue et de
-    // celle des tableaux qu'on pose -- jamais l'une à la place de l'autre.
+    // What SheetJS had already declared before this touched it: on Lists, that
+    // is the helper area (columns J to Q, up to row 1000); on an FX_ sheet, it
+    // is the column carrying the cell that names the sheet. The sheet's final
+    // dimension is the maximum of that extent and of the tables' -- never one
+    // in place of the other.
     const dimInitiale = sheet.match(/<dimension ref="([^"]*)"\/>/);
     const initialExtent = dimInitiale ? declaredExtent(dimInitiale[1]) : { columnIdx: 0, row: 1 };
 
@@ -412,23 +412,23 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     for (const table of tablesOfSheet) {
       idTable += 1;
       const startColumn = table.startColumn ?? 0;
-      // Un tableau couvre son en-tête ET au moins une ligne : c'est ce qu'Excel
-      // écrit lui-même pour un tableau vide, et il refuse un tableau sans corps.
+      // A table covers its header AND at least one row: that is what Excel itself
+      // writes for an empty table, and it refuses a table with no body.
       const lastRow = 1 + Math.max(1, table.rows);
       const lastColumnIndex = startColumn + table.columns.length - 1;
       const ref = `${XLSX.utils.encode_col(startColumn)}1:${XLSX.utils.encode_col(lastColumnIndex)}${lastRow}`;
-      // Plusieurs tableaux sur une même feuille se distinguent par leurs
-      // colonnes -- nomDeTableau(feuille) seul retomberait sur le même nom
-      // pour chacun.
+      // Several tables on one sheet are told apart by their columns --
+      // tableName(sheet) alone would fall back to the same name for each.
+      //
       let name =
         tablesOfSheet.length > 1
           ? nomDeTableau(sheetName, table.columns.join("_"))
           : nomDeTableau(sheetName);
-      // Deux feuilles différentes peuvent s'assainir au même nom -- deux types
-      // de flux qui ne diffèrent que par la ponctuation, par exemple. Un nom
-      // de tableau en double n'est pas une curiosité qu'Excel tolère : ECMA-376
-      // §18.5.1.2 exige un displayName unique dans le classeur, et Excel
-      // résout la collision en supprimant l'un des deux tableaux, en silence.
+      // Two different sheets can sanitise to the same name -- two flow types
+      // differing only in punctuation, for instance. A duplicate table name is
+      // not a curiosity Excel tolerates: ECMA-376 §18.5.1.2 requires a unique
+      // displayName within the workbook, and Excel resolves the collision by
+      // deleting one of the two tables, silently.
       if (usedNames.has(name)) {
         const disambiguated = `${name}_${fingerprint(sheetName)}`;
         name = usedNames.has(disambiguated) ? `${disambiguated}_${idTable}` : disambiguated;
@@ -451,8 +451,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         `<Override PartName="/xl/tables/table${idTable}.xml" ContentType="${TYPE_TABLE}"/></Types>`
       );
     }
-    // Un tablePart par relation, dans le même ordre : rId1 pour le premier
-    // tableau posé sur cette feuille, rId2 pour le second, etc.
+    // One tablePart per relation, in the same order: rId1 for the first table
+    // laid on this sheet, rId2 for the second, and so on.
     const tablePartsXml = relations.map((_, i) => `<tablePart r:id="rId${i + 1}"/>`).join("");
 
     writePart(
@@ -462,23 +462,23 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${relations.join("")}</Relationships>`
     );
 
-    // L'autofiltre de feuille ferait doublon avec celui du tableau, sur la même
-    // plage. C'est aussi lui qui posait le nom défini _xlnm._FilterDatabase,
-    // que SheetJS échappait mal dès que le nom de feuille portait une
-    // apostrophe -- Excel proposait alors de réparer le classeur.
-    // Un tableau couvre au moins une ligne de données. Sur une feuille vide,
-    // cette ligne n'existe pas dans le XML : la dimension s'arrête à l'en-tête
-    // et aucune <row> ne suit. Excel voit alors un tableau qui déborde de la
-    // zone utilisée et propose de réparer le classeur. On matérialise donc les
-    // lignes manquantes -- une <row> sans cellule est parfaitement légale --
-    // jusqu'à la plus exigeante des tableaux de la feuille.
+    // The sheet autofilter would duplicate the table's, over the same range. It
+    // is also what set the defined name _xlnm._FilterDatabase, which SheetJS
+    // escaped badly as soon as the sheet name carried an apostrophe -- Excel
+    // then offered to repair the workbook.
+    // A table covers at least one data row. On an empty sheet, that row does
+    // not exist in the XML: the dimension stops at the header and no <row>
+    // follows. Excel then sees a table spilling out of the used area and offers
+    // to repair the workbook. So the missing rows are materialised -- a <row>
+    // with no cell is perfectly legal -- up to the most demanding of the
+    // sheet's tables.
     sheet = materialiseRows(sheet, lastSheetRow).replace(/<autoFilter[^>]*\/>/, "");
-    // Les validations de la feuille. L'ordre des éléments d'une feuille est
-    // imposé par le schéma OOXML : dataValidations vient après sheetData et
-    // avant ignoredErrors, donc juste après la fermeture des données.
+    // The sheet's validations. The order of a sheet's elements is imposed by
+    // the OOXML schema: dataValidations comes after sheetData and before
+    // ignoredErrors, hence right after the data closes.
     const desValidations = xmlDesValidations(validations.filter((v) => v.sheet === sheetName), lastSheetRow);
-    // « tableParts » se place en dernier dans une feuille, juste avant sa
-    // fermeture : l'ordre des éléments est imposé par le schéma OOXML.
+    // "tableParts" goes last in a sheet, right before it closes: the order of
+    // elements is imposed by the OOXML schema.
     sheet = sheet
       .replace("</sheetData>", `</sheetData>${desValidations}`)
       .replace("</worksheet>", `<tableParts count="${relations.length}">${tablePartsXml}</tableParts></worksheet>`)
@@ -490,10 +490,10 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     writePart(cfb, sheetPath, sheet);
   }
 
-  // SheetJS écrit toujours une partie « metadata » décrivant les tableaux
-  // dynamiques, à laquelle aucune cellule ne se rattache ici. Une partie
-  // orpheline n'apporte rien et donne à Excel une occasion de plus de trouver
-  // le classeur douteux : on la retire, avec sa déclaration et sa relation.
+  // SheetJS always writes a "metadata" part describing dynamic arrays, to which
+  // no cell attaches here. An orphan part brings nothing and gives Excel one
+  // more occasion to find the workbook dubious: it is removed, along with its
+  // declaration and its relation.
   XLSX.CFB.utils.cfb_del(cfb, "/xl/metadata.xml");
   contentTypes = contentTypes.replace(/<Override PartName="\/xl\/metadata\.xml"[^>]*\/>/, "");
   const relsWorkbook = readPart(cfb, "/xl/_rels/workbook.xml.rels");
@@ -505,9 +505,9 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     );
   }
 
-  // La mise en forme et les volets figés, sur des feuilles que la boucle des
-  // tableaux ne visite pas forcément : ils se posent donc à part, mais dans la
-  // même passe -- le classeur n'est ouvert qu'une fois.
+  // The formatting and the frozen panes, on sheets the table loop does not
+  // necessarily visit: they are therefore applied separately, but in the same
+  // pass -- the workbook is opened only once.
   if (styles.length > 0) {
     const stylesXml = readPart(cfb, "/xl/styles.xml");
     if (!stylesXml) throw new Error("classeur illisible : xl/styles.xml absent");
@@ -534,8 +534,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     const path = `/xl/worksheets/sheet${i + 1}.xml`;
     const content = readPart(cfb, path);
     if (!content || content.includes("<pane ")) continue;
-    // La ligne d'en-tête reste à l'écran : une feuille de saisie de trente
-    // lignes se remplit à l'aveugle sans ça.
+    // The header row stays on screen: a thirty-row entry sheet is filled in
+    // blind without it.
     const view =
       '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
       '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>';
@@ -549,8 +549,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   }
 
   writePart(cfb, "/[Content_Types].xml", contentTypes);
-  // Les noms définis d'origine venaient des autofiltres de feuille, qu'on vient
-  // de retirer ; on les remplace par les plages nommées des listes déroulantes.
+  // The original defined names came from the sheet autofilters, which have just
+  // been removed; they are replaced by the drop-downs' named ranges.
   writePart(
     cfb,
     "/xl/workbook.xml",
