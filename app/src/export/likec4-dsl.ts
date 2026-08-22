@@ -12,21 +12,21 @@ import { coloursOfModel } from "../render/colors";
 import { identifiers } from "./identifiers";
 import { normalizeText } from "../shared/text";
 
-// Le classeur en LikeC4. Même matière que l'export Structurizr, autre grammaire :
-// LikeC4 dit l'appartenance par l'imbrication, là où Structurizr a un mot pour
-// le groupe. Un acteur imbriqué se désigne ensuite par son chemin complet.
+// The workbook as LikeC4. Same material as the Structurizr export, a different
+// grammar: LikeC4 says belonging through nesting, where Structurizr has a word
+// for the group. A nested actor is then named by its full path.
 
 const text = (v: string) => v.trim().replace(/"/g, "'");
 
 
-// La relation va du fournisseur au consommateur, comme la donnée et comme nos
-// schémas. Elle suivait le sens de l'APPEL, si bien qu'un flux tiré sortait à
-// l'envers de nos images : le même parc racontait deux histoires selon l'outil
-// qui le lisait.
+// The relationship goes from provider to consumer, like the data and like our
+// diagrams. It used to follow the direction of the CALL, so that a pulled flow
+// came out backwards from our images: the same estate told two stories
+// depending on which tool read it.
 //
-// Une relation C4 n'a qu'un sens : l'initiative ne peut pas s'y dessiner comme
-// une pointe posée à l'autre bout. Elle passe donc en étiquette, où elle reste
-// lisible et filtrable.
+// A C4 relationship has only one direction: the initiative cannot be drawn
+// there as an arrowhead set at the other end. So it goes into a tag, where it
+// stays readable and filterable.
 function flowDirection(f: FlowInstance): { de: string; vers: string } {
   return { de: f.provider, vers: f.consumer };
 }
@@ -34,10 +34,10 @@ function flowDirection(f: FlowInstance): { de: string; vers: string } {
 const ETIQUETTE_TIRE = "Pulled";
 const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
 
-// LikeC4 refuse le fichier entier sur une relation d'un élément vers lui-même
-// -- « Invalid parent-child relationship » -- et un acteur qui consomme ce
-// qu'il expose en produirait une. Elle ne dirait rien de toute façon : les vues
-// agrégées la masquent déjà (§4.3), et l'export Structurizr l'écarte pareil.
+// LikeC4 refuses the whole file on a relationship from an element to itself --
+// "Invalid parent-child relationship" -- and an actor consuming what it
+// publishes would produce one. It would say nothing anyway: the aggregated
+// views already hide it (§4.3), and the Structurizr export drops it likewise.
 function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): FlowInstance[] {
   return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
 }
@@ -45,13 +45,13 @@ function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): F
 const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
 export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mode = "architecture"): string {
-  // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
-  // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs.
+  // The reading the file carries. It MUST say so: delivering a file that tells
+  // something other than the screen is what is forbidden everywhere else.
   const fonctionnel = mode === "functional";
   const actors = liveActors(model, rank);
   const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
-  // Groupes et acteurs partagent l'espace des identifiants : un groupe et un
-  // acteur du même nom se marcheraient dessus.
+  // Groups and actors share the identifier space: a group and an actor of the
+  // same name would tread on each other.
   const ids = identifiers([...groups, ...actors.map((a) => a.name.trim())]);
   const paths = new Map(
     actors.map((a) => {
@@ -62,8 +62,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   );
 
   const flows = exportableFlows(model, rank, mode);
-  // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
-  // des identifiants, là où le classeur écrit « REST + ESB ».
+  // The technology tags serve the by-technology views. LikeC4 wants identifiers,
+  // where the workbook writes "REST + ESB".
   const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
   const tags = identifiers(techs);
   const colours = coloursOfModel(model);
@@ -73,8 +73,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     "specification {",
     "    element group",
     "    element system",
-    // Un humain se dessine en bonhomme, pas en boîte : LikeC4 a la forme, le
-    // classeur a le type d'acteur, il n'y a qu'à les relier.
+    // A human is drawn as a stick figure, not a box: LikeC4 has the shape, the
+    // workbook has the actor type, all that is left is to connect them.
     "    element person {",
     "        style {",
     "            shape person",
@@ -82,20 +82,20 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     "    }",
     "    tag external",
     "    tag platform",
-    // LikeC4 refuse une étiquette non déclarée : celle-ci l'est toujours, même
-    // si aucun flux tiré n'existe dans ce classeur -- une déclaration inutile
-    // ne coûte rien, un fichier invalide coûte tout.
+    // LikeC4 refuses an undeclared tag: this one always is, even if no pulled
+    // flow exists in this workbook -- a useless declaration costs nothing, an
+    // invalid file costs everything.
     `    tag ${ETIQUETTE_TIRE.toLowerCase()}`,
     ...techs.map((t) => `    tag ${tags.get(t)}`),
-    // Un kind de relation par technologie. LikeC4 est la seule cible qui sache
-    // dessiner notre convention : la pointe au bout CONSOMMATEUR quand le
-    // fournisseur pousse, au bout FOURNISSEUR quand le consommateur tire. On
-    // le lui dit enfin, au lieu de réduire la chose à une étiquette.
+    // One relationship kind per technology. LikeC4 is the only target that can
+    // draw our convention: the head at the CONSUMER end when the provider
+    // pushes, at the PROVIDER end when the consumer pulls. It is finally told
+    // so, instead of the thing being reduced to a tag.
     //
-    // `line solid` est explicite : le style de trait par défaut de LikeC4 est
-    // `dashed`, et tous nos traits seraient sortis en pointillé -- ce qui
-    // aurait effacé la distinction que le pointillé porte chez nous, la
-    // décision « Transform ».
+    // `line solid` is explicit: LikeC4's default stroke style is `dashed`, and
+    // every one of our lines would have come out dashed -- which would have
+    // erased the distinction dashes carry for us, the "Transform" decision.
+    //
     ...techs.flatMap((t) => {
       const pulled = model.flowTypes.some((tf) => tf.type.trim() === t && tf.direction === "consumer-to-provider");
       return [
@@ -104,8 +104,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
         "        style {",
         "            line solid",
         `            color ${colours.get(t) ?? "#000000"}`,
-        // `vee` est la pointe ouverte, `normal` la pleine : le même couple que
-        // nos schémas, et celui qu'UML emploie sur ses messages.
+        // `vee` is the open head, `normal` the solid one: the same pair as our
+        // diagrams, and the one UML uses on its messages.
         pulled ? "            head vee" : "            head normal",
         pulled ? "            tail none" : "            tail none",
         "        }",
@@ -120,7 +120,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   const declaration = (a: Actor, indent: string) => {
     const nature = isAPerson(a) ? "person" : "system";
     const body = [`${indent}${ids.get(a.name.trim())} = ${nature} "${text(a.name)}" {`];
-    // Les étiquettes passent avant les propriétés : LikeC4 l'exige.
+    // Tags come before properties: LikeC4 requires it.
     if (groupIsExternal(model, a.group)) body.push(`${indent}    #external`);
     if (groupIsPlatform(model, a.group)) body.push(`${indent}    #platform`);
     if (a.description.trim()) body.push(`${indent}    description "${text(a.description)}"`);
@@ -154,21 +154,21 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     const label = text(interfaceLabel(f.interfaceName, f.version));
     const kind = tags.get(f.flowType.trim());
     const body = [
-      // `-[kind]->` plutôt qu'une flèche nue : c'est le kind qui porte la
-      // pointe, la couleur et le style déclarés plus haut.
+      // `-[kind]->` rather than a bare arrow: it is the kind that carries the
+      // head, the colour and the style declared above.
       `    ${source} -[${kind}]-> ${target} "${label}" {`,
       `        #${kind}`,
     ];
-    // L'initiative, en étiquette : LikeC4 sait filtrer dessus, et sans elle le
-    // fichier perdrait ce que la pointe porte sur nos schémas.
+    // The initiative, as a tag: LikeC4 can filter on it, and without it the
+    // file would lose what the arrowhead carries on our diagrams.
     if (isPulled(f)) body.push(`        #${ETIQUETTE_TIRE.toLowerCase()}`);
-    // Ce que l'échange transporte, au champ que LikeC4 prévoit pour ça : la
-    // relation a une description distincte de son libellé, là où Structurizr
-    // n'a que le libellé et doit s'en remettre à une propriété.
+    // What the exchange carries, in the field LikeC4 provides for it: the
+    // relationship has a description distinct from its label, where Structurizr
+    // has only the label and must fall back on a property.
     if (f.iface.description.trim()) body.push(`        description "${text(f.iface.description)}"`);
     body.push(`        technology "${text(f.flowType)}"`);
-    // Le contrat est une adresse : un clic depuis le schéma vaut mieux qu'une
-    // recherche dans le classeur.
+    // The contract is an address: one click from the diagram beats a search
+    // through the workbook.
     if (f.iface.contractLink.trim()) body.push(`        link ${f.iface.contractLink.trim()}`);
     body.push(
       ...metadata("        ", [
@@ -176,11 +176,11 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
         ["criticality", f.consumption.criticality],
         ["decision", f.consumption.decision],
         ["contractReference", f.iface.contractReference],
-        // Un flux à confirmer est un flux dont le classeur n'est pas sûr : sans
-        // ce drapeau, le fichier produit affirmerait plus que lui.
+        // A flow to be confirmed is a flow the workbook is not sure about: without
+        // this flag, the produced file would assert more than it does.
         ["toConfirm", f.iface.toConfirm ? "Yes" : ""],
-        // Deux colonnes de commentaires, deux sujets : le contrat d'un côté,
-        // l'usage qu'un consommateur en fait de l'autre.
+        // Two comment columns, two subjects: the contract on one side, the use a
+        // consumer makes of it on the other.
         ["interfaceComments", f.iface.comments],
         ["consumptionComments", f.consumption.comments],
         ["introducedAt", f.consumption.introducedAt],
@@ -197,10 +197,10 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   return rows.join("\n");
 }
 
-// Une vue par schéma que l'outil sait dessiner, les deux vues agrégées
-// comprises. Le commentaire qui les déclarait inexprimables valait pour
-// Structurizr, pas pour LikeC4 : les groupes sont DÉJÀ des éléments du modèle
-// exporté, et les inclure SANS leur `.*` donne une boîte par groupe.
+// One view per diagram the tool can draw, including both aggregated views.
+// The comment that declared them inexpressible held for Structurizr, not for
+// LikeC4: the groups ARE ALREADY elements of the exported model, and including
+// them WITHOUT their `.*` gives one box per group.
 function views(
   model: ParsedModel,
   actors: Actor[],
@@ -210,8 +210,8 @@ function views(
   flows: FlowInstance[],
   ids: Map<string, string>
 ): string[] {
-  // Le nom d'une vue est un identifiant -- « tech_rest_esb » -- que personne ne
-  // veut lire dans une liste. Le titre porte le vrai nom.
+  // A view's name is an identifier -- "tech_rest_esb" -- that nobody wants to
+  // read in a list. The title carries the real name.
   const view = (header: string, title: string, inclusion: string) => [
     `    view ${header} {`,
     `        title "${text(title)}"`,
@@ -222,10 +222,10 @@ function views(
 
   const rows = [...view("index", "Everything the workbook holds", "*")];
 
-  // Les deux vues agrégées, que le commentaire précédent déclarait
-  // inexprimables : un groupe cité SANS son `.*` est une boîte, avec son `.*`
-  // il est ouvert. C'est exactement l'opposition « groupe à groupe » et
-  // « plateforme détaillée ».
+  // The two aggregated views, which the previous comment declared
+  // inexpressible: a group quoted WITHOUT its `.*` is a box, with its `.*` it
+  // is opened. That is exactly the "group to group" versus "platform detail"
+  // opposition.
   const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
   if (groups.length > 1) {
     rows.push(
@@ -241,9 +241,9 @@ function views(
     rows.push(...view("platform_detail", "Platform detail", inclusion.join(", ")));
   }
 
-  // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
-  // « platform » était une plateforme à l'écran et n'en était plus une dans le
-  // fichier C4, où la vue dédiée disparaissait sans un mot.
+  // The same predicate as the diagrams: compared strictly here, a group entered
+  // as "platform" was a platform on screen and was no longer one in the C4 file,
+  // where the dedicated view vanished without a word.
   if (model.groups.some((g) => groupIsPlatform(model, g.name))) {
     rows.push(...view("platform_only", "Platform only", "* where tag is #platform"));
   }
@@ -253,8 +253,8 @@ function views(
     rows.push(...view(`tech_${tag}`, tech, `* where tag is #${tag}`));
   }
 
-  // Un acteur qu'aucun flux ne touche n'a pas de schéma dans l'outil : sa vue
-  // ne montrerait que sa propre boîte.
+  // An actor no flow touches has no diagram in the tool: its view would show
+  // nothing but its own box.
   const touched = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
   for (const a of actors.filter((x) => touched.has(x.name.trim()))) {
     const path = paths.get(a.name.trim())!;
@@ -264,14 +264,14 @@ function views(
   return rows;
 }
 
-// Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui
-// qui a une forme à lui, dans les deux langues qu'un classeur peut porter.
+// The workbook names its actor types freely; only the one with a shape of its
+// own is recognised, in the two languages a workbook may carry.
 function isAPerson(a: Actor): boolean {
   return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 
-// Ce que le schéma ne montre pas mais que le classeur sait. Un bloc vide ne se
-// pose pas : il encombrerait chaque élément sans rien dire.
+// What the diagram does not show but the workbook knows. An empty block is not
+// set: it would clutter every element while saying nothing.
 function metadata(indent: string, paires: [string, string][]): string[] {
   const filled = paires.filter(([, v]) => v.trim() !== "");
   if (filled.length === 0) return [];
