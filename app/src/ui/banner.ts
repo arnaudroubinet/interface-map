@@ -45,11 +45,14 @@ export const EXPORTS: FormatExport[] = [
   { libellé: "Markdown", rappel: "onExportMarkdown", actif: (s) => s.fichier !== null && s.vue === "controles" },
   // draw.io est un dessin : il suit le mode de lecture.
   { libellé: "draw.io", rappel: "onExportDrawio", actif: surTout },
-  // Structurizr et LikeC4 décrivent un modèle C4, c'est-à-dire une
-  // ARCHITECTURE ; un schéma fonctionnel n'en est pas un, et livrer un fichier
-  // qui raconte autre chose que l'écran est ce qu'on s'interdit ailleurs.
-  { libellé: "Structurizr", rappel: "onExportStructurizr", actif: (s) => surTout(s) && s.mode !== "fonctionnel" },
-  { libellé: "LikeC4", rappel: "onExportLikeC4", actif: (s) => surTout(s) && s.mode !== "fonctionnel" },
+  // Ces deux-là étaient fermés en lecture fonctionnelle, au motif qu'un schéma
+  // fonctionnel n'est pas une architecture C4. Le motif ne tient pas : un
+  // système qui rend un service à un autre est le cas d'usage central d'un
+  // systemLandscape. Ce qu'on s'interdit, c'est de livrer un fichier qui
+  // raconte autre chose que l'écran -- il suffit donc que le fichier DISE ce
+  // qu'il est, ce qu'il fait maintenant.
+  { libellé: "Structurizr", rappel: "onExportStructurizr", actif: surTout },
+  { libellé: "LikeC4", rappel: "onExportLikeC4", actif: surTout },
 ];
 
 export function renderBanner(

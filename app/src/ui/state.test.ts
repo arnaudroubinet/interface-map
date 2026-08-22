@@ -237,9 +237,12 @@ describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
 describe("withMode — les vues qui n'ont pas de sens en fonctionnel", () => {
   const chargé = () => withFichierCharge(initialState(), { nom: "c.xlsx", model, report, dateModification: null });
 
-  it("quitte le groupe à groupe en passant en fonctionnel", () => {
+  // « Groupe à groupe » a été ROUVERT en fonctionnel : « quelle direction
+  // alimente quelle direction » est précisément la question d'un comité de
+  // direction, et c'est la seule vue qui y réponde.
+  it("garde le groupe à groupe en passant en fonctionnel", () => {
     const état = withMode(withVue(chargé(), "groupe-a-groupe"), "fonctionnel");
-    expect(état.vue).not.toBe("groupe-a-groupe");
+    expect(état.vue).toBe("groupe-a-groupe");
   });
 
   it("quitte aussi la vue par technologie", () => {

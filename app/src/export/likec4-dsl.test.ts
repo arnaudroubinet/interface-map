@@ -213,3 +213,13 @@ describe("modeleEnLikeC4 — la notation traverse l'export", () => {
     expect(dsl).toMatch(/view platform_detail \{[\s\S]*?socle\.\*/);
   });
 });
+
+describe("modeleEnLikeC4 — la lecture fonctionnelle", () => {
+  it("annonce la lecture en tête du fichier", () => {
+    expect(modeleEnLikeC4(model(), null, "fonctionnel")).toContain("functional reading");
+  });
+
+  it("ne l'annonce pas en lecture d'architecture", () => {
+    expect(modeleEnLikeC4(model(), null)).not.toContain("functional reading");
+  });
+});

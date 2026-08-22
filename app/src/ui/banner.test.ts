@@ -54,11 +54,14 @@ describe("EXPORTS — quand un format est offert", () => {
 
   // Les trois qui emportent tout le classeur ne dépendent pas de la vue --
   // mais les deux DSL C4 décrivent une architecture, pas une lecture métier.
-  it("retire les deux DSL C4 en lecture fonctionnelle, jamais draw.io", () => {
+  // Les deux DSL sont ROUVERTS en fonctionnel : un système qui rend un service
+  // à un autre est le cas d'usage central d'un systemLandscape. Le fichier dit
+  // désormais quelle lecture il porte, ce qui était la vraie exigence.
+  it("offre les trois formats de modèle dans les deux lectures", () => {
     const fonctionnel = withMode(withVue(chargé(), "matrice"), "fonctionnel");
     expect(actif("draw.io", fonctionnel)).toBe(true);
-    expect(actif("Structurizr", fonctionnel)).toBe(false);
-    expect(actif("LikeC4", fonctionnel)).toBe(false);
+    expect(actif("Structurizr", fonctionnel)).toBe(true);
+    expect(actif("LikeC4", fonctionnel)).toBe(true);
   });
 
   it("n'offre aucun des trois sur l'écran de mise à niveau", () => {

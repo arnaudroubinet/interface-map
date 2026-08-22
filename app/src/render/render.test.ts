@@ -3,13 +3,13 @@
 // module » ; ici c'est un test pour six modules, et l'absence d'un
 // matrix-table.test.ts ne veut donc pas dire qu'il n'est pas couvert.
 import { describe, it, expect } from "vitest";
-import { buildAide, vuesDocumentees, exportsDocumentes } from "./aide";
 // La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à
 // dépendre du rail pour être écrite, elle doit seulement rester d'accord avec
 // lui. C'est au test de tenir les deux bouts.
 import { VUES } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icones";
+import { buildAide, vuesDocumentees, exportsDocumentes } from "./aide";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
 import type { MatrixResult } from "../aggregation/views";
@@ -382,5 +382,23 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
     expect(finDeLigne).toEqual(["3", "1"]);
     const pied = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
     expect(pied.slice(0, 2)).toEqual(["1", "3"]);
+  });
+});
+
+// --- §2.15 : les deux lectures existent, sont justes, et n'empruntaient pas
+// le vocabulaire que leurs lecteurs possèdent déjà.
+describe("buildAide — le vocabulaire des deux lectures", () => {
+  const texte = () => buildAide().textContent ?? "";
+
+  it("rattache les deux lectures aux viewpoints ArchiMate", () => {
+    expect(texte()).toContain("Application Cooperation");
+    expect(texte()).toContain("Application Usage");
+  });
+
+  // Le point d'honnêteté : rabattre une chaîne est une dérivation que la
+  // norme dit pouvoir être fausse, et l'outil l'affirmait sans le dire.
+  it("dit ce qu'un lien rabattu affirme, et ce qu'il n'affirme pas", () => {
+    expect(texte()).toContain("derivation rule 10");
+    expect(texte()).toContain("it says the information travels, not that it arrives unchanged");
   });
 });

@@ -323,3 +323,19 @@ describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
     expect(modeleEnStructurizr(model(), null, "carto.xlsx")).toContain("!identifiers hierarchical");
   });
 });
+
+// --- Les deux DSL étaient fermés en lecture fonctionnelle, au motif qu'un
+// schéma fonctionnel n'est pas une architecture C4. Un système qui rend un
+// service à un autre est pourtant le cas d'usage central d'un systemLandscape.
+// Ce qu'on s'interdit, c'est un fichier qui raconte autre chose que l'écran.
+describe("modeleEnStructurizr — la lecture fonctionnelle", () => {
+  it("annonce la lecture dans le nom et la description du workspace", () => {
+    const dsl = modeleEnStructurizr(model(), null, "carto.xlsx", null, "fonctionnel");
+    expect(dsl).toContain("(functional reading)");
+    expect(dsl).toContain("chains folded, media removed");
+  });
+
+  it("ne l'annonce pas en lecture d'architecture", () => {
+    expect(modeleEnStructurizr(model(), null, "carto.xlsx")).not.toContain("functional reading");
+  });
+});

@@ -101,7 +101,13 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
   const bloc = el("label", { class: "rail-palier" });
   bloc.appendChild(el("span", { class: "rail-palier-titre" }, ["Reading"]));
   const select = el("select", { class: "rail-selecteur" });
-  for (const [valeur, libellé] of [["architecture", "Architecture"], ["fonctionnel", "Functional"]] as const) {
+  // Les deux lectures sont justes et n'empruntaient pas le vocabulaire que
+  // leurs lecteurs possèdent déjà : ce sont les viewpoints ArchiMate
+  // « Application Cooperation » et « Application Usage ».
+  for (const [valeur, libellé] of [
+    ["architecture", "Architecture — application interfaces (how it travels)"],
+    ["fonctionnel", "Functional — application services (who feeds whom)"],
+  ] as const) {
     const option = el("option", { value: valeur }, [libellé]);
     option.selected = state.mode === valeur;
     select.appendChild(option);

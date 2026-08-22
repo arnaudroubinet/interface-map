@@ -195,13 +195,16 @@ export function withVue(state: AppState, vue: Vue): AppState {
   return { ...state, vue };
 }
 
-// Deux vues n'ont pas d'objet en lecture fonctionnelle. « Par technologie »,
-// parce que la technologie y est justement ce qu'on retire. « Groupe à
-// groupe », parce qu'agréger des groupes par-dessus une chaîne déjà rabattue
-// ne dit plus rien de qui alimente qui : à cette maille-là, on présente
-// l'architecture. Y laisser l'utilisateur lui montrerait une vue sans contenu
-// sans rien lui expliquer.
-export const VUES_SANS_OBJET_EN_FONCTIONNEL: Vue[] = ["par-technologie", "groupe-a-groupe"];
+// Une seule vue n'a pas d'objet en lecture fonctionnelle : « Par technologie »,
+// parce que la technologie y est justement ce qu'on retire. Y laisser
+// l'utilisateur lui montrerait une vue sans contenu sans rien lui expliquer.
+//
+// « Groupe à groupe » y était aussi, au motif qu'agréger des groupes par-dessus
+// une chaîne rabattue ne dirait plus qui alimente qui. Le motif ne tient pas :
+// « quelle direction alimente quelle direction » est précisément la question
+// d'un comité de direction, et c'est la seule vue qui y réponde. La chaîne
+// rabattue relie deux acteurs MÉTIER, qui ont chacun leur groupe.
+export const VUES_SANS_OBJET_EN_FONCTIONNEL: Vue[] = ["par-technologie"];
 
 export function withMode(state: AppState, mode: Mode): AppState {
   const vue =

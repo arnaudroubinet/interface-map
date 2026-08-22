@@ -43,11 +43,13 @@ const SECTIONS: Section[] = [
     titre: "The two readings",
     paragraphes: [
       "The same workbook is read two ways, and you fill it in only once.",
+      "These two readings match the ArchiMate viewpoints Application Cooperation and Application Usage. The tool is not inventing a concept of its own; it is offering the two an architect already works with.",
       "ARCHITECTURE answers « what does it go through »: every hop is drawn, buses and gateways included.",
       "BUSINESS answers « who feeds whom »: technical actors disappear, and the flows crossing them are joined end to end. An edge then names the exchanges it carries, since the technology is no longer there to do it.",
       "Two columns carry the distinction. Nature, on ActorTypes, says which types are technical. Republished as, on the FX_ sheets, is filled on a technical actor's own consumption lines: under which of ITS interfaces that input comes back out.",
       "It sits on the consumption because that is the line that already knows which provider and which version came in — a flow name alone never did. One value per line, so a plain drop-down guides it, offering that actor's interfaces and no others. A bus that aggregates writes nothing special: it simply has several lines pointing at the same interface. An interface that nothing feeds stops the chain, and the report says so rather than letting the link go missing.",
-      "Two views have no object in business mode and disappear from the rail: « By technology », since the technology is precisely what is removed, and « Group to group », since aggregating groups over an already-flattened chain no longer says who feeds whom.",
+      "Folding a chain of flows into a single link is ArchiMate's potential derivation rule 10, and the standard warns such a derivation may be wrong. Where the chain crosses a link whose decision is Transform, the line is drawn dashed and the legend says so: it says the information travels, not that it arrives unchanged.",
+      "One view has no object in business mode and disappears from the rail: « By technology », since the technology is precisely what is removed.",
     ],
   },
   {

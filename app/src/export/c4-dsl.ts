@@ -2,12 +2,13 @@ import type { ParsedModel, Acteur } from "../parsing/model";
 import {
   groupeEstPlateforme,
   groupeEstExterne,
-  buildFlowInstances,
   libelleInterface,
   type FlowInstance,
+  type Mode,
 } from "../aggregation/core";
 import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "../aggregation/vocabulaires";
 import { acteursVivants } from "../aggregation/paliers";
+import { fluxDuMode } from "../aggregation/fonctionnel";
 import { identifiants } from "./identifiants";
 import { couleursDuModele } from "../render/colors";
 import { normalizeText } from "../shared/text";
@@ -69,22 +70,31 @@ const estTire = (f: FlowInstance) => f.sens === "consommateur-exposant";
 // refuse le fichier entier -- « Invalid parent-child relationship » -- mais les
 // deux exports rendent le même modèle : ce qui disparaît de l'un disparaît de
 // l'autre, sans quoi le classeur raconterait deux parcs selon l'outil.
-function fluxExportables(model: ParsedModel, rang: number | null): FlowInstance[] {
-  return buildFlowInstances(model, rang).filter((f) => f.exposant.trim() !== f.consommateur.trim());
+function fluxExportables(model: ParsedModel, rang: number | null, mode: Mode): FlowInstance[] {
+  return fluxDuMode(model, rang, mode).filter((f) => f.exposant.trim() !== f.consommateur.trim());
 }
 
 export function modeleEnStructurizr(
   model: ParsedModel,
   rang: number | null,
   nomClasseur: string,
-  palier: string | null = null
+  palier: string | null = null,
+  // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
+  // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs,
+  // et c'était le seul motif de fermer cet export en fonctionnel.
+  mode: Mode = "architecture"
 ): string {
   const acteurs = acteursVivants(model, rang);
   const ids = identifiants(acteurs.map((a) => a.nom.trim()));
   const nom = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
 
+  const fonctionnel = mode === "fonctionnel";
   const lignes: string[] = [
-    `workspace "${texte(nom)}" "Interface map, exported from the workbook."`,
+    `workspace "${texte(nom)}${fonctionnel ? " (functional reading)" : ""}" "${
+      fonctionnel
+        ? "Interface map, functional reading: chains folded, media removed."
+        : "Interface map, exported from the workbook."
+    }"`,
     "",
     "    model {",
     // Un acteur imbriqué se désigne alors par son chemin complet, ce qui rend
@@ -131,7 +141,7 @@ export function modeleEnStructurizr(
   // La technologie sert deux fois : dite sur le lien pour qu'on la lise, posée
   // en étiquette pour que la vue par technologie sache le retrouver.
   const liens = new Set<string>();
-  const flux = fluxExportables(model, rang);
+  const flux = fluxExportables(model, rang, mode);
   for (const f of flux) {
     const { de, vers } = sensDuFlux(f);
     const source = ids.get(de.trim());

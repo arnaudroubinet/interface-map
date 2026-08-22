@@ -148,7 +148,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const state = ctx.etat();
       if (!state.fichier) return;
       téléchargerTexte(
-        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.nom, state.palierAffiche),
+        modeleEnStructurizr(state.fichier.model, rangAffiché(state), state.fichier.nom, state.palierAffiche, state.mode),
         buildExportFilename("model", null, state.palierAffiche, "dsl")
       );
     },
@@ -157,7 +157,7 @@ export function handlersExport(ctx: ContexteExport): BannerCallbacks {
       const state = ctx.etat();
       if (!state.fichier) return;
       téléchargerTexte(
-        modeleEnLikeC4(state.fichier.model, rangAffiché(state)),
+        modeleEnLikeC4(state.fichier.model, rangAffiché(state), state.mode),
         buildExportFilename("model", null, state.palierAffiche, "c4")
       );
     },

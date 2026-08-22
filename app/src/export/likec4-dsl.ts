@@ -1,12 +1,13 @@
 import type { ParsedModel, Acteur } from "../parsing/model";
 import {
-  buildFlowInstances,
   libelleInterface,
   groupeEstExterne,
   groupeEstPlateforme,
   type FlowInstance,
+  type Mode,
 } from "../aggregation/core";
 import { acteursVivants } from "../aggregation/paliers";
+import { fluxDuMode } from "../aggregation/fonctionnel";
 import { couleursDuModele } from "../render/colors";
 import { identifiants } from "./identifiants";
 import { normalizeText } from "../shared/text";
@@ -37,13 +38,16 @@ const estTire = (f: FlowInstance) => f.sens === "consommateur-exposant";
 // -- « Invalid parent-child relationship » -- et un acteur qui consomme ce
 // qu'il expose en produirait une. Elle ne dirait rien de toute façon : les vues
 // agrégées la masquent déjà (§4.3), et l'export Structurizr l'écarte pareil.
-function fluxExportables(model: ParsedModel, rang: number | null): FlowInstance[] {
-  return buildFlowInstances(model, rang).filter((f) => f.exposant.trim() !== f.consommateur.trim());
+function fluxExportables(model: ParsedModel, rang: number | null, mode: Mode): FlowInstance[] {
+  return fluxDuMode(model, rang, mode).filter((f) => f.exposant.trim() !== f.consommateur.trim());
 }
 
 const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
 
-export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string {
+export function modeleEnLikeC4(model: ParsedModel, rang: number | null, mode: Mode = "architecture"): string {
+  // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
+  // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs.
+  const fonctionnel = mode === "fonctionnel";
   const acteurs = acteursVivants(model, rang);
   const groupes = [...new Set(acteurs.map((a) => a.groupe.trim()).filter(Boolean))].sort(parNom);
   // Groupes et acteurs partagent l'espace des identifiants : un groupe et un
@@ -57,7 +61,7 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
     })
   );
 
-  const flux = fluxExportables(model, rang);
+  const flux = fluxExportables(model, rang, mode);
   // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
   // des identifiants, là où le classeur écrit « REST + ESB ».
   const technos = [...new Set(flux.map((f) => f.typeDeFlux.trim()))].sort(parNom);
@@ -65,6 +69,7 @@ export function modeleEnLikeC4(model: ParsedModel, rang: number | null): string 
   const couleurs = couleursDuModele(model);
 
   const lignes: string[] = [
+    `// Interface map${fonctionnel ? ", functional reading: chains folded, media removed." : "."}`,
     "specification {",
     "    element group",
     "    element system",
