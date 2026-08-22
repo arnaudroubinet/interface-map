@@ -2,10 +2,10 @@
 //
 // jsdom's Blob has no stream() method, which both the reader and this file's
 // deflate helper rely on. Node's own Blob does.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { sectionM, customXmlItem, storedZip, hasReferential, NO_REFERENTIAL } from "./datamashup";
 import * as XLSX from "xlsx";
-import { readReferentialUrls, mashupStream, CUSTOM_XML_PROPS } from "./datamashup";
+import { readReferentialUrls, mashupStream } from "./datamashup";
 
 describe("sectionM", () => {
   it("declares one shared query per referential, in a fixed order", () => {
@@ -154,7 +154,29 @@ describe("readReferentialUrls", () => {
     const item = wrapAsCustomXml(mashupStream({ actors: "https://ref/a.csv", technologies: "" }).subarray(0, 12));
     expect(await readReferentialUrls(workbookCarrying(item))).toEqual(NO_REFERENTIAL);
   });
+
+  it("warns rather than staying silent when the mashup content cannot be parsed", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    // Past the element regex -- a <DataMashup> element is genuinely there --
+    // but its body is not valid base64, so decoding it throws instead of
+    // returning bytes we could go on to misread.
+    const read = await readReferentialUrls(workbookCarrying(garbageCustomXmlItem()));
+    expect(read).toEqual(NO_REFERENTIAL);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
 });
+
+function garbageCustomXmlItem(): Uint8Array {
+  const text =
+    `<?xml version="1.0" encoding="utf-16"?>` +
+    `<DataMashup xmlns="http://schemas.microsoft.com/DataMashup">A</DataMashup>`;
+  const bytes = new Uint8Array(2 + text.length * 2);
+  const view = new DataView(bytes.buffer);
+  view.setUint16(0, 0xfeff, true);
+  for (let i = 0; i < text.length; i++) view.setUint16(2 + i * 2, text.charCodeAt(i), true);
+  return bytes;
+}
 
 // Rebuild the stream with a deflated parts zip, the way Excel saves it.
 async function deflateTheParts(stream: Uint8Array): Promise<Uint8Array> {

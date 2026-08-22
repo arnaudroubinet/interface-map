@@ -322,7 +322,13 @@ export async function readReferentialUrls(bytes: ArrayBuffer): Promise<Referenti
       actors: urlOfQuery(source, MASHUP_QUERIES[0]),
       technologies: urlOfQuery(source, MASHUP_QUERIES[1]),
     };
-  } catch {
+  } catch (err) {
+    // A workbook with no mashup part returns above, without coming through
+    // here: reaching this point means the part exists and we failed to make
+    // sense of it. That is our bug far more often than the file's, so it is
+    // said out loud -- silently returning "no referential" would hide an
+    // offset regression behind an ordinary-looking result.
+    console.warn("Referential URLs unreadable in this workbook.", err);
     return NO_REFERENTIAL;
   }
 }
