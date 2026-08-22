@@ -82,18 +82,18 @@ const callbacks: RailCallbacks = {
   onMode: noop,
   onVue: noop,
   onActorSelection: noop,
-  onSelectionTechnologie: noop,
-  onSelectionChaine: noop,
+  onTechnologySelection: noop,
+  onChainSelection: noop,
   onVoisinage: noop,
   onSujetFrise: noop,
-  onGraisseParCriticite: noop,
+  onWeightByCriticality: noop,
   onDisplayedMilestone: noop,
   onPalierCompare: noop,
   onOptionCompteurs: noop,
-  onLibelléArête: noop,
+  onEdgeLabel: noop,
   onOrdreMatrice: noop,
   onEchellePng: noop,
-  onTechnoMasquee: noop,
+  onTechnologyHidden: noop,
   onActorHidden: noop,
   onMasquerExternes: noop,
   onActorHiddenForTechnology: noop,
@@ -243,7 +243,7 @@ describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
   });
 
   it("montre celle qui est retenue", () => {
-    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, echellePng: 2 as const, graisseParCriticite: false } };
+    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, echellePng: 2 as const, weightByCriticality: false } };
     const select = rendu(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });

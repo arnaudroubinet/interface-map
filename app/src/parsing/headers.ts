@@ -4,7 +4,7 @@ import { normalizeText } from "../shared/text";
 // RECONNUS, et seulement reconnus : c'est ce qui permet de lire un classeur
 // d'avant le versionnement pour le convertir. Aucun classeur produit ne les
 // porte plus, et rien d'autre que la mise à niveau n'en dépend.
-export const NOMS_ORIGINE: Record<string, string | string[]> = {
+export const ORIGIN_NAMES: Record<string, string | string[]> = {
   // Feuilles. Plusieurs écritures ont circulé pour la même chose : les
   // classeurs tenus à la main préfixaient « Ref » leurs référentiels, et
   // nommaient « Flux » le catalogue des interfaces -- à ne pas confondre avec
@@ -42,7 +42,7 @@ export const NOMS_ORIGINE: Record<string, string | string[]> = {
 // pour la même chose. Les feuilles et colonnes nées avec le versionnement ne
 // figurent pas ici : aucun classeur ne les a jamais portées en français.
 function spellings(attendu: string): string[] {
-  const origin = NOMS_ORIGINE[attendu];
+  const origin = ORIGIN_NAMES[attendu];
   if (!origin) return [attendu];
   return [attendu, ...(Array.isArray(origin) ? origin : [origin])];
 }

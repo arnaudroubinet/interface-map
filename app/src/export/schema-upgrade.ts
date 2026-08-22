@@ -1,6 +1,6 @@
 import type { Consumption, InterfaceCatalogue, ParsedModel } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
-import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsommation } from "../aggregation/core";
+import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsumption } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
 import type { WorkbookData } from "./template-export";
 
@@ -307,7 +307,7 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     //
     // Faute de rattachement, on garde l'onglet d'origine : déplacer d'autorité
     // une ligne qui ne désigne rien la perdrait.
-    const iface = findInterfaceForConsommation(lookup, c);
+    const iface = findInterfaceForConsumption(lookup, c);
     const tab = existingTab(iface ? iface.expectedSheet : c.sheet);
     const rows = parOnglet.get(tab) ?? [];
     rows.push([

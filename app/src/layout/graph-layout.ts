@@ -25,7 +25,7 @@ export interface LayoutEdge extends GraphEdge {
   points: { x: number; y: number }[];
   // Centre de la pastille, tel que placé par le moteur. Absent si l'arête n'a
   // pas de libellé ou si le moteur n'a rien renvoyé.
-  centreLibellé?: { x: number; y: number };
+  labelCentre?: { x: number; y: number };
 }
 
 export interface LayoutResult {
@@ -48,7 +48,7 @@ export const LARGEUR_NOEUD = 240;
 export const HAUTEUR_MIN_NOEUD = 120;
 
 export const PAD_NOEUD = 14;
-export const HAUTEUR_LIGNE_NOM = 21;
+export const NAME_LINE_HEIGHT = 21;
 export const HAUTEUR_LIGNE_TYPE = 16;
 export const HAUTEUR_LIGNE_VIDE = 8;
 export const HAUTEUR_LIGNE_DESC = 14;
@@ -64,11 +64,11 @@ const MAX_LIGNES_DESC = 3;
 // description : un nom long débordait, recouvrait la boîte voisine et se
 // faisait couper par le cadre du dessin. L'icône et son écart se réservent
 // leur place au passage.
-const LARGEUR_CARACTERE_NOM = 8.2;
+const NAME_CHAR_WIDTH = 8.2;
 const PLACE_ICONE = 16 + 9;
 
-export function nomTronque(label: string): string {
-  const parCaractere = Math.max(4, Math.floor((LARGEUR_UTILE - PLACE_ICONE) / LARGEUR_CARACTERE_NOM));
+export function truncatedName(label: string): string {
+  const parCaractere = Math.max(4, Math.floor((LARGEUR_UTILE - PLACE_ICONE) / NAME_CHAR_WIDTH));
   return label.length <= parCaractere ? label : `${label.slice(0, parCaractere - 1).trimEnd()}…`;
 }
 
@@ -105,10 +105,10 @@ const HAUTEUR_SOUS_LIGNE = 12;
 // Largeur moyenne d'un caractère à la taille du libellé, dans la pile de
 // polices du schéma. Sous-estimée, le texte déborde de la place qu'ELK lui a
 // réservée -- c'est ICI que la taille du texte se paie.
-const LARGEUR_CAR_LIBELLE = 6.2;
+const LABEL_CHAR_WIDTH = 6.2;
 
 export function largeurPastille(text: string): number {
-  return text.length * LARGEUR_CAR_LIBELLE + 14;
+  return text.length * LABEL_CHAR_WIDTH + 14;
 }
 
 // La technologie n'est rappelée sous le libellé que si celui-ci dit autre
@@ -137,7 +137,7 @@ export function taillePastille(label: string | undefined, technology: string): {
 export function hauteurTexteNoeud(node: GraphNode): number {
   const rows = lignesDescription(node.description).length;
   return (
-    HAUTEUR_LIGNE_NOM +
+    NAME_LINE_HEIGHT +
     (node.subtitle ? HAUTEUR_LIGNE_TYPE : 0) +
     (rows ? HAUTEUR_LIGNE_VIDE + rows * HAUTEUR_LIGNE_DESC : 0)
   );
@@ -408,8 +408,8 @@ function croisements(traces: Point[][]): number {
 
 // Marge intérieure d'une frontière, et place réservée en haut pour son
 // libellé (posé en haut à gauche, convention C4).
-const PAD_FRONTIERE = 24;
-const ENTETE_FRONTIERE = 22;
+const BOUNDARY_PAD = 24;
+const BOUNDARY_HEADER = 22;
 
 // La clé d'une arête, indépendante de son libellé : celui-ci porte le compteur
 // « ×N », qui n'est pas le même sur l'union et sur un palier.
@@ -510,7 +510,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
           width: 0,
           height: 0,
           layoutOptions: {
-            "elk.padding": `[top=${ENTETE_FRONTIERE + PAD_FRONTIERE},left=${PAD_FRONTIERE},bottom=${PAD_FRONTIERE},right=${PAD_FRONTIERE}]`,
+            "elk.padding": `[top=${BOUNDARY_HEADER + BOUNDARY_PAD},left=${BOUNDARY_PAD},bottom=${BOUNDARY_PAD},right=${BOUNDARY_PAD}]`,
           },
           children: enfants.map((enfant) => buildElkNode(enfant, retours)),
         } as NoeudElk;
@@ -672,7 +672,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     return {
       ...edge,
       points: pointsDeLArete(arete, start, arrival, offset),
-      centreLibellé:
+      labelCentre:
         tag && tag.x !== undefined && tag.y !== undefined
           ? {
               x: tag.x + (tag.width ?? 0) / 2 + offset.x,

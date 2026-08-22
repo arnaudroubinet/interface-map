@@ -3,7 +3,7 @@ import {
   buildFlowInstances,
   interfaceLabel,
   buildInterfaceLookup,
-  findInterfaceForConsommation,
+  findInterfaceForConsumption,
   type FlowInstance,
   type InterfaceLookup,
   type Mode,
@@ -19,7 +19,7 @@ import { lifespanOf, isLiveAt } from "./milestones";
 // what guarantees the two readings can never drift apart. The result has the
 // shape of technical flows minus the technology, so that the existing views
 // run on it without knowing the mode changed.
-export interface ChaineCoupee {
+export interface BrokenChain {
   iface: InterfaceCatalogue;
   // "no-input": this republished interface is fed by no consumption. The chain
   // therefore stops there, and the functional link one expected from it does
@@ -48,14 +48,14 @@ function actorIsLive(
 // led nowhere. Both at once, because a faulty branch must not carry the sound
 // branches off with it -- losing the whole link over one badly entered row
 // would be worse than the badly entered row.
-interface Remontee {
+interface WalkUp {
   sources: InterfaceCatalogue[];
   // The PATH to each source, hop by hop, from the source downstream. The walk
   // already rebuilt it segment by segment and threw it away to keep only the
   // endpoints: it is the hardest information to get out of the workbook, and
   // the only one that answers "which way does this flow go?".
   paths: Map<InterfaceCatalogue, Hop[]>;
-  cuts: ChaineCoupee[];
+  cuts: BrokenChain[];
 }
 
 // The inputs of a republished interface: the consumptions of the actor that
@@ -89,7 +89,7 @@ function hop(iface: InterfaceCatalogue, consumption: Consumption): Hop {
   };
 }
 
-function entreesDe(
+function inputsOf(
   model: ParsedModel,
   lookup: InterfaceLookup,
   republished: InterfaceCatalogue,
@@ -110,7 +110,7 @@ function entreesDe(
     if (c.consumerName.trim() !== relay) continue;
     if (!designated.has(normalizeText(c.republishedAs))) continue;
     if (!live(c)) continue;
-    const upstream = findInterfaceForConsommation(lookup, c);
+    const upstream = findInterfaceForConsumption(lookup, c);
     if (!upstream || !live(upstream) || !actorIsLive(model, upstream.providerName, rank)) continue;
     if (!inputs.some((e) => e.iface === upstream)) inputs.push({ iface: upstream, consumption: c });
   }
@@ -127,13 +127,13 @@ function walkUp(
   start: InterfaceCatalogue,
   rank: number | null,
   path: ReadonlySet<InterfaceCatalogue> = new Set()
-): Remontee {
+): WalkUp {
   if (!isTechnicalActor(model, start.providerName)) {
     return { sources: [start], paths: new Map([[start, []]]), cuts: [] };
   }
   if (path.has(start)) return { sources: [], paths: new Map(), cuts: [{ iface: start, reason: "loop" }] };
 
-  const inputs = entreesDe(model, lookup, start, rank);
+  const inputs = inputsOf(model, lookup, start, rank);
   if (inputs.length === 0) {
     return { sources: [], paths: new Map(), cuts: [{ iface: start, reason: "no-input" }] };
   }
@@ -141,19 +141,19 @@ function walkUp(
   const walked = new Set(path).add(start);
   const sources: InterfaceCatalogue[] = [];
   const paths = new Map<InterfaceCatalogue, Hop[]>();
-  const cuts: ChaineCoupee[] = [];
+  const cuts: BrokenChain[] = [];
   for (const input of inputs) {
-    const remontee = walkUp(model, lookup, input.iface, rank, walked);
-    for (const source of remontee.sources) {
+    const upstream = walkUp(model, lookup, input.iface, rank, walked);
+    for (const source of upstream.sources) {
       if (!sources.includes(source)) sources.push(source);
       // The hop just crossed is appended DOWNSTREAM of what the walk-up
       // reported: the route reads from the source to the consumer, like the
       // line.
       if (!paths.has(source)) {
-        paths.set(source, [...(remontee.paths.get(source) ?? []), hop(input.iface, input.consumption)]);
+        paths.set(source, [...(upstream.paths.get(source) ?? []), hop(input.iface, input.consumption)]);
       }
     }
-    cuts.push(...remontee.cuts);
+    cuts.push(...upstream.cuts);
   }
   return { sources, paths, cuts };
 }
@@ -175,7 +175,7 @@ export function chainsOfFlow(model: ParsedModel, rank: number | null, f: FlowIns
 
 // The consumptions that count: those of a BUSINESS actor. A consumption by a
 // technical actor is not an endpoint but a segment, walked from downstream.
-export function consommationsMetier(
+export function businessConsumptions(
   model: ParsedModel,
   rank: number | null,
 ): FlowInstance[] {
@@ -190,7 +190,7 @@ export function buildFunctionalFlows(
 ): FlowInstance[] {
   const lookup = buildInterfaceLookup(model);
   const flows: FlowInstance[] = [];
-  for (const f of consommationsMetier(model, rank)) {
+  for (const f of businessConsumptions(model, rank)) {
     for (const source of walkUp(model, lookup, f.iface, rank).sources) {
       if (source.providerName.trim() === f.consumer.trim()) continue;
       flows.push({
@@ -246,7 +246,7 @@ export function actorsForReading(
 // at the same (rank, mode). A view handed a Reading can no longer go and fetch
 // an unfiltered actor list itself -- it no longer has the model for that, only
 // what it was given.
-export interface Lecture {
+export interface Reading {
   flows: FlowInstance[];
   actors: Actor[];
 }
@@ -255,7 +255,7 @@ export function reading(
   model: ParsedModel,
   rank: number | null,
   mode: Mode,
-): Lecture {
+): Reading {
   return {
     flows: flowsForReading(model, rank, mode),
     actors: actorsForReading(model, rank, mode),
@@ -272,7 +272,7 @@ export function reading(
 // read a text listing. No interactive ELK setting fixes this: on a board with
 // a boundary, interactive mode does not even reproduce its own result (277 px
 // median on identical input).
-export function lectureUnion(model: ParsedModel, mode: Mode): Lecture {
+export function lectureUnion(model: ParsedModel, mode: Mode): Reading {
   if (model.milestones.length === 0) return reading(model, null, mode);
   const flows: FlowInstance[] = [];
   const vus = new Set<string>();
@@ -291,10 +291,10 @@ export function lectureUnion(model: ParsedModel, mode: Mode): Lecture {
 export function chainesCoupees(
   model: ParsedModel,
   rank: number | null,
-): ChaineCoupee[] {
+): BrokenChain[] {
   const lookup = buildInterfaceLookup(model);
-  const cut: ChaineCoupee[] = [];
-  for (const f of consommationsMetier(model, rank)) {
+  const cut: BrokenChain[] = [];
+  for (const f of businessConsumptions(model, rank)) {
     cut.push(...walkUp(model, lookup, f.iface, rank).cuts);
   }
   return cut;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { restreindreLayout, computeLayout, lignesDescription, nomTronque, LARGEUR_NOEUD } from "./graph-layout";
+import { restreindreLayout, computeLayout, lignesDescription, truncatedName, LARGEUR_NOEUD } from "./graph-layout";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "./graph-layout";
 
@@ -133,7 +133,7 @@ describe("ce qui tient dans une boîte", () => {
 
   it("tronque un nom à ce qui tient réellement dans la largeur de la boîte", () => {
     const long = "Plateforme de règlement-livraison interbancaire et conservation";
-    const truncated = nomTronque(long);
+    const truncated = truncatedName(long);
     // La largeur estimée du nom, icône comprise, doit tenir dans la boîte :
     // c'est la seule chose qui compte, et elle dépend des deux constantes.
     expect(truncated.length * 8.2 + 25).toBeLessThanOrEqual(LARGEUR_NOEUD);
@@ -141,7 +141,7 @@ describe("ce qui tient dans une boîte", () => {
   });
 
   it("laisse intact un nom qui tient déjà", () => {
-    expect(nomTronque("Tatooine")).toBe("Tatooine");
+    expect(truncatedName("Tatooine")).toBe("Tatooine");
   });
 });
 

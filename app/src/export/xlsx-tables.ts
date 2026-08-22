@@ -149,8 +149,8 @@ export function readPart(cfb: Conteneur, path: string): string | null {
 }
 
 export function writePart(cfb: Conteneur, path: string, content: string): void {
-  const octets = new TextEncoder().encode(content);
-  XLSX.CFB.utils.cfb_add(cfb, path, octets as unknown as number[]);
+  const bytes = new TextEncoder().encode(content);
+  XLSX.CFB.utils.cfb_add(cfb, path, bytes as unknown as number[]);
 }
 
 // Jusqu'où porter les validations d'une feuille : au moins de quoi saisir
@@ -176,11 +176,11 @@ function materialiseRows(sheet: string, upTo: number): string {
 // La dernière colonne et la dernière ligne d'une référence de dimension --
 // une plage ("A1:N1000") ou, sur une feuille à une seule cellule, une cellule
 // nue ("A1").
-function declaredExtent(réf: string): { colonneIdx: number; row: number } {
+function declaredExtent(réf: string): { columnIdx: number; row: number } {
   const last = réf.split(":").pop()!;
   const m = last.match(/^([A-Z]+)(\d+)$/);
-  if (!m) return { colonneIdx: 0, row: 1 };
-  return { colonneIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
+  if (!m) return { columnIdx: 0, row: 1 };
+  return { columnIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
 }
 
 // La référence de chaque nom défini vise le tableau réellement posé pour la
@@ -350,7 +350,7 @@ export interface OoxmlExtras {
   volets?: readonly string[];
 }
 
-export function applyOoxmlExtras(octets: ArrayBuffer, complément: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
+export function applyOoxmlExtras(bytes: ArrayBuffer, complément: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
   const {
     tables,
     lists = [],
@@ -360,7 +360,7 @@ export function applyOoxmlExtras(octets: ArrayBuffer, complément: OoxmlExtras |
   } = Array.isArray(complément)
     ? { tables: complément as readonly TableToApply[], lists: [], validations: [], misesEnForme: [], volets: [] }
     : (complément as OoxmlExtras);
-  const cfb = XLSX.CFB.read(new Uint8Array(octets), { type: "array" });
+  const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
 
   const workbook = readPart(cfb, "/xl/workbook.xml");
   if (!workbook) throw new Error("classeur illisible : xl/workbook.xml absent");
@@ -403,11 +403,11 @@ export function applyOoxmlExtras(octets: ArrayBuffer, complément: OoxmlExtras |
     // dimension finale de la feuille est le maximum de cette étendue et de
     // celle des tableaux qu'on pose -- jamais l'une à la place de l'autre.
     const dimInitiale = sheet.match(/<dimension ref="([^"]*)"\/>/);
-    const initialExtent = dimInitiale ? declaredExtent(dimInitiale[1]) : { colonneIdx: 0, row: 1 };
+    const initialExtent = dimInitiale ? declaredExtent(dimInitiale[1]) : { columnIdx: 0, row: 1 };
 
     const relations: string[] = [];
     let lastSheetRow = initialExtent.row;
-    let lastSheetColumnIndex = initialExtent.colonneIdx;
+    let lastSheetColumnIndex = initialExtent.columnIdx;
 
     for (const table of tableauxDeLaFeuille) {
       idTable += 1;

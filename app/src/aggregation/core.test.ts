@@ -194,9 +194,9 @@ describe("groupNodeKey", () => {
 
 describe("groupFlows — groupe vide", () => {
   it("excludes a flow whose actor has no groupe from an aggregated view (§7.4)", () => {
-    const sansGroupe = model({ actors: [actor({ name: "A", group: "" }), actor({ name: "B" })] });
-    const flows = buildFlowInstances(sansGroupe);
-    expect(groupFlows(flows, groupNodeKey(sansGroupe), true)).toHaveLength(0);
+    const withoutGroup = model({ actors: [actor({ name: "A", group: "" }), actor({ name: "B" })] });
+    const flows = buildFlowInstances(withoutGroup);
+    expect(groupFlows(flows, groupNodeKey(withoutGroup), true)).toHaveLength(0);
   });
 });
 
@@ -279,7 +279,7 @@ describe("buildFlowInstances — filtrage par palier", () => {
 // chez quelqu'un qu'il n'a jamais choisi. Mieux vaut ne pas résoudre : le
 // contrôle de référence le dit alors clairement.
 describe("résolution d'une consommation — le nom seul ne tranche pas entre deux exposants", () => {
-  const deuxExposants = (feuilleConso: string) =>
+  const twoPublishers = (feuilleConso: string) =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
       interfaces: [
@@ -290,16 +290,16 @@ describe("résolution d'une consommation — le nom seul ne tranche pas entre de
     });
 
   it("résout sans hésiter quand l'onglet désigne l'exposant", () => {
-    const flows = buildFlowInstances(deuxExposants("FX_B_HTTP"));
+    const flows = buildFlowInstances(twoPublishers("FX_B_HTTP"));
     expect(flows.map((f) => f.provider)).toEqual(["B"]);
   });
 
   it("ne devine pas quand l'onglet ne désigne personne", () => {
-    expect(buildFlowInstances(deuxExposants("FX_Inconnu_HTTP"))).toHaveLength(0);
+    expect(buildFlowInstances(twoPublishers("FX_Inconnu_HTTP"))).toHaveLength(0);
   });
 
   it("résout encore par le nom quand un seul exposant le porte", () => {
-    const m = deuxExposants("FX_Inconnu_HTTP");
+    const m = twoPublishers("FX_Inconnu_HTTP");
     const flows = buildFlowInstances({ ...m, interfaces: [m.interfaces[0]] });
     expect(flows.map((f) => f.provider)).toEqual(["A"]);
   });
@@ -434,7 +434,7 @@ describe("nodesFromEdges", () => {
 describe("groupFlows — la criticité portée par le trait", () => {
   // Un parc où B consomme la même interface plusieurs fois, chaque ligne avec
   // sa propre criticité : c'est le cas que l'agrégation doit trancher.
-  const fluxAvec = (criticites: string[]) =>
+  const fluxAvec = (criticalities: string[]) =>
     buildFlowInstances(
       base.template({
         groups: [base.group({ name: "G" })],
@@ -442,10 +442,10 @@ describe("groupFlows — la criticité portée par le trait", () => {
         flowTypes: [base.typeFlux()],
         fxSheetNames: ["FX_A_HTTP"],
         actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
-        interfaces: criticites.map((_, i) =>
+        interfaces: criticalities.map((_, i) =>
           base.iface({ flowName: `F${i}`, providerName: "A", expectedSheet: "FX_A_HTTP" })
         ),
-        consumptions: criticites.map((criticality, i) =>
+        consumptions: criticalities.map((criticality, i) =>
           base.consumption({ flowName: `F${i}`, consumerName: "B", sheet: "FX_A_HTTP", criticality })
         ),
       })

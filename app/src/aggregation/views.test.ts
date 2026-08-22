@@ -59,13 +59,13 @@ function flows(model: ParsedModel, mode: Mode = "architecture"): ReturnType<type
 // La Lecture (flux + acteurs) que reçoivent désormais les vues qui peuvent
 // dessiner un acteur isolé. `rang` par défaut à `null` : la plupart des tests
 // d'ici ne portent pas sur l'axe des paliers.
-function lect(model: ParsedModel, mode: Mode = "architecture", rank: number | null = null): ReturnType<typeof lectureDuMode> {
+function read(model: ParsedModel, mode: Mode = "architecture", rank: number | null = null): ReturnType<typeof lectureDuMode> {
   return lectureDuMode(model, rank, mode);
 }
 
 describe("buildGroupToGroupView", () => {
   it("keys nodes by groupe", () => {
-    const view = buildGroupToGroupView(baseModel, lect(baseModel), { counters: true });
+    const view = buildGroupToGroupView(baseModel, read(baseModel), { counters: true });
     expect(view.nodes.map((n) => n.id).sort()).toEqual(["G1", "G2"]);
     expect(view.edges).toHaveLength(1);
   });
@@ -73,7 +73,7 @@ describe("buildGroupToGroupView", () => {
 
 describe("buildPlatformDetailView", () => {
   it("gives a plateforme actor its own node, keeps external actors grouped", () => {
-    const view = buildPlatformDetailView(baseModel, lect(baseModel), { counters: true });
+    const view = buildPlatformDetailView(baseModel, read(baseModel), { counters: true });
     expect(view.nodes.find((n) => n.id === "A")?.kind).toBe("platform");
     expect(view.nodes.find((n) => n.id === "G2")).toBeDefined();
   });
@@ -90,7 +90,7 @@ describe("buildPlatformDetailView", () => {
         { name: "G2", perimeter: "External", sheet: "Groups", row: 0 },
       ],
     };
-    const view = buildPlatformDetailView(model, lect(model), { counters: true });
+    const view = buildPlatformDetailView(model, read(model), { counters: true });
     expect(view.nodes.find((n) => n.id === "A")?.kind).toBe("platform");
   });
 });
@@ -128,7 +128,7 @@ describe("buildMatrixView", () => {
   // Elle portait autrefois le sens de l'appel, si bien qu'un flux HTTP y
   // apparaissait à l'envers d'un flux Kafka entre les deux mêmes acteurs.
   it("keeps a row only for what provides and a column only for what consumes", () => {
-    const matrix = buildMatrixView(baseModel, lect(baseModel), { mode: "architecture" });
+    const matrix = buildMatrixView(baseModel, read(baseModel), { mode: "architecture" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A"]);
     expect(matrix.columns).toEqual(["B"]);
     expect(matrix.rows[0].cellules.get("B")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["F"] }]);
@@ -141,20 +141,20 @@ describe("buildMatrixView", () => {
       interfaces: [iface({}), iface({ flowName: "F2", providerName: "B", expectedSheet: "FX_A2_HTTP" })],
       consumptions: [consumption({}), consumption({ flowName: "F2", sheet: "FX_A2_HTTP", consumerName: "A" })],
     };
-    const matrix = buildMatrixView(model, lect(model), { mode: "architecture" });
+    const matrix = buildMatrixView(model, read(model), { mode: "architecture" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "B"]);
     expect(matrix.columns).toEqual(["A", "B"]);
   });
 
   it("keeps self-loop cells (unlike graphical views)", () => {
     const model = { ...baseModel, consumptions: [consumption({ consumerName: "A" })] };
-    const matrix = buildMatrixView(model, lect(model), { mode: "architecture" });
+    const matrix = buildMatrixView(model, read(model), { mode: "architecture" });
     const ligneA = matrix.rows.find((l) => l.actor === "A")!;
     expect(ligneA.cellules.get("A")).toBeDefined();
   });
 
   it("collapses actors onto their groupe when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", grain: "group" });
+    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), { mode: "architecture", grain: "group" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["G1"]);
     expect(matrix.columns).toEqual(["G2"]);
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
@@ -162,7 +162,7 @@ describe("buildMatrixView", () => {
   });
 
   it("details plateforme actors and collapses the rest when granularité is 'platform'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), { mode: "architecture", grain: "platform" });
+    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), { mode: "architecture", grain: "platform" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["A", "A2"]);
     expect(matrix.columns).toEqual(["G2"]);
     expect(matrix.rows.find((l) => l.actor === "A")!.cellules.get("G2")).toHaveLength(1);
@@ -174,13 +174,13 @@ describe("buildMatrixView", () => {
       ...modelDeuxParGroupe,
       consumptions: [consumption({ flowName: "F", consumerName: "A2" })],
     };
-    const matrix = buildMatrixView(model, lect(model), { mode: "architecture", grain: "group" });
+    const matrix = buildMatrixView(model, read(model), { mode: "architecture", grain: "group" });
     const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
     expect(ligneG1.cellules.get("G1")).toBeDefined();
   });
 
   it("hides an externe groupe wholesale when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), {
+    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), {
       mode: "architecture",
       grain: "group",
       masquerExternes: true,
@@ -190,7 +190,7 @@ describe("buildMatrixView", () => {
   });
 
   it("masks a whole groupe by its own name when granularité is 'group'", () => {
-    const matrix = buildMatrixView(modelDeuxParGroupe, lect(modelDeuxParGroupe), {
+    const matrix = buildMatrixView(modelDeuxParGroupe, read(modelDeuxParGroupe), {
       mode: "architecture",
       grain: "group",
       hiddenActors: ["G1"],
@@ -292,19 +292,19 @@ describe("mode fonctionnel", () => {
 
   it("laisse le mode architecture inchangé", () => {
     const m = estate();
-    const view = buildPlatformDetailView(m, lect(m, "architecture"), options("architecture"));
+    const view = buildPlatformDetailView(m, read(m, "architecture"), options("architecture"));
     expect(view.nodes.map((n) => n.id)).toContain("Bus");
   });
 
   it("retire l'acteur technique en mode fonctionnel", () => {
     const m = estate();
-    const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
+    const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
     expect(view.nodes.map((n) => n.id)).not.toContain("Bus");
   });
 
   it("relie la source au consommateur en mode fonctionnel", () => {
     const m = estate();
-    const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
+    const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
     expect([view.edges[0].from, view.edges[0].to]).toEqual(["Tatooine", "Finance"]);
   });
@@ -317,7 +317,7 @@ describe("mode fonctionnel", () => {
     m.consumptions.push(consumption({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
     m.flowTypes.push(base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }));
     m.fxSheetNames.push("FX_Tatooine_Kafka");
-    const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
+    const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
     expect(view.edges[0].count).toBe(2);
   });
@@ -329,11 +329,11 @@ describe("mode fonctionnel", () => {
     const m = estate();
     // Tatooine fournit, le Bus consomme : la ligne est donc celle du fournisseur,
     // même en HTTP où c'est le Bus qui passe l'appel.
-    const architecture = buildMatrixView(m, lect(m, "architecture"), { mode: "architecture" });
+    const architecture = buildMatrixView(m, read(m, "architecture"), { mode: "architecture" });
     const ligneTatooineArchi = architecture.rows.find((l) => l.actor === "Tatooine")!;
     expect(ligneTatooineArchi.cellules.get("Bus")).toEqual([{ technology: "HTTP", count: 1, attenuated: false, names: ["Transactions"] }]);
 
-    const fonctionnel = buildMatrixView(m, lect(m, "functional"), { mode: "functional" });
+    const fonctionnel = buildMatrixView(m, read(m, "functional"), { mode: "functional" });
     expect(fonctionnel.rows.map((l) => l.actor)).not.toContain("Bus");
     const ligneTatooine = fonctionnel.rows.find((l) => l.actor === "Tatooine")!;
     expect(ligneTatooine.cellules.get("Naboo")).toEqual([{ technology: "", count: 1, attenuated: false, names: ["Transactions"] }]);
@@ -356,14 +356,14 @@ describe("mode fonctionnel", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
-      const view = buildGroupToGroupView(m, lect(m, "functional"), options("functional"));
+      const view = buildGroupToGroupView(m, read(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Ops");
     });
 
     it("garde son propre nœud en plateforme détaillée quand c'est un composant de la plateforme", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
-      const view = buildPlatformDetailView(m, lect(m, "functional"), options("functional"));
+      const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
       const node = view.nodes.find((n) => n.id === "Isolé");
       expect(node?.kind).toBe("platform");
     });
@@ -371,7 +371,7 @@ describe("mode fonctionnel", () => {
     it("reste affiché en plateforme seule quand c'est un composant de la plateforme", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Socle" }));
-      const view = buildPlatformOnlyView(m, lect(m, "functional"), options("functional"));
+      const view = buildPlatformOnlyView(m, read(m, "functional"), options("functional"));
       expect(view.nodes.map((n) => n.id)).toContain("Isolé");
     });
 
@@ -379,7 +379,7 @@ describe("mode fonctionnel", () => {
       const m = estate();
       m.actors.push(actor({ name: "Isolé", actorType: "Application", group: "Ops" }));
       m.groups.push({ name: "Ops", perimeter: "External", sheet: "Groups", row: 0 });
-      const matrix = buildMatrixView(m, lect(m, "functional"), { mode: "functional" });
+      const matrix = buildMatrixView(m, read(m, "functional"), { mode: "functional" });
       const row = matrix.rows.find((l) => l.actor === "Isolé");
       expect(row).toBeDefined();
       expect(row?.cellules.size).toBe(0);
@@ -404,25 +404,25 @@ describe("mode fonctionnel", () => {
 
       it("garde sa boîte au palier où il vit encore", () => {
         const m = withIsolatedRetired();
-        const view = buildPlatformDetailView(m, lect(m, "functional", 1), options("functional"));
+        const view = buildPlatformDetailView(m, read(m, "functional", 1), options("functional"));
         expect(view.nodes.map((n) => n.id)).toContain("Isolé");
       });
 
       it("perd sa boîte en plateforme détaillée au palier où il est retiré", () => {
         const m = withIsolatedRetired();
-        const view = buildPlatformDetailView(m, lect(m, "functional", 2), options("functional"));
+        const view = buildPlatformDetailView(m, read(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
       it("perd sa boîte en plateforme seule au palier où il est retiré", () => {
         const m = withIsolatedRetired();
-        const view = buildPlatformOnlyView(m, lect(m, "functional", 2), options("functional"));
+        const view = buildPlatformOnlyView(m, read(m, "functional", 2), options("functional"));
         expect(view.nodes.map((n) => n.id)).not.toContain("Isolé");
       });
 
       it("perd sa ligne de matrix au palier où il est retiré", () => {
         const m = withIsolatedRetired();
-        const matrix = buildMatrixView(m, lect(m, "functional", 2), { mode: "functional" });
+        const matrix = buildMatrixView(m, read(m, "functional", 2), { mode: "functional" });
         expect(matrix.rows.map((l) => l.actor)).not.toContain("Isolé");
       });
     });
@@ -440,7 +440,7 @@ describe("frontière de la plateforme", () => {
       ...baseModel,
       actors: [actor({ name: "A", group: "G1" }), actor({ name: "C", group: "G1" }), actor({ name: "B", group: "G2" })],
     };
-    const view = buildPlatformDetailView(m, lect(m), { counters: true });
+    const view = buildPlatformDetailView(m, read(m), { counters: true });
     expect(view.nodes.find((n) => n.kind === "boundary")?.label).toBe("Platform");
   });
 });

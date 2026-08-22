@@ -61,8 +61,8 @@ export function openMigration(): void {
     message.textContent = "Converting…";
     file
       .arrayBuffer()
-      .then((octets) => {
-        const repair = repairWorkbook(octets);
+      .then((bytes) => {
+        const repair = repairWorkbook(bytes);
         const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
         const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);

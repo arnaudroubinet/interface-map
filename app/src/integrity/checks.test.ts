@@ -524,7 +524,7 @@ describe("paliers — contrôles temporels", () => {
 });
 
 describe("paliers — complétude", () => {
-  function messagesCompletude(m: ParsedModel): string {
+  function messagesCompleteness(m: ParsedModel): string {
     return runIntegrityChecks(m).families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message).join(" | ");
   }
 
@@ -532,7 +532,7 @@ describe("paliers — complétude", () => {
   // mettra un palier arbitraire, mais le choix lui revient.
   it("reports an interface with no arrival palier", () => {
     const m = model({ milestones, interfaces: [iface({})], consumptions: [] });
-    expect(messagesCompletude(m)).toContain("introduction milestone");
+    expect(messagesCompleteness(m)).toContain("introduction milestone");
   });
 
   it("reports a consumption with no arrival palier — that is when its consumer arrived", () => {
@@ -541,12 +541,12 @@ describe("paliers — complétude", () => {
       interfaces: [iface({ introducedAt: "v1" })],
       consumptions: [consumption({})],
     });
-    expect(messagesCompletude(m)).toContain("Consumption");
+    expect(messagesCompleteness(m)).toContain("Consumption");
   });
 
   it("reports an acteur with no arrival palier", () => {
     const m = model({ milestones, actors: [actor({ name: "A" }), actor({ name: "B", introducedAt: "v1" })] });
-    expect(messagesCompletude(m)).toContain("Actor");
+    expect(messagesCompleteness(m)).toContain("Actor");
   });
 
   // Un retrait vide n'est pas un manque : c'est un fait, la ligne est encore là.
@@ -557,13 +557,13 @@ describe("paliers — complétude", () => {
       interfaces: [iface({ introducedAt: "v1" })],
       consumptions: [consumption({ introducedAt: "v1" })],
     });
-    expect(messagesCompletude(m)).not.toContain("milestone");
+    expect(messagesCompleteness(m)).not.toContain("milestone");
   });
 
   // Tant que l'équipe n'a pas adopté l'axe, l'outil n'en parle pas.
   it("stays silent when no palier is declared at all", () => {
     const m = model({ interfaces: [iface({})], consumptions: [consumption({})] });
-    expect(messagesCompletude(m)).not.toContain("milestone");
+    expect(messagesCompleteness(m)).not.toContain("milestone");
   });
 });
 
@@ -1207,14 +1207,14 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
 // en silence sous un schéma vide. Symétriquement, deux lignes datées d'une même
 // migration étaient comptées ensemble, et le fichier se voyait reprocher de
 // suivre sa propre consigne.
-const messagesRecette = (m: Parameters<typeof runIntegrityChecks>[0], rank: number | null) =>
+const fixtureMessages = (m: Parameters<typeof runIntegrityChecks>[0], rank: number | null) =>
   runIntegrityChecks(m, rank).families.flatMap((f) => f.anomalies.map((a) => a.message));
 // ---------------------------------------------------------------------------
 // 3. Le rapport d'intégrité face à l'axe des paliers.
 // ---------------------------------------------------------------------------
 
 const MILESTONES_FIXTURE = [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 }), base.milestone({ name: "v3", rank: 3 })];
-const SOCLE_RECETTE = {
+const CORE_FIXTURE = {
   groups: [base.group({ name: "G" })],
   actorTypes: [base.actorType()],
   flowTypes: [base.typeFlux()],
@@ -1228,7 +1228,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     // delete it: give it a retirement milestone. » Les deux intervalles sont
     // DISJOINTS -- à aucun palier B ne consomme deux versions.
     const m = base.template({
-      ...SOCLE_RECETTE,
+      ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
       interfaces: [
         base.iface({ flowName: "F", version: "1.0", providerName: "A", introducedAt: "v1", retiredAt: "v2" }),
@@ -1242,30 +1242,30 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     expect(buildFlowInstances(m, 1).map((f) => f.version)).toEqual(["1.0"]);
     expect(buildFlowInstances(m, 2).map((f) => f.version)).toEqual(["2.0"]);
     for (const rank of [null, 1, 2, 3]) {
-      expect(messagesRecette(m, rank).filter((x) => x.includes("two versions"))).toEqual([]);
+      expect(fixtureMessages(m, rank).filter((x) => x.includes("two versions"))).toEqual([]);
     }
   });
 
   it("signale une consommation dont l'intervalle ne rencontre jamais celui de son interface", () => {
     const m = base.template({
-      ...SOCLE_RECETTE,
+      ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", introducedAt: "v1", retiredAt: "v2" })],
       consumptions: [base.consumption({ flowName: "F", consumerName: "B", introducedAt: "v2" })],
     });
     expect([1, 2, 3].map((r) => buildFlowInstances(m, r).length)).toEqual([0, 0, 0]);
-    expect(messagesRecette(m, 2).some((x) => x.includes("lives outside the lifetime"))).toBe(true);
+    expect(fixtureMessages(m, 2).some((x) => x.includes("lives outside the lifetime"))).toBe(true);
   });
 
   it("dit qu'une interface n'a plus de consommation au palier affiché", () => {
     const m = base.template({
-      ...SOCLE_RECETTE,
+      ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", introducedAt: "v1" })],
       consumptions: [base.consumption({ flowName: "F", consumerName: "B", introducedAt: "v1", retiredAt: "v2" })],
     });
     expect(buildFlowInstances(m, 2)).toHaveLength(0);
-    expect(messagesRecette(m, 2).some((x) => x.includes("no declared consumption"))).toBe(true);
+    expect(fixtureMessages(m, 2).some((x) => x.includes("no declared consumption"))).toBe(true);
   });
 
   it("dit qu'une chaîne de relais est coupée par le temps", () => {
@@ -1291,7 +1291,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     });
     expect(buildFunctionalFlows(m, 1)).toHaveLength(1);
     expect(buildFunctionalFlows(m, 2)).toHaveLength(0);
-    expect(messagesRecette(m, 2).some((x) => x.includes("nothing feeds it"))).toBe(true);
+    expect(fixtureMessages(m, 2).some((x) => x.includes("nothing feeds it"))).toBe(true);
   });
 
   it("ne prétend pas qu'un nom de flux est absent du catalogue quand le schéma le dessine", () => {
@@ -1305,7 +1305,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
       consumptions: [base.consumption({ flowName: "authent", consumerName: "B", sheet: "FX_A_HTTP" })],
     });
     expect(buildFlowInstances(m, null)).toHaveLength(1);
-    expect(messagesRecette(m, null).some((x) => x.includes("missing from the Interfaces catalogue"))).toBe(false);
+    expect(fixtureMessages(m, null).some((x) => x.includes("missing from the Interfaces catalogue"))).toBe(false);
   });
 });
 

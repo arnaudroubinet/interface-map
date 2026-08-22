@@ -112,8 +112,8 @@ function rowHasContent(row: Record<string, string>, headerMap: Map<string, strin
 // interprétées dès la lecture, pas au moment de la conversion.
 function normSens(raw: string): "provider-to-consumer" | "consumer-to-provider" {
   const v = normalizeText(raw);
-  const versConsommateur = v.startsWith(normalizeText("provider")) || v.startsWith(normalizeText("exposant"));
-  return versConsommateur ? "provider-to-consumer" : "consumer-to-provider";
+  const toConsumer = v.startsWith(normalizeText("provider")) || v.startsWith(normalizeText("exposant"));
+  return toConsumer ? "provider-to-consumer" : "consumer-to-provider";
 }
 
 function normOui(raw: string): boolean {
@@ -133,7 +133,7 @@ function validity(row: Record<string, string>, headerMap: Map<string, string>): 
 // migration-legacy.ts la consomme aussi -- sans elle, le parseur et la
 // migration pourraient un jour juger différemment le même nom, et produire un
 // classeur dont l'onglet manquant n'aurait jamais pu être créé.
-export function nomOngletValide(name: string): boolean {
+export function isValidTabName(name: string): boolean {
   return name.length <= 31 && !CARACTERES_INTERDITS.test(name);
 }
 
@@ -142,7 +142,7 @@ export function nomOngletValide(name: string): boolean {
 // la migration legacy (migration-legacy.ts). Un seul endroit, pour que les
 // trois ne puissent pas s'écarter l'un de l'autre.
 export const PREFIXE_FEUILLE_FX = "FX_";
-export const SEPARATEUR_FEUILLE_FX = "_";
+export const FX_SHEET_SEPARATOR = "_";
 
 // Excel refuse un nom de plus de 31 caractères ou portant l'un de : \ / ? * [ ].
 // Le nom étant DÉRIVÉ, un acteur au nom un peu long produisait un onglet
@@ -161,7 +161,7 @@ export function sanitiseTabName(name: string): string {
 }
 
 export function expectedFxSheet(providerName: string, flowType: string): string {
-  return sanitiseTabName(`${PREFIXE_FEUILLE_FX}${providerName}${SEPARATEUR_FEUILLE_FX}${flowType}`);
+  return sanitiseTabName(`${PREFIXE_FEUILLE_FX}${providerName}${FX_SHEET_SEPARATOR}${flowType}`);
 }
 
 export function buildModel(workbook: ParsedWorkbook): BuildModelResult {

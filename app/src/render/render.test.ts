@@ -337,8 +337,8 @@ describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
   });
 
   it("garde le libellé lisible dans les deux cas", () => {
-    for (const techno of ["HTTP", ""]) {
-      const table = buildMatrixTable(matrix(techno), () => "#7a2e3b");
+    for (const tech of ["HTTP", ""]) {
+      const table = buildMatrixTable(matrix(tech), () => "#7a2e3b");
       expect(table.textContent).toContain("F");
     }
   });

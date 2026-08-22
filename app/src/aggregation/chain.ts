@@ -1,6 +1,6 @@
 import type { ParsedModel } from "../parsing/model";
 import { interfaceLabel, type FlowInstance, type GraphEdge, type GraphNode } from "./core";
-import { consommationsMetier, chainsOfFlow, type Hop } from "./reading";
+import { businessConsumptions, chainsOfFlow, type Hop } from "./reading";
 import type { ViewResult } from "./views";
 
 // The Chain view: following ONE exchange end to end, through the plumbing it
@@ -28,7 +28,7 @@ export function availableChains(model: ParsedModel, rank: number | null): Availa
   // We start from BUSINESS consumptions, that is, from the downstream end of
   // each chain: that is where the walk up begins. Starting from a functional
   // flow would not work, its interface having already been replaced by the source.
-  for (const f of consommationsMetier(model, rank)) {
+  for (const f of businessConsumptions(model, rank)) {
     for (const hops of chainsOfFlow(model, rank, f)) {
       if (hops.length === 0) continue;
       const dernier = hops[hops.length - 1];
@@ -58,7 +58,7 @@ export function buildChainView(model: ParsedModel, chain: AvailableChain): ViewR
       // is the plumbing being crossed.
       kind: name === actors[0] || name === actors[actors.length - 1] ? "focus-actor" : "actor",
       subtitle: actor?.actorType.trim() || undefined,
-      technique: actors.indexOf(name) > 0 && actors.indexOf(name) < actors.length - 1 ? true : undefined,
+      technical: actors.indexOf(name) > 0 && actors.indexOf(name) < actors.length - 1 ? true : undefined,
     };
   });
 

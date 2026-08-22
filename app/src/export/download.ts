@@ -16,9 +16,9 @@ export function downloadText(content: string, fileName: string): void {
   downloadBlob(new Blob([content], { type: "text/markdown;charset=utf-8" }), fileName);
 }
 
-export function downloadWorkbook(octets: ArrayBuffer, fileName: string): void {
+export function downloadWorkbook(bytes: ArrayBuffer, fileName: string): void {
   const extension = fileName.split(".").pop() ?? "xlsx";
-  downloadBlob(new Blob([octets], { type: TYPES[extension] ?? TYPES.xlsx }), fileName);
+  downloadBlob(new Blob([bytes], { type: TYPES[extension] ?? TYPES.xlsx }), fileName);
 }
 
 // Le seul endroit qui déclenche un téléchargement. Il n'y en avait pas un mais

@@ -2,15 +2,15 @@ import { ICONES, ICONE_PAR_DEFAUT } from "./icons";
 import type { LayoutResult, LayoutEdge, LayoutNode } from "../layout/graph-layout";
 import {
   lignesDescription,
-  nomTronque,
+  truncatedName,
   hauteurTexteNoeud,
-  HAUTEUR_LIGNE_NOM,
+  NAME_LINE_HEIGHT,
   HAUTEUR_LIGNE_TYPE,
   HAUTEUR_LIGNE_VIDE,
   HAUTEUR_LIGNE_DESC,
   HAUTEUR_PASTILLE,
   largeurPastille,
-  subLabel as sousLibelléDe,
+  subLabel as subLabelOf,
   taillePastille,
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
@@ -61,7 +61,7 @@ interface RenderEdge {
   criticality?: string;
   points: { x: number; y: number }[];
   // Centre de la pastille, placé par le moteur de layout.
-  centreLibellé?: { x: number; y: number };
+  labelCentre?: { x: number; y: number };
   // Extrémités conservées : la contrainte d'obstacles s'applique APRÈS la
   // fusion, donc sur ces arêtes-là, et doit savoir quels nœuds sont
   // légitimement accostés. Un tronc de fusion n'a pas de nœud d'origine.
@@ -80,7 +80,7 @@ interface RenderEdge {
   arrow: boolean;
   // Le tronc d'un groupe fusionné part d'un point de confluence, pas d'un
   // vrai nœud -- pas de point de départ à marquer dans ce cas.
-  estTronc?: boolean;
+  isTrunk?: boolean;
 }
 
 // Jeu conservé entre la pointe de la flèche et la boîte visée : la flèche
@@ -120,7 +120,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
 
   // Un flux dessiné tel quel, avec sa propre pointe.
   const seul = (edge: LayoutEdge) => {
-      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
   for (const group of groups.values()) {
@@ -136,7 +136,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
       // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
       // le libellé plutôt du côté le moins encombré.
-      result.push({ points: edge.points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
       continue;
     }
 
@@ -176,7 +176,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Toutes les branches convergent vers la même confluence encombrée :
       // le libellé se place près de sa propre source, là où les branches sont
       // encore écartées les unes des autres (à leurs ports de sortie).
-      result.push({ points, centreLibellé: edge.centreLibellé, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
+      result.push({ points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
     }
 
     result.push({
@@ -190,7 +190,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // avec la plus vitale d'entre elles.
       criticality: group.map((e) => e.criticality).find(Boolean),
       arrow: true,
-      estTronc: true,
+      isTrunk: true,
     });
   }
   return result;
@@ -240,7 +240,7 @@ function arrowMarkerId(colour: string, hollow = false, size = TAILLE_POINTE): st
 function placeLabels(edges: RenderEdge[]): Map<RenderEdge, Point> {
   const placements = new Map<RenderEdge, Point>();
   for (const e of edges) {
-    if (e.label && e.centreLibellé) placements.set(e, e.centreLibellé);
+    if (e.label && e.labelCentre) placements.set(e, e.labelCentre);
   }
   return placements;
 }
@@ -329,16 +329,16 @@ const WIDTH_BY_CRITICALITY: Record<string, number> = {
   "3 - standard": 1,
 };
 
-function strokeWidthOf(edge: RenderEdge, parCriticite: boolean): number {
-  if (!parCriticite || !edge.criticality) return STROKE_WIDTH;
+function strokeWidthOf(edge: RenderEdge, byCriticality: boolean): number {
+  if (!byCriticality || !edge.criticality) return STROKE_WIDTH;
   return WIDTH_BY_CRITICALITY[normalizeText(edge.criticality)] ?? STROKE_WIDTH;
 }
 
 function buildEdgeElement(
   edge: RenderEdge,
   colorFor: (tech: string) => string,
-  rectLibellé: Rect | null,
-  parCriticite: boolean
+  labelRect: Rect | null,
+  byCriticality: boolean
 ): SVGGElement {
   const g = el("g");
   const colour = edgeColour(edge, colorFor);
@@ -357,14 +357,14 @@ function buildEdgeElement(
   const drawnPoints = edge.arrow
     ? reculerPourLaPointe(edge.points, taillePointe + arrowGapFor(taillePointe), edge.pulled === true)
     : edge.points;
-  const morceaux = interrompreLeTrace(drawnPoints, rectLibellé ? [rectLibellé] : []);
+  const morceaux = interrompreLeTrace(drawnPoints, labelRect ? [labelRect] : []);
 
   morceaux.forEach((morceau, i) => {
     const path = el("path");
     path.setAttribute("d", cheminArrondi(morceau));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", colour);
-    path.setAttribute("stroke-width", String(strokeWidthOf(edge, parCriticite)));
+    path.setAttribute("stroke-width", String(strokeWidthOf(edge, byCriticality)));
     // La pointe ne va que sur le morceau qui aborde celui qu'elle désigne : le
     // dernier quand le fournisseur pousse, le premier quand le consommateur
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
@@ -448,7 +448,7 @@ function buildChip(x: number, y: number, contenu: string, colour: string): { ele
 // produit, son libellé en haut à gauche. Elle n'a ni fond ni icône -- c'est un
 // contour, pas une boîte, et elle se dessine avant tout le reste pour rester
 // dessous.
-function buildFrontiereElement(node: LayoutNode): SVGGElement {
+function buildBoundaryElement(node: LayoutNode): SVGGElement {
   const g = el("g");
   const x = node.x - node.width / 2;
   const y = node.y - node.height / 2;
@@ -476,7 +476,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const x = node.x - node.width / 2;
   const y = node.y - node.height / 2;
   const style = styleDuNoeud(node);
-  const estExterne = !!node.external;
+  const isExternal = !!node.external;
 
   // Un groupe replié se dessine en PILE : deux boîtes décalées derrière la
   // sienne. Le lecteur voit d'un coup d'œil que ce nœud en contient plusieurs,
@@ -499,7 +499,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   // daltonien (WCAG 1.4.1, technique G111).
   const COUPE = 14;
   let box: SVGElement;
-  if (node.technique) {
+  if (node.technical) {
     const path = el("path");
     path.setAttribute("class", "fx-cut-corner");
     path.setAttribute(
@@ -519,7 +519,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   }
   // Le trait discontinu redit « externe » par la forme : la couleur seule ne
   // suffit pas en noir et blanc ni pour un daltonien.
-  if (estExterne) box.setAttribute("stroke-dasharray", "8 5");
+  if (isExternal) box.setAttribute("stroke-dasharray", "8 5");
   g.appendChild(box);
 
   const blanc = "#ffffff";
@@ -536,19 +536,19 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   let curseur = node.y - hauteurTexteNoeud(node) / 2;
 
   const iconSize = 16;
-  const shownName = nomTronque(node.label);
-  const largeurNom = shownName.length * 8.2;
-  g.appendChild(buildIcon(node.icon ?? ICONE_PAR_DEFAUT, cx - largeurNom / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
+  const shownName = truncatedName(node.label);
+  const nameWidth = shownName.length * 8.2;
+  g.appendChild(buildIcon(node.icon ?? ICONE_PAR_DEFAUT, cx - nameWidth / 2 - iconSize - 6, curseur + 1, iconSize, blanc));
 
-  const texteNom = el("text");
-  texteNom.setAttribute("x", String(cx + iconSize / 2 + 3));
-  texteNom.setAttribute("y", String(curseur + 14));
-  texteNom.setAttribute("text-anchor", "middle");
-  texteNom.setAttribute("font-size", "16");
-  texteNom.setAttribute("font-weight", "700");
-  texteNom.setAttribute("fill", blanc);
-  texteNom.textContent = shownName;
-  g.appendChild(texteNom);
+  const nameText = el("text");
+  nameText.setAttribute("x", String(cx + iconSize / 2 + 3));
+  nameText.setAttribute("y", String(curseur + 14));
+  nameText.setAttribute("text-anchor", "middle");
+  nameText.setAttribute("font-size", "16");
+  nameText.setAttribute("font-weight", "700");
+  nameText.setAttribute("fill", blanc);
+  nameText.textContent = shownName;
+  g.appendChild(nameText);
   // Tronqué, le nom reste lisible au hover de la boîte entière -- dans le
   // navigateur comme dans un .svg ouvert seul. Posé sur le groupe et non sur
   // l'élément texte : là, il s'ajouterait au textContent du nom.
@@ -557,7 +557,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     infobulle.textContent = node.label;
     g.appendChild(infobulle);
   }
-  curseur += HAUTEUR_LIGNE_NOM;
+  curseur += NAME_LINE_HEIGHT;
 
   if (node.subtitle) {
     const texteType = el("text");
@@ -566,7 +566,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     texteType.setAttribute("text-anchor", "middle");
     texteType.setAttribute("font-size", "12");
     texteType.setAttribute("fill", blanc);
-    texteType.textContent = `[${node.subtitle}${estExterne ? " · External" : ""}]`;
+    texteType.textContent = `[${node.subtitle}${isExternal ? " · External" : ""}]`;
     g.appendChild(texteType);
     curseur += HAUTEUR_LIGNE_TYPE;
   }
@@ -802,7 +802,7 @@ export function buildGraphSvg(
   // Ce que le schéma dit de lui-même. `null` pour les appels qui n'ont rien à
   // en dire -- un test de rendu, un fragment -- plutôt qu'un cartouche vide.
   context: DiagramContext | null = null,
-  options?: { graisseParCriticite?: boolean }
+  options?: { weightByCriticality?: boolean }
 ): SVGSVGElement {
   // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
   // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
@@ -819,7 +819,7 @@ export function buildGraphSvg(
   // Et une technologie vide n'en est pas une -- le mode fonctionnel vide
   // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
   // qu'un code couleur introuvable sur le dessin.
-  const inputs = entreesDeLegende(renderEdges, layout.nodes, colorFor, options?.graisseParCriticite === true);
+  const inputs = entreesDeLegende(renderEdges, layout.nodes, colorFor, options?.weightByCriticality === true);
   const legendWidth = inputs.length ? largeurLegende(inputs.map((e) => e.text)) : 0;
   const legendHeight = inputs.length ? LEGENDE_PAD * 2 + inputs.length * LEGENDE_LIGNE : 0;
 
@@ -903,25 +903,25 @@ export function buildGraphSvg(
   const edgeLayer = el("g");
   edgeLayer.setAttribute("class", "fx-edges");
   for (const edge of renderEdges) {
-    edgeLayer.appendChild(buildEdgeElement(edge, colorFor, labelRect(edge), options?.graisseParCriticite === true));
+    edgeLayer.appendChild(buildEdgeElement(edge, colorFor, labelRect(edge), options?.weightByCriticality === true));
   }
   svg.appendChild(edgeLayer);
 
   // Les frontières passent sous les arêtes : ce sont des repères de fond, pas
   // des objets à survoler.
-  const coucheFrontieres = el("g");
-  coucheFrontieres.setAttribute("class", "fx-frontieres");
+  const boundaryLayer = el("g");
+  boundaryLayer.setAttribute("class", "fx-frontieres");
   for (const node of layout.nodes.filter((n) => n.kind === "boundary")) {
-    coucheFrontieres.appendChild(buildFrontiereElement(node));
+    boundaryLayer.appendChild(buildBoundaryElement(node));
   }
-  svg.insertBefore(coucheFrontieres, edgeLayer);
+  svg.insertBefore(boundaryLayer, edgeLayer);
 
-  const coucheNoeuds = el("g");
-  coucheNoeuds.setAttribute("class", "fx-nodes");
+  const nodeLayer = el("g");
+  nodeLayer.setAttribute("class", "fx-nodes");
   for (const node of layout.nodes.filter((n) => n.kind !== "boundary")) {
-    coucheNoeuds.appendChild(buildNodeElement(node));
+    nodeLayer.appendChild(buildNodeElement(node));
   }
-  svg.appendChild(coucheNoeuds);
+  svg.appendChild(nodeLayer);
 
   // Ordre de dessin : frontières, arêtes, boîtes, puis libellés. Les libellés
   // passent en dernier pour qu'aucun trait ni aucune boîte ne les recouvre --
@@ -937,7 +937,7 @@ export function buildGraphSvg(
         ancre.x,
         ancre.y,
         edge.label,
-        sousLibelléDe(edge.label, edge.technology),
+        subLabelOf(edge.label, edge.technology),
         edgeColour(edge, colorFor),
         edge.attenuated,
         !edge.change && edge.technology.trim() !== ""

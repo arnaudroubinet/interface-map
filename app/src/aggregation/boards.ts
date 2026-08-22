@@ -9,7 +9,7 @@ import {
   buildByActorView,
 } from "./views";
 
-export interface Planche {
+export interface Board {
   title: string;
   // An actor's board is what the draw.io file's links point at. Its title now
   // carries a qualifier and can no longer be read as an actor name: this field,
@@ -26,10 +26,10 @@ export interface Planche {
 // A choice with no flow is dropped: its board would show a lone box or nothing
 // at all, and the integrity report already reports both the actor with no flow
 // and the unused flow type.
-export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode: Mode): Planche[] {
+export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode: Mode): Board[] {
   const reading = lectureDuMode(model, rank, mode);
   const options = { counters: true };
-  const boards: Planche[] = [
+  const boards: Board[] = [
     { title: "Group to group", ...buildGroupToGroupView(model, reading, options) },
     { title: "Platform detail", ...buildPlatformDetailView(model, reading, options) },
     { title: "Platform only", ...buildPlatformOnlyView(model, reading, options) },
@@ -45,8 +45,8 @@ export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode:
   // the application's own words ("By technology", "By actor"), and is put as a
   // suffix so the name stays at the head of the tab -- that is what the eye
   // looks for, and the tab bar truncates from the end.
-  for (const techno of technologies) {
-    boards.push({ title: `${techno} (technology)`, ...buildByTechnologyView(model, reading.flows, techno, options) });
+  for (const tech of technologies) {
+    boards.push({ title: `${tech} (technology)`, ...buildByTechnologyView(model, reading.flows, tech, options) });
   }
 
   const touched = new Set(reading.flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));

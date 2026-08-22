@@ -32,7 +32,7 @@ function liveActors(model: ParsedModel, rank: number): Set<string> {
   );
 }
 
-function interfacesVivantes(model: ParsedModel, rank: number): Set<string> {
+function liveInterfaces(model: ParsedModel, rank: number): Set<string> {
   return new Set(
     model.interfaces
       .filter((i) => isLiveAt(lifespanOf(model, i), rank))
@@ -42,7 +42,7 @@ function interfacesVivantes(model: ParsedModel, rank: number): Set<string> {
 
 // A consumption is named by the pair it creates: that is what one reads on the
 // diagram, and what speaks in a meeting.
-function consommationsVivantes(model: ParsedModel, rank: number, mode: Mode): Set<string> {
+function liveConsumptions(model: ParsedModel, rank: number, mode: Mode): Set<string> {
   return new Set(
     flowsForReading(model, rank, mode).map(
       (f) => `${f.consumer} → ${interfaceLabel(f.interfaceName, f.version)}`
@@ -53,8 +53,8 @@ function consommationsVivantes(model: ParsedModel, rank: number, mode: Mode): Se
 export function computeChanges(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): Changes {
   return {
     actors: difference(liveActors(model, rankBefore), liveActors(model, rankAfter)),
-    interfaces: difference(interfacesVivantes(model, rankBefore), interfacesVivantes(model, rankAfter)),
-    consumptions: difference(consommationsVivantes(model, rankBefore, mode), consommationsVivantes(model, rankAfter, mode)),
+    interfaces: difference(liveInterfaces(model, rankBefore), liveInterfaces(model, rankAfter)),
+    consumptions: difference(liveConsumptions(model, rankBefore, mode), liveConsumptions(model, rankAfter, mode)),
   };
 }
 
@@ -76,9 +76,9 @@ export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfte
   // ordinary line, and the one case the diagram existed to make visible was
   // not.
   const key = (e: GraphEdge) => JSON.stringify([e.from, e.to, e.technology]);
-  const parCle = (r: ViewResult) => new Map(r.edges.map((e) => [key(e), e]));
-  const beforeByKey = parCle(before);
-  const afterByKey = parCle(after);
+  const byKey = (r: ViewResult) => new Map(r.edges.map((e) => [key(e), e]));
+  const beforeByKey = byKey(before);
+  const afterByKey = byKey(after);
 
   const edges: GraphEdge[] = [];
   for (const k of new Set([...afterByKey.keys(), ...beforeByKey.keys()])) {
@@ -117,6 +117,6 @@ export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfte
   if (dedans.length < 2) {
     return { nodes: retenus.map((n) => ({ ...n, parent: undefined })), edges };
   }
-  const frontiere = connus.find((n) => n.kind === "boundary");
-  return { nodes: frontiere ? [frontiere, ...retenus] : retenus, edges };
+  const boundary = connus.find((n) => n.kind === "boundary");
+  return { nodes: boundary ? [boundary, ...retenus] : retenus, edges };
 }

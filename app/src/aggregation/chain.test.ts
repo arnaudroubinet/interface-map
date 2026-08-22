@@ -99,7 +99,7 @@ describe("buildChainView", () => {
   it("met en avant les deux bouts et marque la plomberie du milieu", () => {
     const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.kind)).toEqual(["focus-actor", "actor", "actor", "focus-actor"]);
-    expect(view.nodes.map((n) => n.technique)).toEqual([undefined, true, true, undefined]);
+    expect(view.nodes.map((n) => n.technical)).toEqual([undefined, true, true, undefined]);
   });
 
   it("écrit sur chaque trait le nom porté à cet endroit", () => {

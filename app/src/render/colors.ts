@@ -12,7 +12,7 @@ import { assombrirJusquA, ratioDeContraste } from "./contrast";
 // teinte non validée.
 export const PALETTE = ["#1f5fae", "#b8481f", "#0e7f56", "#8a5f00", "#a8446a", "#008300", "#4a3aa7", "#b32d2c"];
 
-export function colorForTechnologies(technologies: string[]): Map<string, string> {
+export function colourForTechnologies(technologies: string[]): Map<string, string> {
   const distinct = [...new Set(technologies.map((t) => t.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
   const map = new Map<string, string>();
   distinct.forEach((tech, i) => map.set(tech, PALETTE[i % PALETTE.length]));
@@ -66,10 +66,10 @@ export function coloursOfModel(model: {
 
   const colours = new Map<string, string>();
   const taken = new Set<string>();
-  for (const techno of drawn) {
-    const colour = declaredColour.get(techno);
+  for (const tech of drawn) {
+    const colour = declaredColour.get(tech);
     if (!colour) continue;
-    colours.set(techno, colour);
+    colours.set(tech, colour);
     taken.add(colour);
   }
 
@@ -80,9 +80,9 @@ export function coloursOfModel(model: {
   const libres = PALETTE.filter((c) => !taken.has(c));
   const spare = libres.length > 0 ? libres : PALETTE;
   let i = 0;
-  for (const techno of drawn) {
-    if (colours.has(techno)) continue;
-    colours.set(techno, spare[i % spare.length]);
+  for (const tech of drawn) {
+    if (colours.has(tech)) continue;
+    colours.set(tech, spare[i % spare.length]);
     i += 1;
   }
   return colours;

@@ -51,14 +51,14 @@ function partie(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
 // Même raison pour les parties « table » : leur numéro suit l'ordre du
 // classeur, donc il bouge dès qu'un tableau s'insère avant. On les retrouve
 // par le nom qu'elles portent.
-function tableXml(nomTable: string, paquet: ArrayBuffer = rereadTemplate()): string {
+function tableXml(tableName: string, paquet: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
   for (const path of cfb.FullPaths) {
     if (!/\/xl\/tables\/table\d+\.xml$/.test(path)) continue;
     const xml = partie(path.replace(/^[^/]*/, ""), paquet);
-    if (xml.includes(`name="${nomTable}"`)) return xml;
+    if (xml.includes(`name="${tableName}"`)) return xml;
   }
-  throw new Error(`table absente : ${nomTable}`);
+  throw new Error(`table absente : ${tableName}`);
 }
 
 function feuilleXml(name: string, paquet: ArrayBuffer = rereadTemplate()): string {
@@ -706,8 +706,8 @@ describe("modèle de classeur — nature et relais", () => {
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
     const types = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1 })[0];
     const interfaces = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["Interfaces"], { header: 1 })[0];
-    const nomFx = wb.SheetNames.find((n) => n.startsWith("FX_"))!;
-    const fx = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[nomFx], { header: 1 })[0];
+    const fxName = wb.SheetNames.find((n) => n.startsWith("FX_"))!;
+    const fx = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[fxName], { header: 1 })[0];
     expect(types).toContain("Nature");
     expect(fx).toContain("Republished as");
     expect(interfaces).not.toContain("Relays");
@@ -803,8 +803,8 @@ describe("modèle de classeur — invites de saisie", () => {
   it("écrit l'invite dans le XML de la feuille", () => {
     const paquet = writeTemplate(SAMPLE_DATA);
     const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
-    const nomFx = wb.SheetNames.find((n) => n.startsWith("FX_") && n !== "FX_Modèle")!;
-    const xml = feuilleXml(nomFx, paquet);
+    const fxName = wb.SheetNames.find((n) => n.startsWith("FX_") && n !== "FX_Modèle")!;
+    const xml = feuilleXml(fxName, paquet);
     expect(xml).toContain("promptTitle=");
     expect(xml).toContain("prompt=");
   });
@@ -899,7 +899,7 @@ describe("écrireModele — les propriétés du document", () => {
 // ne disait rien : les colonnes de saisie libre n'avaient aucune infobulle,
 // alors que ce sont celles où l'on hésite.
 describe("modèle de classeur — les aides à la saisie", () => {
-  const feuillesDeSaisie = ["Actors", "Groups", "Milestones", "ActorTypes", "FlowTypes", "Interfaces"];
+  const entrySheets = ["Actors", "Groups", "Milestones", "ActorTypes", "FlowTypes", "Interfaces"];
 
   it("pose une infobulle sur chaque colonne de chaque feuille de saisie", () => {
     const validations = validationsOfTemplate();
@@ -911,7 +911,7 @@ describe("modèle de classeur — les aides à la saisie", () => {
       FlowTypes: FLOW_TYPE_COLUMNS,
       Interfaces: INTERFACE_COLUMNS,
     };
-    for (const sheet of feuillesDeSaisie) {
+    for (const sheet of entrySheets) {
       const applied = new Set(validations.filter((v) => v.sheet === sheet).map((v) => v.column));
       for (const [i] of columnsOf[sheet].entries()) {
         expect(applied, `${sheet} : column ${i + 1} sans infobulle`).toContain(XLSX.utils.encode_col(i));

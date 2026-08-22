@@ -5,7 +5,7 @@ import { styleDuNoeud } from "./node-styles";
 import { computeLayout, taillePastille } from "../layout/graph-layout";
 import { ratioDeContraste } from "./contrast";
 import { serializeSvg } from "../export/svg-export";
-import { colorForTechnologies } from "./colors";
+import { colourForTechnologies } from "./colors";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "../layout/graph-layout";
 
@@ -17,7 +17,7 @@ describe("buildGraphSvg", () => {
     ];
     const edges: GraphEdge[] = [{ from: "A", to: "B", technology: "HTTP", count: 3, label: "HTTP ×3", attenuated: false }];
     const layout = await computeLayout(nodes, edges);
-    const colorFor = (tech: string) => colorForTechnologies(["HTTP"]).get(tech) ?? "#000";
+    const colorFor = (tech: string) => colourForTechnologies(["HTTP"]).get(tech) ?? "#000";
 
     const svg = buildGraphSvg(layout, colorFor);
 
@@ -95,8 +95,8 @@ describe("buildGraphSvg", () => {
 
     const svg = buildGraphSvg(layout, () => "#2a78d6");
 
-    const groupesNoeud = [...svg.querySelectorAll(".fx-nodes g")];
-    const iconGroup = groupesNoeud.find((g) => g.children.length === 5 && [...g.children].every((c) => c.tagName === "path"));
+    const nodeGroups = [...svg.querySelectorAll(".fx-nodes g")];
+    const iconGroup = nodeGroups.find((g) => g.children.length === 5 && [...g.children].every((c) => c.tagName === "path"));
     expect(iconGroup).not.toBeUndefined();
 
     const box = svg.querySelector(".fx-nodes rect")!;
@@ -149,7 +149,7 @@ describe("buildGraphSvg", () => {
             { x: 100, y: 50 },
             { x: 160, y: 50 },
           ],
-          centreLibellé: { x: 90, y: 15 },
+          labelCentre: { x: 90, y: 15 },
         },
         {
           from: "C",
@@ -164,7 +164,7 @@ describe("buildGraphSvg", () => {
             { x: 100, y: 50 },
             { x: 160, y: 50 },
           ],
-          centreLibellé: { x: 90, y: 90 },
+          labelCentre: { x: 90, y: 90 },
         },
       ],
       width: 300,
@@ -484,7 +484,7 @@ describe("buildGraphSvg — libellés d'arêtes", () => {
       { id: "B", label: "B", kind: "group", x: 400, y: 0, width: 80, height: 40 },
     ],
     edges: [{ from: "A", to: "B", technology, count: 1, label, attenuated: false,
-      points: [{ x: 40, y: 0 }, { x: 360, y: 0 }], centreLibellé: { x: 200, y: 0 } }],
+      points: [{ x: 40, y: 0 }, { x: 360, y: 0 }], labelCentre: { x: 200, y: 0 } }],
     width: 500,
     height: 200,
   });
@@ -602,13 +602,13 @@ describe("buildGraphSvg — légende", () => {
 });
 
 describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
-  const layoutWithLabel = (centreLibellé: { x: number; y: number }): LayoutResult => ({
+  const layoutWithLabel = (labelCentre: { x: number; y: number }): LayoutResult => ({
     nodes: [
       { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
       { id: "B", label: "B", kind: "group", x: 600, y: 0, width: 80, height: 40 },
     ],
     edges: [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false,
-      points: [{ x: 40, y: 0 }, { x: 560, y: 0 }], centreLibellé }],
+      points: [{ x: 40, y: 0 }, { x: 560, y: 0 }], labelCentre }],
     width: 700,
     height: 200,
   });
@@ -915,7 +915,7 @@ describe("buildGraphSvg — la forme redit ce que la couleur dit", () => {
     );
 
   it("coupe le coin d'un acteur technique", async () => {
-    const svg = buildGraphSvg(await estate({ technique: true }), () => "#111");
+    const svg = buildGraphSvg(await estate({ technical: true }), () => "#111");
     expect(svg.querySelectorAll(".fx-nodes path.fx-cut-corner")).toHaveLength(1);
   });
 
@@ -1116,11 +1116,11 @@ describe("buildGraphSvg — la graisse suit la criticité", () => {
   const graisse = (svg: SVGSVGElement) => Number(svg.querySelector(".fx-edges path")!.getAttribute("stroke-width"));
 
   it("épaissit le trait critique quand le réglage est actif", async () => {
-    expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { graisseParCriticite: true }))).toBeGreaterThan(2);
+    expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true }))).toBeGreaterThan(2);
   });
 
   it("amincit le trait standard", async () => {
-    expect(graisse(buildGraphSvg(await estate("3 - Standard"), () => "#111", null, { graisseParCriticite: true }))).toBeLessThan(2);
+    expect(graisse(buildGraphSvg(await estate("3 - Standard"), () => "#111", null, { weightByCriticality: true }))).toBeLessThan(2);
   });
 
   // Désactivé, rien ne bouge : la graisse sert ailleurs à ne RIEN dire, et les
@@ -1131,11 +1131,11 @@ describe("buildGraphSvg — la graisse suit la criticité", () => {
 
   // Une criticité non renseignée ne doit pas produire un trait invisible.
   it("garde la graisse par défaut sur une criticité absente", async () => {
-    expect(graisse(buildGraphSvg(await estate(undefined), () => "#111", null, { graisseParCriticite: true }))).toBe(2);
+    expect(graisse(buildGraphSvg(await estate(undefined), () => "#111", null, { weightByCriticality: true }))).toBe(2);
   });
 
   it("annonce les graisses employées dans la légende", async () => {
-    const svg = buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { graisseParCriticite: true });
+    const svg = buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true });
     const texts = [...svg.querySelectorAll(".fx-legend text")].map((t) => t.textContent);
     expect(texts).toContain("criticality: 1 - Critical");
     expect(texts).not.toContain("criticality: 3 - Standard");

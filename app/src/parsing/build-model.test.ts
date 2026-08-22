@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildModel, FX_COLUMNS, expectedFxSheet, nomOngletValide } from "./build-model";
+import { buildModel, FX_COLUMNS, expectedFxSheet, isValidTabName } from "./build-model";
 import type { ParsedWorkbook, RawSheet } from "./model";
 
 function wb(sheets: RawSheet[]): ParsedWorkbook {
@@ -98,7 +98,7 @@ describe("buildModel — happy path", () => {
     if (!result.ok) return;
     const attendue = result.model.interfaces[0].expectedSheet;
     expect(attendue.length).toBeLessThanOrEqual(31);
-    expect(nomOngletValide(attendue)).toBe(true);
+    expect(isValidTabName(attendue)).toBe(true);
   });
 
   it("tracks non-key columns missing from a sheet's header row", () => {
@@ -356,13 +356,13 @@ describe("feuilleFxAttendue — un nom qu'Excel accepte toujours", () => {
   it("coupe à 31 caractères", () => {
     const name = expectedFxSheet("Plateforme de règlement-livraison", "HTTP");
     expect(name).toHaveLength(31);
-    expect(nomOngletValide(name)).toBe(true);
+    expect(isValidTabName(name)).toBe(true);
   });
 
   it("remplace les caractères qu'Excel interdit", () => {
     const name = expectedFxSheet("Referentiel", "OIDC/SSO");
     expect(name).toBe("FX_Referentiel_OIDC-SSO");
-    expect(nomOngletValide(name)).toBe(true);
+    expect(isValidTabName(name)).toBe(true);
   });
 
   it("ne touche pas à un nom déjà acceptable", () => {
@@ -371,7 +371,7 @@ describe("feuilleFxAttendue — un nom qu'Excel accepte toujours", () => {
 
   it("assainit chacun des caractères interdits", () => {
     for (const c of [":", "\\", "/", "?", "*", "[", "]"]) {
-      expect(nomOngletValide(expectedFxSheet("A", `X${c}Y`))).toBe(true);
+      expect(isValidTabName(expectedFxSheet("A", `X${c}Y`))).toBe(true);
     }
   });
 });

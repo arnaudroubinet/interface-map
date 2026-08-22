@@ -62,7 +62,7 @@ const FORME_PAR_TYPE: Record<string, string> = {
   screen: "Window",
   browser: "WebBrowser",
 };
-const estTire = (f: FlowInstance) => f.direction === "consumer-to-provider";
+const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
 
 // Un acteur qui consomme l'interface qu'il expose lui-même donnerait une
 // relation d'un élément vers lui-même : elle ne dit rien dans un modèle C4, et
@@ -105,7 +105,7 @@ export function modelToStructurizr(
   const declaration = (a: Actor, indent: string) => {
     // Un humain n'est pas un système : C4 a un mot pour ça, et le classeur le
     // dit déjà dans son type d'acteur.
-    const mot = estUnePersonne(a) ? "person" : "softwareSystem";
+    const mot = isAPerson(a) ? "person" : "softwareSystem";
     const body = [`${indent}${ids.get(a.name.trim())} = ${mot} "${text(a.name)}" "${text(a.description)}" {`];
     const tags = [a.actorType, perimeter(model, a.group)].map(text).filter(Boolean);
     if (tags.length > 0) body.push(`${indent}    tags "${tags.join('" "')}"`);
@@ -147,10 +147,10 @@ export function modelToStructurizr(
     const source = ids.get(de.trim());
     const target = ids.get(vers.trim());
     if (!source || !target) continue;
-    const techno = text(f.flowType);
+    const tech = text(f.flowType);
     const body = [
-      `        ${source} -> ${target} "${text(interfaceLabel(f.interfaceName, f.version))}" "${techno}" {`,
-      `            tags "${[techno, ...(estTire(f) ? [ETIQUETTE_TIRE] : [])].join('" "')}"`,
+      `        ${source} -> ${target} "${text(interfaceLabel(f.interfaceName, f.version))}" "${tech}" {`,
+      `            tags "${[tech, ...(isPulled(f) ? [ETIQUETTE_TIRE] : [])].join('" "')}"`,
     ];
     // Le contrat est une adresse : la donner à l'outil, c'est un clic depuis le
     // schéma plutôt qu'une recherche dans le classeur.
@@ -201,14 +201,14 @@ export function modelToStructurizr(
   // Chaque technologie garde la couleur qu'elle a dans l'outil : deux lectures
   // du même parc, sur deux outils, ne doivent pas changer de code couleur.
   const colours = coloursOfModel(model);
-  for (const techno of [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
-    rows.push(`            relationship "${text(techno)}" {`, `                color ${colours.get(techno) ?? "#000000"}`, "            }");
+  for (const tech of [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"))) {
+    rows.push(`            relationship "${text(tech)}" {`, `                color ${colours.get(tech) ?? "#000000"}`, "            }");
   }
   // Sans style, l'étiquette « Pulled » ne changeait RIEN dans l'outil cible :
   // notre convention de pointe y était invisible, alors que le tag est posé
   // depuis toujours. Structurizr ne sait pas inverser une pointe -- il sait
   // changer le trait, ce qui distingue au moins les deux cas.
-  if (flows.some(estTire)) {
+  if (flows.some(isPulled)) {
     rows.push(`            relationship "${ETIQUETTE_TIRE}" {`, "                style dashed", "            }");
   }
   rows.push("        }", "    }", "}", "");
@@ -250,14 +250,14 @@ function views(
     rows.push(...view('systemLandscape "platform-only"', `Platform only${auPalier}`, '"element.tag==Platform"'));
   }
 
-  const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
-  const keys = identifiants(technos);
-  for (const techno of technos) {
+  const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
+  const keys = identifiants(techs);
+  for (const tech of techs) {
     rows.push(
       ...view(
-        `systemLandscape "tech-${keys.get(techno)!.replace(/_/g, "-")}"`,
-        `${techno} flows${auPalier}`,
-        `"relationship.tag==${text(techno)}"`
+        `systemLandscape "tech-${keys.get(tech)!.replace(/_/g, "-")}"`,
+        `${tech} flows${auPalier}`,
+        `"relationship.tag==${text(tech)}"`
       )
     );
   }
@@ -269,7 +269,7 @@ function views(
   // Structurizr refuse le fichier entier si on lui en demande une sur un
   // humain. Le prix du mot juste (`person`) est cette vue en moins.
   const touched = new Set(flows.flatMap((f) => [f.provider.trim(), f.consumer.trim()]));
-  for (const a of actors.filter((x) => touched.has(x.name.trim()) && !estUnePersonne(x))) {
+  for (const a of actors.filter((x) => touched.has(x.name.trim()) && !isAPerson(x))) {
     const id = ids.get(a.name.trim())!;
     rows.push(
       ...view(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.name.trim()} — inbound and outbound${auPalier}`, "*")
@@ -292,7 +292,7 @@ function perimeter(model: ParsedModel, group: string): string {
 // Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui
 // que C4 sait rendre autrement, dans les deux langues qu'un classeur peut
 // porter. Tout le reste est un système.
-function estUnePersonne(a: Actor): boolean {
+function isAPerson(a: Actor): boolean {
   return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 

@@ -19,7 +19,7 @@ import {
   CARACTERES_INTERDITS_ONGLET,
   REMPLACEMENT_ONGLET,
   LONGUEUR_MAX_ONGLET,
-  SEPARATEUR_FEUILLE_FX,
+  FX_SHEET_SEPARATOR,
 } from "../parsing/build-model";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
 import {
@@ -63,7 +63,7 @@ function sheet(rows: (string | number)[][], largeurs: number[], filtrable = true
 
 // Une feuille de saisie : sa ligne d'en-tête, et rien d'autre. Les largeurs
 // suivent la longueur du titre, faute de données pour les calibrer.
-function feuilleVide(columns: readonly string[]): XLSX.WorkSheet {
+function emptySheet(columns: readonly string[]): XLSX.WorkSheet {
   return sheet([[...columns]], columns.map((c) => Math.max(14, c.length + 4)));
 }
 
@@ -100,15 +100,15 @@ function actorTypesSheet(declared: readonly (readonly string[])[]): XLSX.WorkShe
   // La colonne Aperçu suit COLONNES_TYPESACTEUR au lieu d'une lettre écrite en
   // dur : l'ajout de "Nature" l'a décalée de C à D, et une lettre figée
   // aurait écrasé la colonne voisine au lieu de la formule attendue.
-  const colonneApercu = XLSX.utils.encode_col(ACTOR_TYPE_COLUMNS.length);
+  const previewColumn = XLSX.utils.encode_col(ACTOR_TYPE_COLUMNS.length);
   const ws = sheet([headers, ...rows], [22, 18, 14, 12]);
   rows.forEach(([, icon], rank) => {
     // La valeur en cache est celle qu'Excel recalculera de toute façon : elle
     // sert à ce que l'aperçu s'affiche juste dès l'ouverture, avant le premier
     // recalcul.
-    ws[`${colonneApercu}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: APERCU_ICONES[icon] ?? "" };
+    ws[`${previewColumn}${rank + 2}`] = { t: "str", f: formuleApercu(rank + 2), v: APERCU_ICONES[icon] ?? "" };
   });
-  ws["!ref"] = `A1:${colonneApercu}${rows.length + 1}`;
+  ws["!ref"] = `A1:${previewColumn}${rows.length + 1}`;
   return ws;
 }
 
@@ -165,12 +165,12 @@ function extraColumns() {
   const base = Object.keys(LISTES).length;
   const col = (i: number) => XLSX.utils.encode_col(base + i);
   return {
-    cleVersion: col(1),
+    versionKey: col(1),
     version: col(2),
     ongletFlux: col(4),
     flows: col(5),
     provider: col(7),
-    interfaceExposee: col(8),
+    publishedInterface: col(8),
   };
 }
 
@@ -199,7 +199,7 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
   const type = plage(columnOf(INTERFACE_COLUMNS, "Flow type"));
   // L'onglet attendu, reconstruit comme partout ailleurs dans le projet
   // (feuilleFxAttendue, dans parsing/build-model.ts, fait foi).
-  const tab = formuleAssainirOnglet(`"${PREFIXE_FEUILLE_FX}"&${provider}&"${SEPARATEUR_FEUILLE_FX}"&${type}`);
+  const tab = formuleAssainirOnglet(`"${PREFIXE_FEUILLE_FX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
   const nonVide = `${flows}<>""`;
   const spread = (table: string) =>
     nameForExcel(`IFERROR(INDEX(${table},SEQUENCE(${lastRow - 1}),{1,2}),"")`);
@@ -208,8 +208,8 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
     {
       // Clé (onglet|flux) et version, triées par clé : c'est le tri qui rend
       // les versions d'un même flux contiguës, condition de MATCH + COUNTIF.
-      cellule: `${c.cleVersion}2`,
-      ref: `${c.cleVersion}2:${c.version}${lastRow}`,
+      cellule: `${c.versionKey}2`,
+      ref: `${c.versionKey}2:${c.version}${lastRow}`,
       formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${nonVide}),1,1)`),
     },
     {
@@ -226,7 +226,7 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       // est dans le libellé : deux versions d'un même flux sont deux
       // republications possibles, et les confondre reviendrait à deviner.
       cellule: `${c.provider}2`,
-      ref: `${c.provider}2:${c.interfaceExposee}${lastRow}`,
+      ref: `${c.provider}2:${c.publishedInterface}${lastRow}`,
       // Le libellé versionné, construit comme libelleInterface : le nom, une
       // espace seulement s'il y a une version, puis la version.
       formule: spread(
@@ -247,18 +247,18 @@ function feuilleListes(lastRow: number): XLSX.WorkSheet {
 
   const c = extraColumns();
   const titles: [string, string][] = [
-    [`${c.cleVersion}1`, "CleFluxVersion"],
+    [`${c.versionKey}1`, "CleFluxVersion"],
     [`${c.version}1`, "VersionDuFlux"],
     [`${c.ongletFlux}1`, "OngletDuFlux"],
     [`${c.flows}1`, "FluxDeLOnglet"],
     [`${c.provider}1`, "ActeurExposant"],
-    [`${c.interfaceExposee}1`, "InterfaceExposee"],
+    [`${c.publishedInterface}1`, "InterfaceExposee"],
   ];
   for (const [address, title] of titles) ws[address] = { t: "s", v: title };
   for (const { cellule, ref, formule } of formulesDAppoint(lastRow)) {
     ws[cellule] = { t: "s", v: "", f: formule, F: ref };
   }
-  ws["!ref"] = `A1:${c.interfaceExposee}${lastRow}`;
+  ws["!ref"] = `A1:${c.publishedInterface}${lastRow}`;
   return ws;
 }
 
@@ -297,14 +297,14 @@ function fxTabs(data: WorkbookData): WorkbookData["fx"] {
   return data.fx.map((o) => ({ ...o, name: sanitiseTabName(o.name) }));
 }
 
-function feuilleGarnie(columns: readonly string[], rows: readonly (readonly string[])[], largeurs: number[]) {
+function filledSheet(columns: readonly string[], rows: readonly (readonly string[])[], largeurs: number[]) {
   return sheet([[...columns], ...rows.map((l) => [...l])], largeurs);
 }
 
 // Un onglet de consommations : le tableau de saisie, plus la cellule qui le
 // nomme, dans une colonne masquée au-delà du tableau.
 function feuilleFx(rows: readonly (readonly string[])[], largeurs: number[]): XLSX.WorkSheet {
-  const ws = feuilleGarnie(FX_COLUMNS, rows, largeurs);
+  const ws = filledSheet(FX_COLUMNS, rows, largeurs);
   ws[CELLULE_ONGLET] = { t: "s", v: "", f: FORMULE_NOM_ONGLET };
   ws["!ref"] = `A1:${EXTRA_COLUMN}${Math.max(2, rows.length + 1)}`;
   const cols = (ws["!cols"] ??= []);
@@ -320,14 +320,14 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
   const largeursFx = FX_COLUMNS.map((c) => Math.max(16, c.length + 4));
 
   XLSX.utils.book_append_sheet(wb, sheet(MODE_EMPLOI.map((l) => [l.gauche, l.droite]), [26, 104], false), "Instructions");
-  XLSX.utils.book_append_sheet(wb, feuilleGarnie(ACTOR_COLUMNS, data.actors, actorWidths), "Actors");
-  XLSX.utils.book_append_sheet(wb, feuilleGarnie(GROUP_COLUMNS, data.groups, [24, 16]), "Groups");
+  XLSX.utils.book_append_sheet(wb, filledSheet(ACTOR_COLUMNS, data.actors, actorWidths), "Actors");
+  XLSX.utils.book_append_sheet(wb, filledSheet(GROUP_COLUMNS, data.groups, [24, 16]), "Groups");
   // Visible, et placé tôt : la chronologie de la plateforme se saisit, elle ne
   // se déduit pas, et les deux bornes de validité de toutes les autres
   // feuilles y puisent leur liste.
   XLSX.utils.book_append_sheet(
     wb,
-    feuilleGarnie(MILESTONE_COLUMNS, data.milestones, MILESTONE_COLUMNS.map((c) => Math.max(14, c.length + 4))),
+    filledSheet(MILESTONE_COLUMNS, data.milestones, MILESTONE_COLUMNS.map((c) => Math.max(14, c.length + 4))),
     "Milestones"
   );
 
@@ -341,7 +341,7 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
     ),
     "FlowTypes"
   );
-  XLSX.utils.book_append_sheet(wb, feuilleGarnie(INTERFACE_COLUMNS, data.interfaces, largeursInterfaces), "Interfaces");
+  XLSX.utils.book_append_sheet(wb, filledSheet(INTERFACE_COLUMNS, data.interfaces, largeursInterfaces), "Interfaces");
   for (const tab of fxTabs(data)) {
     XLSX.utils.book_append_sheet(wb, feuilleFx(tab.rows, largeursFx), tab.name);
   }
@@ -442,10 +442,10 @@ export function columnOf(columns: readonly string[], heading: string): string {
 // MAX(1,...) parce qu'Excel refuse une plage de hauteur nulle.
 function formulesDependantes(lastRow: number) {
   const c = extraColumns();
-  const colonneFlux = columnOf(FX_COLUMNS, "Flow name");
-  const colonneConsommateur = columnOf(FX_COLUMNS, "Consumer");
-  const block = (key: string, cléCol: string, valeurCol: string) => {
-    const keys = `${FEUILLE_LISTES}!$${cléCol}$2:$${cléCol}$${lastRow}`;
+  const flowColumn = columnOf(FX_COLUMNS, "Flow name");
+  const consumerColumn = columnOf(FX_COLUMNS, "Consumer");
+  const block = (key: string, colKey: string, valeurCol: string) => {
+    const keys = `${FEUILLE_LISTES}!$${colKey}$2:$${colKey}$${lastRow}`;
     return `OFFSET(${FEUILLE_LISTES}!$${valeurCol}$2,MATCH(${key},${keys},0)-1,0,MAX(1,COUNTIF(${keys},${key})),1)`;
   };
   return {
@@ -454,10 +454,10 @@ function formulesDependantes(lastRow: number) {
     flows: block(`$${EXTRA_COLUMN}$1`, c.ongletFlux, c.flows),
     // Les versions du flux de CETTE ligne : la référence à la colonne du flux
     // est relative en ligne, Excel décale donc la formule d'une ligne à l'autre.
-    version: block(`$${EXTRA_COLUMN}$1&"|"&$${colonneFlux}2`, c.cleVersion, c.version),
+    version: block(`$${EXTRA_COLUMN}$1&"|"&$${flowColumn}2`, c.versionKey, c.version),
     // Les interfaces exposées par le consommateur de CETTE ligne : une
     // republication ne peut désigner qu'une interface de son propre acteur.
-    republication: block(`$${colonneConsommateur}2`, c.provider, c.interfaceExposee),
+    republication: block(`$${consumerColumn}2`, c.provider, c.publishedInterface),
   };
 }
 

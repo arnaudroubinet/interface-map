@@ -118,8 +118,8 @@ function buildSection(
 // que soit sa nature -- elle ne porte plus qu'une coche.
 // Les actions passent avant les avertissements : elles s'adressent au lecteur,
 // là où un avertissement ne fait que constater une saisie incomplète.
-const RANG: Record<Severity, number> = { erreur: 0, action: 1, warning: 2, info: 3 };
-const RANG_VIDE = 4;
+const RANK: Record<Severity, number> = { erreur: 0, action: 1, warning: 2, info: 3 };
+const EMPTY_RANK = 4;
 
 export interface SectionRapport {
   classe: string;
@@ -153,7 +153,7 @@ export function sectionsDuRapport(report: IntegrityReport): SectionRapport[] {
     })),
   ];
 
-  const rank = (s: SectionRapport) => (s.items.length === 0 ? RANG_VIDE : RANG[s.severity]);
+  const rank = (s: SectionRapport) => (s.items.length === 0 ? EMPTY_RANK : RANK[s.severity]);
   // Tri stable : à rang égal, les sections gardent l'ordre où les contrôles
   // les ont produites.
   return [...sections].sort((a, b) => rank(a) - rank(b));

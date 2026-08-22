@@ -23,8 +23,8 @@ const matrix: MatrixResult = base.matrix({
 // dans Excel qui compte.
 function producedWorkbook(): XLSX.WorkBook {
   const wb = buildMatrixWorkbook(matrix);
-  const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  return XLSX.read(new Uint8Array(octets), { type: "array" });
+  const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  return XLSX.read(new Uint8Array(bytes), { type: "array" });
 }
 
 describe("export Excel de la matrix", () => {
@@ -81,8 +81,8 @@ describe("export Excel de la matrix — mode fonctionnel (technologie vide)", ()
 
   function functionalWorkbook(): XLSX.WorkBook {
     const wb = buildMatrixWorkbook(matriceFonctionnelle);
-    const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-    return XLSX.read(new Uint8Array(octets), { type: "array" });
+    const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    return XLSX.read(new Uint8Array(bytes), { type: "array" });
   }
 
   it("montre le compteur seul quand il n'y a pas de technologie", () => {

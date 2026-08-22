@@ -69,7 +69,7 @@ export interface PlacedBoard {
 // en tirer une seule vue reviendrait à refaire le travail à chaque fois.
 export function buildDrawio(
   boards: PlacedBoard[],
-  couleurTechnologie: (technology: string) => string
+  technologyColour: (technology: string) => string
 ): string {
   // La planche d'un acteur se déclare comme telle : c'est ce qui permet,
   // depuis n'importe quelle boîte, d'ouvrir la page qui détaille cet acteur.
@@ -81,7 +81,7 @@ export function buildDrawio(
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<mxfile host="carte-des-interfaces">',
-    ...boards.flatMap((p, i) => diagramme(p, i, couleurTechnologie, byActorPage)),
+    ...boards.flatMap((p, i) => diagramme(p, i, technologyColour, byActorPage)),
     "</mxfile>",
     "",
   ].join("\n");
@@ -93,7 +93,7 @@ export function buildDrawio(
 function blocsExplicatifs(
   { title, context, layout }: PlacedBoard,
   cellule: (id: string) => string,
-  couleurTechnologie: (technology: string) => string
+  technologyColour: (technology: string) => string
 ): string[] {
   const xs = layout.nodes.flatMap((n) => [n.x - n.width / 2, n.x + n.width / 2]);
   const ys = layout.nodes.flatMap((n) => [n.y - n.height / 2, n.y + n.height / 2]);
@@ -116,7 +116,7 @@ function blocsExplicatifs(
     text("cartouche_s", header.subtitle, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
   }
 
-  const inputs = entreesDeLegende(layout.edges, layout.nodes, couleurTechnologie);
+  const inputs = entreesDeLegende(layout.edges, layout.nodes, technologyColour);
   inputs.forEach((input, i) => {
     const y = bas + 48 + i * 22;
     const e = input.sample;
@@ -153,7 +153,7 @@ function blocsExplicatifs(
 function diagramme(
   board: PlacedBoard,
   index: number,
-  couleurTechnologie: (technology: string) => string,
+  technologyColour: (technology: string) => string,
   byActorPage: Map<string, string>
 ): string[] {
   const { title, layout } = board;
@@ -203,7 +203,7 @@ function diagramme(
       "edgeStyle=orthogonalEdgeStyle",
       "rounded=1",
       "html=1",
-      `strokeColor=${couleurTechnologie(e.technology)}`,
+      `strokeColor=${technologyColour(e.technology)}`,
       "strokeWidth=2",
       e.attenuated ? "dashed=1" : "dashed=0",
       // Le trait va toujours du fournisseur au consommateur -- c'est le sens de
@@ -235,7 +235,7 @@ function diagramme(
     `        <mxCell id="${cellule("0")}" />`,
     `        <mxCell id="${cellule("1")}" parent="${cellule("0")}" />`,
     ...cellules,
-    ...blocsExplicatifs(board, cellule, couleurTechnologie),
+    ...blocsExplicatifs(board, cellule, technologyColour),
     "      </root>",
     "    </mxGraphModel>",
     "  </diagram>",

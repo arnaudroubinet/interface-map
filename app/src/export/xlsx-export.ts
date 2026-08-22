@@ -45,15 +45,15 @@ export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
   const grille = grilleMatrice(matrix);
-  const feuilleMatrice = XLSX.utils.aoa_to_sheet(grille);
-  feuilleMatrice["!cols"] = largeurs(grille);
+  const matrixSheet = XLSX.utils.aoa_to_sheet(grille);
+  matrixSheet["!cols"] = largeurs(grille);
   // Pas de volets figés : SheetJS en édition communautaire n'écrit pas la
   // balise <pane>, on l'a vérifié sur le fichier produit. Ce qu'il écrit
   // vraiment, ce sont les largeurs de colonnes et l'autofiltre -- c'est donc
   // sur ceux-là qu'on s'appuie, et sur la feuille « Flux », qui est celle
   // qu'on trie réellement dans Excel.
-  feuilleMatrice["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: grille[0].length - 1 } }) };
-  XLSX.utils.book_append_sheet(wb, feuilleMatrice, "Matrix");
+  matrixSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: grille[0].length - 1 } }) };
+  XLSX.utils.book_append_sheet(wb, matrixSheet, "Matrix");
 
   const plat = listeDesFlux(matrix);
   const feuilleFlux = XLSX.utils.aoa_to_sheet(plat);

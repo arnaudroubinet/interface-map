@@ -25,7 +25,7 @@ import { conseilDEchelle } from "./scale";
 import { availableChains, buildChainView } from "../aggregation/chain";
 import { buildRoadmap } from "../aggregation/roadmap";
 import { buildRoadmapSvg } from "../render/roadmap";
-import type { Lecture } from "../aggregation/reading";
+import type { Reading } from "../aggregation/reading";
 import { lectureUnion } from "../aggregation/reading";
 import type { ViewResult } from "../aggregation/views";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
@@ -58,8 +58,8 @@ import {
   withMode,
   withOptions,
   withActorSelection,
-  withSelectionTechnologie,
-  withSelectionChaine,
+  withTechnologySelection,
+  withChainSelection,
   withVoisinage,
   withSujetFrise,
   withTechnoMasquee,
@@ -74,7 +74,7 @@ import {
   withPalierCompare,
   withMessageBandeau,
   viewOnLoad,
-  LIBELLE_VUE,
+  VIEW_LABEL,
   type AppState,
   type LoadedFile,
   type Vue,
@@ -103,7 +103,7 @@ function buildZoomControls(commandes: { ajuster: () => void; zoomBy: (f: number)
 // c'est l'âge de la DONNÉE qui compte, pas celui de l'impression.
 function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphNode[]; edges: GraphEdge[] }): DiagramContext {
   return {
-    title: LIBELLE_VUE[state.view],
+    title: VIEW_LABEL[state.view],
     reading: state.mode === "functional" ? "functional" : "architecture",
     milestone: state.shownMilestone,
     source: file.name,
@@ -143,8 +143,8 @@ export function mountApp(root: HTMLElement): void {
 
   async function handleFile(file: File): Promise<void> {
     try {
-      const nomOk = /\.(xlsx|xlsm)$/i.test(file.name);
-      if (!nomOk) {
+      const okName = /\.(xlsx|xlsm)$/i.test(file.name);
+      if (!okName) {
         setState(withMessageBandeau(state, "That is not an Excel workbook. Drop an .xlsx or .xlsm file."));
         return;
       }
@@ -305,7 +305,7 @@ export function mountApp(root: HTMLElement): void {
     const options = { ...state.options };
     matriceCourante = null;
     clear(zoneRendu);
-    let technologiesCourantes: string[] = [];
+    let currentTechnologies: string[] = [];
 
     if (state.view === "upgrade") {
       zoneRendu.appendChild(
@@ -381,7 +381,7 @@ export function mountApp(root: HTMLElement): void {
         hiddenActors: state.filtresMatrice.hiddenActors,
       });
       matriceCourante = matrix;
-      technologiesCourantes = [...new Set(matrix.rows.flatMap((l) => [...l.cellules.values()].flat().map((c) => c.technology)))];
+      currentTechnologies = [...new Set(matrix.rows.flatMap((l) => [...l.cellules.values()].flat().map((c) => c.technology)))];
       // Le tableau d'abord, la couleur ensuite. La palette reste indexée sur
       // les types déclarés au classeur, et non sur les seuls survivants du
       // filtrage : sinon une technologie changerait de couleur d'un filtre à
@@ -395,7 +395,7 @@ export function mountApp(root: HTMLElement): void {
       // les paliers : c'est ce qui garantit que les deux vues se correspondent
       // nœud pour nœud, donc que le placement de l'union se restreint sans
       // rien inventer.
-      const buildView = (reading: Lecture): ViewResult => {
+      const buildView = (reading: Reading): ViewResult => {
       let view: ViewResult;
       if (state.view === "group-to-group") {
         view = buildGroupToGroupView(model, reading, options);
@@ -405,9 +405,9 @@ export function mountApp(root: HTMLElement): void {
         view = buildPlatformOnlyView(model, reading, options);
       } else if (state.view === "chain") {
         const chains = availableChains(model, rank);
-        const retenue = chains.find((c) => c.id === state.selectionChaine);
+        const retenue = chains.find((c) => c.id === state.chainSelection);
         if (!retenue && chains.length > 0) {
-          chaineParDefaut = chains[0].id;
+          defaultChain = chains[0].id;
         }
         view = retenue ? buildChainView(model, retenue) : { nodes: [], edges: [] };
       } else if (state.view === "by-actor") {
@@ -425,15 +425,15 @@ export function mountApp(root: HTMLElement): void {
             })
           : { nodes: [], edges: [] };
       } else {
-        if (!state.selectionTechnologie && model.flowTypes.length > 0) {
+        if (!state.technologySelection && model.flowTypes.length > 0) {
           besoinDeSelectionTechnologie = true;
         }
-        view = state.selectionTechnologie
-          ? buildByTechnologyView(model, reading.flows, state.selectionTechnologie, {
+        view = state.technologySelection
+          ? buildByTechnologyView(model, reading.flows, state.technologySelection, {
               counters: options.counters,
               edgeLabelMode: options.edgeLabelMode,
-              masquerExternes: state.filtresTechnologie.masquerExternes,
-              hiddenActors: state.filtresTechnologie.hiddenActors,
+              masquerExternes: state.technologyFilters.masquerExternes,
+              hiddenActors: state.technologyFilters.hiddenActors,
             })
           : { nodes: [], edges: [] };
       }
@@ -442,10 +442,10 @@ export function mountApp(root: HTMLElement): void {
 
       let besoinDeSelectionTechnologie = false;
       let defaultActor: string | null = null;
-      let chaineParDefaut: string | null = null;
+      let defaultChain: string | null = null;
       const view = buildView(reading);
-      if (chaineParDefaut) {
-        setState(withSelectionChaine(state, chaineParDefaut));
+      if (defaultChain) {
+        setState(withChainSelection(state, defaultChain));
         return;
       }
       if (defaultActor) {
@@ -453,7 +453,7 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
       if (besoinDeSelectionTechnologie) {
-        setState(withSelectionTechnologie(state, [...model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
+        setState(withTechnologySelection(state, [...model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
         return;
       }
 
@@ -469,7 +469,7 @@ export function mountApp(root: HTMLElement): void {
         if (conseil) {
           const bandeauEchelle = el("div", { class: "scale-hint" }, [conseil.message]);
           for (const target of conseil.views) {
-            const bouton = el("button", { type: "button" }, [LIBELLE_VUE[target]]);
+            const bouton = el("button", { type: "button" }, [VIEW_LABEL[target]]);
             bouton.addEventListener("click", () => setState(withVue(withMessageBandeau(state, null), target)));
             bandeauEchelle.appendChild(bouton);
           }
@@ -487,8 +487,8 @@ export function mountApp(root: HTMLElement): void {
         // contient donc PAS le palier -- c'est précisément d'un palier à
         // l'autre qu'on veut la continuité.
         const layoutKey = JSON.stringify([
-          state.view, state.mode, state.actorSelection, state.selectionTechnologie, state.selectionChaine,
-          state.actorFilters, state.filtresTechnologie, options,
+          state.view, state.mode, state.actorSelection, state.technologySelection, state.chainSelection,
+          state.actorFilters, state.technologyFilters, options,
         ]);
         const vueUnion = buildView(lectureUnion(model, state.mode));
         const placement = placements.get(layoutKey) ?? computeLayout(vueUnion.nodes, vueUnion.edges);
@@ -498,7 +498,7 @@ export function mountApp(root: HTMLElement): void {
             if (generation !== renderGeneration) return;
             const positioned = restreindreLayout(union, vueDuCalcul);
             const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, vueDuCalcul), {
-              graisseParCriticite: state.options.graisseParCriticite,
+              weightByCriticality: state.options.weightByCriticality,
             });
             zoneRendu.appendChild(svg);
             zoneRendu.appendChild(buildZoomControls(brancherZoom(svg)));
@@ -512,27 +512,27 @@ export function mountApp(root: HTMLElement): void {
             clear(zoneRendu);
             zoneRendu.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
           });
-        technologiesCourantes = [...new Set(view.edges.map((e) => e.technology))];
+        currentTechnologies = [...new Set(view.edges.map((e) => e.technology))];
       }
     }
 
-    renderRail(rail, state, reading, technologiesCourantes.sort((a, b) => a.localeCompare(b, "fr")), {
+    renderRail(rail, state, reading, currentTechnologies.sort((a, b) => a.localeCompare(b, "fr")), {
       onMode: (mode) => setState(withMode(state, mode)),
       onVue: (view) => setState(withVue(withMessageBandeau(state, null), view)),
       onActorSelection: (name) => setState(withActorSelection(withMessageBandeau(state, null), name)),
-      onGraisseParCriticite: (value) => setState(withOptions(withMessageBandeau(state, null), { graisseParCriticite: value })),
+      onWeightByCriticality: (value) => setState(withOptions(withMessageBandeau(state, null), { weightByCriticality: value })),
       onSujetFrise: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
       onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
-      onSelectionChaine: (chain) => setState(withSelectionChaine(withMessageBandeau(state, null), chain)),
-      onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),
+      onChainSelection: (chain) => setState(withChainSelection(withMessageBandeau(state, null), chain)),
+      onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),
       onDisplayedMilestone: (milestone) => setState(recalculerRapport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
       onPalierCompare: (milestone) => setState(withPalierCompare(withMessageBandeau(state, null), milestone)),
       onOptionCompteurs: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
-      onLibelléArête: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
+      onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
       onTelechargerModele: telechargerModeleHandler,
       onTelechargerExemple: telechargerExempleHandler,
       onMigrationLegacy: migrationLegacyHandler,
-      onTechnoMasquee: (techno, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), techno, hidden)),
+      onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
       onActorHidden: (actor, hidden) => setState(withActeurMasque(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
       onActorHiddenForTechnology: (actor, hidden) =>

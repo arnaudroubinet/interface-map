@@ -1,5 +1,5 @@
 import type { AppState } from "./state";
-import { LIBELLE_VUE, withMessageBandeau } from "./state";
+import { VIEW_LABEL, withMessageBandeau } from "./state";
 import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
 import { rankOfMilestone } from "../aggregation/milestones";
@@ -40,9 +40,9 @@ export interface ExportContext {
 // Ce que le nom de fichier doit porter en plus de la vue : la sélection quand
 // il y en a une, sans quoi deux lectures différentes se téléchargent sous le
 // même nom.
-function selectionDuNom(state: AppState): string | null {
+function nameSelection(state: AppState): string | null {
   if (state.view === "by-actor") return state.actorSelection;
-  if (state.view === "by-technology") return state.selectionTechnologie;
+  if (state.view === "by-technology") return state.technologySelection;
   // Un écart se lit ENTRE deux paliers : le nom doit porter les deux. Le palier
   // d'arrivée est déjà ajouté par ailleurs.
   if (state.view === "changes") return state.comparedMilestone;
@@ -60,8 +60,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
   const fileName = (extension: Parameters<typeof buildExportFilename>[3], avecMode = true) => {
     const state = ctx.legacyState();
     return buildExportFilename(
-      LIBELLE_VUE[state.view],
-      selectionDuNom(state),
+      VIEW_LABEL[state.view],
+      nameSelection(state),
       state.shownMilestone,
       extension,
       avecMode ? state.mode : undefined

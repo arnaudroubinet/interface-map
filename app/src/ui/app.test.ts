@@ -63,9 +63,9 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
 
     const called = vi.mocked(downloadText);
     expect(called).toHaveBeenCalledTimes(2);
-    const [, nomArchitecture] = called.mock.calls[0];
-    const [, nomFonctionnel] = called.mock.calls[1];
-    expect(nomFonctionnel).toBe(nomArchitecture);
+    const [, architectureName] = called.mock.calls[0];
+    const [, functionalName] = called.mock.calls[1];
+    expect(functionalName).toBe(architectureName);
   });
 });
 
@@ -213,7 +213,7 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   // Deux chaînes DISJOINTES : aucun acteur commun. C'est ce qui rend le défaut
   // détectable -- avec une plomberie partagée, le dessin resterait plausible
   // même en réutilisant le placement de l'autre chaîne.
-  const deuxChaines: WorkbookData = {
+  const twoChains: WorkbookData = {
     flowTypes: [["Kafka", "provider → consumer", ""]],
     actorTypes: [["Application", "app-window", "Business"], ["Infra", "app-window", "Technical"]],
     milestones: [],
@@ -243,7 +243,7 @@ describe("vue Chaîne — changer de chaîne redessine", () => {
   it("dessine la chaîne retenue, et pas la précédente", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = writeTemplate(deuxChaines);
+    const buffer = writeTemplate(twoChains);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });

@@ -116,7 +116,7 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
 // une forme non annoncée est une notation muette de plus.
 describe("entreesDeLegende — les formes s'annoncent aussi", () => {
   it("annonce le coin coupé dès qu'un acteur technique est dessiné", () => {
-    const inputs = entreesDeLegende([{ technology: "HTTP" }], [node({ technique: true })], () => "#111111");
+    const inputs = entreesDeLegende([{ technology: "HTTP" }], [node({ technical: true })], () => "#111111");
     const shape = inputs.find((e) => e.text.includes("technical component"));
     expect(shape).toBeDefined();
     expect(shape!.sample).toMatchObject({ shape: "box", coinCoupé: true });

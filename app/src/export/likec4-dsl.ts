@@ -32,7 +32,7 @@ function sensDuFlux(f: FlowInstance): { de: string; vers: string } {
 }
 
 const ETIQUETTE_TIRE = "Pulled";
-const estTire = (f: FlowInstance) => f.direction === "consumer-to-provider";
+const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
 
 // LikeC4 refuse le fichier entier sur une relation d'un élément vers lui-même
 // -- « Invalid parent-child relationship » -- et un acteur qui consomme ce
@@ -64,8 +64,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   const flows = exportableFlows(model, rank, mode);
   // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
   // des identifiants, là où le classeur écrit « REST + ESB ».
-  const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
-  const tags = identifiants(technos);
+  const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
+  const tags = identifiants(techs);
   const colours = coloursOfModel(model);
 
   const rows: string[] = [
@@ -86,7 +86,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     // si aucun flux tiré n'existe dans ce classeur -- une déclaration inutile
     // ne coûte rien, un fichier invalide coûte tout.
     `    tag ${ETIQUETTE_TIRE.toLowerCase()}`,
-    ...technos.map((t) => `    tag ${tags.get(t)}`),
+    ...techs.map((t) => `    tag ${tags.get(t)}`),
     // Un kind de relation par technologie. LikeC4 est la seule cible qui sache
     // dessiner notre convention : la pointe au bout CONSOMMATEUR quand le
     // fournisseur pousse, au bout FOURNISSEUR quand le consommateur tire. On
@@ -96,7 +96,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     // `dashed`, et tous nos traits seraient sortis en pointillé -- ce qui
     // aurait effacé la distinction que le pointillé porte chez nous, la
     // décision « Transform ».
-    ...technos.flatMap((t) => {
+    ...techs.flatMap((t) => {
       const pulled = model.flowTypes.some((tf) => tf.type.trim() === t && tf.direction === "consumer-to-provider");
       return [
         `    relationship ${tags.get(t)} {`,
@@ -118,7 +118,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   ];
 
   const declaration = (a: Actor, indent: string) => {
-    const nature = estUnePersonne(a) ? "person" : "system";
+    const nature = isAPerson(a) ? "person" : "system";
     const body = [`${indent}${ids.get(a.name.trim())} = ${nature} "${text(a.name)}" {`];
     // Les étiquettes passent avant les propriétés : LikeC4 l'exige.
     if (groupIsExternal(model, a.group)) body.push(`${indent}    #external`);
@@ -161,7 +161,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     ];
     // L'initiative, en étiquette : LikeC4 sait filtrer dessus, et sans elle le
     // fichier perdrait ce que la pointe porte sur nos schémas.
-    if (estTire(f)) body.push(`        #${ETIQUETTE_TIRE.toLowerCase()}`);
+    if (isPulled(f)) body.push(`        #${ETIQUETTE_TIRE.toLowerCase()}`);
     // Ce que l'échange transporte, au champ que LikeC4 prévoit pour ça : la
     // relation a une description distincte de son libellé, là où Structurizr
     // n'a que le libellé et doit s'en remettre à une propriété.
@@ -192,7 +192,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   }
   for (const key of [...liens.keys()].sort((a, b) => a.localeCompare(b, "fr"))) rows.push(...liens.get(key)!);
 
-  rows.push("}", "", "views {", ...views(model, actors, paths, technos, tags, flows, ids), "}", "");
+  rows.push("}", "", "views {", ...views(model, actors, paths, techs, tags, flows, ids), "}", "");
 
   return rows.join("\n");
 }
@@ -205,7 +205,7 @@ function views(
   model: ParsedModel,
   actors: Actor[],
   paths: Map<string, string>,
-  technos: string[],
+  techs: string[],
   tags: Map<string, string>,
   flows: FlowInstance[],
   ids: Map<string, string>
@@ -232,10 +232,10 @@ function views(
       ...view("group_to_group", "Group to group", groups.map((g) => ids.get(g)!).join(", "))
     );
   }
-  const plateforme = groups.filter((g) => groupIsPlatform(model, g));
-  if (plateforme.length > 0 && groups.length > plateforme.length) {
+  const platform = groups.filter((g) => groupIsPlatform(model, g));
+  if (platform.length > 0 && groups.length > platform.length) {
     const inclusion = [
-      ...plateforme.map((g) => `${ids.get(g)}.*`),
+      ...platform.map((g) => `${ids.get(g)}.*`),
       ...groups.filter((g) => !groupIsPlatform(model, g)).map((g) => ids.get(g)!),
     ];
     rows.push(...view("platform_detail", "Platform detail", inclusion.join(", ")));
@@ -248,9 +248,9 @@ function views(
     rows.push(...view("platform_only", "Platform only", "* where tag is #platform"));
   }
 
-  for (const techno of technos) {
-    const tag = tags.get(techno)!;
-    rows.push(...view(`tech_${tag}`, techno, `* where tag is #${tag}`));
+  for (const tech of techs) {
+    const tag = tags.get(tech)!;
+    rows.push(...view(`tech_${tag}`, tech, `* where tag is #${tag}`));
   }
 
   // Un acteur qu'aucun flux ne touche n'a pas de schéma dans l'outil : sa vue
@@ -266,7 +266,7 @@ function views(
 
 // Le classeur nomme ses types d'acteur librement ; on ne reconnaît que celui
 // qui a une forme à lui, dans les deux langues qu'un classeur peut porter.
-function estUnePersonne(a: Actor): boolean {
+function isAPerson(a: Actor): boolean {
   return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 

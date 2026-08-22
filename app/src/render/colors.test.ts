@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { colorForTechnologies, coloursOfModel, PALETTE } from "./colors";
+import { colourForTechnologies, coloursOfModel, PALETTE } from "./colors";
 import { ratioDeContraste } from "./contrast";
 import type { ParsedModel, InterfaceCatalogue, FlowType } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
@@ -52,8 +52,8 @@ describe("couleursDuModele", () => {
 
 describe("colorForTechnologies", () => {
   it("reste stable quel que soit l'ordre reçu", () => {
-    const a = colorForTechnologies(["Kafka", "HTTP"]);
-    const b = colorForTechnologies(["HTTP", "Kafka"]);
+    const a = colourForTechnologies(["Kafka", "HTTP"]);
+    const b = colourForTechnologies(["HTTP", "Kafka"]);
     expect(a.get("Kafka")).toBe(b.get("Kafka"));
   });
 });

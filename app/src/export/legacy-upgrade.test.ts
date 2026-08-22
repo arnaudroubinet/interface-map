@@ -13,7 +13,7 @@ import {
   FLOW_TYPE_COLUMNS,
   ACTOR_TYPE_COLUMNS,
   SCHEMA_VERSION,
-  nomOngletValide,
+  isValidTabName,
 } from "../parsing/build-model";
 
 // Des classeurs d'origine fabriqués pour le test, et non le fichier d'exemple :
@@ -34,8 +34,8 @@ function legacyWorkbook(
 // Les lignes produites sont positionnelles : on lit par nom de colonne plutôt
 // que par index, sinon toute colonne insérée en amont casse ces tests sans rien
 // dire de la conversion elle-même.
-const iExposant = INTERFACE_COLUMNS.indexOf("Provider");
-const iConsommateur = FX_COLUMNS.indexOf("Consumer");
+const iPublisher = INTERFACE_COLUMNS.indexOf("Provider");
+const iConsumer = FX_COLUMNS.indexOf("Consumer");
 const iDecision = FX_COLUMNS.indexOf("Decision");
 
 const lien = (o: Partial<Record<string, string>> = {}) => ({
@@ -56,15 +56,15 @@ describe("migration depuis le format d'origine", () => {
   // de représentation du type.
   it("fait exposer la cible quand l'appel va du consommateur vers l'exposant", () => {
     const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "HTTP" })]));
-    expect(data.interfaces[0][iExposant]).toBe("Appelé");
+    expect(data.interfaces[0][iPublisher]).toBe("Appelé");
     expect(data.fx[0].name).toBe("FX_Appelé_HTTP");
-    expect(data.fx[0].rows[0][iConsommateur]).toBe("Appelant");
+    expect(data.fx[0].rows[0][iConsumer]).toBe("Appelant");
   });
 
   it("fait exposer la source quand on représente la poussée du producteur", () => {
     const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "Kafka" })]));
-    expect(data.interfaces[0][iExposant]).toBe("Appelant");
-    expect(data.fx[0].rows[0][iConsommateur]).toBe("Appelé");
+    expect(data.interfaces[0][iPublisher]).toBe("Appelant");
+    expect(data.fx[0].rows[0][iConsumer]).toBe("Appelé");
   });
 
   // Un type hors référentiel n'a pas de sens connu : on ne l'invente pas, on
@@ -74,7 +74,7 @@ describe("migration depuis le format d'origine", () => {
       legacyWorkbook([lien({ "Type de flux": "AS2" }), lien({ "Type de flux": "Fichier + ESB", "Nom du flux": "B" })])
     );
     expect(typesInconnus.sort()).toEqual(["AS2", "Fichier + ESB"]);
-    expect(data.interfaces[0][iExposant]).toBe("Appelé");
+    expect(data.interfaces[0][iPublisher]).toBe("Appelé");
   });
 
   // La correspondance se fait contre le vocabulaire actuel, pas contre une
@@ -119,7 +119,7 @@ describe("migration depuis le format d'origine", () => {
       ])
     );
     expect(data.fx).toHaveLength(1);
-    expect(data.fx[0].rows.map((l) => l[iConsommateur]).sort()).toEqual(["A", "B"]);
+    expect(data.fx[0].rows.map((l) => l[iConsumer]).sort()).toEqual(["A", "B"]);
   });
 
   // Excel refuse « / » dans un nom d'onglet. On renonçait alors à l'onglet, et
@@ -134,8 +134,8 @@ describe("migration depuis le format d'origine", () => {
   it("refuse un classeur sans feuille Flux", () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["rien"]]), "Autre");
-    const octets = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-    expect(() => migrateLegacyWorkbook(octets)).toThrow(/Flux/);
+    const bytes = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    expect(() => migrateLegacyWorkbook(bytes)).toThrow(/Flux/);
   });
 });
 
@@ -205,7 +205,7 @@ describe("nom d'onglet FX_ — la même règle des deux côtés (migration et re
   it.each(casHostiles)("crée des deux côtés le même onglet quand le type %s", (_cas, type) => {
     const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": type })]));
     expect(data.fx).toHaveLength(1);
-    expect(nomOngletValide(data.fx[0].name)).toBe(true);
+    expect(isValidTabName(data.fx[0].name)).toBe(true);
 
     const result = buildModel(parseWorkbook(writeTemplate(data)));
     if (!result.ok) throw new Error("classeur migré illisible");

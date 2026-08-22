@@ -9,14 +9,14 @@ import type { RoadmapSubject } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
 
 // L'ordre de lecture va du plus court au plus complet.
-const LIBELLES_ARETE: [EdgeLabelMode, string][] = [
+const EDGE_LABELS: [EdgeLabelMode, string][] = [
   ["technology", "technology"],
   ["exchanges", "what flows"],
   ["both", "both"],
 ];
-import type { Lecture } from "../aggregation/reading";
+import type { Reading } from "../aggregation/reading";
 import type { AppState, Vue } from "./state";
-import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
+import { VUES_SANS_OBJET_EN_FONCTIONNEL, VIEW_LABEL } from "./state";
 
 // L'ordre du rail, et lui seul : les libellés viennent de LIBELLE_VUE, qui est
 // la seule table. « mise-a-niveau » n'y figure pas -- on n'y navigue pas, on y
@@ -35,7 +35,7 @@ const ORDRE_DES_VUES: Vue[] = [
   "help",
 ];
 
-export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ id, label: LIBELLE_VUE[id] }));
+export const VUES: { id: Vue; label: string }[] = ORDRE_DES_VUES.map((id) => ({ id, label: VIEW_LABEL[id] }));
 
 // Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
@@ -64,18 +64,18 @@ export interface RailCallbacks {
   onMode: (mode: Mode) => void;
   onVue: (view: Vue) => void;
   onActorSelection: (name: string) => void;
-  onSelectionTechnologie: (type: string) => void;
-  onSelectionChaine: (chain: string) => void;
+  onTechnologySelection: (type: string) => void;
+  onChainSelection: (chain: string) => void;
   onVoisinage: (value: Neighbourhood) => void;
   onSujetFrise: (value: RoadmapSubject) => void;
-  onGraisseParCriticite: (value: boolean) => void;
+  onWeightByCriticality: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
   onOptionCompteurs: (value: boolean) => void;
-  onLibelléArête: (value: EdgeLabelMode) => void;
+  onEdgeLabel: (value: EdgeLabelMode) => void;
   onOrdreMatrice: (value: MatrixOrder) => void;
   onEchellePng: (value: 1 | 2 | 4) => void;
-  onTechnoMasquee: (techno: string, hidden: boolean) => void;
+  onTechnologyHidden: (tech: string, hidden: boolean) => void;
   onActorHidden: (actor: string, hidden: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
   onActorHiddenForTechnology: (actor: string, hidden: boolean) => void;
@@ -199,8 +199,8 @@ export function renderRail(
   // des acteurs que le palier affiché avait retirés, et en sélectionnait un
   // tout seul faute de mieux -- l'utilisateur obtenait alors une boîte fantôme
   // sans un mot d'explication.
-  reading: Lecture,
-  technologiesCourantes: string[],
+  reading: Reading,
+  currentTechnologies: string[],
   callbacks: RailCallbacks
 ): void {
   const flows = reading.flows;
@@ -296,10 +296,10 @@ export function renderRail(
     const select = el("select", { class: "rail-select" });
     for (const type of [...state.file.model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
       const option = el("option", { value: type.type }, [type.type]);
-      if (type.type === state.selectionTechnologie) option.selected = true;
+      if (type.type === state.technologySelection) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onSelectionTechnologie(select.value));
+    select.addEventListener("change", () => callbacks.onTechnologySelection(select.value));
     root.appendChild(select);
   }
 
@@ -307,19 +307,19 @@ export function renderRail(
   // quoi la vue perdrait son sujet.
   if (state.view === "by-actor" && state.actorSelection) {
     const dispo = actorFilterOptions(flows, state.actorSelection);
-    const technos = blocFiltre("Technologies", dispo.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnoMasquee);
-    if (technos) root.appendChild(technos);
+    const techs = blocFiltre("Technologies", dispo.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnologyHidden);
+    if (techs) root.appendChild(techs);
     const actors = blocFiltre("Related actors", dispo.actors, state.actorFilters.hiddenActors, callbacks.onActorHidden);
     if (actors) root.appendChild(actors);
   }
 
-  if (state.view === "by-technology" && state.selectionTechnologie) {
-    root.appendChild(basculeExternes(state.filtresTechnologie.masquerExternes, callbacks.onMasquerExternes));
+  if (state.view === "by-technology" && state.technologySelection) {
+    root.appendChild(basculeExternes(state.technologyFilters.masquerExternes, callbacks.onMasquerExternes));
 
-    const dispo = optionsFiltreTechnologie(state.file.model, flows, state.selectionTechnologie, {
-      masquerExternes: state.filtresTechnologie.masquerExternes,
+    const dispo = optionsFiltreTechnologie(state.file.model, flows, state.technologySelection, {
+      masquerExternes: state.technologyFilters.masquerExternes,
     });
-    const actors = blocFiltre("Actors", dispo, state.filtresTechnologie.hiddenActors, callbacks.onActorHiddenForTechnology);
+    const actors = blocFiltre("Actors", dispo, state.technologyFilters.hiddenActors, callbacks.onActorHiddenForTechnology);
     if (actors) root.appendChild(actors);
   }
 
@@ -331,10 +331,10 @@ export function renderRail(
     const select = el("select", { class: "rail-select rail-chain" });
     for (const c of chains) {
       const option = el("option", { value: c.id }, [c.label]);
-      if (c.id === state.selectionChaine) option.selected = true;
+      if (c.id === state.chainSelection) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onSelectionChaine(select.value));
+    select.addEventListener("change", () => callbacks.onChainSelection(select.value));
     root.appendChild(select);
     if (chains.length === 0) {
       root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a technical actor."]));
@@ -401,12 +401,12 @@ export function renderRail(
     // qu'on pose au schéma, d'où le choix plutôt qu'un défaut imposé.
     const labelField = el("label", { class: "rail-option-label" }, ["Label "]);
     const labelSelect = el("select", { class: "rail-select" });
-    for (const [value, text] of LIBELLES_ARETE) {
+    for (const [value, text] of EDGE_LABELS) {
       const option = el("option", { value: value }, [text]);
       if (value === state.options.edgeLabelMode) option.selected = true;
       labelSelect.appendChild(option);
     }
-    labelSelect.addEventListener("change", () => callbacks.onLibelléArête(labelSelect.value as EdgeLabelMode));
+    labelSelect.addEventListener("change", () => callbacks.onEdgeLabel(labelSelect.value as EdgeLabelMode));
     labelField.appendChild(labelSelect);
     options.appendChild(labelField);
 
@@ -428,8 +428,8 @@ export function renderRail(
     // classeur.
     const critLabel = el("label", { class: "rail-option-criticality" });
     const critInput = el("input", { type: "checkbox" });
-    critInput.checked = state.options.graisseParCriticite;
-    critInput.addEventListener("change", () => callbacks.onGraisseParCriticite(critInput.checked));
+    critInput.checked = state.options.weightByCriticality;
+    critInput.addEventListener("change", () => callbacks.onWeightByCriticality(critInput.checked));
     critLabel.appendChild(critInput);
     critLabel.appendChild(document.createTextNode(" thickness by criticality"));
     options.appendChild(critLabel);

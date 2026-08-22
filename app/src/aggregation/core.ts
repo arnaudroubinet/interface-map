@@ -21,7 +21,7 @@ export interface GraphNode {
   //
   // `technical`: the actor is plumbing (Technical nature).
   // `aggregate`: the node folds several actors, and how many.
-  technique?: boolean;
+  technical?: boolean;
   agrégat?: number;
   // The node's opacity, when the view wants to push back without making it
   // vanish: what is far from the point of interest stays visible but stops
@@ -89,7 +89,7 @@ export function interfaceLabel(flowName: string, version: string): string {
 // How many exchanges are named on a merged line before the rest is merely
 // counted. Two fit within a box's width; beyond that the label would eat the
 // drawing -- the line's tooltip then carries the whole list.
-const ECHANGES_NOMMES = 2;
+const NAMED_EXCHANGES = 2;
 
 // The label of a merged line, shared by the matrix (screen and export) and the
 // diagrams.
@@ -105,8 +105,8 @@ const ECHANGES_NOMMES = 2;
 export type EdgeLabelMode = "technology" | "exchanges" | "both";
 
 function namedExchanges(names: readonly string[]): string {
-  const named = names.slice(0, ECHANGES_NOMMES).join(", ");
-  const reste = names.length - ECHANGES_NOMMES;
+  const named = names.slice(0, NAMED_EXCHANGES).join(", ");
+  const reste = names.length - NAMED_EXCHANGES;
   return reste > 0 ? `${named} +${reste}` : named;
 }
 
@@ -116,14 +116,14 @@ export function cellLabel(
   names: readonly string[] = [],
   what: EdgeLabelMode = "technology"
 ): string {
-  const tuyau = technology ? (count > 1 ? `${technology} ×${count}` : technology) : "";
+  const pipe = technology ? (count > 1 ? `${technology} ×${count}` : technology) : "";
   // With no technology -- the functional-mode case, which empties it so that
   // the lines of one pair merge -- "technology" would fall back to a bare
   // counter. But "2" teaches neither what travels nor why.
-  if (what === "technology" && tuyau) return tuyau;
-  if (names.length === 0) return tuyau || String(count);
+  if (what === "technology" && pipe) return pipe;
+  if (names.length === 0) return pipe || String(count);
   const exchanges = namedExchanges(names);
-  if (what === "both" && tuyau) return `${exchanges} — ${tuyau}`;
+  if (what === "both" && pipe) return `${exchanges} — ${pipe}`;
   return exchanges;
 }
 
@@ -141,17 +141,17 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
 // platform, so every one of its components belongs to it. Read actor by actor,
 // a mixed group painted itself in the platform's colours while showing only
 // part of its members.
-function perimetreDuGroupe(model: ParsedModel, group: string): string {
+function perimeterOfGroup(model: ParsedModel, group: string): string {
   const name = normalizeText(group);
   return model.groups.find((g) => normalizeText(g.name) === name)?.perimeter ?? "";
 }
 
 export function groupIsPlatform(model: ParsedModel, group: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETER_PLATFORM);
+  return normalizeText(perimeterOfGroup(model, group)) === normalizeText(PERIMETER_PLATFORM);
 }
 
 export function groupIsExternal(model: ParsedModel, group: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETER_EXTERNAL);
+  return normalizeText(perimeterOfGroup(model, group)) === normalizeText(PERIMETER_EXTERNAL);
 }
 
 export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
@@ -166,7 +166,7 @@ export function iconForActorType(model: ParsedModel, actorType: string): string 
   return model.actorTypes.find((t) => normalizeText(t.type) === sought)?.icon || undefined;
 }
 
-export function nomEstExterne(model: ParsedModel, name: string): boolean {
+export function nameIsExternal(model: ParsedModel, name: string): boolean {
   const actor = model.actors.find((a) => a.name.trim() === name.trim());
   return actor ? groupIsExternal(model, actor.group) : false;
 }
@@ -188,12 +188,12 @@ export function nomEstExterne(model: ParsedModel, name: string): boolean {
 // never signed.
 export interface InterfaceLookup {
   byKey: Map<string, InterfaceCatalogue>;
-  byNomVersion: Map<string, InterfaceCatalogue>;
-  byNom: Map<string, InterfaceCatalogue>;
+  byNameVersion: Map<string, InterfaceCatalogue>;
+  byName: Map<string, InterfaceCatalogue>;
   // The (name, version) pairs SEVERAL publishers expose. Two actors may name
   // alike without having agreed on it: these are two distinct interfaces, so
   // the name alone no longer decides between them.
-  nomVersionAmbigu: Set<string>;
+  ambiguousNameVersion: Set<string>;
 }
 
 function key(...parties: string[]): string {
@@ -204,7 +204,7 @@ export function interfaceKey(sheet: string, flowName: string, version: string): 
   return key(sheet, flowName, version);
 }
 
-export function nomVersionKey(flowName: string, version: string): string {
+export function nameVersionKey(flowName: string, version: string): string {
   return key(flowName, version);
 }
 
@@ -212,36 +212,36 @@ export function nomVersionKey(flowName: string, version: string): string {
 // by a plain trim, while matching normalises: an "Order status" written
 // "ORDER STATUS" in a consumption was indeed drawn, and yet the report
 // declared it absent from the catalogue.
-export function nomKey(flowName: string): string {
+export function nameKey(flowName: string): string {
   return key(flowName);
 }
 
 export function buildInterfaceLookup(model: ParsedModel): InterfaceLookup {
   const byKey = new Map<string, InterfaceCatalogue>();
-  const byNomVersion = new Map<string, InterfaceCatalogue>();
-  const byNom = new Map<string, InterfaceCatalogue>();
-  const nomVersionAmbigu = new Set<string>();
+  const byNameVersion = new Map<string, InterfaceCatalogue>();
+  const byName = new Map<string, InterfaceCatalogue>();
+  const ambiguousNameVersion = new Set<string>();
   for (const i of model.interfaces) {
     byKey.set(interfaceKey(i.expectedSheet, i.flowName, i.version), i);
-    const kNomVersion = nomVersionKey(i.flowName, i.version);
-    const already = byNomVersion.get(kNomVersion);
-    if (!already) byNomVersion.set(kNomVersion, i);
-    else if (normalizeText(already.providerName) !== normalizeText(i.providerName)) nomVersionAmbigu.add(kNomVersion);
-    if (!byNom.has(nomKey(i.flowName))) byNom.set(nomKey(i.flowName), i);
+    const kNameVersion = nameVersionKey(i.flowName, i.version);
+    const already = byNameVersion.get(kNameVersion);
+    if (!already) byNameVersion.set(kNameVersion, i);
+    else if (normalizeText(already.providerName) !== normalizeText(i.providerName)) ambiguousNameVersion.add(kNameVersion);
+    if (!byName.has(nameKey(i.flowName))) byName.set(nameKey(i.flowName), i);
   }
-  return { byKey, byNomVersion, byNom, nomVersionAmbigu };
+  return { byKey, byNameVersion, byName, ambiguousNameVersion };
 }
 
-export function findInterfaceForConsommation(lookup: InterfaceLookup, c: Consumption): InterfaceCatalogue | undefined {
+export function findInterfaceForConsumption(lookup: InterfaceLookup, c: Consumption): InterfaceCatalogue | undefined {
   const parOnglet = lookup.byKey.get(interfaceKey(c.sheet, c.flowName, c.version));
   if (parOnglet) return parOnglet;
   // The name fallback only applies if that name designates a single publisher.
   // With several, binding it to the first would have this consumer sign with
   // someone it did not choose: nothing is resolved, and the reference check
   // says so plainly.
-  const kNomVersion = nomVersionKey(c.flowName, c.version);
-  if (lookup.nomVersionAmbigu.has(kNomVersion)) return undefined;
-  return lookup.byNomVersion.get(kNomVersion);
+  const kNameVersion = nameVersionKey(c.flowName, c.version);
+  if (lookup.ambiguousNameVersion.has(kNameVersion)) return undefined;
+  return lookup.byNameVersion.get(kNameVersion);
 }
 
 // An orphan flow (name absent from the catalogue) or one of unknown type
@@ -258,7 +258,7 @@ export function buildFlowInstances(model: ParsedModel, rank: number | null = nul
   const flows: FlowInstance[] = [];
 
   for (const consumption of model.consumptions) {
-    const iface = findInterfaceForConsommation(lookup, consumption);
+    const iface = findInterfaceForConsumption(lookup, consumption);
     if (!iface) continue;
 
     const direction = sensParType.get(iface.flowType.trim());
@@ -337,7 +337,7 @@ function directedEndpoints(flow: FlowInstance, nodeKey: NodeKeyFn): { from: Node
 
 // The consumer takes the initiative: the arrowhead sits at the other end of
 // the line, on the provider it queries.
-const estTire = (flow: FlowInstance) => flow.direction === "consumer-to-provider";
+const isPulled = (flow: FlowInstance) => flow.direction === "consumer-to-provider";
 
 export interface EdgeGroup {
   from: NodeId;
@@ -358,7 +358,7 @@ export interface EdgeGroup {
 
 // The vocabulary's order, from most critical to least. It is read from the
 // list itself rather than kept a second time: the two would drift apart.
-function rangDeCriticite(value: string): number {
+function criticalityRank(value: string): number {
   const i = VOCABULARY_CRITICALITY.findIndex((v) => normalizeText(v) === normalizeText(value));
   return i < 0 ? VOCABULARY_CRITICALITY.length : i;
 }
@@ -366,7 +366,7 @@ function rangDeCriticite(value: string): number {
 function laPlusForte(a: string | undefined, b: string): string | undefined {
   if (!a) return b.trim() ? b : undefined;
   if (!b.trim()) return a;
-  return rangDeCriticite(b) < rangDeCriticite(a) ? b : a;
+  return criticalityRank(b) < criticalityRank(a) ? b : a;
 }
 
 export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops: boolean): EdgeGroup[] {
@@ -398,7 +398,7 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
         technology: flow.flowType,
         count: 1,
         attenuated: flow.attenuated,
-        pulled: estTire(flow),
+        pulled: isPulled(flow),
         names: [name],
         criticality: flow.consumption.criticality.trim() || undefined,
       });

@@ -353,8 +353,8 @@ describe("lectureUnion", () => {
   });
 
   it("réunit les flux de tous les paliers, y compris ceux qui disparaissent", () => {
-    const consommateurs = lectureUnion(estate(), "architecture").flows.map((f) => f.consumer).sort();
-    expect(consommateurs).toEqual(["B", "Tardif"]);
+    const consumers = lectureUnion(estate(), "architecture").flows.map((f) => f.consumer).sort();
+    expect(consumers).toEqual(["B", "Tardif"]);
   });
 
   // Un même flux vivant à deux paliers ne doit pas compter deux fois : la

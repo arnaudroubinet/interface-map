@@ -34,7 +34,7 @@ export type Vue =
 //
 // `Record<Vue, string>` oblige à compléter la table dès qu'une vue s'ajoute :
 // c'est le type qui tient l'exhaustivité, pas la vigilance.
-export const LIBELLE_VUE: Record<Vue, string> = {
+export const VIEW_LABEL: Record<Vue, string> = {
   "group-to-group": "Group to group",
   "platform-detail": "Platform detail",
   "platform-only": "Platform only",
@@ -71,7 +71,7 @@ export interface AppOptions {
   // La graisse du trait suit la criticité de la consommation. Désactivé par
   // défaut : la graisse sert ailleurs à ne RIEN dire, et les deux usages ne se
   // mélangent pas.
-  graisseParCriticite: boolean;
+  weightByCriticality: boolean;
 }
 
 // Ce que l'utilisateur a décoché dans la vue par acteur. Remis à zéro dès qu'on
@@ -117,13 +117,13 @@ export interface AppState {
   comparedMilestone: string | null;
   options: AppOptions;
   actorFilters: ActorViewFilters;
-  filtresTechnologie: FiltresVueTechnologie;
+  technologyFilters: FiltresVueTechnologie;
   filtresMatrice: FiltresVueMatrice;
   actorSelection: string | null;
-  selectionTechnologie: string | null;
+  technologySelection: string | null;
   // La chaîne suivie, par son libellé. Une chaîne n'existe qu'en lecture
   // fonctionnelle, où la plomberie est justement ce qu'on traverse.
-  selectionChaine: string | null;
+  chainSelection: string | null;
   // Ce que la frise met en ligne : les acteurs ou les interfaces.
   sujetFrise: RoadmapSubject;
   messageBandeau: string | null;
@@ -136,13 +136,13 @@ export function initialState(): AppState {
     mode: "architecture",
     shownMilestone: null,
     comparedMilestone: null,
-    options: { counters: true, edgeLabelMode: "technology", echellePng: 2, graisseParCriticite: false },
+    options: { counters: true, edgeLabelMode: "technology", echellePng: 2, weightByCriticality: false },
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
-    filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
+    technologyFilters: { masquerExternes: false, hiddenActors: [] },
     filtresMatrice: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
     actorSelection: null,
-    selectionTechnologie: null,
-    selectionChaine: null,
+    technologySelection: null,
+    chainSelection: null,
     sujetFrise: "interfaces",
     messageBandeau: null,
   };
@@ -181,11 +181,11 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
     shownMilestone: current?.name ?? null,
     comparedMilestone: previous?.name ?? null,
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
-    filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
+    technologyFilters: { masquerExternes: false, hiddenActors: [] },
     filtresMatrice: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
     actorSelection: null,
-    selectionTechnologie: null,
-    selectionChaine: null,
+    technologySelection: null,
+    chainSelection: null,
     sujetFrise: "interfaces",
     messageBandeau: null,
   };
@@ -250,10 +250,10 @@ function basculer(list: string[], value: string, hidden: boolean): string[] {
   return hidden ? [...sans, value] : sans;
 }
 
-export function withTechnoMasquee(state: AppState, techno: string, hidden: boolean): AppState {
+export function withTechnoMasquee(state: AppState, tech: string, hidden: boolean): AppState {
   return {
     ...state,
-    actorFilters: { ...state.actorFilters, hiddenTechnologies: basculer(state.actorFilters.hiddenTechnologies, techno, hidden) },
+    actorFilters: { ...state.actorFilters, hiddenTechnologies: basculer(state.actorFilters.hiddenTechnologies, tech, hidden) },
   };
 }
 
@@ -274,21 +274,21 @@ export function withVoisinage(state: AppState, neighbourhood: Neighbourhood): Ap
   return { ...state, actorFilters: { ...state.actorFilters, neighbourhood } };
 }
 
-export function withSelectionChaine(state: AppState, chain: string | null): AppState {
-  return { ...state, selectionChaine: chain };
+export function withChainSelection(state: AppState, chain: string | null): AppState {
+  return { ...state, chainSelection: chain };
 }
 
-export function withSelectionTechnologie(state: AppState, technology: string | null): AppState {
-  if (technology === state.selectionTechnologie) return { ...state, selectionTechnologie: technology };
+export function withTechnologySelection(state: AppState, technology: string | null): AppState {
+  if (technology === state.technologySelection) return { ...state, technologySelection: technology };
   return {
     ...state,
-    selectionTechnologie: technology,
-    filtresTechnologie: { ...state.filtresTechnologie, hiddenActors: [] },
+    technologySelection: technology,
+    technologyFilters: { ...state.technologyFilters, hiddenActors: [] },
   };
 }
 
 export function withMasquerExternes(state: AppState, masquer: boolean): AppState {
-  return { ...state, filtresTechnologie: { ...state.filtresTechnologie, masquerExternes: masquer } };
+  return { ...state, technologyFilters: { ...state.technologyFilters, masquerExternes: masquer } };
 }
 
 export function withMasquerExternesMatrice(state: AppState, masquer: boolean): AppState {
@@ -321,9 +321,9 @@ export function withActorHiddenInMatrix(state: AppState, actor: string, hidden: 
 export function withActeurMasqueTechnologie(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
-    filtresTechnologie: {
-      ...state.filtresTechnologie,
-      hiddenActors: basculer(state.filtresTechnologie.hiddenActors, actor, hidden),
+    technologyFilters: {
+      ...state.technologyFilters,
+      hiddenActors: basculer(state.technologyFilters.hiddenActors, actor, hidden),
     },
   };
 }

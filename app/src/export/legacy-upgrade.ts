@@ -14,7 +14,7 @@ import { expectedFxSheet } from "../parsing/build-model";
 // complète et faux.
 
 const FEUILLE_FLUX = "Flux";
-const FEUILLE_COMPOSANTS = "Composants";
+const COMPONENTS_SHEET = "Composants";
 
 // La colonne « Statut » du format d'origine porte en réalité la DÉCISION, et
 // sans accents. On ne transcrit pas une table de correspondance relevée sur un
@@ -75,7 +75,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   // d'intégrité signale aussitôt.
   const actors: string[][] = [];
   const connus = new Set<string>();
-  for (const c of sheet(wb, FEUILLE_COMPOSANTS)) {
+  for (const c of sheet(wb, COMPONENTS_SHEET)) {
     const name = text(c["Nom"]);
     if (!name || connus.has(normalizeText(name))) continue;
     connus.add(normalizeText(name));
@@ -110,9 +110,9 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
     // Le sens du type décide qui expose : pour Kafka ou JMS on représente la
     // poussée du producteur, donc la source expose ; partout ailleurs c'est
     // l'appelant qui consomme, et la cible expose.
-    const versConsommateur = sensConnu(type) === "provider → consumer";
-    const provider = versConsommateur ? source : target;
-    const consumer = versConsommateur ? target : source;
+    const toConsumer = sensConnu(type) === "provider → consumer";
+    const provider = toConsumer ? source : target;
+    const consumer = toConsumer ? target : source;
 
     const contrat = text(lien["Emplacement du contrat"]);
     interfaces.push([

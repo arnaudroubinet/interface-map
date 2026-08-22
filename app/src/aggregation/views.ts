@@ -9,7 +9,7 @@ import {
   interfaceLabel,
   actorIsPlatform,
   groupIsExternal,
-  nomEstExterne,
+  nameIsExternal,
   iconForActorType,
   type GraphNode,
   type GraphEdge,
@@ -20,7 +20,7 @@ import {
   type NodeKind,
   type Mode,
 } from "./core";
-import type { Lecture } from "./reading";
+import type { Reading } from "./reading";
 import { isTechnicalActor } from "./nature";
 import { radius, type Neighbourhood } from "./impact";
 import { orderBy, type OrderContext, type MatrixOrder } from "./seriation";
@@ -46,7 +46,7 @@ function tronquer(text: string, max: number): string {
 function actorDetails(
   model: ParsedModel,
   name: string
-): { subtitle?: string; description?: string; external?: boolean; icon?: string; technique?: boolean } {
+): { subtitle?: string; description?: string; external?: boolean; icon?: string; technical?: boolean } {
   const actor = model.actors.find((a) => a.name === name);
   if (!actor) return {};
   return {
@@ -56,7 +56,7 @@ function actorDetails(
     external: groupIsExternal(model, actor.group) || undefined,
     // The nature is decided HERE, where the model is known: the rendering
     // applies a shape, it does not go looking for one.
-    technique: isTechnicalActor(model, name) || undefined,
+    technical: isTechnicalActor(model, name) || undefined,
   };
 }
 
@@ -107,7 +107,7 @@ function nodesIsoles(
   return [...ids].map((id) => ({ id, label: id, kind: kindFor(id), ...detailsFor(id) }));
 }
 
-export function buildGroupToGroupView(model: ParsedModel, reading: Lecture, options: AggregationOptions): ViewResult {
+export function buildGroupToGroupView(model: ParsedModel, reading: Reading, options: AggregationOptions): ViewResult {
   const key = groupNodeKey(model);
   const edges = aggregateEdges(reading.flows, key, options, true);
   const kindFor = () => "group" as const;
@@ -117,21 +117,21 @@ export function buildGroupToGroupView(model: ParsedModel, reading: Lecture, opti
   return { nodes: [...nodes, ...isolated], edges };
 }
 
-export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, options: AggregationOptions): ViewResult {
+export function buildPlatformDetailView(model: ParsedModel, reading: Reading, options: AggregationOptions): ViewResult {
   const key = platformDetailNodeKey(model);
   const edges = aggregateEdges(reading.flows, key, options, true);
-  const plateformeIds = new Set(
+  const platformIds = new Set(
     reading.actors.filter((a) => actorIsPlatform(model, a)).map((a) => a.name)
   );
-  const kindFor = (id: NodeId) => (plateformeIds.has(id) ? "platform" as const : "group" as const);
-  const detailsFor = (id: NodeId) => (plateformeIds.has(id) ? actorDetails(model, id) : groupDetails(model, id, reading.actors));
+  const kindFor = (id: NodeId) => (platformIds.has(id) ? "platform" as const : "group" as const);
+  const detailsFor = (id: NodeId) => (platformIds.has(id) ? actorDetails(model, id) : groupDetails(model, id, reading.actors));
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
   const isolated = nodesIsoles(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   const nodesTotal = [...nodes, ...isolated];
 
   // The platform's components go inside the boundary; everything else orbits
   // around it. Without at least two components, a frame adds nothing.
-  const dedans = nodesTotal.filter((n) => plateformeIds.has(n.id));
+  const dedans = nodesTotal.filter((n) => platformIds.has(n.id));
   if (dedans.length < 2) return { nodes: nodesTotal, edges };
   for (const n of dedans) n.parent = ID_FRONTIERE;
   return {
@@ -143,7 +143,7 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Lecture, op
 // The product alone, without its surroundings: only flows whose BOTH ends are
 // in a "Platform" group are kept. No boundary here -- everything drawn is the
 // platform, and a frame around all of it teaches nothing.
-export function buildPlatformOnlyView(model: ParsedModel, reading: Lecture, options: AggregationOptions): ViewResult {
+export function buildPlatformOnlyView(model: ParsedModel, reading: Reading, options: AggregationOptions): ViewResult {
   const acteursPlateforme = reading.actors.filter((a) => actorIsPlatform(model, a));
   const interne = (name: string) => acteursPlateforme.some((a) => a.name.trim() === name.trim());
   const flows = reading.flows.filter((f) => interne(f.provider) && interne(f.consumer));
@@ -155,7 +155,7 @@ export function buildPlatformOnlyView(model: ParsedModel, reading: Lecture, opti
   return { nodes: [...nodes, ...isolated], edges };
 }
 
-export interface OptionsVueTechnologie extends AggregationOptions {
+export interface TechnologyViewOptions extends AggregationOptions {
   masquerExternes?: boolean;
   hiddenActors?: readonly string[];
 }
@@ -172,7 +172,7 @@ export function optionsFiltreTechnologie(
   const names = new Set<string>();
   for (const flow of flowsOfTechnology(flows, flowType)) {
     for (const name of [flow.provider, flow.consumer]) {
-      if (options.masquerExternes && nomEstExterne(model, name)) continue;
+      if (options.masquerExternes && nameIsExternal(model, name)) continue;
       names.add(name);
     }
   }
@@ -187,12 +187,12 @@ export function buildByTechnologyView(
   model: ParsedModel,
   allFlows: FlowInstance[],
   flowType: string,
-  options: OptionsVueTechnologie
+  options: TechnologyViewOptions
 ): ViewResult {
   const hiddenIds = new Set(options.hiddenActors ?? []);
   // A flow falls as soon as ONE of its two ends is hidden: a line to an absent
   // box means nothing.
-  const isHidden = (name: string) => hiddenIds.has(name) || (options.masquerExternes === true && nomEstExterne(model, name));
+  const isHidden = (name: string) => hiddenIds.has(name) || (options.masquerExternes === true && nameIsExternal(model, name));
   const flows = flowsOfTechnology(allFlows, flowType).filter(
     (f) => !isHidden(f.provider) && !isHidden(f.consumer)
   );
@@ -350,15 +350,15 @@ function matrixFolding(
     return { key: groupNodeKey(model), external: (id) => groupIsExternal(model, id) };
   }
   if (grain === "platform") {
-    const plateforme = new Set(
+    const platform = new Set(
       model.actors.filter((a) => actorIsPlatform(model, a)).map((a) => a.name.trim())
     );
     return {
       key: platformDetailNodeKey(model),
-      external: (id) => !plateforme.has(id) && groupIsExternal(model, id),
+      external: (id) => !platform.has(id) && groupIsExternal(model, id),
     };
   }
-  return { key: identityNodeKey, external: (id) => nomEstExterne(model, id) };
+  return { key: identityNodeKey, external: (id) => nameIsExternal(model, id) };
 }
 
 // The matrix rows that can be unticked: everything carrying at least one flow
@@ -383,7 +383,7 @@ export function optionsFiltreMatrice(
   return [...ids].sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-export function buildMatrixView(model: ParsedModel, reading: Lecture, options: OptionsVueMatrice): MatrixResult {
+export function buildMatrixView(model: ParsedModel, reading: Reading, options: OptionsVueMatrice): MatrixResult {
   const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const hiddenIds = new Set(options.hiddenActors ?? []);
   const isHidden = (id: string) => hiddenIds.has(id) || (options.masquerExternes === true && external(id));

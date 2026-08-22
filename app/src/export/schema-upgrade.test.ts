@@ -219,8 +219,8 @@ describe("classeur produit — onglets attendus", () => {
     };
     // Au niveau du classeur produit, le seul qui compte : l'onglet existe, son
     // nom tient dans la limite, et la relecture retombe exactement dessus.
-    const octets = writeTemplate(upgrade(template, THE_DAY));
-    const reread = buildModel(parseWorkbook(octets));
+    const bytes = writeTemplate(upgrade(template, THE_DAY));
+    const reread = buildModel(parseWorkbook(bytes));
     if (!reread.ok) throw new Error("classeur illisible");
     expect(reread.model.fxSheetNames.every((n) => n.length <= 31)).toBe(true);
     expect(reread.model.fxSheetNames).toContain(reread.model.interfaces[0].expectedSheet);

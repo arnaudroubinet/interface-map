@@ -20,7 +20,7 @@ export interface EntreeLegende {
 export interface NoeudLegendable {
   kind: LayoutNode["kind"];
   external?: boolean;
-  technique?: boolean;
+  technical?: boolean;
   agrégat?: number;
 }
 
@@ -47,7 +47,7 @@ export function entreesDeLegende(
   edges: readonly LegendableEdge[],
   nodes: readonly NoeudLegendable[],
   colorFor: (tech: string) => string,
-  graisseParCriticite = false
+  weightByCriticality = false
 ): EntreeLegende[] {
   const inputs: EntreeLegende[] = [];
 
@@ -87,7 +87,7 @@ export function entreesDeLegende(
   }
   // Une graisse non annoncée est une notation muette de plus, exactement ce
   // que la pointe était avant.
-  if (graisseParCriticite) {
+  if (weightByCriticality) {
     for (const [value, thickness] of [
       ["1 - Critical", 3.5],
       ["2 - Important", 2],
@@ -122,7 +122,7 @@ export function entreesDeLegende(
 
   // Une forme non annoncée est une notation muette de plus, exactement ce que
   // la pointe était avant.
-  if (dessinables.some((n) => n.technique)) {
+  if (dessinables.some((n) => n.technical)) {
     const style = styleDuNoeud({ kind: "actor", external: false });
     inputs.push({
       sample: { shape: "box", fill: style.fill, stroke: style.stroke, coinCoupé: true },

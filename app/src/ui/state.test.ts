@@ -24,7 +24,7 @@ describe("initialState", () => {
     const state = initialState();
     expect(state.file).toBeNull();
     expect(state.view).toBe("group-to-group");
-    expect(state.options).toEqual({ counters: true, edgeLabelMode: "technology", echellePng: 2, graisseParCriticite: false });
+    expect(state.options).toEqual({ counters: true, edgeLabelMode: "technology", echellePng: 2, weightByCriticality: false });
   });
 });
 
