@@ -40,6 +40,13 @@ export interface ValidationToApply {
   // The bubble Excel shows when a cell of the column is selected. The
   // showInputMessage flag had been set since day one, with no text to show.
   prompt?: { title: string; text: string };
+  // A list fed by the external referential SUGGESTS, it never refuses: the
+  // referential lags behind the cartography by construction -- one cartographs
+  // before the referential is updated -- and on a workbook that declares no
+  // referential at all the list is one blank cell. Excel's default alert is a
+  // Stop, so leaving it on made the column unenterable. Ordinary lists, whose
+  // vocabulary the workbook itself owns, keep refusing.
+  suggestsOnly?: boolean;
 }
 
 export interface TableToApply {
@@ -264,8 +271,9 @@ function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: n
       if (!v.formule) {
         return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${prompt}${plage}/>`;
       }
+      const refuses = v.suggestsOnly ? "0" : "1";
       return (
-        `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" ` +
+        `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="${refuses}" ` +
         `${prompt}${plage}><formula1>${escapeXml(v.formule)}</formula1></dataValidation>`
       );
     })

@@ -567,12 +567,23 @@ function invitePour(sheet: string, heading: string): { title: string; text: stri
   return INVITES[`${sheet}.${heading}`] ?? INVITES[heading];
 }
 
+// The lists a query fills, told apart from the ones the workbook owns by the
+// sheet they read: a list added on a Ref* sheet tomorrow is covered without
+// anything to remember here.
+export function referentialListNames(): string[] {
+  return listsOfTemplate()
+    .filter((l) => l.sheet === REF_ACTORS_SHEET || l.sheet === REF_TECHNOLOGIES_SHEET)
+    .map((l) => l.name);
+}
+
 export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): ValidationToApply[] {
+  const fromReferential = new Set(referentialListNames());
   const v = (sheet: string, columns: readonly string[], heading: string, formule?: string) => ({
     sheet,
     column: columnOf(columns, heading),
     formule,
     prompt: invitePour(sheet, heading),
+    suggestsOnly: formule !== undefined && fromReferential.has(formule),
   });
 
   // Every column no list guides still gets its tooltip: that is half the

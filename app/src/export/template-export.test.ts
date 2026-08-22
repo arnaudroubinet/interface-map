@@ -6,6 +6,7 @@ import {
   tablesOfTemplate,
   listsOfTemplate,
   validationsOfTemplate,
+  referentialListNames,
   INVITES,
   columnOf,
   EXTRA_COLUMN,
@@ -218,6 +219,26 @@ describe("the workbook template", () => {
     // elements is imposed by the OOXML schema.
     expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<dataValidations"));
     expect(actors.indexOf("<dataValidations")).toBeLessThan(actors.indexOf("<tableParts"));
+  });
+
+  // The regression this test catches: binding a column to a referential list
+  // while keeping Excel's Stop alert. On a workbook with no referential the
+  // list is a single blank cell, so Excel refuses EVERY typed value -- and
+  // Actors!Name is where an actor is created. The spec is explicit: nothing is
+  // blocked, a name the referential does not carry is only reported.
+  it("never refuses a value the referential does not carry yet", () => {
+    const fed = validationsOfTemplate().filter((v) => v.formule && referentialListNames().includes(v.formule));
+    expect(fed.length).toBeGreaterThan(0);
+    for (const v of fed) expect(v.suggestsOnly).toBe(true);
+
+    const alertOf = (xml: string, list: string) =>
+      xml.match(new RegExp(`<dataValidation ([^>]*)><formula1>${list}</formula1>`))![1];
+    expect(alertOf(sheetXml("Actors"), "L_RefActeur")).toContain('showErrorMessage="0"');
+    expect(alertOf(sheetXml("FlowTypes"), "L_RefTypeFlux")).toContain('showErrorMessage="0"');
+    // And nothing else loosens: a vocabulary the workbook itself owns keeps
+    // refusing what is not in it.
+    expect(alertOf(sheetXml("Interfaces"), "L_TypeFlux")).toContain('showErrorMessage="1"');
+    expect(alertOf(sheetXml("ActorTypes"), "L_Icone")).toContain('showErrorMessage="1"');
   });
 
   it("points each list at the table column carrying it", () => {
