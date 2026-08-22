@@ -34,8 +34,9 @@ import {
   type TableauÀPoser,
   type ListeNommée,
   type ValidationÀPoser,
+  type MiseEnFormeÀPoser,
 } from "./xlsx-tables";
-import { ICONES_PAR_DEFAUT, LISTES, MODE_EMPLOI, TYPES_FLUX } from "./modele-donnees";
+import { ICONES_PAR_DEFAUT, LISTES, MODE_EMPLOI, TYPES_FLUX, type RôleDeLigne } from "./modele-donnees";
 
 // Les vocabulaires et le mode d'emploi vivent dans modele-donnees.ts ; ce
 // module-ci n'est plus que la machinerie qui les assemble en classeur.
@@ -318,7 +319,7 @@ export function construireClasseurModele(donnees: DonneesClasseur = CLASSEUR_VID
   const largeursInterfaces = COLONNES_INTERFACES.map((c) => Math.max(18, c.length + 4));
   const largeursFx = COLONNES_FX.map((c) => Math.max(16, c.length + 4));
 
-  XLSX.utils.book_append_sheet(wb, feuille(MODE_EMPLOI.map((l) => [...l]), [22, 96], false), "Instructions");
+  XLSX.utils.book_append_sheet(wb, feuille(MODE_EMPLOI.map((l) => [l.gauche, l.droite]), [26, 104], false), "Instructions");
   XLSX.utils.book_append_sheet(wb, feuilleGarnie(COLONNES_ACTEURS, donnees.acteurs, largeursActeurs), "Actors");
   XLSX.utils.book_append_sheet(wb, feuilleGarnie(COLONNES_GROUPES, donnees.groupes, [24, 16]), "Groups");
   // Visible, et placé tôt : la chronologie de la plateforme se saisit, elle ne
@@ -464,11 +465,21 @@ function formulesDependantes(dernièreLigne: number) {
 // commente que ce que l'en-tête ne dit pas déjà : l'ordre de saisie quand une
 // liste dépend d'une autre, et le sens exact d'une valeur quand il se devine
 // mal. Excel borne le titre à 32 caractères et le texte à 255.
-const INVITES: Record<string, { titre: string; texte: string }> = {
+// Exporté pour que le test puisse vérifier qu'aucune invite ne vise une
+// colonne inexistante -- une couverture illusoire est pire qu'un trou connu.
+export const INVITES: Record<string, { titre: string; texte: string }> = {
   "Flow name": { titre: "Interface", texte: "An interface exposed by this sheet's provider. Declare it on the Interfaces sheet first." },
   // Le défaut d'origine : sans le flux, la source de cette liste vaut #N/A et
   // la liste ne s'ouvre pas. Le comportement est juste, il manquait de le dire.
   Version: { titre: "Version", texte: "Fill in Flow name first: the versions offered are the ones declared for that interface." },
+  // Un même intitulé ne veut pas dire la même chose partout : sur Interfaces,
+  // « Version » est la version QU'ON DÉCLARE, pas une à choisir dans une liste.
+  // La clé qualifiée par la feuille l'emporte sur la clé nue.
+  "Interfaces.Version": {
+    titre: "Version",
+    texte:
+      "The contract's version, in whatever form your team uses. Free text: it is (provider, flow name, version) that identifies an interface, so two versions of one flow are two lines here.",
+  },
   "Criticality for this consumer": { titre: "Criticality", texte: "How critical this flow is for THIS consumer, not in general. The same interface may be vital to one and secondary to another." },
   Decision: { titre: "Decision", texte: "What has been decided for this consumption. Remove is a deprecation warning, not a retirement: retirement is the Retired at column." },
   "Introduced at": { titre: "Introduced at", texte: "A milestone from the Milestones sheet, the one this line appears at. Leave empty if it has always been there." },
@@ -482,21 +493,65 @@ const INVITES: Record<string, { titre: string; texte: string }> = {
   Perimeter: { titre: "Perimeter", texte: "Platform for what the team owns, External for the rest. This is what decides how the group is drawn." },
   Direction: { titre: "Direction", texte: "Which way the arrow is drawn for this technology, on every diagram." },
   "To confirm": { titre: "To confirm", texte: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
+
+  // --- Colonnes de saisie LIBRE. Aucune liste ne les guide, et elles étaient
+  // les seules à ne rien dire -- alors que ce sont celles où l'on hésite.
+  Name: { titre: "Name", texte: "The component's name, as everyone here calls it. It becomes the reference used everywhere else: renaming it later means a find-and-replace across the whole workbook." },
+  Group: { titre: "Group", texte: "The group this component belongs to. The group carries the perimeter — Platform or External — so everything it holds follows." },
+  "Actor type": { titre: "Actor type", texte: "Declared on the ActorTypes sheet, which also gives it its icon and says whether it is business or technical." },
+  Owner: { titre: "Owner", texte: "Who to talk to about this component. Carried through to the exports, never drawn." },
+  Description: { titre: "Description", texte: "One or two lines, drawn inside the box on the diagrams. Longer than about 120 characters and it gets cut on the drawing." },
+  Comments: { titre: "Comments", texte: "Anything worth keeping that has no column of its own. Carried through to the exports, never drawn." },
+  Usage: { titre: "Usage", texte: "What THIS consumer does with the flow. Two consumers of the same interface rarely use it for the same thing." },
+  "Contract link": { titre: "Contract link", texte: "A URL to the contract or its documentation. It becomes a clickable link on the exported diagrams." },
+  "Contract reference": { titre: "Contract reference", texte: "The contract's reference in whatever registry holds it. Free text." },
+  Milestone: { titre: "Milestone", texte: "The name you will use in the Introduced at and Retired at columns everywhere else. Keep it short: it is shown on every diagram." },
+  Rank: { titre: "Rank", texte: "A whole number giving the order of milestones. It is the rank that orders the timeline, not the date." },
+  Label: { titre: "Label", texte: "The milestone's readable name, shown next to it in the tool." },
+  Status: { titre: "Status", texte: "Where this milestone stands. The default milestone shown is the delivered one with the highest rank." },
+  Date: { titre: "Date", texte: "When the milestone happens. Informative: it is Rank that decides the order." },
+  Icon: { titre: "Icon", texte: "The icon drawn inside the box for this type of actor. Pick from the list; Preview shows the result." },
+  "Flow type": { titre: "Flow type", texte: "The technology this interface travels over. Declared on the FlowTypes sheet, which also sets which way the arrow is drawn." },
+  Provider: { titre: "Provider", texte: "The actor that PROVIDES this interface. It is what tells two interfaces of the same name apart, and it decides which FX_ sheet holds the consumptions." },
+  Consumer: { titre: "Consumer", texte: "The actor that consumes this interface. One line per consumer: an interface consumed by four actors has four lines." },
 };
 
+// La feuille d'abord, l'intitulé ensuite : un même nom de colonne ne dit pas la
+// même chose d'une feuille à l'autre.
+function invitePour(feuille: string, intitulé: string): { titre: string; texte: string } | undefined {
+  return INVITES[`${feuille}.${intitulé}`] ?? INVITES[intitulé];
+}
+
 export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): ValidationÀPoser[] {
-  const v = (feuille: string, colonnes: readonly string[], intitulé: string, formule: string) => ({
+  const v = (feuille: string, colonnes: readonly string[], intitulé: string, formule?: string) => ({
     feuille,
     colonne: colonneDe(colonnes, intitulé),
     formule,
-    invite: INVITES[intitulé],
+    invite: invitePour(feuille, intitulé),
   });
+
+  // Toute colonne qu'aucune liste ne guide reçoit quand même son infobulle :
+  // c'est la moitié du classeur, et c'était la moitié muette. On part de la
+  // LISTE DES COLONNES et non d'une énumération à la main -- une colonne
+  // ajoutée demain hérite ainsi du même traitement, ou se signale par son
+  // absence d'invite.
+  const libres = (feuille: string, colonnes: readonly string[], guidées: readonly string[]) =>
+    colonnes.filter((c) => !guidées.includes(c) && invitePour(feuille, c)).map((c) => v(feuille, colonnes, c));
   const dépendantes = formulesDependantes(dernièreLigneListes(donnees.interfaces.length));
   // Les deux bornes de validité se posent partout où l'on date des objets, et
   // toujours de la même façon.
   const bornes = (feuille: string, colonnes: readonly string[]) =>
     COLONNES_VALIDITE.map((intitulé) => v(feuille, colonnes, intitulé, "L_Palier"));
 
+  const GUIDEES_FX = [
+    "Flow name",
+    "Version",
+    "Consumer",
+    "Criticality for this consumer",
+    "Decision",
+    COLONNE_REPUBLICATION,
+    ...COLONNES_VALIDITE,
+  ];
   const listesFx = (feuille: string) => [
     v(feuille, COLONNES_FX, "Flow name", dépendantes.flux),
     v(feuille, COLONNES_FX, "Version", dépendantes.version),
@@ -505,6 +560,7 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
     v(feuille, COLONNES_FX, "Decision", "L_Decision"),
     v(feuille, COLONNES_FX, COLONNE_REPUBLICATION, dépendantes.republication),
     ...bornes(feuille, COLONNES_FX),
+    ...libres(feuille, COLONNES_FX, GUIDEES_FX),
   ];
   return [
     v("Actors", COLONNES_ACTEURS, "Group", "L_Groupe"),
@@ -518,9 +574,54 @@ export function validationsDuModele(donnees: DonneesClasseur = CLASSEUR_VIDE): V
     v("Interfaces", COLONNES_INTERFACES, "To confirm", "L_Confirmation"),
     ...bornes("Actors", COLONNES_ACTEURS),
     ...bornes("Interfaces", COLONNES_INTERFACES),
+    ...libres("Actors", COLONNES_ACTEURS, ["Group", "Actor type", ...COLONNES_VALIDITE]),
+    ...libres("Groups", COLONNES_GROUPES, ["Perimeter"]),
+    ...libres("Milestones", COLONNES_PALIERS, []),
+    ...libres("ActorTypes", COLONNES_TYPESACTEUR, ["Icon", "Nature"]),
+    ...libres("FlowTypes", COLONNES_TYPESFLUX, ["Direction"]),
+    ...libres("Interfaces", COLONNES_INTERFACES, ["Provider", "Flow type", "To confirm", ...COLONNES_VALIDITE]),
     // Les onglets de flux garnis reçoivent les mêmes listes que leur patron.
     ...ongletsFx(donnees).flatMap((o) => listesFx(o.nom)),
   ];
+}
+
+// Les feuilles de saisie et leurs colonnes, en un seul endroit : l'en-tête à
+// styler, le volet à figer et l'invite à poser s'en déduisent tous les trois.
+const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
+  ["Actors", COLONNES_ACTEURS],
+  ["Groups", COLONNES_GROUPES],
+  ["Milestones", COLONNES_PALIERS],
+  ["ActorTypes", COLONNES_TYPESACTEUR],
+  ["FlowTypes", COLONNES_TYPESFLUX],
+  ["Interfaces", COLONNES_INTERFACES],
+];
+
+// La mise en forme de l'onglet d'explication : le rôle de chaque ligne décide
+// de son style, et c'est ce qui permet de ne plus couper les phrases à la main.
+// Les deux colonnes reçoivent le même style -- une section dont seule la
+// gauche serait colorée aurait l'air d'une erreur d'alignement.
+export function misesEnFormeDuModele(): MiseEnFormeÀPoser[] {
+  const parRôle = new Map<RôleDeLigne, string[]>();
+  MODE_EMPLOI.forEach((ligne, i) => {
+    const cellules = parRôle.get(ligne.rôle) ?? [];
+    cellules.push(`A${i + 1}`, `B${i + 1}`);
+    parRôle.set(ligne.rôle, cellules);
+  });
+  const misesEnForme: MiseEnFormeÀPoser[] = [...parRôle.entries()].map(([rôle, cellules]) => ({
+    feuille: "Instructions",
+    cellules,
+    rôle,
+  }));
+  // La ligne d'en-tête de chaque feuille de saisie : elle reste à l'écran
+  // (volet figé) et doit se distinguer des données qu'elle nomme.
+  for (const [nom, colonnes] of FEUILLES_DE_SAISIE) {
+    misesEnForme.push({
+      feuille: nom,
+      cellules: colonnes.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
+      rôle: "entete",
+    });
+  }
+  return misesEnForme;
 }
 
 export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe: Date = new Date()): ArrayBuffer {
@@ -545,6 +646,17 @@ export function écrireModele(donnees: DonneesClasseur = CLASSEUR_VIDE, écritLe
     tableaux: tableauxDuModele(donnees),
     listes: listesDuModele(),
     validations: validationsDuModele(donnees),
+    misesEnForme: [
+      ...misesEnFormeDuModele(),
+      // Les onglets de flux garnis portent la même ligne d'en-tête que leur
+      // patron : sans cette ligne, seuls les onglets vides l'auraient.
+      ...ongletsFx(donnees).map((o) => ({
+        feuille: o.nom,
+        cellules: COLONNES_FX.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
+        rôle: "entete" as const,
+      })),
+    ],
+    volets: [...FEUILLES_DE_SAISIE.map(([nom]) => nom), ...ongletsFx(donnees).map((o) => o.nom)],
   });
   return complété;
 }

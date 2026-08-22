@@ -6,6 +6,7 @@ import {
   tableauxDuModele,
   listesDuModele,
   validationsDuModele,
+  INVITES,
   colonneDe,
   COLONNE_APPOINT,
   CELLULE_ONGLET,
@@ -13,7 +14,17 @@ import {
   type DonneesClasseur,
 } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
-import { buildModel, VERSION_MODELE, COLONNES_INTERFACES, COLONNES_FX, COLONNES_PALIERS } from "../parsing/build-model";
+import {
+  buildModel,
+  VERSION_MODELE,
+  COLONNES_INTERFACES,
+  COLONNES_FX,
+  COLONNES_PALIERS,
+  COLONNES_ACTEURS,
+  COLONNES_GROUPES,
+  COLONNES_TYPESACTEUR,
+  COLONNES_TYPESFLUX,
+} from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icones";
 import { DONNEES_EXEMPLE } from "./exemple-donnees";
@@ -267,10 +278,10 @@ describe("modèle de classeur", () => {
     // Les listes dépendantes des onglets FX_ calculent leur plage : ce sont des
     // formules, pas des noms. La règle ne vaut donc que pour les secondes.
     const définies = new Set(listesDuModele().map((l) => l.nom));
-    const parNom = validationsDuModele().filter((v) => /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
+    const parNom = validationsDuModele().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
     expect(parNom.length).toBeGreaterThan(0);
     for (const validation of parNom) {
-      expect(définies).toContain(validation.formule);
+      expect(définies).toContain(validation.formule!);
     }
   });
 
@@ -383,12 +394,24 @@ describe("modèle de classeur — version d'interface", () => {
 
   // La version est en saisie libre : les conventions de numérotation varient
   // d'une équipe à l'autre, une liste fermée les ferait toutes rentrer de force
-  // dans une seule.
-  it("laisse la colonne Version en saisie libre", () => {
+  // dans une seule. Elle porte quand même son infobulle -- expliquer n'est pas
+  // contraindre.
+  it("laisse la colonne Version en saisie libre, mais expliquée", () => {
     const surVersion = validationsDuModele().filter(
       (v) => v.feuille === "Interfaces" && v.colonne === colonneDe(COLONNES_INTERFACES, "Version")
     );
-    expect(surVersion).toEqual([]);
+    expect(surVersion).toHaveLength(1);
+    expect(surVersion[0].formule).toBeUndefined();
+    expect(surVersion[0].invite?.texte).toContain("Free text");
+  });
+
+  // Le même intitulé sur un onglet FX_ désigne une liste dépendante : la même
+  // infobulle y serait fausse.
+  it("n'y met pas l'invite des onglets FX_", () => {
+    const surVersion = validationsDuModele().find(
+      (v) => v.feuille === "Interfaces" && v.colonne === colonneDe(COLONNES_INTERFACES, "Version")
+    );
+    expect(surVersion?.invite?.texte).not.toContain("Fill in Flow name first");
   });
 
 });
@@ -786,11 +809,21 @@ describe("modèle de classeur — invites de saisie", () => {
     expect(xml).toContain("prompt=");
   });
 
-  // Une invite sans texte n'a rien à écrire : le classeur ne doit pas se
-  // couvrir d'attributs vides.
-  it("n'écrit rien là où aucune invite n'est prévue", () => {
+  // Toute colonne de saisie porte désormais son infobulle, liste ou pas :
+  // c'était la moitié du classeur qui ne disait rien, et justement celle où
+  // l'on hésite.
+  it("explique chaque colonne de saisie", () => {
     const sansInvite = validations().filter((v) => !v.invite);
-    expect(sansInvite.length).toBeGreaterThan(0);
+    expect(sansInvite).toEqual([]);
+  });
+
+  // Une invite vide n'a rien à écrire : le classeur ne doit pas se couvrir
+  // d'attributs vides.
+  it("n'écrit jamais une invite vide", () => {
+    for (const v of validations()) {
+      expect(v.invite?.titre.trim()).toBeTruthy();
+      expect(v.invite?.texte.trim()).toBeTruthy();
+    }
   });
 });
 
@@ -859,5 +892,43 @@ describe("écrireModele — les propriétés du document", () => {
     const relu = parseWorkbook(écrireModele(DONNEES_EXEMPLE, LE_JOUR));
     expect(relu.fichierModifie).not.toBeNull();
     expect(relu.sheets.some((f) => f.name === "Interfaces")).toBe(true);
+  });
+});
+
+// --- L'onglet d'explication et les aides à la saisie. La moitié du classeur
+// ne disait rien : les colonnes de saisie libre n'avaient aucune infobulle,
+// alors que ce sont celles où l'on hésite.
+describe("modèle de classeur — les aides à la saisie", () => {
+  const feuillesDeSaisie = ["Actors", "Groups", "Milestones", "ActorTypes", "FlowTypes", "Interfaces"];
+
+  it("pose une infobulle sur chaque colonne de chaque feuille de saisie", () => {
+    const validations = validationsDuModele();
+    const colonnesDe: Record<string, readonly string[]> = {
+      Actors: COLONNES_ACTEURS,
+      Groups: COLONNES_GROUPES,
+      Milestones: COLONNES_PALIERS,
+      ActorTypes: COLONNES_TYPESACTEUR,
+      FlowTypes: COLONNES_TYPESFLUX,
+      Interfaces: COLONNES_INTERFACES,
+    };
+    for (const feuille of feuillesDeSaisie) {
+      const posées = new Set(validations.filter((v) => v.feuille === feuille).map((v) => v.colonne));
+      for (const [i] of colonnesDe[feuille].entries()) {
+        expect(posées, `${feuille} : colonne ${i + 1} sans infobulle`).toContain(XLSX.utils.encode_col(i));
+      }
+    }
+  });
+
+  // Une infobulle déclarée pour une colonne qui n'existe pas ne sert personne
+  // et donne l'illusion d'une couverture.
+  it("ne déclare aucune infobulle pour une colonne inexistante", () => {
+    const toutes = [
+      ...COLONNES_ACTEURS, ...COLONNES_GROUPES, ...COLONNES_PALIERS,
+      ...COLONNES_TYPESACTEUR, ...COLONNES_TYPESFLUX, ...COLONNES_INTERFACES, ...COLONNES_FX,
+    ];
+    for (const clé of Object.keys(INVITES)) {
+      const intitulé = clé.includes(".") ? clé.split(".")[1] : clé;
+      expect(toutes, `invite orpheline : ${clé}`).toContain(intitulé);
+    }
   });
 });

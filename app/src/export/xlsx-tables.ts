@@ -30,7 +30,11 @@ export interface ListeNommée {
 export interface ValidationÀPoser {
   feuille: string;
   colonne: string;
-  formule: string;
+  // Absente sur une colonne de saisie libre : Excel accepte une validation
+  // sans contrainte, dont le seul effet est l'infobulle. C'est ce qui permet
+  // d'expliquer AUSSI les colonnes qu'aucune liste ne guide -- elles étaient
+  // les seules à ne rien dire, alors que ce sont celles où l'on hésite.
+  formule?: string;
   // La bulle qu'Excel affiche à la sélection d'une cellule de la colonne. Le
   // drapeau showInputMessage était posé depuis toujours, sans texte à montrer.
   invite?: { titre: string; texte: string };
@@ -208,25 +212,145 @@ function xmlDesValidations(validations: readonly ValidationÀPoser[], dernièreL
   if (validations.length === 0) return "";
   const jusquÀ = Math.max(PLANCHER_VALIDATION, dernièreLigne);
   const items = validations
-    .map(
-      (v) =>
+    .map((v) => {
+      const invite = v.invite
+        ? `promptTitle="${échapper(v.invite.titre)}" prompt="${échapper(v.invite.texte)}" `
+        : "";
+      const plage = `sqref="${v.colonne}2:${v.colonne}${jusquÀ}"`;
+      // Sans formule, une validation « none » : aucune contrainte, seulement
+      // l'infobulle. Excel l'accepte et n'affiche aucune alerte.
+      if (!v.formule) {
+        return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${invite}${plage}/>`;
+      }
+      return (
         `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="1" ` +
-        (v.invite ? `promptTitle="${échapper(v.invite.titre)}" prompt="${échapper(v.invite.texte)}" ` : "") +
-        `sqref="${v.colonne}2:${v.colonne}${jusquÀ}"><formula1>${échapper(v.formule)}</formula1></dataValidation>`
-    )
+        `${invite}${plage}><formula1>${échapper(v.formule)}</formula1></dataValidation>`
+      );
+    })
     .join("");
   return `<dataValidations count="${validations.length}">${items}</dataValidations>`;
+}
+
+// La mise en forme d'une feuille. SheetJS en version communautaire SUPPRIME
+// les styles de cellule à l'écriture -- vérifié : la cellule ressort sans
+// attribut `s` et styles.xml sans police ajoutée. Le classeur n'avait donc
+// aucune présentation, et l'onglet d'explication se lisait comme un pavé de
+// texte brut.
+//
+// On les pose donc ici, dans la même passe que les tableaux : quatre rôles,
+// pas davantage. Un jeu ouvert de styles deviendrait un moteur de style, ce
+// qu'un classeur de saisie n'a pas à contenir.
+export type RôleDeStyle = "titre" | "section" | "corps" | "discret" | "entete";
+
+export interface MiseEnFormeÀPoser {
+  feuille: string;
+  // Adresses de cellules (« A1 », « B12 »), pas des plages : on ne stylise que
+  // ce qui existe, et l'appelant sait exactement quelles lignes il a écrites.
+  cellules: readonly string[];
+  rôle: RôleDeStyle;
+}
+
+// Les polices et remplissages ajoutés, dans l'ordre. Les index de départ se
+// lisent dans le styles.xml existant : on AJOUTE, on ne remplace pas, sans
+// quoi les index déjà posés par SheetJS deviendraient faux.
+const POLICES_AJOUTEES: Record<RôleDeStyle, string> = {
+  titre: '<font><b/><sz val="16"/><color rgb="FF0E7DAD"/><name val="Calibri"/><family val="2"/></font>',
+  section: '<font><b/><sz val="12"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
+  corps: '<font><sz val="11"/><color rgb="FF14181F"/><name val="Calibri"/><family val="2"/></font>',
+  discret: '<font><i/><sz val="10"/><color rgb="FF5B6472"/><name val="Calibri"/><family val="2"/></font>',
+  entete: '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/><family val="2"/></font>',
+};
+
+const REMPLISSAGES_AJOUTES: Record<RôleDeStyle, string | null> = {
+  titre: null,
+  section: '<fill><patternFill patternType="solid"><fgColor rgb="FFEAF3F8"/><bgColor indexed="64"/></patternFill></fill>',
+  corps: null,
+  discret: null,
+  entete: '<fill><patternFill patternType="solid"><fgColor rgb="FF0E7DAD"/><bgColor indexed="64"/></patternFill></fill>',
+};
+
+const ROLES: RôleDeStyle[] = ["titre", "section", "corps", "discret", "entete"];
+
+// Le texte long doit REVENIR À LA LIGNE dans sa cellule. Sans ça il faut
+// couper les phrases à la main dans le code -- ce que faisait l'onglet
+// d'explication, et qui se défait dès qu'on élargit la colonne.
+function xfDuRôle(rôle: RôleDeStyle, fontId: number, fillId: number | null): string {
+  const retour = rôle === "corps" || rôle === "section" ? ' applyAlignment="1"' : "";
+  const alignement =
+    rôle === "corps" || rôle === "section" ? '<alignment vertical="top" wrapText="1"/>' : "";
+  const fond = fillId === null ? "" : ` fillId="${fillId}" applyFill="1"`;
+  return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fond}${retour}>${alignement}</xf>`;
+}
+
+// Ajoute nos styles à ceux de SheetJS et rend l'index de chacun.
+function ajouterLesStyles(styles: string): { xml: string; index: Record<RôleDeStyle, number> } {
+  const compte = (balise: string) => Number(new RegExp(`<${balise} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
+  const nbPolices = compte("fonts");
+  const nbFonds = compte("fills");
+  const nbXf = compte("cellXfs");
+
+  let policeSuivante = nbPolices;
+  let fondSuivant = nbFonds;
+  const policeDe: Record<string, number> = {};
+  const fondDe: Record<string, number> = {};
+  const policesXml: string[] = [];
+  const fondsXml: string[] = [];
+  for (const rôle of ROLES) {
+    policeDe[rôle] = policeSuivante++;
+    policesXml.push(POLICES_AJOUTEES[rôle]);
+    const fond = REMPLISSAGES_AJOUTES[rôle];
+    if (fond) {
+      fondDe[rôle] = fondSuivant++;
+      fondsXml.push(fond);
+    }
+  }
+
+  const index = {} as Record<RôleDeStyle, number>;
+  const xfsXml: string[] = [];
+  ROLES.forEach((rôle, i) => {
+    index[rôle] = nbXf + i;
+    xfsXml.push(xfDuRôle(rôle, policeDe[rôle], fondDe[rôle] ?? null));
+  });
+
+  const xml = styles
+    .replace(`<fonts count="${nbPolices}">`, `<fonts count="${nbPolices + policesXml.length}">`)
+    .replace("</fonts>", `${policesXml.join("")}</fonts>`)
+    .replace(`<fills count="${nbFonds}">`, `<fills count="${nbFonds + fondsXml.length}">`)
+    .replace("</fills>", `${fondsXml.join("")}</fills>`)
+    .replace(`<cellXfs count="${nbXf}">`, `<cellXfs count="${nbXf + xfsXml.length}">`)
+    .replace("</cellXfs>", `${xfsXml.join("")}</cellXfs>`);
+  return { xml, index };
+}
+
+// Pose l'attribut `s` sur les cellules visées d'une feuille déjà écrite.
+function appliquerLesStyles(feuille: string, parCellule: Map<string, number>): string {
+  return feuille.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, réf: string, attributs: string, fermé: string) => {
+    const style = parCellule.get(réf);
+    if (style === undefined) return tout;
+    const sansStyle = attributs.replace(/\s+s="\d+"/, "");
+    return `<c r="${réf}"${sansStyle} s="${style}"${fermé}>`;
+  });
 }
 
 export interface ComplémentOOXML {
   tableaux: readonly TableauÀPoser[];
   listes?: readonly ListeNommée[];
   validations?: readonly ValidationÀPoser[];
+  misesEnForme?: readonly MiseEnFormeÀPoser[];
+  // Les feuilles dont la ligne d'en-tête reste visible au défilement. Une
+  // feuille de saisie de trente lignes se remplit à l'aveugle sans ça.
+  volets?: readonly string[];
 }
 
 export function poserLesTableaux(classeur: ArrayBuffer, complément: ComplémentOOXML | readonly TableauÀPoser[]): ArrayBuffer {
-  const { tableaux, listes = [], validations = [] } = Array.isArray(complément)
-    ? { tableaux: complément as readonly TableauÀPoser[], listes: [], validations: [] }
+  const {
+    tableaux,
+    listes = [],
+    validations = [],
+    misesEnForme = [],
+    volets = [],
+  } = Array.isArray(complément)
+    ? { tableaux: complément as readonly TableauÀPoser[], listes: [], validations: [], misesEnForme: [], volets: [] }
     : (complément as ComplémentOOXML);
   const cfb = XLSX.CFB.read(new Uint8Array(classeur), { type: "array" });
 
@@ -370,6 +494,49 @@ export function poserLesTableaux(classeur: ArrayBuffer, complément: Complément
       cfb,
       "/xl/_rels/workbook.xml.rels",
       relsWorkbook.replace(/<Relationship [^>]*sheetMetadata[^>]*\/>/, "")
+    );
+  }
+
+  // La mise en forme et les volets figés, sur des feuilles que la boucle des
+  // tableaux ne visite pas forcément : ils se posent donc à part, mais dans la
+  // même passe -- le classeur n'est ouvert qu'une fois.
+  if (misesEnForme.length > 0) {
+    const styles = lirePartie(cfb, "/xl/styles.xml");
+    if (!styles) throw new Error("classeur illisible : xl/styles.xml absent");
+    const { xml, index } = ajouterLesStyles(styles);
+    écrirePartie(cfb, "/xl/styles.xml", xml);
+    const parFeuilleStyle = new Map<string, Map<string, number>>();
+    for (const mise of misesEnForme) {
+      const carte = parFeuilleStyle.get(mise.feuille) ?? new Map<string, number>();
+      for (const cellule of mise.cellules) carte.set(cellule, index[mise.rôle]);
+      parFeuilleStyle.set(mise.feuille, carte);
+    }
+    for (const [nomFeuille, carte] of parFeuilleStyle) {
+      const i = noms.indexOf(nomFeuille);
+      if (i < 0) throw new Error(`feuille "${nomFeuille}" absente du classeur`);
+      const chemin = `/xl/worksheets/sheet${i + 1}.xml`;
+      const contenu = lirePartie(cfb, chemin);
+      if (contenu) écrirePartie(cfb, chemin, appliquerLesStyles(contenu, carte));
+    }
+  }
+
+  for (const nomFeuille of volets) {
+    const i = noms.indexOf(nomFeuille);
+    if (i < 0) continue;
+    const chemin = `/xl/worksheets/sheet${i + 1}.xml`;
+    const contenu = lirePartie(cfb, chemin);
+    if (!contenu || contenu.includes("<pane ")) continue;
+    // La ligne d'en-tête reste à l'écran : une feuille de saisie de trente
+    // lignes se remplit à l'aveugle sans ça.
+    const vue =
+      '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>' +
+      '<selection pane="bottomLeft" activeCell="A2" sqref="A2"/></sheetView></sheetViews>';
+    écrirePartie(
+      cfb,
+      chemin,
+      contenu.includes("<sheetViews>")
+        ? contenu.replace(/<sheetViews>.*?<\/sheetViews>/, vue)
+        : contenu.replace(/(<dimension[^>]*\/>)/, `$1${vue}`)
     );
   }
 
