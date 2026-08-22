@@ -70,7 +70,7 @@ export interface RailCallbacks {
   onRoadmapSubject: (value: RoadmapSubject) => void;
   onWeightByCriticality: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
-  onPalierCompare: (milestone: string) => void;
+  onComparedMilestone: (milestone: string) => void;
   onCounterOption: (value: boolean) => void;
   onEdgeLabel: (value: EdgeLabelMode) => void;
   onMatrixOrder: (value: MatrixOrder) => void;
@@ -260,7 +260,7 @@ export function renderRail(
     const block = el("div", { class: "rail-milestones" });
     block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onDisplayedMilestone));
     if (state.view === "changes") {
-      block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onPalierCompare));
+      block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onComparedMilestone));
     }
     root.appendChild(block);
   }

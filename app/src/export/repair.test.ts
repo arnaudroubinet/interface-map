@@ -73,7 +73,7 @@ function workbookActorsWithoutInterfaces(): ArrayBuffer {
 describe("reparerClasseur", () => {
   it("converts a workbook from the original format and reports what it inferred", () => {
     const r = repairWorkbook(legacyWorkbook(), THE_DAY);
-    expect(r.rapportLegacy).not.toBeNull();
+    expect(r.legacyReport).not.toBeNull();
     expect(r.data.actors.map((a) => a[0]).sort()).toEqual(["Felucia", "Utapau"]);
     expect(r.data.interfaces.map((i) => i[0])).toEqual(["Checkout"]);
     expect(r.data.fx).toHaveLength(1);
@@ -100,7 +100,7 @@ describe("reparerClasseur", () => {
   // état, et il n'y a rien à signaler d'inféré.
   it("upgrades one of our own workbooks without a legacy report", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
-    expect(r.rapportLegacy).toBeNull();
+    expect(r.legacyReport).toBeNull();
     const reread = buildModel(parseWorkbook(writeTemplate(r.data)));
     if (!reread.ok) throw new Error("illisible");
     expect(reread.model.schemaVersion).toBe(SCHEMA_VERSION);
@@ -164,7 +164,7 @@ function frenchWorkbook(): ArrayBuffer {
 describe("classeur au modèle actuel nommé en français", () => {
   it("se lit comme un classeur de la famille, sans passer par la conversion d'origine", () => {
     const repair = repairWorkbook(frenchWorkbook(), THE_DAY);
-    expect(repair.rapportLegacy).toBeNull();
+    expect(repair.legacyReport).toBeNull();
   });
 
   it("garde les acteurs, leur responsable et l'interface", () => {

@@ -40,7 +40,7 @@ const template = base.template({
   actors: [base.actor({ name: "Tatooine" })],
   groups: [base.group()],
   actorTypes: [base.actorType()],
-  flowTypes: [base.typeFlux()],
+  flowTypes: [base.flowType()],
   interfaces: [base.iface({ providerName: "Tatooine" })],
   consumptions: [base.consumption()],
   fxSheetNames: ["FX_A_HTTP"],

@@ -27,7 +27,7 @@ const text = (v: string) => v.trim().replace(/"/g, "'");
 // Une relation C4 n'a qu'un sens : l'initiative ne peut pas s'y dessiner comme
 // une pointe posée à l'autre bout. Elle passe donc en étiquette, où elle reste
 // lisible et filtrable.
-function sensDuFlux(f: FlowInstance): { de: string; vers: string } {
+function flowDirection(f: FlowInstance): { de: string; vers: string } {
   return { de: f.provider, vers: f.consumer };
 }
 
@@ -145,9 +145,9 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   for (const a of actors.filter((x) => !x.group.trim())) rows.push(...declaration(a, "    "));
 
   rows.push("");
-  const liens = new Map<string, string[]>();
+  const links = new Map<string, string[]>();
   for (const f of flows) {
-    const { de, vers } = sensDuFlux(f);
+    const { de, vers } = flowDirection(f);
     const source = paths.get(de.trim());
     const target = paths.get(vers.trim());
     if (!source || !target) continue;
@@ -188,9 +188,9 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
       ])
     );
     body.push("    }");
-    liens.set(`${source} -> ${target} "${label}"`, body);
+    links.set(`${source} -> ${target} "${label}"`, body);
   }
-  for (const key of [...liens.keys()].sort((a, b) => a.localeCompare(b, "fr"))) rows.push(...liens.get(key)!);
+  for (const key of [...links.keys()].sort((a, b) => a.localeCompare(b, "fr"))) rows.push(...links.get(key)!);
 
   rows.push("}", "", "views {", ...views(model, actors, paths, techs, tags, flows, ids), "}", "");
 

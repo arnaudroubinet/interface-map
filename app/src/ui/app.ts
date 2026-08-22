@@ -2,9 +2,9 @@ import { el, clear } from "../shared/dom";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, SCHEMA_VERSION } from "../parsing/build-model";
 import { rankOfMilestone } from "../aggregation/milestones";
-import { reading as lectureDuMode } from "../aggregation/reading";
+import { reading as readingOfMode } from "../aggregation/reading";
 import { computeChanges, buildEcartsView } from "../aggregation/changes";
-import { buildEcartsReport, buildEcartsTitreSchema } from "../render/ecarts-report";
+import { buildEcartsReport, buildChangesDiagramTitle } from "../render/changes-report";
 import { runIntegrityChecks } from "../integrity/checks";
 import {
   buildGroupToGroupView,
@@ -17,7 +17,7 @@ import {
 } from "../aggregation/views";
 import { businessActors } from "../aggregation/nature";
 import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
-import { toutesLesPlanches } from "../aggregation/boards";
+import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { brancherZoom } from "../render/zoom";
@@ -26,7 +26,7 @@ import { availableChains, buildChainView } from "../aggregation/chain";
 import { buildRoadmap } from "../aggregation/roadmap";
 import { buildRoadmapSvg } from "../render/roadmap";
 import type { Reading } from "../aggregation/reading";
-import { lectureUnion } from "../aggregation/reading";
+import { unionReading } from "../aggregation/reading";
 import type { ViewResult } from "../aggregation/views";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
@@ -38,13 +38,13 @@ import { downloadTemplateXlsx } from "../export/template-export";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
-import { rapportEnMarkdown } from "../export/rapport-markdown";
+import { reportToMarkdown } from "../export/markdown-report";
 import { downloadText } from "../export/download";
 import { buildDrawio } from "../export/drawio-export";
 import { modelToStructurizr } from "../export/c4-dsl";
 import { modelToLikeC4 } from "../export/likec4-dsl";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
-import { buildEcranMiseANiveau } from "../render/mise-a-niveau";
+import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildAide } from "../render/help";
 import { upgrade } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
@@ -63,15 +63,15 @@ import {
   withVoisinage,
   withSujetFrise,
   withTechnoMasquee,
-  withActeurMasque,
+  withActorHidden,
   withMasquerExternes,
-  withActeurMasqueTechnologie,
+  withActorHiddenForTechnology,
   withMasquerExternesMatrice,
   withActorHiddenInMatrix,
   withMatrixGrain,
   withOrdreMatrice,
   withDisplayedMilestone,
-  withPalierCompare,
+  withComparedMilestone,
   withMessageBandeau,
   viewOnLoad,
   VIEW_LABEL,
@@ -130,7 +130,7 @@ export function mountApp(root: HTMLElement): void {
   // Le rapport dépend du palier affiché pour sa part « état de la plateforme »
   // (§7.1) : il se recalcule donc à chaque changement de palier, et pas
   // seulement au chargement.
-  function recalculerRapport(s: AppState): AppState {
+  function recomputeReport(s: AppState): AppState {
     if (!s.file) return s;
     const rank = s.shownMilestone === null ? null : rankOfMilestone(s.file.model, s.shownMilestone) ?? null;
     return { ...s, file: { ...s.file, report: runIntegrityChecks(s.file.model, rank) } };
@@ -185,7 +185,7 @@ export function mountApp(root: HTMLElement): void {
       // d'atterrissage doit donc être redécidée sur le rapport final, sinon
       // une anomalie qui n'existe qu'à un palier retiré ouvre sur un écran de
       // contrôles qui affiche (0) partout.
-      let loaded = recalculerRapport(
+      let loaded = recomputeReport(
         withLoadedFile(state, {
           name: file.name,
           model: built.model,
@@ -228,7 +228,7 @@ export function mountApp(root: HTMLElement): void {
 
 
 
-  function telechargerModeleHandler(): void {
+  function downloadTemplateHandler(): void {
     downloadTemplateXlsx("carto-interfaces-modele.xlsx");
   }
 
@@ -256,7 +256,7 @@ export function mountApp(root: HTMLElement): void {
     if (!state.file) {
       clear(rail);
       renderPiedDeRail(rail, {
-        onDownloadTemplate: telechargerModeleHandler,
+        onDownloadTemplate: downloadTemplateHandler,
         onDownloadSample: downloadSampleHandler,
         onMigrationLegacy: migrationLegacyHandler,
       });
@@ -301,7 +301,7 @@ export function mountApp(root: HTMLElement): void {
     // Résolu une fois, ici, et transmis à tout ce qui dessine (vues, filtres du
     // rail) : c'est la Lecture (rang, mode) qui décide des flux ET des
     // acteurs, jamais une vue.
-    const reading = lectureDuMode(model, rank, state.mode);
+    const reading = readingOfMode(model, rank, state.mode);
     const options = { ...state.options };
     currentMatrix = null;
     clear(renderArea);
@@ -309,15 +309,15 @@ export function mountApp(root: HTMLElement): void {
 
     if (state.view === "upgrade") {
       renderArea.appendChild(
-        buildEcranMiseANiveau(model.schemaVersion, SCHEMA_VERSION, () => {
+        buildUpgradeScreen(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
           downloadTemplateXlsx(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
         })
       );
     } else if (state.view === "changes") {
       // Les deux paliers comparés ; sans axe déclaré, il n'y a rien à comparer.
-      const rangCompare = state.comparedMilestone === null ? null : rankOfMilestone(model, state.comparedMilestone) ?? null;
-      if (rank === null || rangCompare === null) {
+      const comparedRank = state.comparedMilestone === null ? null : rankOfMilestone(model, state.comparedMilestone) ?? null;
+      if (rank === null || comparedRank === null) {
         // Un seul palier n'est pas « aucun palier » : comparer réclame deux
         // bornes, mais le classeur n'est pas silencieux sur son axe du temps
         // pour autant -- lui prêter cette absence serait une fausse cause.
@@ -329,7 +329,7 @@ export function mountApp(root: HTMLElement): void {
       } else {
         renderArea.appendChild(
           buildEcartsReport(
-            computeChanges(model, rangCompare, rank, state.mode),
+            computeChanges(model, comparedRank, rank, state.mode),
             state.comparedMilestone!,
             state.shownMilestone!
           )
@@ -338,10 +338,10 @@ export function mountApp(root: HTMLElement): void {
         // puis on va voir où. Il arrive en différé, le placement étant
         // asynchrone, et une génération le protège d'un affichage périmé.
         const generation = ++renderGeneration;
-        const changesView = buildEcartsView(model, rangCompare, rank, state.mode);
+        const changesView = buildEcartsView(model, comparedRank, rank, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
-          renderArea.appendChild(buildEcartsTitreSchema(state.comparedMilestone!, state.shownMilestone!));
+          renderArea.appendChild(buildChangesDiagramTitle(state.comparedMilestone!, state.shownMilestone!));
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
             renderArea.appendChild(
@@ -490,7 +490,7 @@ export function mountApp(root: HTMLElement): void {
           state.view, state.mode, state.actorSelection, state.technologySelection, state.chainSelection,
           state.actorFilters, state.technologyFilters, options,
         ]);
-        const vueUnion = buildView(lectureUnion(model, state.mode));
+        const vueUnion = buildView(unionReading(model, state.mode));
         const placement = placements.get(layoutKey) ?? computeLayout(vueUnion.nodes, vueUnion.edges);
         placements.set(layoutKey, placement);
         placement
@@ -525,18 +525,18 @@ export function mountApp(root: HTMLElement): void {
       onNeighbourhood: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onChainSelection: (chain) => setState(withChainSelection(withMessageBandeau(state, null), chain)),
       onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),
-      onDisplayedMilestone: (milestone) => setState(recalculerRapport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
-      onPalierCompare: (milestone) => setState(withPalierCompare(withMessageBandeau(state, null), milestone)),
+      onDisplayedMilestone: (milestone) => setState(recomputeReport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
+      onComparedMilestone: (milestone) => setState(withComparedMilestone(withMessageBandeau(state, null), milestone)),
       onCounterOption: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
       onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
-      onDownloadTemplate: telechargerModeleHandler,
+      onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: migrationLegacyHandler,
       onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
-      onActorHidden: (actor, hidden) => setState(withActeurMasque(withMessageBandeau(state, null), actor, hidden)),
+      onActorHidden: (actor, hidden) => setState(withActorHidden(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
       onActorHiddenForTechnology: (actor, hidden) =>
-        setState(withActeurMasqueTechnologie(withMessageBandeau(state, null), actor, hidden)),
+        setState(withActorHiddenForTechnology(withMessageBandeau(state, null), actor, hidden)),
       onHideExternalsInMatrix: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
       onActorHiddenInMatrix: (actor, hidden) =>
         setState(withActorHiddenInMatrix(withMessageBandeau(state, null), actor, hidden)),

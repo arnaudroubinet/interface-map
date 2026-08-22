@@ -37,8 +37,8 @@ export const VALIDITY_COLUMNS = ["Introduced at", "Retired at"];
 // pour que la mise à niveau sache quoi convertir. Elles ne figurent dans aucun
 // COLONNES_*, donc ni le modèle vierge ni aucun classeur produit ne les porte,
 // et leur absence n'est jamais signalée.
-export const COLONNE_HERITEE_ETAT = "État";
-export const COLONNE_HERITEE_STATUT = "Statut";
+export const LEGACY_STATE_COLUMN = "État";
+export const LEGACY_STATUS_COLUMN = "Statut";
 
 export const ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description", "Comments", ...VALIDITY_COLUMNS];
 
@@ -68,7 +68,7 @@ export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Critica
 // monotone, pas un semver : il ne sert qu'à savoir quelles transformations
 // appliquer, et dans quel ordre.
 export const SCHEMA_VERSION = 4;
-export const FEUILLE_VERSION = "Version";
+export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 
 // Absence d'onglet, onglet vide ou valeur illisible : version 0, c'est-à-dire
@@ -76,7 +76,7 @@ export const SCHEMA_VERSION_COLUMN = "Model version";
 // niveau saura quoi faire, et se tromper vers le haut ferait lire un classeur
 // avec des colonnes qu'il n'a pas.
 function readSchemaVersion(sheets: RawSheet[]): number {
-  const sheet = sheets.find((s) => matchesSheetName(s.name, FEUILLE_VERSION));
+  const sheet = sheets.find((s) => matchesSheetName(s.name, VERSION_SHEET));
   if (!sheet) return 0;
   const header = findHeader(sheet.headers, SCHEMA_VERSION_COLUMN);
   if (!header) return 0;
@@ -141,7 +141,7 @@ export function isValidTabName(name: string): boolean {
 // ici, dans la formule Excel des tables d'appoint (template-export.ts) et dans
 // la migration legacy (migration-legacy.ts). Un seul endroit, pour que les
 // trois ne puissent pas s'écarter l'un de l'autre.
-export const PREFIXE_FEUILLE_FX = "FX_";
+export const FX_SHEET_PREFIX = "FX_";
 export const FX_SHEET_SEPARATOR = "_";
 
 // Excel refuse un nom de plus de 31 caractères ou portant l'un de : \ / ? * [ ].
@@ -161,37 +161,37 @@ export function sanitiseTabName(name: string): string {
 }
 
 export function expectedFxSheet(providerName: string, flowType: string): string {
-  return sanitiseTabName(`${PREFIXE_FEUILLE_FX}${providerName}${FX_SHEET_SEPARATOR}${flowType}`);
+  return sanitiseTabName(`${FX_SHEET_PREFIX}${providerName}${FX_SHEET_SEPARATOR}${flowType}`);
 }
 
 export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   const errors: BlockingError[] = [];
 
   const actorsSheet = findSheet(workbook.sheets, "Actors");
-  const feuilleTypesFlux = findSheet(workbook.sheets, "FlowTypes");
-  const feuilleInterfaces = findSheet(workbook.sheets, "Interfaces");
+  const flowTypesSheet = findSheet(workbook.sheets, "FlowTypes");
+  const interfacesSheet = findSheet(workbook.sheets, "Interfaces");
 
   if (!actorsSheet) errors.push({ message: 'Sheet "Actors" missing from the workbook.' });
-  if (!feuilleTypesFlux) errors.push({ message: 'Sheet "FlowTypes" missing from the workbook.' });
-  if (!feuilleInterfaces) errors.push({ message: 'Sheet "Interfaces" missing from the workbook.' });
+  if (!flowTypesSheet) errors.push({ message: 'Sheet "FlowTypes" missing from the workbook.' });
+  if (!interfacesSheet) errors.push({ message: 'Sheet "Interfaces" missing from the workbook.' });
 
   if (actorsSheet && !findHeader(actorsSheet.headers, "Name")) {
     errors.push({ message: 'Key column "Name" missing from sheet "Actors".' });
   }
-  if (feuilleTypesFlux && !findHeader(feuilleTypesFlux.headers, "Flow type")) {
+  if (flowTypesSheet && !findHeader(flowTypesSheet.headers, "Flow type")) {
     errors.push({ message: 'Key column "Flow type" missing from sheet "FlowTypes".' });
   }
-  if (feuilleInterfaces && !findHeader(feuilleInterfaces.headers, "Flow name")) {
+  if (interfacesSheet && !findHeader(interfacesSheet.headers, "Flow name")) {
     errors.push({ message: 'Key column "Flow name" missing from sheet "Interfaces".' });
   }
 
-  if (!actorsSheet || !feuilleTypesFlux || !feuilleInterfaces || errors.length > 0) {
+  if (!actorsSheet || !flowTypesSheet || !interfacesSheet || errors.length > 0) {
     return { ok: false, errors };
   }
 
-  const headersActeurs = actorsSheet.headers;
-  const headersTypesFlux = feuilleTypesFlux.headers;
-  const headersInterfaces = feuilleInterfaces.headers;
+  const actorHeaders = actorsSheet.headers;
+  const flowTypeHeaders = flowTypesSheet.headers;
+  const headersInterfaces = interfacesSheet.headers;
 
   const missingOptionalColumns: { sheet: string; column: string }[] = [];
   function noteMissingColumns(sheet: string, actualHeaders: string[], expected: string[]) {
@@ -202,11 +202,11 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     }
   }
 
-  noteMissingColumns("Actors", headersActeurs, ACTOR_COLUMNS.filter((c) => c !== "Name"));
-  noteMissingColumns("FlowTypes", headersTypesFlux, FLOW_TYPE_COLUMNS.filter((c) => c !== "Flow type"));
+  noteMissingColumns("Actors", actorHeaders, ACTOR_COLUMNS.filter((c) => c !== "Name"));
+  noteMissingColumns("FlowTypes", flowTypeHeaders, FLOW_TYPE_COLUMNS.filter((c) => c !== "Flow type"));
   noteMissingColumns("Interfaces", headersInterfaces, INTERFACE_COLUMNS.filter((c) => c !== "Flow name"));
 
-  const headerMapActors = buildHeaderMap(headersActeurs, ACTOR_COLUMNS);
+  const headerMapActors = buildHeaderMap(actorHeaders, ACTOR_COLUMNS);
   const actors: Actor[] = actorsSheet.rows
     .filter(({ values: r }) => rowHasContent(r, headerMapActors, ACTOR_COLUMNS))
     .map(({ row, values: r }) => ({
@@ -226,17 +226,17 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   // rattrapée -- deviner le périmètre à partir des acteurs redonnerait deux
   // vérités concurrentes sur la même question. Un contrôle d'intégrité réclame
   // l'onglet, et sans lui aucun acteur n'est situé.
-  const feuilleGroupes = findSheet(workbook.sheets, "Groups");
+  const groupsSheet = findSheet(workbook.sheets, "Groups");
   let groups: Group[] = [];
   let groupsSheetMissing = true;
-  if (feuilleGroupes && findHeader(feuilleGroupes.headers, "Group")) {
+  if (groupsSheet && findHeader(groupsSheet.headers, "Group")) {
     groupsSheetMissing = false;
-    noteMissingColumns("Groups", feuilleGroupes.headers, GROUP_COLUMNS.filter((c) => c !== "Group"));
-    const headerMapGroupes = buildHeaderMap(feuilleGroupes.headers, GROUP_COLUMNS);
-    groups = feuilleGroupes.rows
+    noteMissingColumns("Groups", groupsSheet.headers, GROUP_COLUMNS.filter((c) => c !== "Group"));
+    const headerMapGroupes = buildHeaderMap(groupsSheet.headers, GROUP_COLUMNS);
+    groups = groupsSheet.rows
       .filter(({ values: r }) => rowHasContent(r, headerMapGroupes, GROUP_COLUMNS))
       .map(({ row, values: r }) => ({
-        sheet: feuilleGroupes.name,
+        sheet: groupsSheet.name,
         row,
         name: get(r, headerMapGroupes, "Group"),
         perimeter: get(r, headerMapGroupes, "Perimeter"),
@@ -265,18 +265,18 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       .filter((t) => t.type !== "");
   }
 
-  const headerMapTypesFlux = buildHeaderMap(headersTypesFlux, FLOW_TYPE_COLUMNS);
-  const colourHeader = FLOW_COLOUR_COLUMNS.map((c) => findHeader(headersTypesFlux, c)).find(Boolean);
-  const flowTypes: FlowType[] = feuilleTypesFlux.rows
-    .filter(({ values: r }) => rowHasContent(r, headerMapTypesFlux, FLOW_TYPE_COLUMNS))
+  const headerMapFlowTypes = buildHeaderMap(flowTypeHeaders, FLOW_TYPE_COLUMNS);
+  const colourHeader = FLOW_COLOUR_COLUMNS.map((c) => findHeader(flowTypeHeaders, c)).find(Boolean);
+  const flowTypes: FlowType[] = flowTypesSheet.rows
+    .filter(({ values: r }) => rowHasContent(r, headerMapFlowTypes, FLOW_TYPE_COLUMNS))
     .map(({ row, values: r }) => ({
-      sheet: feuilleTypesFlux.name,
+      sheet: flowTypesSheet.name,
       row,
-      type: get(r, headerMapTypesFlux, "Flow type"),
-      direction: normSens(get(r, headerMapTypesFlux, "Direction")),
-      rawDirection: get(r, headerMapTypesFlux, "Direction"),
+      type: get(r, headerMapFlowTypes, "Flow type"),
+      direction: normSens(get(r, headerMapFlowTypes, "Direction")),
+      rawDirection: get(r, headerMapFlowTypes, "Direction"),
       colour: colourHeader ? (r[colourHeader] ?? "").toString().trim() : "",
-      description: get(r, headerMapTypesFlux, "Description"),
+      description: get(r, headerMapFlowTypes, "Description"),
     }))
     .filter((t) => t.type !== "");
 
@@ -306,8 +306,8 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     milestones.sort((a, b) => a.rank - b.rank);
   }
 
-  const headerMapInterfaces = buildHeaderMap(headersInterfaces, [...INTERFACE_COLUMNS, COLONNE_HERITEE_ETAT]);
-  const interfaces: InterfaceCatalogue[] = feuilleInterfaces.rows
+  const headerMapInterfaces = buildHeaderMap(headersInterfaces, [...INTERFACE_COLUMNS, LEGACY_STATE_COLUMN]);
+  const interfaces: InterfaceCatalogue[] = interfacesSheet.rows
     .filter(({ values: r }) => rowHasContent(r, headerMapInterfaces, INTERFACE_COLUMNS))
     .map(({ row, values: r }) => {
       const flowName = get(r, headerMapInterfaces, "Flow name");
@@ -315,11 +315,11 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       const flowType = get(r, headerMapInterfaces, "Flow type");
       const expectedSheet = expectedFxSheet(providerName, flowType);
       return {
-        sheet: feuilleInterfaces.name,
+        sheet: interfacesSheet.name,
         row,
         flowName,
         version: get(r, headerMapInterfaces, "Version"),
-        legacyState: get(r, headerMapInterfaces, COLONNE_HERITEE_ETAT),
+        legacyState: get(r, headerMapInterfaces, LEGACY_STATE_COLUMN),
         providerName,
         flowType,
         description: get(r, headerMapInterfaces, "Description"),
@@ -332,7 +332,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         // On la lit encore -- et seulement ici -- pour que la mise à niveau puisse
         // déplacer l'information ; plus rien d'autre ne la consulte.
         legacyRelays: (() => {
-          const header = findHeader(feuilleInterfaces.headers, LEGACY_RELAY_COLUMN);
+          const header = findHeader(interfacesSheet.headers, LEGACY_RELAY_COLUMN);
           return header ? (r[header] ?? "").toString().trim() : "";
         })(),
         ...validity(r, headerMapInterfaces),
@@ -344,7 +344,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     // FX_Modèle était le gabarit que recopiait la macro. Elle n'existe plus, et
     // les classeurs produits n'en portent plus ; on continue de l'écarter pour
     // les classeurs antérieurs, où l'onglet traîne encore.
-    (s) => hasPrefix(s.name, PREFIXE_FEUILLE_FX) && !matchesSheetName(s.name, "FX_Modèle")
+    (s) => hasPrefix(s.name, FX_SHEET_PREFIX) && !matchesSheetName(s.name, "FX_Modèle")
   );
   const fxSheetNames = fxSheets.map((s) => s.name);
 
@@ -352,7 +352,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   for (const sheet of fxSheets) {
     const headersFx = sheet.headers;
     noteMissingColumns(sheet.name, headersFx, FX_COLUMNS);
-    const headerMapFx = buildHeaderMap(headersFx, [...FX_COLUMNS, COLONNE_HERITEE_STATUT]);
+    const headerMapFx = buildHeaderMap(headersFx, [...FX_COLUMNS, LEGACY_STATUS_COLUMN]);
     for (const { row, values: r } of sheet.rows) {
       if (!rowHasContent(r, headerMapFx, FX_COLUMNS)) continue;
       const flowName = get(r, headerMapFx, "Flow name");
@@ -364,7 +364,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         consumerName: get(r, headerMapFx, "Consumer"),
         usage: get(r, headerMapFx, "Usage"),
         criticality: get(r, headerMapFx, "Criticality for this consumer"),
-        legacyStatus: get(r, headerMapFx, COLONNE_HERITEE_STATUT),
+        legacyStatus: get(r, headerMapFx, LEGACY_STATUS_COLUMN),
         decision: get(r, headerMapFx, "Decision"),
         republishedAs: get(r, headerMapFx, REPUBLICATION_COLUMN),
         comments: get(r, headerMapFx, "Comments"),

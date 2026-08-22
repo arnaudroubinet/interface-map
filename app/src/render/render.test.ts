@@ -115,13 +115,13 @@ describe("buildIntegrityReport — état visuel des sections", () => {
     totalWarnings: 0,
   };
 
-  const parTitre = (el: HTMLElement, start: string) =>
+  const byTitle = (el: HTMLElement, start: string) =>
     [...el.querySelectorAll("details")].find((d) => d.querySelector("summary")!.textContent!.startsWith(start))!;
 
   it("collapses a clean section behind a green check, and opens an alerting one under a stop icon", () => {
     const el = buildIntegrityReport(report);
-    const sound = parTitre(el, "Structure");
-    const onAlert = parTitre(el, "Cohérence");
+    const sound = byTitle(el, "Structure");
+    const onAlert = byTitle(el, "Cohérence");
 
     // Section saine : repliée, marquée « ok ».
     expect(sound.open).toBe(false);
@@ -137,8 +137,8 @@ describe("buildIntegrityReport — état visuel des sections", () => {
 
   it("gives each section an icon that distinguishes the two states without relying on colour alone", () => {
     const el = buildIntegrityReport(report);
-    const sound = parTitre(el, "Structure");
-    const onAlert = parTitre(el, "Cohérence");
+    const sound = byTitle(el, "Structure");
+    const onAlert = byTitle(el, "Cohérence");
     const traces = (d: Element) => [...d.querySelectorAll("summary svg path")].length;
 
     expect(traces(sound)).toBe(1); // coche : un seul tracé
@@ -160,11 +160,11 @@ describe("buildIntegrityReport — avertissements", () => {
     };
 
     const el = buildIntegrityReport(report);
-    const parTitre = (start: string) =>
+    const byTitle = (start: string) =>
       [...el.querySelectorAll("details")].find((d) => d.querySelector("summary")!.textContent!.startsWith(start))!;
-    const error = parTitre("Cohérence");
-    const avert = parTitre("Interfaces à confirmer");
-    const info = parTitre("Groupes utilisés");
+    const error = byTitle("Cohérence");
+    const avert = byTitle("Interfaces à confirmer");
+    const info = byTitle("Groupes utilisés");
 
     expect(error.classList.contains("section-alert")).toBe(true);
     expect(avert.classList.contains("section-warning")).toBe(true);
@@ -379,8 +379,8 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
 
   it("compte les flux sortants en bout de ligne et les entrants en pied de colonne", () => {
     const table = buildMatrixTable(estate(), () => "#111");
-    const finDeLigne = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
-    expect(finDeLigne).toEqual(["3", "1"]);
+    const endOfLine = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
+    expect(endOfLine).toEqual(["3", "1"]);
     const pied = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
     expect(pied.slice(0, 2)).toEqual(["1", "3"]);
   });

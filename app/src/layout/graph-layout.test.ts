@@ -164,7 +164,7 @@ describe("restreindreLayout", () => {
     ],
   });
 
-  const auPalier = {
+  const atMilestone = {
     nodes: [
       { id: "A", label: "A", kind: "actor" as const },
       { id: "B", label: "B", kind: "actor" as const },
@@ -173,14 +173,14 @@ describe("restreindreLayout", () => {
   };
 
   it("ne garde que les nœuds et arêtes du palier", () => {
-    const restricted = restrictLayout(union(), auPalier);
+    const restricted = restrictLayout(union(), atMilestone);
     expect(restricted.nodes.map((n) => n.id)).toEqual(["A", "B"]);
     expect(restricted.edges).toHaveLength(1);
   });
 
   // Le point qui justifie tout : les positions ne sont PAS recalculées.
   it("laisse chaque boîte exactement où l'union l'a posée", () => {
-    const restricted = restrictLayout(union(), auPalier);
+    const restricted = restrictLayout(union(), atMilestone);
     expect(restricted.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
     expect([restricted.width, restricted.height]).toEqual([100, 100]);
   });
@@ -188,7 +188,7 @@ describe("restreindreLayout", () => {
   // Le libellé, lui, appartient au PALIER : « HTTP ×3 » sur l'union n'est pas
   // ce qu'on lit à un palier où deux flux seulement sont vivants.
   it("reprend du palier le libellé et le compteur, pas ceux de l'union", () => {
-    const edge = restrictLayout(union(), auPalier).edges[0];
+    const edge = restrictLayout(union(), atMilestone).edges[0];
     expect([edge.label, edge.count]).toEqual(["HTTP ×2", 2]);
   });
 
@@ -197,6 +197,6 @@ describe("restreindreLayout", () => {
   it("garde la frontière de plateforme, qu'aucune vue ne liste", () => {
     const avecFrontiere = union();
     avecFrontiere.nodes.push({ id: "__frontiere__", label: "Platform", kind: "boundary", x: 0, y: 0, width: 100, height: 100 });
-    expect(restrictLayout(avecFrontiere, auPalier).nodes.map((n) => n.id)).toContain("__frontiere__");
+    expect(restrictLayout(avecFrontiere, atMilestone).nodes.map((n) => n.id)).toContain("__frontiere__");
   });
 });

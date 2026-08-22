@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rapportEnMarkdown } from "./rapport-markdown";
+import { reportToMarkdown } from "./markdown-report";
 import type { IntegrityReport } from "../integrity/checks";
 
 function report(overrides: Partial<IntegrityReport> = {}): IntegrityReport {
@@ -22,19 +22,19 @@ const family = (title: string, messages: string[]) => ({
 
 describe("rapportEnMarkdown", () => {
   it("names the workbook the report was taken on", () => {
-    const md = rapportEnMarkdown(report(), "carto.xlsx", null);
+    const md = reportToMarkdown(report(), "carto.xlsx", null);
     expect(md).toContain("# Integrity report — carto.xlsx");
   });
 
   // Les contrôles se lisent AU palier affiché : sans lui, la liste collée dans
   // un ticket ne dit pas de quel moment du classeur elle parle.
   it("names the milestone the report was taken at", () => {
-    const md = rapportEnMarkdown(report(), "carto.xlsx", "v2");
+    const md = reportToMarkdown(report(), "carto.xlsx", "v2");
     expect(md).toContain("v2");
   });
 
   it("turns a family into a section with one bullet per anomaly", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({ families: [family("Structure", ["Sheet FX_A_HTTP missing.", "Actor \"A\" (Actors, row 3): oops."])], totalAnomalies: 2 }),
       "carto.xlsx",
       null
@@ -47,7 +47,7 @@ describe("rapportEnMarkdown", () => {
   // Ce qui n'a rien à signaler n'a rien à faire dans un ticket : la coche
   // rassure à l'écran, elle encombre une fois collée.
   it("leaves out the sections that have nothing to report", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({ families: [family("Structure", ["Sheet missing."]), family("References", [])], totalAnomalies: 1 }),
       "carto.xlsx",
       null
@@ -57,14 +57,14 @@ describe("rapportEnMarkdown", () => {
   });
 
   it("says so plainly when the workbook is clean", () => {
-    const md = rapportEnMarkdown(report({ families: [family("Structure", [])] }), "carto.xlsx", null);
+    const md = reportToMarkdown(report({ families: [family("Structure", [])] }), "carto.xlsx", null);
     expect(md).toContain("Nothing to report.");
   });
 
   // Le fichier collé doit se lire dans le même ordre que l'écran, sans quoi
   // deux personnes regardant le même rapport ne parlent pas de la même chose.
   it("follows the same reading order as the screen", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({
         families: [family("Structure", ["Sheet missing."])],
         infoBlocks: [
@@ -92,7 +92,7 @@ describe("rapportEnMarkdown — ce qui vient du classeur ne fabrique pas de stru
   // contrôles n'avaient jamais produite.
   it("ne laisse pas un retour à la ligne forger une section", () => {
     const trap = 'Innocent\n\n## Structure (0)\n\nNothing to report.\n\n- All good';
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({ families: [family("Cohérence", [trap])], totalAnomalies: 1 }),
       "carto.xlsx",
       null
@@ -102,7 +102,7 @@ describe("rapportEnMarkdown — ce qui vient du classeur ne fabrique pas de stru
   });
 
   it("neutralise le balisage porté par un nom d'acteur", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({ families: [family("Cohérence", ['Actor "[Sullust](http://ailleurs)" and **Chandrila**.'])], totalAnomalies: 1 }),
       "carto.xlsx",
       null
@@ -122,7 +122,7 @@ describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
   // Le bilan ne comptait ni les blocs informatifs : sur le classeur d'exemple
   // il annonçait « 2 pending decisions » au-dessus de dix-neuf puces.
   it("ne laisse pas des puces hors du bilan", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({
         infoBlocks: [block("Groups in use", "info", ["Socle", "Finance", "Ops"])],
         totalActions: 0,
@@ -137,7 +137,7 @@ describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
   // Aucun compteur renseigné et pourtant des sections à imprimer : la ligne de
   // bilan se réduisait à un point solitaire.
   it("n'écrit jamais une ligne de bilan réduite à un point", () => {
-    const md = rapportEnMarkdown(
+    const md = reportToMarkdown(
       report({ infoBlocks: [block("Groups in use", "info", ["Socle"])] }),
       "carto.xlsx",
       null
@@ -151,12 +151,12 @@ describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
 // n'en dépend pas.
 describe("rapportEnMarkdown — la portée des contrôles est dite", () => {
   it("précise ce qui se lit au palier et ce qui se lit sur tout le classeur", () => {
-    const md = rapportEnMarkdown(report(), "carto.xlsx", "v2");
+    const md = reportToMarkdown(report(), "carto.xlsx", "v2");
     expect(md).toContain("whole workbook");
     expect(md).toContain("at this milestone");
   });
 
   it("ne dit rien de la portée quand aucun palier n'est affiché", () => {
-    expect(rapportEnMarkdown(report(), "carto.xlsx", null)).not.toContain("whole workbook");
+    expect(reportToMarkdown(report(), "carto.xlsx", null)).not.toContain("whole workbook");
   });
 });

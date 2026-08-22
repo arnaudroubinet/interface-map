@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { ICONS, DEFAULT_ICON } from "./icons";
 import { buildGraphSvg } from "./svg-builder";
 import { styleOfNode } from "./node-styles";
-import { computeLayout, taillePastille } from "../layout/graph-layout";
+import { computeLayout, chipSize } from "../layout/graph-layout";
 import { contrastRatio } from "./contrast";
 import { serializeSvg } from "../export/svg-export";
 import { colourForTechnologies } from "./colors";
@@ -149,7 +149,7 @@ describe("buildGraphSvg", () => {
             { x: 100, y: 50 },
             { x: 160, y: 50 },
           ],
-          labelCentre: { x: 90, y: 15 },
+          labelCentreOf: { x: 90, y: 15 },
         },
         {
           from: "C",
@@ -164,7 +164,7 @@ describe("buildGraphSvg", () => {
             { x: 100, y: 50 },
             { x: 160, y: 50 },
           ],
-          labelCentre: { x: 90, y: 90 },
+          labelCentreOf: { x: 90, y: 90 },
         },
       ],
       width: 300,
@@ -484,7 +484,7 @@ describe("buildGraphSvg — libellés d'arêtes", () => {
       { id: "B", label: "B", kind: "group", x: 400, y: 0, width: 80, height: 40 },
     ],
     edges: [{ from: "A", to: "B", technology, count: 1, label, attenuated: false,
-      points: [{ x: 40, y: 0 }, { x: 360, y: 0 }], labelCentre: { x: 200, y: 0 } }],
+      points: [{ x: 40, y: 0 }, { x: 360, y: 0 }], labelCentreOf: { x: 200, y: 0 } }],
     width: 500,
     height: 200,
   });
@@ -602,13 +602,13 @@ describe("buildGraphSvg — légende", () => {
 });
 
 describe("buildGraphSvg — le libellé s'inscrit dans le trait", () => {
-  const layoutWithLabel = (labelCentre: { x: number; y: number }): LayoutResult => ({
+  const layoutWithLabel = (labelCentreOf: { x: number; y: number }): LayoutResult => ({
     nodes: [
       { id: "A", label: "A", kind: "group", x: 0, y: 0, width: 80, height: 40 },
       { id: "B", label: "B", kind: "group", x: 600, y: 0, width: 80, height: 40 },
     ],
     edges: [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false,
-      points: [{ x: 40, y: 0 }, { x: 560, y: 0 }], labelCentre }],
+      points: [{ x: 40, y: 0 }, { x: 560, y: 0 }], labelCentreOf }],
     width: 700,
     height: 200,
   });
@@ -872,7 +872,7 @@ describe("buildGraphSvg — l'encre n'est pas la couleur du trait", () => {
   // Le disque prend de la place : elle doit être réservée AVANT le placement,
   // sans quoi l'étiquette déborde de la boîte qu'ELK lui a gardée.
   it("réserve la place du disque dans la taille de la pastille", () => {
-    expect(taillePastille("HTTP ×3", "HTTP").width).toBeGreaterThan(taillePastille("HTTP ×3", "").width);
+    expect(chipSize("HTTP ×3", "HTTP").width).toBeGreaterThan(chipSize("HTTP ×3", "").width);
   });
 });
 
@@ -1042,9 +1042,9 @@ describe("buildGraphSvg — deux formes de pointe", () => {
   it("garde l'échantillon fléché à l'intérieur de sa colonne", async () => {
     const svg = buildGraphSvg(await estate(true), () => "#1f5fae");
     const texts = [...svg.querySelectorAll(".fx-legend text")];
-    const gauche = Math.min(...texts.map((t) => Number(t.getAttribute("x"))));
+    const left = Math.min(...texts.map((t) => Number(t.getAttribute("x"))));
     for (const l of svg.querySelectorAll(".fx-legend line[marker-end]")) {
-      expect(Number(l.getAttribute("x2"))).toBeLessThanOrEqual(gauche);
+      expect(Number(l.getAttribute("x2"))).toBeLessThanOrEqual(left);
     }
     for (const l of svg.querySelectorAll(".fx-legend line[marker-start]")) {
       expect(Number(l.getAttribute("x1")) - 12).toBeGreaterThanOrEqual(

@@ -38,13 +38,13 @@ export function descriptionAccessible(c: DiagramContext): string {
   );
 }
 
-export const HAUTEUR_CARTOUCHE = 44;
+export const TITLE_BLOCK_HEIGHT = 44;
 
 // Un gris pâle sur blanc se lit mal, même au-dessus du seuil : #5b6472 tenait
 // 5,98:1 et restait inconfortable en petit corps. L'ardoise franc donne
 // 10,16:1, et la hiérarchie reste portée par la taille et la graisse -- pas
 // par la pâleur.
-const GRIS_SOUS_TITRE = "#39424f";
+const SUBTITLE_GREY = "#39424f";
 
 export function buildTitleBlock(c: DiagramContext, x: number, y: number): SVGGElement {
   const ns = "http://www.w3.org/2000/svg";
@@ -62,6 +62,6 @@ export function buildTitleBlock(c: DiagramContext, x: number, y: number): SVGGEl
     g.appendChild(t);
   };
   row(title, 14, 14, true, INK);
-  row(subtitle, 31, 11.5, false, GRIS_SOUS_TITRE);
+  row(subtitle, 31, 11.5, false, SUBTITLE_GREY);
   return g;
 }

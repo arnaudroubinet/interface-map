@@ -42,7 +42,7 @@ export function buildEcartsReport(changes: Changes, before: string, after: strin
 // Le schéma se titre : il dit de lui-même ce qu'il montre grâce aux soldes
 // signés, mais rien n'indiquerait sans cela QUELS paliers il compare ni à
 // quelle échelle il est dessiné.
-export function buildEcartsTitreSchema(before: string, after: string): HTMLElement {
+export function buildChangesDiagramTitle(before: string, after: string): HTMLElement {
   return el("h2", { class: "changes-diagram-title" }, [
     `What moves between ${before} and ${after} — platform detail`,
   ]);

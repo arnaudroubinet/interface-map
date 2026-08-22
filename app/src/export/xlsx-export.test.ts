@@ -99,7 +99,7 @@ describe("export Excel de la matrix — mode fonctionnel (technologie vide)", ()
 // les yeux.
 describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () => {
   const cellule = { technology: "HTTP", count: 1, attenuated: false, names: [] };
-  const nonAlphabetique = base.matrix({
+  const nonAlphabetical = base.matrix({
     columns: ["Zeffo", "Bracca"],
     rows: [
       { actor: "Zeffo", cells: new Map([["Bracca", [cellule]]]) },
@@ -108,12 +108,12 @@ describe("construireClasseurMatrice — l'ordre reçu est l'ordre écrit", () =>
   });
 
   it("écrit les lignes dans l'ordre du tableau, pas dans l'ordre alphabétique", () => {
-    const sheet = buildMatrixWorkbook(nonAlphabetique).Sheets["Matrix"];
+    const sheet = buildMatrixWorkbook(nonAlphabetical).Sheets["Matrix"];
     expect([sheet.A2.v, sheet.A3.v]).toEqual(["Zeffo", "Bracca"]);
   });
 
   it("écrit les colonnes dans l'ordre du tableau", () => {
-    const sheet = buildMatrixWorkbook(nonAlphabetique).Sheets["Matrix"];
+    const sheet = buildMatrixWorkbook(nonAlphabetical).Sheets["Matrix"];
     expect([sheet.B1.v, sheet.C1.v]).toEqual(["Zeffo", "Bracca"]);
   });
 });

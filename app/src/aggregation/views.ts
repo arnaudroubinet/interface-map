@@ -26,7 +26,7 @@ import { radius, type Neighbourhood } from "./impact";
 import { orderBy, type OrderContext, type MatrixOrder } from "./seriation";
 
 // A node's opacity by its distance from the point of interest.
-function attenuationDeDistance(hop: number): number | undefined {
+function dimmingByDistance(hop: number): number | undefined {
   if (hop <= 1) return undefined;
   return hop === 2 ? 0.7 : 0.45;
 }
@@ -144,14 +144,14 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Reading, op
 // in a "Platform" group are kept. No boundary here -- everything drawn is the
 // platform, and a frame around all of it teaches nothing.
 export function buildPlatformOnlyView(model: ParsedModel, reading: Reading, options: AggregationOptions): ViewResult {
-  const acteursPlateforme = reading.actors.filter((a) => actorIsPlatform(model, a));
-  const internal = (name: string) => acteursPlateforme.some((a) => a.name.trim() === name.trim());
+  const platformActors = reading.actors.filter((a) => actorIsPlatform(model, a));
+  const internal = (name: string) => platformActors.some((a) => a.name.trim() === name.trim());
   const flows = reading.flows.filter((f) => internal(f.provider) && internal(f.consumer));
   const edges = aggregateEdges(flows, identityNodeKey, options, true);
   const kindFor = () => "platform" as const;
   const detailsFor = (id: NodeId) => actorDetails(model, id);
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
-  const isolated = isolatedNodes(acteursPlateforme, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
+  const isolated = isolatedNodes(platformActors, identityNodeKey, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
   return { nodes: [...nodes, ...isolated], edges };
 }
 
@@ -294,7 +294,7 @@ export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], a
     // Dimmed by distance: one hop at full, two at 70%, beyond at 45%. This is
     // degree-of-interest -- what is far stays visible but stops competing for
     // attention with the starting point.
-    ...(neighbourhood === "direct" ? {} : { dimming: attenuationDeDistance(distances.get(id) ?? 0) }),
+    ...(neighbourhood === "direct" ? {} : { dimming: dimmingByDistance(distances.get(id) ?? 0) }),
   }));
 
   return { nodes, edges };

@@ -32,7 +32,7 @@ function box(xml: string, id: string): Element {
   return doc.querySelector(`UserObject[id="${id}"]`)!;
 }
 
-const valeurDe = (xml: string, id: string) => box(xml, id).getAttribute("label")!;
+const valueOf = (xml: string, id: string) => box(xml, id).getAttribute("label")!;
 
 interface Rect {
   x: number;
@@ -96,7 +96,7 @@ describe("construireDrawio", () => {
   });
 
   it("carries the name, the type and the description into the box", () => {
-    const value = valeurDe(buildDrawio(board(layout()), colour), "p0_A");
+    const value = valueOf(buildDrawio(board(layout()), colour), "p0_A");
     expect(value).toContain("<b>A</b>");
     expect(value).toContain("[Application]");
     expect(value).toContain("Un texte");
@@ -116,7 +116,7 @@ describe("construireDrawio", () => {
     l.nodes[0].label = "A & <B>";
     // Ce que draw.io lit dans l'attribut est du HTML : le nom y est encore
     // échappé une fois, et s'affichera donc tel qu'il a été saisi.
-    expect(valeurDe(buildDrawio(board(l), colour), "p0_A")).toContain("A &amp; &lt;B&gt;");
+    expect(valueOf(buildDrawio(board(l), colour), "p0_A")).toContain("A &amp; &lt;B&gt;");
   });
 
   it("gives every board its own tab", () => {

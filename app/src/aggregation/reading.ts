@@ -272,7 +272,7 @@ export function reading(
 // read a text listing. No interactive ELK setting fixes this: on a board with
 // a boundary, interactive mode does not even reproduce its own result (277 px
 // median on identical input).
-export function lectureUnion(model: ParsedModel, mode: Mode): Reading {
+export function unionReading(model: ParsedModel, mode: Mode): Reading {
   if (model.milestones.length === 0) return reading(model, null, mode);
   const flows: FlowInstance[] = [];
   const vus = new Set<string>();

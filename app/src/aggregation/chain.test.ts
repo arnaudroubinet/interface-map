@@ -10,7 +10,7 @@ function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     groups: [base.group({ name: "G" })],
     actorTypes: [base.actorType({ nature: "Business" }), base.actorType({ type: "Infra", nature: "Technical" })],
-    flowTypes: [base.typeFlux({ type: "Kafka" }), base.typeFlux({ type: "HTTP" })],
+    flowTypes: [base.flowType({ type: "Kafka" }), base.flowType({ type: "HTTP" })],
     actors: [
       base.actor({ name: "Boreal" }),
       base.actor({ name: "Kafka", actorType: "Infra" }),
@@ -59,7 +59,7 @@ describe("chainesDisponibles", () => {
     const direct = base.template({
       groups: [base.group({ name: "G" })],
       actorTypes: [base.actorType()],
-      flowTypes: [base.typeFlux()],
+      flowTypes: [base.flowType()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],

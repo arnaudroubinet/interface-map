@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { normalizeText } from "../shared/text";
-import { TYPES_FLUX, LISTES, type WorkbookData } from "./template-export";
+import { FLOW_TYPES, LISTES, type WorkbookData } from "./template-export";
 import { MILESTONE_ORIGIN } from "./schema-upgrade";
 import { expectedFxSheet } from "../parsing/build-model";
 
@@ -13,7 +13,7 @@ import { expectedFxSheet } from "../parsing/build-model";
 // exactement ce qu'il reste à saisir, plutôt qu'un classeur d'apparence
 // complète et faux.
 
-const FEUILLE_FLUX = "Flux";
+const FLOWS_SHEET = "Flux";
 const COMPONENTS_SHEET = "Composants";
 
 // La colonne « Statut » du format d'origine porte en réalité la DÉCISION, et
@@ -39,7 +39,7 @@ function currentDecision(value: string): string {
   return found ?? LISTES.Decision.find((d) => normalizeText(d) === sought) ?? "";
 }
 
-export interface RapportMigration {
+export interface MigrationReport {
   data: WorkbookData;
   actorsCreated: string[];
   typesInconnus: string[];
@@ -53,21 +53,21 @@ function sheet(wb: XLSX.WorkBook, name: string): Record<string, string>[] {
 
 const text = (v: unknown) => (v ?? "").toString().trim();
 
-function sensConnu(type: string): string {
-  return TYPES_FLUX.find((t) => normalizeText(t[0]) === normalizeText(type))?.[1] ?? "";
+function knownDirection(type: string): string {
+  return FLOW_TYPES.find((t) => normalizeText(t[0]) === normalizeText(type))?.[1] ?? "";
 }
 
-export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): RapportMigration {
+export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): MigrationReport {
   const wb = XLSX.read(new Uint8Array(paquet), { type: "array", cellDates: true });
-  const liens = sheet(wb, FEUILLE_FLUX);
-  if (liens.length === 0) throw new Error(`aucune sheet "${FEUILLE_FLUX}" exploitable`);
+  const links = sheet(wb, FLOWS_SHEET);
+  if (links.length === 0) throw new Error(`aucune sheet "${FLOWS_SHEET}" exploitable`);
 
   // Les types réellement employés, et non la liste d'origine : celle-ci empile
   // technologies et décisions dans la même colonne.
-  const usedTypes = [...new Set(liens.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
+  const usedTypes = [...new Set(links.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
-  const typesInconnus = usedTypes.filter((t) => !sensConnu(t));
+  const typesInconnus = usedTypes.filter((t) => !knownDirection(t));
 
   // Les composants déclarés, puis ceux que seuls les flux citent. Dans les
   // fichiers réels, l'onglet Composants n'est pas tenu à jour : on ne perd pas
@@ -83,8 +83,8 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   }
 
   const actorsCreated: string[] = [];
-  for (const lien of liens) {
-    for (const name of [text(lien["Composant source"]), text(lien["Composant cible"])]) {
+  for (const link of links) {
+    for (const name of [text(link["Composant source"]), text(link["Composant cible"])]) {
       if (!name || known.has(normalizeText(name))) continue;
       known.add(normalizeText(name));
       actors.push([name, "", "", "", "", "", MILESTONE_ORIGIN, ""]);
@@ -100,21 +100,21 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   const interfaces: string[][] = [];
   const fx = new Map<string, string[][]>();
 
-  for (const lien of liens) {
-    const source = text(lien["Composant source"]);
-    const target = text(lien["Composant cible"]);
-    const type = text(lien["Type de flux"]);
-    const flowName = text(lien["Nom du flux"]);
+  for (const link of links) {
+    const source = text(link["Composant source"]);
+    const target = text(link["Composant cible"]);
+    const type = text(link["Type de flux"]);
+    const flowName = text(link["Nom du flux"]);
     if (!source || !target || !flowName) continue;
 
     // Le sens du type décide qui expose : pour Kafka ou JMS on représente la
     // poussée du producteur, donc la source expose ; partout ailleurs c'est
     // l'appelant qui consomme, et la cible expose.
-    const toConsumer = sensConnu(type) === "provider → consumer";
+    const toConsumer = knownDirection(type) === "provider → consumer";
     const provider = toConsumer ? source : target;
     const consumer = toConsumer ? target : source;
 
-    const contract = text(lien["Emplacement du contrat"]);
+    const contract = text(link["Emplacement du contrat"]);
     interfaces.push([
       flowName,
       // Le format d'origine ne connaît pas les versions de contrat : on laisse
@@ -123,12 +123,12 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
       "",
       provider,
       type,
-      text(lien["Description"]),
+      text(link["Description"]),
       // Le format d'origine ne distingue pas le lien de la référence : ce champ
       // contient aussi bien une URL qu'un intitulé, on le range en référence.
       "",
       contract,
-      text(lien["Commentaires"]),
+      text(link["Commentaires"]),
       "No",
       MILESTONE_ORIGIN,
       "",
@@ -146,7 +146,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
       // L'usage et la criticité n'existent pas dans le format d'origine.
       "",
       "",
-      currentDecision(text(lien["Statut"])),
+      currentDecision(text(link["Statut"])),
       "",
       // Le format d'origine ne connaît ni acteur technique ni republication :
       // la colonne existe, elle reste vide, et la complétude la réclamera si

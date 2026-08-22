@@ -51,7 +51,7 @@ export const DEFAULT_ICONS: [string, string][] = [
 // variantes dépôt/retrait (le sens se déduit de qui expose), les composites
 // « + ESB » et « + ETL » (ce sont deux liens, pas un), et OIDC-SSO (un flux
 // HTTP, pas une technologie).
-export const TYPES_FLUX: [string, string, string][] = [
+export const FLOW_TYPES: [string, string, string][] = [
   ["HTTP", "consumer → provider", "Direct HTTP call, REST or SOAP"],
   ["gRPC", "consumer → provider", "Remote procedure call"],
   ["SQL", "consumer → provider", "Direct database access"],
@@ -79,16 +79,16 @@ export type RowRole = "title" | "section" | "body" | "aside";
 
 export interface InstructionsRow {
   role: RowRole;
-  gauche: string;
+  left: string;
   right: string;
 }
 
-const t = (right: string): InstructionsRow => ({ role: "title", gauche: "INTERFACE MAP", right });
-const s_ = (gauche: string): InstructionsRow => ({ role: "section", gauche, right: "" });
-const l = (gauche: string, right: string): InstructionsRow => ({ role: "body", gauche, right });
-const p = (right: string): InstructionsRow => ({ role: "body", gauche: "", right });
-const d = (right: string): InstructionsRow => ({ role: "aside", gauche: "", right });
-const empty = (): InstructionsRow => ({ role: "body", gauche: "", right: "" });
+const t = (right: string): InstructionsRow => ({ role: "title", left: "INTERFACE MAP", right });
+const s_ = (left: string): InstructionsRow => ({ role: "section", left, right: "" });
+const l = (left: string, right: string): InstructionsRow => ({ role: "body", left, right });
+const p = (right: string): InstructionsRow => ({ role: "body", left: "", right });
+const d = (right: string): InstructionsRow => ({ role: "aside", left: "", right });
+const empty = (): InstructionsRow => ({ role: "body", left: "", right: "" });
 
 export const INSTRUCTIONS: InstructionsRow[] = [
   t("How to fill this workbook in — and what the tool makes of it."),

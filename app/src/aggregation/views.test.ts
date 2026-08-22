@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { buildFlowInstances, groupFlows, identityNodeKey } from "./core";
-import { toutesLesPlanches } from "./boards";
+import { allBoards } from "./boards";
 import { computeLayout } from "../layout/graph-layout";
 import { buildDrawio } from "../export/drawio-export";
 import {
@@ -14,7 +14,7 @@ import {
   matrixFilterOptions,
   actorFilterOptions,
 } from "./views";
-import { flowsForReading, reading as lectureDuMode } from "./reading";
+import { flowsForReading, reading as readingOfMode } from "./reading";
 import type { Mode } from "./core";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
@@ -33,7 +33,7 @@ const baseModel: ParsedModel = base.template({
   actors: [actor({ name: "A", group: "G1" }), actor({ name: "B", group: "G2" })],
   groups: [base.group({ name: "G1" }), base.group({ name: "G2", perimeter: "External" })],
   actorTypes: [base.actorType()],
-  flowTypes: [base.typeFlux()],
+  flowTypes: [base.flowType()],
   interfaces: [iface()],
   consumptions: [consumption()],
   fxSheetNames: ["FX_A_HTTP"],
@@ -59,8 +59,8 @@ function flows(model: ParsedModel, mode: Mode = "architecture"): ReturnType<type
 // La Lecture (flux + acteurs) que reçoivent désormais les vues qui peuvent
 // dessiner un acteur isolé. `rang` par défaut à `null` : la plupart des tests
 // d'ici ne portent pas sur l'axe des paliers.
-function read(model: ParsedModel, mode: Mode = "architecture", rank: number | null = null): ReturnType<typeof lectureDuMode> {
-  return lectureDuMode(model, rank, mode);
+function read(model: ParsedModel, mode: Mode = "architecture", rank: number | null = null): ReturnType<typeof readingOfMode> {
+  return readingOfMode(model, rank, mode);
 }
 
 describe("buildGroupToGroupView", () => {
@@ -149,16 +149,16 @@ describe("buildMatrixView", () => {
   it("keeps self-loop cells (unlike graphical views)", () => {
     const model = { ...baseModel, consumptions: [consumption({ consumerName: "A" })] };
     const matrix = buildMatrixView(model, read(model), { mode: "architecture" });
-    const ligneA = matrix.rows.find((l) => l.actor === "A")!;
-    expect(ligneA.cells.get("A")).toBeDefined();
+    const rowA = matrix.rows.find((l) => l.actor === "A")!;
+    expect(rowA.cells.get("A")).toBeDefined();
   });
 
   it("collapses actors onto their groupe when granularité is 'group'", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), { mode: "architecture", grain: "group" });
     expect(matrix.rows.map((l) => l.actor)).toEqual(["G1"]);
     expect(matrix.columns).toEqual(["G2"]);
-    const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
-    expect(ligneG1.cells.get("G2")).toEqual([{ technology: "HTTP", count: 2, attenuated: false, names: ["F", "F2"] }]);
+    const rowG1 = matrix.rows.find((l) => l.actor === "G1")!;
+    expect(rowG1.cells.get("G2")).toEqual([{ technology: "HTTP", count: 2, attenuated: false, names: ["F", "F2"] }]);
   });
 
   it("details plateforme actors and collapses the rest when granularité is 'platform'", () => {
@@ -175,8 +175,8 @@ describe("buildMatrixView", () => {
       consumptions: [consumption({ flowName: "F", consumerName: "A2" })],
     };
     const matrix = buildMatrixView(model, read(model), { mode: "architecture", grain: "group" });
-    const ligneG1 = matrix.rows.find((l) => l.actor === "G1")!;
-    expect(ligneG1.cells.get("G1")).toBeDefined();
+    const rowG1 = matrix.rows.find((l) => l.actor === "G1")!;
+    expect(rowG1.cells.get("G1")).toBeDefined();
   });
 
   it("hides an externe groupe wholesale when granularité is 'group'", () => {
@@ -271,7 +271,7 @@ describe("mode fonctionnel", () => {
       ],
       milestones: [],
       flowTypes: [
-        base.typeFlux({ type: "HTTP" }),
+        base.flowType({ type: "HTTP" }),
       ],
       interfaces: [
         iface({ flowName: "Transactions", providerName: "Tatooine", expectedSheet: "FX_Tatooine_HTTP" }),
@@ -315,7 +315,7 @@ describe("mode fonctionnel", () => {
     const m = estate();
     m.interfaces.push(iface({ flowName: "Autre", providerName: "Tatooine", flowType: "Kafka", expectedSheet: "FX_Tatooine_Kafka" }));
     m.consumptions.push(consumption({ flowName: "Autre", consumerName: "Naboo", sheet: "FX_Tatooine_Kafka" }));
-    m.flowTypes.push(base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }));
+    m.flowTypes.push(base.flowType({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }));
     m.fxSheetNames.push("FX_Tatooine_Kafka");
     const view = buildPlatformDetailView(m, read(m, "functional"), options("functional"));
     expect(view.edges).toHaveLength(1);
@@ -461,7 +461,7 @@ const pulledEstate = () =>
     groups: [base.group({ name: "G" })],
     actorTypes: [base.actorType()],
     // HTTP est tiré : « consumer → provider ».
-    flowTypes: [base.typeFlux({ type: "HTTP", direction: "consumer-to-provider" })],
+    flowTypes: [base.flowType({ type: "HTTP", direction: "consumer-to-provider" })],
     interfaces: [base.iface({ flowName: "F", providerName: "Fournisseur" })],
     consumptions: [base.consumption({ flowName: "F", consumerName: "Consommateur" })],
   });
@@ -471,7 +471,7 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
     const m = pulledEstate();
     const g = groupFlows(buildFlowInstances(m), identityNodeKey, true)[0];
     expect([g.from, g.to, g.pulled]).toEqual(["Fournisseur", "Consommateur", true]);
-    const mat = buildMatrixView(m, lectureDuMode(m, null, "architecture"), { mode: "architecture" });
+    const mat = buildMatrixView(m, readingOfMode(m, null, "architecture"), { mode: "architecture" });
     expect(mat.rows.map((l) => l.actor)).toEqual(["Fournisseur"]);
   });
 
@@ -484,7 +484,7 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
   it("toutes les planches d'un même fichier draw.io racontent la même architecture", async () => {
     const m = pulledEstate();
     const placed = [];
-    for (const p of toutesLesPlanches(m, null, "architecture")) {
+    for (const p of allBoards(m, null, "architecture")) {
       placed.push({ title: p.title, actor: p.actor, layout: await computeLayout(p.nodes, p.edges) });
     }
     const xml = buildDrawio(placed, () => "#000");
@@ -509,7 +509,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
     base.template({
       groups: [{ name: "Socle", perimeter: "Platform", sheet: "Groups", row: 0 }],
       actorTypes: [base.actorType()],
-      flowTypes: [base.typeFlux()],
+      flowTypes: [base.flowType()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [base.actor({ name: "A", group: "Socle" }), base.actor({ name: "B", group: "Socle" })],
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],
@@ -520,7 +520,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
 
   it("la porte à travers les vues agrégées", () => {
     const m = estate();
-    const view = buildPlatformDetailView(m, lectureDuMode(m, null, "architecture"), { counters: true });
+    const view = buildPlatformDetailView(m, readingOfMode(m, null, "architecture"), { counters: true });
     expect(view.edges[0].criticality).toBe("1 - Critical");
   });
 
@@ -528,7 +528,7 @@ describe("les vues transportent la criticité jusqu'au trait", () => {
   // c'est exactement là qu'un champ nouveau se perd.
   it("la porte aussi dans la vue par acteur, qui fabrique ses arêtes à part", () => {
     const m = estate();
-    const view = buildByActorView(m, lectureDuMode(m, null, "architecture").flows, "A", {});
+    const view = buildByActorView(m, readingOfMode(m, null, "architecture").flows, "A", {});
     expect(view.edges[0].criticality).toBe("1 - Critical");
   });
 });

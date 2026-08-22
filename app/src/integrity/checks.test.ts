@@ -27,7 +27,7 @@ function model(overrides: Partial<ParsedModel>): ParsedModel {
     groupsSheetMissing: false,
     actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
-  flowTypes: [base.typeFlux({ type: "HTTP" })],
+  flowTypes: [base.flowType({ type: "HTTP" })],
     interfaces: [iface({})],
     consumptions: [consumption({})],
     fxSheetNames: ["FX_A_HTTP"],
@@ -283,7 +283,7 @@ describe("7.6 vocabulaires", () => {
     const report = runIntegrityChecks(
       model({
         flowTypes: [
-          base.typeFlux({ type: "HTTP", rawDirection: "du client au serveur" }),
+          base.flowType({ type: "HTTP", rawDirection: "du client au serveur" }),
         ],
       })
     );
@@ -330,8 +330,8 @@ describe("7.7 signaux non bloquants", () => {
     const report = runIntegrityChecks(
       model({
         flowTypes: [
-          base.typeFlux({ type: "HTTP" }),
-          base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
+          base.flowType({ type: "HTTP" }),
+          base.flowType({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
         ],
       })
     );
@@ -568,7 +568,7 @@ describe("paliers — complétude", () => {
 });
 
 describe("paliers — le rapport suit le palier affiché", () => {
-  const troisPaliers = [
+  const threeMilestones = [
     { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
   ];
@@ -577,7 +577,7 @@ describe("paliers — le rapport suit le palier affiché", () => {
   // remplirait le rapport de fausses anomalies dès la première ligne retirée.
   it("does not blame a retired acteur for having no flow any more", () => {
     const m = model({
-      milestones: troisPaliers,
+      milestones: threeMilestones,
       actors: [
         actor({ name: "A", introducedAt: "v1" }),
         actor({ name: "B", introducedAt: "v1" }),
@@ -595,7 +595,7 @@ describe("paliers — le rapport suit le palier affiché", () => {
   // La structure, elle, juge le classeur et pas un instant de son histoire.
   it("keeps structural checks independent of the displayed palier", () => {
     const m = model({
-      milestones: troisPaliers,
+      milestones: threeMilestones,
       missingOptionalColumns: [{ sheet: "Actors", column: "Group" }],
       actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
       interfaces: [iface({ introducedAt: "v1" })],
@@ -672,8 +672,8 @@ describe("emplacement des blocs informatifs", () => {
       interfaces: [iface({ toConfirm: true, row: 5 })],
       consumptions: [consumption({ criticality: "", row: 6 })],
       flowTypes: [
-        base.typeFlux({ type: "HTTP", row: 2 }),
-        base.typeFlux({ type: "SFTP", row: 3 }),
+        base.flowType({ type: "HTTP", row: 2 }),
+        base.flowType({ type: "SFTP", row: 3 }),
       ],
     });
 
@@ -860,7 +860,7 @@ describe("nature et relais", () => {
 // consommation dont l'acteur avait disparu. Le rapport contredisait le schéma
 // affiché à côté de lui.
 describe("rapport au palier — la chaîne entière, comme les schémas", () => {
-  const auPalier = (rank: number) =>
+  const atMilestone = (rank: number) =>
     runIntegrityChecks(
       model({
         milestones: [
@@ -875,17 +875,17 @@ describe("rapport au palier — la chaîne entière, comme les schémas", () => 
     );
 
   it("ne cite plus un acteur retiré dans les blocs informatifs", () => {
-    expect(JSON.stringify(auPalier(1).infoBlocks)).not.toContain('"A"');
+    expect(JSON.stringify(atMilestone(1).infoBlocks)).not.toContain('"A"');
   });
 
   it("laisse tomber la consommation dont l'exposant a disparu", () => {
-    const sansFlux = auPalier(1).infoBlocks.find((b) => b.title.includes("no flow"));
-    expect(sansFlux?.items.join(" ")).toContain("B");
+    const withoutFlows = atMilestone(1).infoBlocks.find((b) => b.title.includes("no flow"));
+    expect(withoutFlows?.items.join(" ")).toContain("B");
   });
 
   it("garde tout tant que l'acteur vit", () => {
-    const sansFlux = auPalier(0).infoBlocks.find((b) => b.title.includes("no flow"));
-    expect(sansFlux?.items.join(" ")).not.toContain("B");
+    const withoutFlows = atMilestone(0).infoBlocks.find((b) => b.title.includes("no flow"));
+    expect(withoutFlows?.items.join(" ")).not.toContain("B");
   });
 });
 
@@ -1084,7 +1084,7 @@ describe("chaîne cassée en son milieu", () => {
 describe("couleur déclarée d'une technologie", () => {
   const estate = (colours: [string, string][]) =>
     model({
-      flowTypes: colours.map(([type, colour], i) => base.typeFlux({ type, colour, row: i })),
+      flowTypes: colours.map(([type, colour], i) => base.flowType({ type, colour, row: i })),
       interfaces: colours.map(([type], i) =>
         iface({ flowName: `F${i}`, flowType: type, expectedSheet: `FX_A_${type}`, row: i })
       ),
@@ -1217,7 +1217,7 @@ const MILESTONES_FIXTURE = [base.milestone({ name: "v1", rank: 1 }), base.milest
 const CORE_FIXTURE = {
   groups: [base.group({ name: "G" })],
   actorTypes: [base.actorType()],
-  flowTypes: [base.typeFlux()],
+  flowTypes: [base.flowType()],
   milestones: MILESTONES_FIXTURE,
   fxSheetNames: ["FX_A_HTTP"],
 };
@@ -1278,7 +1278,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
         base.actor({ name: "Dst", introducedAt: "v1" }),
       ],
       actorTypes: [base.actorType({ nature: "Business" }), base.actorType({ type: "Infra", nature: "Technical" })],
-      flowTypes: [base.typeFlux()],
+      flowTypes: [base.flowType()],
       fxSheetNames: ["FX_Src_HTTP", "FX_Bus_HTTP"],
       interfaces: [
         base.iface({ flowName: "In", providerName: "Src", expectedSheet: "FX_Src_HTTP", introducedAt: "v1" }),
@@ -1299,7 +1299,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
       groups: [base.group({ name: "G" })],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
       actorTypes: [base.actorType()],
-      flowTypes: [base.typeFlux()],
+      flowTypes: [base.flowType()],
       fxSheetNames: ["FX_A_HTTP"],
       interfaces: [base.iface({ flowName: "Authent", providerName: "A", expectedSheet: "FX_A_HTTP" })],
       consumptions: [base.consumption({ flowName: "authent", consumerName: "B", sheet: "FX_A_HTTP" })],
@@ -1315,7 +1315,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
 // personne ne comprend pourquoi.
 describe("contrôles — couleurs trop claires pour être dessinées", () => {
   const block = (colour: string) =>
-    runIntegrityChecks(model({ flowTypes: [base.typeFlux({ type: "HTTP", colour })] })).infoBlocks.find(
+    runIntegrityChecks(model({ flowTypes: [base.flowType({ type: "HTTP", colour })] })).infoBlocks.find(
       (b) => b.id === "contraste"
     );
 

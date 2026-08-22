@@ -1,14 +1,14 @@
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
 import { upgrade } from "./schema-upgrade";
-import { migrateLegacyWorkbook, type RapportMigration } from "./legacy-upgrade";
+import { migrateLegacyWorkbook, type MigrationReport } from "./legacy-upgrade";
 import type { WorkbookData } from "./template-export";
 
 export interface Reparation {
   data: WorkbookData;
   // Renseigné seulement quand le classeur venait du format d'origine : c'est là
   // que des choix ont été faits faute d'information, et qu'il faut le dire.
-  rapportLegacy: RapportMigration | null;
+  legacyReport: MigrationReport | null;
 }
 
 // La porte unique : on donne un classeur, on récupère un classeur complet et au
@@ -22,8 +22,8 @@ export function repairWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Da
   if (lu.ok) {
     // Notre famille : mise à niveau du schéma s'il y a lieu, et création des
     // onglets attendus, que le classeur soit à jour ou non.
-    return { data: upgrade(lu.model, dateMigration), rapportLegacy: null };
+    return { data: upgrade(lu.model, dateMigration), legacyReport: null };
   }
   const legacy = migrateLegacyWorkbook(paquet, dateMigration);
-  return { data: legacy.data, rapportLegacy: legacy };
+  return { data: legacy.data, legacyReport: legacy };
 }

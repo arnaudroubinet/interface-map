@@ -23,11 +23,11 @@ export interface FormatExport {
   label: string;
   rappel: keyof BannerCallbacks;
   // `dessinDisponible` dit qu'un schéma est à l'écran et prêt à être rendu.
-  active: (state: AppState, dessinDisponible: boolean) => boolean;
+  active: (state: AppState, drawingAvailable: boolean) => boolean;
 }
 
-const onADiagram = (state: AppState, dessinDisponible: boolean) =>
-  state.file !== null && state.view !== "matrix" && state.view !== "checks" && dessinDisponible;
+const onADiagram = (state: AppState, drawingAvailable: boolean) =>
+  state.file !== null && state.view !== "matrix" && state.view !== "checks" && drawingAvailable;
 
 // Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
 // les DSL une vue par planche -- donc aucun ne dépend de la vue ouverte.

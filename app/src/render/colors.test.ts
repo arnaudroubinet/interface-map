@@ -5,8 +5,8 @@ import { contrastRatio } from "./contrast";
 import type { ParsedModel, InterfaceCatalogue, FlowType } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
-function typeFlux(type: string): FlowType {
-  return base.typeFlux({ type });
+function flowType(type: string): FlowType {
+  return base.flowType({ type });
 }
 
 function iface(flowName: string, flowType: string): InterfaceCatalogue {
@@ -21,7 +21,7 @@ function iface(flowName: string, flowType: string): InterfaceCatalogue {
 describe("couleursDuModele", () => {
   const model = (types: string[], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
-    flowTypes: types.map(typeFlux),
+    flowTypes: types.map(flowType),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,
@@ -66,7 +66,7 @@ describe("colorForTechnologies", () => {
 describe("couleursDuModele — couleur déclarée par le référentiel", () => {
   const estate = (types: [string, string][], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
-    flowTypes: types.map(([type, colour]) => ({ ...typeFlux(type), colour })),
+    flowTypes: types.map(([type, colour]) => ({ ...flowType(type), colour })),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,
@@ -116,7 +116,7 @@ describe("couleursDuModele — couleur déclarée par le référentiel", () => {
 describe("couleursDuModele — une technologie non déclarée ne prend pas de teinte", () => {
   const estate = (declared: string[], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
-    flowTypes: declared.map((t) => typeFlux(t)),
+    flowTypes: declared.map((t) => flowType(t)),
     interfaces: used.map((t, i) => iface(`F${i}`, t)),
     consumptions: [], fxSheetNames: [], missingOptionalColumns: [],
     schemaVersion: SCHEMA_VERSION, savedAt: null,

@@ -72,7 +72,7 @@ describe("export Markdown — nom de fichier indépendant du mode", () => {
 // Ghost expose GhostFeed, que Bus (Middleware, Technical) consomme sans le
 // relayer : la chaîne fonctionnelle s'arrête là, Ghost n'a plus aucun flux en
 // fonctionnel. §5.2 : il doit rester affiché, seul.
-const donneesAvecActeurIsole: WorkbookData = {
+const dataWithIsolatedActor: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [
     ["Application", "", "Business"],
@@ -104,7 +104,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
   it("dessine l'acteur seul au lieu du message « aucun flux »", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = writeTemplate(donneesAvecActeurIsole);
+    const buffer = writeTemplate(dataWithIsolatedActor);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -120,11 +120,11 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
     modeSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
     buttonByLabel(root, "By actor").click();
-    const acteurSelect = [...root.querySelectorAll("select")].find((s) =>
+    const actorSelect = [...root.querySelectorAll("select")].find((s) =>
       [...s.options].some((o) => o.value === "Ghost")
     ) as HTMLSelectElement;
-    acteurSelect.value = "Ghost";
-    acteurSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    actorSelect.value = "Ghost";
+    actorSelect.dispatchEvent(new Event("change", { bubbles: true }));
 
     await vi.waitFor(() => {
       if (!root.querySelector("svg")) throw new Error("schéma pas encore dessiné");
@@ -138,7 +138,7 @@ describe("vue par acteur — acteur métier isolé en fonctionnel", () => {
 // affiché est donc sain. La vue d'atterrissage doit refléter CE rapport, pas
 // celui — non filtré — qui a servi à choisir la vue avant le calage sur le
 // palier courant.
-const donneesAvecAnomalieRetiree: WorkbookData = {
+const dataWithRetiredAnomaly: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [["Application", "box", "Business"]],
   milestones: [
@@ -158,7 +158,7 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
   it("ouvre sur Group to group, pas sur Integrity checks", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = writeTemplate(donneesAvecAnomalieRetiree);
+    const buffer = writeTemplate(dataWithRetiredAnomaly);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
@@ -175,7 +175,7 @@ describe("vue d'atterrissage — anomalie sur une ligne retirée au palier coura
 // Un seul palier déclaré n'est pas « aucun palier » : comparer réclame deux
 // bornes, la seconde manque, mais le classeur n'est pas silencieux sur son
 // axe du temps -- le dire autrement le contredirait.
-const donneesAvecUnSeulPalier: WorkbookData = {
+const dataWithASingleMilestone: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
   actorTypes: [],
   milestones: [["V1", "1", "", "Delivered", "", ""]],
@@ -189,7 +189,7 @@ describe("vue Écarts — un seul palier déclaré", () => {
   it("ne prétend pas que le classeur ne déclare aucun palier", async () => {
     const root = document.createElement("div");
     mountApp(root);
-    const buffer = writeTemplate(donneesAvecUnSeulPalier);
+    const buffer = writeTemplate(dataWithASingleMilestone);
     const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });

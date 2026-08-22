@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { toutesLesPlanches } from "./boards";
+import { allBoards } from "./boards";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -29,8 +29,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
-      base.typeFlux({ type: "HTTP" }),
-      base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
+      base.flowType({ type: "HTTP" }),
+      base.flowType({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
     ],
     interfaces: [iface({})],
     consumptions: [consumption({})],
@@ -43,7 +43,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
 }
 
 const titles = (m: ParsedModel, rank: number | null = null) =>
-  toutesLesPlanches(m, rank, "architecture").map((p) => p.title);
+  allBoards(m, rank, "architecture").map((p) => p.title);
 
 // Bus relaie un flux d'Tatooine vers Naboo : Tatooine expose F1, Bus relaie
 // via F2 (relais: F1), Naboo consomme F2. En fonctionnel, la chaîne se
@@ -99,13 +99,13 @@ describe("toutesLesPlanches", () => {
     expect(titles(m)).toContain("HTTP (actor)");
     // La planche nomme l'acteur qu'elle détaille : c'est ce que visent les
     // liens, et le titre ne se laisse plus défaire pour le retrouver.
-    const boards = toutesLesPlanches(m, null, "architecture");
+    const boards = allBoards(m, null, "architecture");
     expect(boards.find((p) => p.title === "HTTP (actor)")!.actor).toBe("HTTP");
     expect(boards.find((p) => p.title === "HTTP (technology)")!.actor).toBeUndefined();
   });
 
   it("carries the nodes and edges of each board", () => {
-    const board = toutesLesPlanches(model(), null, "architecture").find((p) => p.title === "Group to group")!;
+    const board = allBoards(model(), null, "architecture").find((p) => p.title === "Group to group")!;
     expect(board.nodes.length).toBeGreaterThan(0);
     expect(board.edges.length).toBeGreaterThan(0);
   });
@@ -130,17 +130,17 @@ describe("toutesLesPlanches", () => {
 
 describe("planches selon le mode", () => {
   it("n'inclut aucune planche par technologie en fonctionnel", () => {
-    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
+    const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("HTTP (technology)");
   });
 
   it("n'inclut aucune planche pour un acteur technique", () => {
-    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
+    const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("Bus (actor)");
   });
 
   it("garde les trois vues fixes", () => {
-    const titles = toutesLesPlanches(modelWithTechnical(), null, "functional").map((p) => p.title);
+    const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles.slice(0, 3)).toEqual(["Group to group", "Platform detail", "Platform only"]);
   });
 
@@ -150,7 +150,7 @@ describe("planches selon le mode", () => {
   it("porte sa propre planche pour un acteur métier devenu isolé", () => {
     const m = modelWithTechnical();
     m.actors.push(actor({ name: "Isolé", group: "Socle" }));
-    const titles = toutesLesPlanches(m, null, "functional").map((p) => p.title);
+    const titles = allBoards(m, null, "functional").map((p) => p.title);
     expect(titles).toContain("Isolé (actor)");
   });
 
@@ -164,7 +164,7 @@ describe("planches selon le mode", () => {
     const m = modelWithTechnical();
     m.milestones = milestones;
     m.actors.push(actor({ name: "Isolé", group: "Socle", introducedAt: "v1", retiredAt: "v2" }));
-    const titlesAt = (rank: number) => toutesLesPlanches(m, rank, "functional").map((p) => p.title);
+    const titlesAt = (rank: number) => allBoards(m, rank, "functional").map((p) => p.title);
     expect(titlesAt(1)).toContain("Isolé (actor)");
     expect(titlesAt(2)).not.toContain("Isolé (actor)");
   });

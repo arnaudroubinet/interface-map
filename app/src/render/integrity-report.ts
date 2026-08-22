@@ -133,7 +133,7 @@ export interface ReportSection {
 // le lisent tous deux d'ici : deux personnes regardant le même rapport, l'une à
 // l'écran et l'autre dans un ticket, doivent y trouver les mêmes sections dans
 // le même ordre.
-export function sectionsDuRapport(report: IntegrityReport): ReportSection[] {
+export function reportSections(report: IntegrityReport): ReportSection[] {
   const sections: ReportSection[] = [
     ...report.families.map((f) => ({
       cssClass: "block-anomalies",
@@ -163,7 +163,7 @@ export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
   const container = document.createElement("div");
   container.className = "integrity-report";
 
-  for (const s of sectionsDuRapport(report)) {
+  for (const s of reportSections(report)) {
     container.appendChild(buildSection(s.cssClass, s.title, s.description, s.items, s.severity));
   }
 

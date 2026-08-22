@@ -27,7 +27,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     groupsSheetMissing: false,
     actorTypes: [],
     milestones,
-    flowTypes: [base.typeFlux({ type: "HTTP", rawDirection: "" })],
+    flowTypes: [base.flowType({ type: "HTTP", rawDirection: "" })],
     interfaces: [iface({})],
     consumptions: [consumption({})],
     fxSheetNames: ["FX_A_HTTP"],

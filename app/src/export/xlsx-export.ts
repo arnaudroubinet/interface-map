@@ -56,10 +56,10 @@ export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
   XLSX.utils.book_append_sheet(wb, matrixSheet, "Matrix");
 
   const plat = flowList(matrix);
-  const feuilleFlux = XLSX.utils.aoa_to_sheet(plat);
-  feuilleFlux["!cols"] = [{ wch: 26 }, { wch: 26 }, { wch: 18 }, { wch: 9 }, { wch: 9 }];
-  feuilleFlux["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }) };
-  XLSX.utils.book_append_sheet(wb, feuilleFlux, "Flows");
+  const flowsSheet = XLSX.utils.aoa_to_sheet(plat);
+  flowsSheet["!cols"] = [{ wch: 26 }, { wch: 26 }, { wch: 18 }, { wch: 9 }, { wch: 9 }];
+  flowsSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }) };
+  XLSX.utils.book_append_sheet(wb, flowsSheet, "Flows");
 
   return wb;
 }

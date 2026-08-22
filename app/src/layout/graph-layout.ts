@@ -25,7 +25,7 @@ export interface LayoutEdge extends GraphEdge {
   points: { x: number; y: number }[];
   // Centre de la pastille, tel que placé par le moteur. Absent si l'arête n'a
   // pas de libellé ou si le moteur n'a rien renvoyé.
-  labelCentre?: { x: number; y: number };
+  labelCentreOf?: { x: number; y: number };
 }
 
 export interface LayoutResult {
@@ -47,15 +47,15 @@ export interface LayoutResult {
 export const NODE_WIDTH = 240;
 export const MIN_NODE_HEIGHT = 120;
 
-export const PAD_NOEUD = 14;
+export const NODE_PAD = 14;
 export const NAME_LINE_HEIGHT = 21;
-export const HAUTEUR_LIGNE_TYPE = 16;
+export const TYPE_LINE_HEIGHT = 16;
 export const EMPTY_LINE_HEIGHT = 8;
 export const DESC_LINE_HEIGHT = 14;
 
 // Largeur utile pour la description, et approximation de la largeur d'un
 // caractère à sa taille de rendu (9.5px).
-const LARGEUR_UTILE = NODE_WIDTH - 2 * PAD_NOEUD;
+const USABLE_WIDTH = NODE_WIDTH - 2 * NODE_PAD;
 const DESC_CHAR_WIDTH = 5.6;
 const MAX_DESC_LINES = 3;
 
@@ -68,7 +68,7 @@ const NAME_CHAR_WIDTH = 8.2;
 const ICON_SLOT = 16 + 9;
 
 export function truncatedName(label: string): string {
-  const parCaractere = Math.max(4, Math.floor((LARGEUR_UTILE - ICON_SLOT) / NAME_CHAR_WIDTH));
+  const parCaractere = Math.max(4, Math.floor((USABLE_WIDTH - ICON_SLOT) / NAME_CHAR_WIDTH));
   return label.length <= parCaractere ? label : `${label.slice(0, parCaractere - 1).trimEnd()}…`;
 }
 
@@ -76,7 +76,7 @@ export function truncatedName(label: string): string {
 // un mot. Au-delà du nombre de lignes admis, la dernière est tronquée.
 export function lignesDescription(text: string | undefined): string[] {
   if (!text) return [];
-  const parCaractere = Math.max(1, Math.floor(LARGEUR_UTILE / DESC_CHAR_WIDTH));
+  const parCaractere = Math.max(1, Math.floor(USABLE_WIDTH / DESC_CHAR_WIDTH));
   const rows: string[] = [];
   let courante = "";
   for (const word of text.split(/\s+/)) {
@@ -99,8 +99,8 @@ export function lignesDescription(text: string | undefined): string[] {
 // Déclarées à ELK, les tailles doivent être connues avant le placement : c'est
 // lui qui positionne les libellés, en leur réservant de la place le long du
 // tracé. Le rendu importe ces mesures pour dessiner exactement la même boîte.
-export const HAUTEUR_PASTILLE = 16;
-const HAUTEUR_SOUS_LIGNE = 12;
+export const CHIP_HEIGHT = 16;
+const SUB_LINE_HEIGHT = 12;
 
 // Largeur moyenne d'un caractère à la taille du libellé, dans la pile de
 // polices du schéma. Sous-estimée, le texte déborde de la place qu'ELK lui a
@@ -124,13 +124,13 @@ export function subLabel(label: string | undefined, technology: string): string 
 // de la boîte qu'ELK lui a gardée.
 const DISC_WIDTH = 11;
 
-export function taillePastille(label: string | undefined, technology: string): { width: number; height: number } {
+export function chipSize(label: string | undefined, technology: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
   const sous = subLabel(label, technology);
   const disc = technology.trim() !== "" ? DISC_WIDTH : 0;
   return {
     width: Math.max(chipWidth(label) + disc, sous ? chipWidth(sous) : 0),
-    height: HAUTEUR_PASTILLE + (sous ? HAUTEUR_SOUS_LIGNE : 0),
+    height: CHIP_HEIGHT + (sous ? SUB_LINE_HEIGHT : 0),
   };
 }
 
@@ -138,13 +138,13 @@ export function nodeTextHeight(node: GraphNode): number {
   const rows = lignesDescription(node.description).length;
   return (
     NAME_LINE_HEIGHT +
-    (node.subtitle ? HAUTEUR_LIGNE_TYPE : 0) +
+    (node.subtitle ? TYPE_LINE_HEIGHT : 0) +
     (rows ? EMPTY_LINE_HEIGHT + rows * DESC_LINE_HEIGHT : 0)
   );
 }
 
-export function hauteurNoeud(node: GraphNode): number {
-  return Math.max(MIN_NODE_HEIGHT, 2 * PAD_NOEUD + nodeTextHeight(node));
+export function nodeHeight(node: GraphNode): number {
+  return Math.max(MIN_NODE_HEIGHT, 2 * NODE_PAD + nodeTextHeight(node));
 }
 
 // elk-worker.min.js sait déjà se comporter en repli sans Worker : sa toute
@@ -301,7 +301,7 @@ interface ElkNode {
   layoutOptions?: Record<string, string>;
 }
 
-interface SectionElk {
+interface ElkSection {
   startPoint: { x: number; y: number };
   endPoint: { x: number; y: number };
   bendPoints?: { x: number; y: number }[];
@@ -323,7 +323,7 @@ interface AreteElk {
   targets: string[];
   sourcePort?: string;
   targetPort?: string;
-  sections?: SectionElk[];
+  sections?: ElkSection[];
   labels?: LabelElk[];
   // ELK reparente une arête dans le plus petit conteneur qui englobe ses deux
   // extrémités, et exprime alors ses coordonnées dans le repère de celui-ci.
@@ -343,7 +343,7 @@ interface ElkGraph {
 // ELK positionne par le coin haut-gauche ; le reste du code raisonne en
 // centre de boîte, plus commode pour exprimer un ancrage (vecteur depuis le
 // centre) ou une borne (distance au centre) qu'un décalage depuis un coin.
-function centre(n: ElkNode): { x: number; y: number } {
+function centreOf(n: ElkNode): { x: number; y: number } {
   return { x: (n.x ?? 0) + n.width / 2, y: (n.y ?? 0) + n.height / 2 };
 }
 
@@ -469,7 +469,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
       // façades : la boîte doublait de hauteur, aux deux tiers vide.
       const nWest = new Set(edges.filter((e) => e.to === node.id).map(inputKey)).size;
       const nEast = edges.filter((e) => e.from === node.id).length;
-      const height = Math.max(hauteurNoeud(node), heightForPorts(Math.max(nWest, nEast)));
+      const height = Math.max(nodeHeight(node), heightForPorts(Math.max(nWest, nEast)));
       return {
         id: node.id,
         width: NODE_WIDTH,
@@ -519,7 +519,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     // de technologies différentes relient les mêmes nœuds et doivent rester
     // deux arêtes distinctes.
     edges: edges.map((edge, i) => {
-      const size = taillePastille(edge.label, edge.technology);
+      const size = chipSize(edge.label, edge.technology);
       return {
         id: `e${i}`,
         sources: [edge.from],
@@ -594,10 +594,10 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const container = arete?.container ? ids.get(arete.container) : undefined;
     const x = end.x + (container?.x ?? 0);
     const y = end.y + (container?.y ?? 0);
-    const gauche = target.x ?? 0;
+    const left = target.x ?? 0;
     const top = target.y ?? 0;
     if (y < top || y > top + target.height) return false;
-    return Math.abs(x - (gauche + target.width)) < Math.abs(x - gauche);
+    return Math.abs(x - (left + target.width)) < Math.abs(x - left);
   };
 
   // Polyligne de chaque arête, dans le repère du graphe : de quoi comparer deux
@@ -645,12 +645,12 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   const layoutNodes: LayoutNode[] = nodes.map((node) => {
     const n = parId.get(node.id);
     const width = n?.width ?? NODE_WIDTH;
-    const height = n?.height ?? hauteurNoeud(node);
-    const c = n ? centre(n) : { x: 0, y: 0 };
+    const height = n?.height ?? nodeHeight(node);
+    const c = n ? centreOf(n) : { x: 0, y: 0 };
     return { ...node, x: c.x, y: c.y, width: width, height: height };
   });
 
-  const noeudsParId = new Map(layoutNodes.map((n) => [n.id, n]));
+  const nodesById = new Map(layoutNodes.map((n) => [n.id, n]));
   const edgesById = new Map((result.edges ?? []).map((e) => [e.id, e]));
 
   // Origine du repère dans lequel une arête est exprimée : celle de son
@@ -663,8 +663,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   };
 
   const layoutEdges: LayoutEdge[] = edges.map((edge, i) => {
-    const start = noeudsParId.get(edge.from);
-    const arrival = noeudsParId.get(edge.to);
+    const start = nodesById.get(edge.from);
+    const arrival = nodesById.get(edge.to);
     if (!start || !arrival) return { ...edge, points: [] };
     const arete = edgesById.get(`e${i}`);
     const offset = originOf(arete);
@@ -672,7 +672,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     return {
       ...edge,
       points: pointsDeLArete(arete, start, arrival, offset),
-      labelCentre:
+      labelCentreOf:
         tag && tag.x !== undefined && tag.y !== undefined
           ? {
               x: tag.x + (tag.width ?? 0) / 2 + offset.x,

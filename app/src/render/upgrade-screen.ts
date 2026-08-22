@@ -4,7 +4,7 @@ import { el } from "../shared/dom";
 // plus ancien que celui que l'outil sait lire. Il n'y a qu'une action possible,
 // et elle est dite avant d'être proposée : la mise à niveau reconstruit le
 // classeur, elle ne le retouche pas.
-export function buildEcranMiseANiveau(
+export function buildUpgradeScreen(
   workbookVersion: number,
   expectedVersion: number,
   onUpgrade: () => void

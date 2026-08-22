@@ -4,12 +4,12 @@ import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
 import { rankOfMilestone } from "../aggregation/milestones";
 import { coloursOfModel } from "../render/colors";
-import { toutesLesPlanches } from "../aggregation/boards";
+import { allBoards } from "../aggregation/boards";
 import { computeLayout } from "../layout/graph-layout";
 import { buildDrawio } from "../export/drawio-export";
 import { modelToStructurizr } from "../export/c4-dsl";
 import { modelToLikeC4 } from "../export/likec4-dsl";
-import { rapportEnMarkdown } from "../export/rapport-markdown";
+import { reportToMarkdown } from "../export/markdown-report";
 import { buildExportFilename } from "../export/filename";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
@@ -101,7 +101,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
       // ne doit donc pas bouger non plus.
       downloadText(
-        rapportEnMarkdown(state.file.report, state.file.name, state.shownMilestone),
+        reportToMarkdown(state.file.report, state.file.name, state.shownMilestone),
         fileName("md", false)
       );
     },
@@ -116,7 +116,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const model = state.file.model;
       const colours = coloursOfModel(model);
       const placed = [];
-      for (const board of toutesLesPlanches(model, shownRank(state), state.mode)) {
+      for (const board of allBoards(model, shownRank(state), state.mode)) {
         const layout = await computeLayout(board.nodes, board.edges);
         placed.push({
           title: board.title,

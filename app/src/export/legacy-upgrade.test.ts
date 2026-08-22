@@ -38,7 +38,7 @@ const iPublisher = INTERFACE_COLUMNS.indexOf("Provider");
 const iConsumer = FX_COLUMNS.indexOf("Consumer");
 const iDecision = FX_COLUMNS.indexOf("Decision");
 
-const lien = (o: Partial<Record<string, string>> = {}) => ({
+const link = (o: Partial<Record<string, string>> = {}) => ({
   "Composant source": "Appelant",
   "Composant cible": "Appelé",
   "Type de flux": "HTTP",
@@ -55,14 +55,14 @@ describe("migration depuis le format d'origine", () => {
   // format actuel dit « qui expose ». Les deux ne coïncident que selon le sens
   // de représentation du type.
   it("fait exposer la cible quand l'appel va du consommateur vers l'exposant", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "HTTP" })]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({ "Type de flux": "HTTP" })]));
     expect(data.interfaces[0][iPublisher]).toBe("Appelé");
     expect(data.fx[0].name).toBe("FX_Appelé_HTTP");
     expect(data.fx[0].rows[0][iConsumer]).toBe("Appelant");
   });
 
   it("fait exposer la source quand on représente la poussée du producteur", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "Kafka" })]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({ "Type de flux": "Kafka" })]));
     expect(data.interfaces[0][iPublisher]).toBe("Appelant");
     expect(data.fx[0].rows[0][iConsumer]).toBe("Appelé");
   });
@@ -71,7 +71,7 @@ describe("migration depuis le format d'origine", () => {
   // retombe sur l'appel, et on le signale.
   it("signale un type absent du référentiel, quel qu'il soit", () => {
     const { typesInconnus, data } = migrateLegacyWorkbook(
-      legacyWorkbook([lien({ "Type de flux": "AS2" }), lien({ "Type de flux": "Fichier + ESB", "Nom du flux": "B" })])
+      legacyWorkbook([link({ "Type de flux": "AS2" }), link({ "Type de flux": "Fichier + ESB", "Nom du flux": "B" })])
     );
     expect(typesInconnus.sort()).toEqual(["AS2", "Fichier + ESB"]);
     expect(data.interfaces[0][iPublisher]).toBe("Appelé");
@@ -82,9 +82,9 @@ describe("migration depuis le format d'origine", () => {
   it("retrouve la décision dans le vocabulaire actuel, aux accents près", () => {
     const { data } = migrateLegacyWorkbook(
       legacyWorkbook([
-        lien({ Statut: "A supprimer" }),
-        lien({ Statut: "à TRANSFORMER", "Nom du flux": "B" }),
-        lien({ Statut: "Bidon", "Nom du flux": "C" }),
+        link({ Statut: "A supprimer" }),
+        link({ Statut: "à TRANSFORMER", "Nom du flux": "B" }),
+        link({ Statut: "Bidon", "Nom du flux": "C" }),
       ])
     );
     const decisions = data.fx.flatMap((o) => o.rows).map((l) => l[iDecision]);
@@ -102,7 +102,7 @@ describe("migration depuis le format d'origine", () => {
   // Dans les fichiers réels, l'onglet Composants n'est pas tenu à jour.
   it("récupère les composants que seuls les flux citent", () => {
     const { data, actorsCreated } = migrateLegacyWorkbook(
-      legacyWorkbook([lien({})], [{ Groupe: "G1", Nom: "Déjà là", Description: "d", Commentaires: "" }])
+      legacyWorkbook([link({})], [{ Groupe: "G1", Nom: "Déjà là", Description: "d", Commentaires: "" }])
     );
     expect(actorsCreated.sort()).toEqual(["Appelant", "Appelé"]);
     expect(data.actors.map((a) => a[0])).toContain("Déjà là");
@@ -114,8 +114,8 @@ describe("migration depuis le format d'origine", () => {
   it("regroupe les consommations d'un même exposant dans un seul onglet", () => {
     const { data } = migrateLegacyWorkbook(
       legacyWorkbook([
-        lien({ "Composant source": "A", "Nom du flux": "F1" }),
-        lien({ "Composant source": "B", "Nom du flux": "F2" }),
+        link({ "Composant source": "A", "Nom du flux": "F1" }),
+        link({ "Composant source": "B", "Nom du flux": "F2" }),
       ])
     );
     expect(data.fx).toHaveLength(1);
@@ -126,7 +126,7 @@ describe("migration depuis le format d'origine", () => {
   // ses consommations partaient avec lui. Le nom est maintenant assaini : le
   // caractère interdit devient un tiret et tout est conservé.
   it("assainit l'onglet qu'Excel refuserait plutôt que d'y renoncer", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "OIDC/SSO" })]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({ "Type de flux": "OIDC/SSO" })]));
     expect(data.interfaces).toHaveLength(1);
     expect(data.fx.map((o) => o.name)).toEqual(["FX_Appelé_OIDC-SSO"]);
   });
@@ -144,7 +144,7 @@ describe("migration legacy — colonnes version et état", () => {
     // Un acteur venu de Composants et un autre créé faute d'y figurer : les
     // deux chemins d'écriture des acteurs doivent être couverts.
     const { data } = migrateLegacyWorkbook(
-      legacyWorkbook([lien({})], [{ Groupe: "G1", Nom: "Appelant", Description: "d", Commentaires: "" }])
+      legacyWorkbook([link({})], [{ Groupe: "G1", Nom: "Appelant", Description: "d", Commentaires: "" }])
     );
     for (const row of data.interfaces) expect(row).toHaveLength(INTERFACE_COLUMNS.length);
     for (const tab of data.fx) {
@@ -164,7 +164,7 @@ describe("migration legacy — colonnes version et état", () => {
   // Le format d'origine ne connaît ni version ni état : on ne les invente pas,
   // §7.4 signalera les manques.
   it("leaves version empty rather than inventing it", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({})]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({})]));
     const result = buildModel(parseWorkbook(writeTemplate(data)));
     if (!result.ok) throw new Error("classeur migré illisible");
     expect(result.model.interfaces[0].version).toBe("");
@@ -172,7 +172,7 @@ describe("migration legacy — colonnes version et état", () => {
   });
 
   it("emits a workbook already at the current schema number", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({})]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({})]));
     const result = buildModel(parseWorkbook(writeTemplate(data)));
     if (!result.ok) throw new Error("classeur migré illisible");
     expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
@@ -203,7 +203,7 @@ describe("nom d'onglet FX_ — la même règle des deux côtés (migration et re
   ];
 
   it.each(casHostiles)("crée des deux côtés le même onglet quand le type %s", (_cas, type) => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": type })]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({ "Type de flux": type })]));
     expect(data.fx).toHaveLength(1);
     expect(isValidTabName(data.fx[0].name)).toBe(true);
 
@@ -216,7 +216,7 @@ describe("nom d'onglet FX_ — la même règle des deux côtés (migration et re
   });
 
   it("crée des deux côtés le même onglet pour un nom déjà valide", () => {
-    const { data } = migrateLegacyWorkbook(legacyWorkbook([lien({ "Type de flux": "HTTP" })]));
+    const { data } = migrateLegacyWorkbook(legacyWorkbook([link({ "Type de flux": "HTTP" })]));
     expect(data.fx.map((o) => o.name)).toEqual(["FX_Appelé_HTTP"]);
 
     const result = buildModel(parseWorkbook(writeTemplate(data)));

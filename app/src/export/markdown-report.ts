@@ -1,5 +1,5 @@
 import type { IntegrityReport } from "../integrity/checks";
-import { sectionsDuRapport } from "../render/integrity-report";
+import { reportSections } from "../render/integrity-report";
 
 // Le rapport hors de l'outil. Ce qu'on veut en emporter, ce n'est pas la mise
 // en page : c'est la liste des lignes à corriger, dans un format qui se colle
@@ -20,7 +20,7 @@ function count(n: number, singular: string, singularOrPlural: string): string | 
 //
 // L'échappement par contre-oblique rend le caractère tel quel : le nom reste
 // lisible et cherchable une fois le Markdown rendu.
-function texteInline(value: string): string {
+function inlineText(value: string): string {
   // Le souligné n'y est pas : à l'intérieur d'un mot il ne met rien en italique
   // (CommonMark), et l'échapper défigurerait tous les noms d'onglet FX_A_HTTP
   // que ce rapport cite en permanence.
@@ -38,12 +38,12 @@ const LIBELLE_GRAVITE: Record<string, [string, string]> = {
   info: ["point of information", "points of information"],
 };
 
-export function rapportEnMarkdown(
+export function reportToMarkdown(
   report: IntegrityReport,
-  nomClasseur: string,
+  workbookName: string,
   milestone: string | null
 ): string {
-  const rows: string[] = [`# Integrity report — ${nomClasseur}`, ""];
+  const rows: string[] = [`# Integrity report — ${workbookName}`, ""];
 
   // Les contrôles se lisent AU milestone affiché : sans lui, la list ne dit pas
   // de quel moment du workbook elle parle. Mais all ne s'y lisent pas -- ceux
@@ -59,7 +59,7 @@ export function rapportEnMarkdown(
   }
 
   // Une section empty rassure at l'écran ; collée dans un ticket, elle encombre.
-  const sections = sectionsDuRapport(report).filter((s) => s.items.length > 0);
+  const sections = reportSections(report).filter((s) => s.items.length > 0);
 
   if (sections.length === 0) {
     rows.push("Nothing to report.", "");
@@ -74,8 +74,8 @@ export function rapportEnMarkdown(
   rows.push(`${bilan.join(", ")}.`, "");
 
   for (const s of sections) {
-    rows.push(`## ${texteInline(s.title)} (${s.items.length})`, "", texteInline(s.description), "");
-    for (const item of s.items) rows.push(`- ${texteInline(item)}`);
+    rows.push(`## ${inlineText(s.title)} (${s.items.length})`, "", inlineText(s.description), "");
+    for (const item of s.items) rows.push(`- ${inlineText(item)}`);
     rows.push("");
   }
 

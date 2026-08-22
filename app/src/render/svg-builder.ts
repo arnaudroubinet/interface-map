@@ -5,19 +5,19 @@ import {
   truncatedName,
   nodeTextHeight,
   NAME_LINE_HEIGHT,
-  HAUTEUR_LIGNE_TYPE,
+  TYPE_LINE_HEIGHT,
   EMPTY_LINE_HEIGHT,
   DESC_LINE_HEIGHT,
-  HAUTEUR_PASTILLE,
+  CHIP_HEIGHT,
   chipWidth,
   subLabel as subLabelOf,
-  taillePastille,
+  chipSize,
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
 import {
   cheminArrondi,
   breakTheLine,
-  reculerPourLaPointe,
+  setBackForTheHead,
   segmentIntersectsRect,
   RAYON_ANGLE,
   type Point,
@@ -25,12 +25,12 @@ import {
 } from "./geometry";
 import { PAPER, INK, STROKE_WIDTH, CHANGE_COLOUR, styleOfNode } from "./node-styles";
 import { legendEntries, type LegendEntry, type LegendSample } from "./legend";
-import { buildTitleBlock, descriptionAccessible, titleBlockText, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
+import { buildTitleBlock, descriptionAccessible, titleBlockText, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 // La même pile que la page (index.html) : les constantes de largeur des
 // étiquettes sont calibrées dessus, un export en serif les met en défaut.
-const POLICE = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] {
   return document.createElementNS(SVG_NS, tag);
@@ -61,7 +61,7 @@ interface RenderEdge {
   criticality?: string;
   points: { x: number; y: number }[];
   // Centre de la pastille, placé par le moteur de layout.
-  labelCentre?: { x: number; y: number };
+  labelCentreOf?: { x: number; y: number };
   // Extrémités conservées : la contrainte d'obstacles s'applique APRÈS la
   // fusion, donc sur ces arêtes-là, et doit savoir quels nœuds sont
   // légitimement accostés. Un tronc de fusion n'a pas de nœud d'origine.
@@ -103,7 +103,7 @@ const DISTANCE_CONFLUENCE = 34;
 // -- sert à décider de quel côté un libellé risque le plus de se retrouver
 // dans un attroupement, pour le placer plutôt de l'autre côté.
 
-function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
+function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
   const groups = new Map<string, LayoutEdge[]>();
   for (const edge of edges) {
     // L'atténuation fait partie de la clé : un flux à transformer ne se
@@ -120,7 +120,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
 
   // Un flux dessiné tel quel, avec sa propre pointe.
   const alone = (edge: LayoutEdge) => {
-      result.push({ points: edge.points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
   for (const group of groups.values()) {
@@ -136,7 +136,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
       // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
       // le libellé plutôt du côté le moins encombré.
-      result.push({ points: edge.points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
+      result.push({ points: edge.points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
       continue;
     }
 
@@ -176,7 +176,7 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
       // Toutes les branches convergent vers la même confluence encombrée :
       // le libellé se place près de sa propre source, là où les branches sont
       // encore écartées les unes des autres (à leurs ports de sortie).
-      result.push({ points, labelCentre: edge.labelCentre, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
+      result.push({ points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
     }
 
     result.push({
@@ -212,7 +212,7 @@ function arrowGapFor(size: number): number {
   return Math.min(ARROW_GAP, size / 3);
 }
 
-function tailleDePointe(approachLength: number): number {
+function headSizeFor(approachLength: number): number {
   return HEAD_SIZES.find((t) => approachLength >= t + arrowGapFor(t)) ?? HEAD_SIZES[HEAD_SIZES.length - 1];
 }
 
@@ -220,7 +220,7 @@ function tailleDePointe(approachLength: number): number {
 // pointe. Deux retranchements, et oublier le second était l'erreur : le
 // segment brut d'ELK perd de la longueur dans l'arrondi du coude qui le
 // précède -- jusqu'à RAYON_ANGLE, ou la moitié du segment s'il est court.
-function longueurDApproche(edge: RenderEdge): number {
+function approachLengthOf(edge: RenderEdge): number {
   const p = edge.points;
   const [a, b] = edge.pulled ? [p[0], p[1]] : [p[p.length - 1], p[p.length - 2]];
   if (!a || !b) return 0;
@@ -240,7 +240,7 @@ function arrowMarkerId(colour: string, hollow = false, size = HEAD_SIZE): string
 function placeLabels(edges: RenderEdge[]): Map<RenderEdge, Point> {
   const placements = new Map<RenderEdge, Point>();
   for (const e of edges) {
-    if (e.label && e.labelCentre) placements.set(e, e.labelCentre);
+    if (e.label && e.labelCentreOf) placements.set(e, e.labelCentreOf);
   }
   return placements;
 }
@@ -264,7 +264,7 @@ function buildEdgeLabel(
   colourChip: boolean
 ): SVGGElement {
   const g = el("g");
-  const height = HAUTEUR_PASTILLE + (subText ? 10 : 0);
+  const height = CHIP_HEIGHT + (subText ? 10 : 0);
   const textY = subText ? cy - height / 2 + 9 : cy + 3.5;
   const offset = colourChip ? DISC_WIDTH : 0;
 
@@ -353,9 +353,9 @@ function buildEdgeElement(
     g.appendChild(tooltip);
   }
 
-  const headSize = tailleDePointe(longueurDApproche(edge));
+  const headSize = headSizeFor(approachLengthOf(edge));
   const drawnPoints = edge.arrow
-    ? reculerPourLaPointe(edge.points, headSize + arrowGapFor(headSize), edge.pulled === true)
+    ? setBackForTheHead(edge.points, headSize + arrowGapFor(headSize), edge.pulled === true)
     : edge.points;
   const pieces = breakTheLine(drawnPoints, labelRect ? [labelRect] : []);
 
@@ -568,7 +568,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     typeText.setAttribute("fill", blanc);
     typeText.textContent = `[${node.subtitle}${isExternal ? " · External" : ""}]`;
     g.appendChild(typeText);
-    cursor += HAUTEUR_LIGNE_TYPE;
+    cursor += TYPE_LINE_HEIGHT;
   }
 
   if (rows.length) cursor += EMPTY_LINE_HEIGHT;
@@ -649,7 +649,7 @@ function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, si
 // couvrent que les nœuds et leur tracé brut -- une fois les flux répartis en
 // enveloppe (jusque sur les faces haut/bas) et détournés, le dessin peut
 // largement déborder de ce cadre-là.
-const MARGE_CADRE = 24;
+const FRAME_MARGIN = 24;
 
 // Le gris de tout ce qui est secondaire. Pas un gris pâle : #6b7480 tenait
 // 4,74:1 sur blanc, à la limite du seuil et inconfortable en petit corps.
@@ -659,7 +659,7 @@ const DISC_RADIUS = 3.5;
 // Le disque plus son écart au texte : la place que taillePastille doit réserver.
 const DISC_WIDTH = DISC_RADIUS * 2 + 4;
 
-const ID_TITRE = "fx-titre";
+const TITLE_ID = "fx-titre";
 const DESC_ID = "fx-desc";
 
 function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<RenderEdge, Point>): { x0: number; y0: number; x1: number; y1: number } {
@@ -693,14 +693,14 @@ function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Ren
     // (ex. "Fichier + ETL (dépôt)") -- compter sa vraie largeur, pas juste ce point.
     const pos = labels.get(e);
     if (pos) {
-      const size = taillePastille(e.label, e.technology);
+      const size = chipSize(e.label, e.technology);
       expand(pos.x - size.width / 2, pos.y - size.height / 2);
       expand(pos.x + size.width / 2, pos.y + size.height / 2);
     }
   }
 
   if (!Number.isFinite(x0)) return { x0: 0, y0: 0, x1: 100, y1: 100 };
-  return { x0: x0 - MARGE_CADRE, y0: y0 - MARGE_CADRE, x1: x1 + MARGE_CADRE, y1: y1 + MARGE_CADRE };
+  return { x0: x0 - FRAME_MARGIN, y0: y0 - FRAME_MARGIN, x1: x1 + FRAME_MARGIN, y1: y1 + FRAME_MARGIN };
 }
 
 // --- Légende ---------------------------------------------------------------
@@ -807,7 +807,7 @@ export function buildGraphSvg(
   // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
   // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
   // les flux de même technologie vers une même cible.
-  const renderEdges = fusionnerParTechnologieVersCible(layout.edges);
+  const renderEdges = mergeByTechnologyToTarget(layout.edges);
   const labels = placeLabels(renderEdges);
 
   const bounds = computeBounds(layout.nodes, renderEdges, labels);
@@ -824,13 +824,13 @@ export function buildGraphSvg(
   const legendHeight = inputs.length ? LEGEND_PAD * 2 + inputs.length * LEGEND_LINE : 0;
 
   if (inputs.length) {
-    bounds.y1 += MARGE_CADRE + legendHeight;
+    bounds.y1 += FRAME_MARGIN + legendHeight;
     bounds.x0 = Math.min(bounds.x0, bounds.x1 - legendWidth);
   }
 
   // Le cartouche occupe une bande réservée au-dessus du dessin, comme la
   // légende occupe la sienne au-dessous.
-  if (context) bounds.y0 -= MARGE_CADRE + HAUTEUR_CARTOUCHE;
+  if (context) bounds.y0 -= FRAME_MARGIN + TITLE_BLOCK_HEIGHT;
 
   const width = bounds.x1 - bounds.x0;
   const height = bounds.y1 - bounds.y0;
@@ -840,7 +840,7 @@ export function buildGraphSvg(
   // Le fichier nomme sa police : hérité de la page, il retombait en serif dès
   // qu'on l'ouvrait seul, alors que les largeurs d'étiquettes sont calibrées
   // pour cette pile-là.
-  svg.setAttribute("font-family", POLICE);
+  svg.setAttribute("font-family", FONT);
   // Le viewBox pilote le CADRAGE (zoom, panoramique) ; width et height fixent
   // la taille d'affichage, qui reste celle du dessin. Étirer le SVG à la
   // largeur de la fenêtre a été essayé : tout tenait à l'écran, et plus rien
@@ -856,9 +856,9 @@ export function buildGraphSvg(
   // notoirement peu fiable en NVDA + Firefox.
   if (context) {
     svg.setAttribute("role", "img");
-    svg.setAttribute("aria-labelledby", `${ID_TITRE} ${DESC_ID}`);
+    svg.setAttribute("aria-labelledby", `${TITLE_ID} ${DESC_ID}`);
     const title = el("title");
-    title.setAttribute("id", ID_TITRE);
+    title.setAttribute("id", TITLE_ID);
     title.textContent = titleBlockText(context).title;
     svg.appendChild(title);
     const desc = el("desc");
@@ -874,7 +874,7 @@ export function buildGraphSvg(
     marqueurs.set(arrowMarkerId(colour, hollow, size), { colour, hollow, size });
   for (const e of renderEdges) {
     if (!e.arrow) continue;
-    declare(edgeColour(e, colorFor), e.pulled === true, tailleDePointe(longueurDApproche(e)));
+    declare(edgeColour(e, colorFor), e.pulled === true, headSizeFor(approachLengthOf(e)));
   }
   // La légende dessine ses propres échantillons fléchés : leur marqueur doit
   // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
@@ -890,14 +890,14 @@ export function buildGraphSvg(
   const background = rect(bounds.x0, bounds.y0, width, height, PAPER, "none", 0);
   svg.appendChild(background);
 
-  if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + MARGE_CADRE, bounds.y0 + MARGE_CADRE));
+  if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + FRAME_MARGIN, bounds.y0 + FRAME_MARGIN));
 
   // Rectangle occupé par chaque libellé : c'est là que son trait s'interrompt.
   const labelRect = (e: RenderEdge): Rect | null => {
-    const centre = labels.get(e);
-    if (!centre || !e.label) return null;
-    const t = taillePastille(e.label, e.technology);
-    return { x0: centre.x - t.width / 2, y0: centre.y - t.height / 2, x1: centre.x + t.width / 2, y1: centre.y + t.height / 2 };
+    const centreOf = labels.get(e);
+    if (!centreOf || !e.label) return null;
+    const t = chipSize(e.label, e.technology);
+    return { x0: centreOf.x - t.width / 2, y0: centreOf.y - t.height / 2, x1: centreOf.x + t.width / 2, y1: centreOf.y + t.height / 2 };
   };
 
   const edgeLayer = el("g");

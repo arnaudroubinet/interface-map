@@ -98,8 +98,8 @@ function explanatoryBlocks(
   const xs = layout.nodes.flatMap((n) => [n.x - n.width / 2, n.x + n.width / 2]);
   const ys = layout.nodes.flatMap((n) => [n.y - n.height / 2, n.y + n.height / 2]);
   if (xs.length === 0) return [];
-  const gauche = Math.min(...xs);
-  const bas = Math.max(...ys);
+  const left = Math.min(...xs);
+  const bottom = Math.max(...ys);
   const cells: string[] = [];
 
   const text = (id: string, value: string, x: number, y: number, l: number, h: number, style: string) =>
@@ -111,14 +111,14 @@ function explanatoryBlocks(
 
   const yCartouche = Math.min(...ys) - 64;
   const header = context ? titleBlockText(context) : { title, subtitle: "" };
-  text("cartouche_t", header.title, gauche, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
+  text("cartouche_t", header.title, left, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
   if (header.subtitle) {
-    text("cartouche_s", header.subtitle, gauche, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
+    text("cartouche_s", header.subtitle, left, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
   }
 
   const inputs = legendEntries(layout.edges, layout.nodes, technologyColour);
   inputs.forEach((input, i) => {
-    const y = bas + 48 + i * 22;
+    const y = bottom + 48 + i * 22;
     const e = input.sample;
     if (e.shape === "line") {
       const style = [
@@ -130,21 +130,21 @@ function explanatoryBlocks(
       ].join(";");
       cells.push(
         `        <mxCell id="${cellule(`legende_${i}`)}" style="${style}" edge="1" parent="${cellule("1")}">`,
-        `          <mxGeometry relative="1" as="geometry"><mxPoint x="${Math.round(gauche)}" y="${Math.round(y)}" as="sourcePoint" /><mxPoint x="${Math.round(gauche + 34)}" y="${Math.round(y)}" as="targetPoint" /></mxGeometry>`,
+        `          <mxGeometry relative="1" as="geometry"><mxPoint x="${Math.round(left)}" y="${Math.round(y)}" as="sourcePoint" /><mxPoint x="${Math.round(left + 34)}" y="${Math.round(y)}" as="targetPoint" /></mxGeometry>`,
         "        </mxCell>"
       );
     } else {
       text(
         `legende_${i}`,
         "",
-        gauche,
+        left,
         y - 6,
         34,
         12,
         `rounded=0;html=1;fillColor=${e.fill};strokeColor=${e.stroke}${e.dashed ? ";dashed=1" : ""}`
       );
     }
-    text(`legende_t_${i}`, input.text, gauche + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
+    text(`legende_t_${i}`, input.text, left + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
   });
 
   return cells;

@@ -8,7 +8,7 @@ import { applyOoxmlExtras, type TableToApply } from "./xlsx-tables";
 
 // Un classeur minimal, juste assez pour que poserLesTableaux trouve les
 // feuilles qu'on lui demande de compléter.
-function classeurMinimal(sheets: readonly string[]): ArrayBuffer {
+function minimalWorkbook(sheets: readonly string[]): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   for (const name of sheets) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Flow name"], ["a"]]), name);
@@ -43,14 +43,14 @@ describe("poserLesTableaux — collision de noms de tableau", () => {
   }));
 
   it("donne un displayName distinct à deux feuilles qui s'assainissent à l'identique", () => {
-    const paquet = applyOoxmlExtras(classeurMinimal(sheets), { tables });
+    const paquet = applyOoxmlExtras(minimalWorkbook(sheets), { tables });
     const names = displayNamesDesTables(paquet);
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(2);
   });
 
   it("nomme les tableaux de façon stable d'une génération à l'autre", () => {
-    const brut = classeurMinimal(sheets);
+    const brut = minimalWorkbook(sheets);
     const premier = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
     const second = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
     expect(second).toEqual(premier);

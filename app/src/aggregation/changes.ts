@@ -1,6 +1,6 @@
 import type { ParsedModel } from "../parsing/model";
 import { interfaceLabel, type GraphEdge, type Mode } from "./core";
-import { flowsForReading, reading as lectureDuMode } from "./reading";
+import { flowsForReading, reading as readingOfMode } from "./reading";
 import { buildPlatformDetailView, type ViewResult } from "./views";
 import { lifespanOf, isLiveAt } from "./milestones";
 
@@ -68,8 +68,8 @@ export function computeChanges(model: ParsedModel, rankBefore: number, rankAfter
 // to read than it is worth.
 export function buildEcartsView(model: ParsedModel, rankBefore: number, rankAfter: number, mode: Mode): ViewResult {
   const options = { counters: true };
-  const before = buildPlatformDetailView(model, lectureDuMode(model, rankBefore, mode), options);
-  const after = buildPlatformDetailView(model, lectureDuMode(model, rankAfter, mode), options);
+  const before = buildPlatformDetailView(model, readingOfMode(model, rankBefore, mode), options);
+  const after = buildPlatformDetailView(model, readingOfMode(model, rankAfter, mode), options);
 
   // A link carries the DELTA of its volume, not the volume: what changed is
   // the subject. Without this, a link going from six flows to four stayed an

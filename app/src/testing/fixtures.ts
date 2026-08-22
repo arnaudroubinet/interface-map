@@ -51,7 +51,7 @@ export function actorType(o: Partial<ActorType> = {}): ActorType {
   return { type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0, ...o };
 }
 
-export function typeFlux(o: Partial<FlowType> = {}): FlowType {
+export function flowType(o: Partial<FlowType> = {}): FlowType {
   return {
     type: "HTTP",
     direction: "consumer-to-provider",

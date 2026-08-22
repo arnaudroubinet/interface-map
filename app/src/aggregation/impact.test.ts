@@ -5,11 +5,11 @@ import type { FlowInstance } from "./core";
 
 // A fournit B, B fournit C, D fournit A. Le sens de la DÉPENDANCE va donc de
 // B vers A : B a besoin de A.
-const lien = (provider: string, consumer: string): FlowInstance =>
+const link = (provider: string, consumer: string): FlowInstance =>
   ({ provider, consumer, interfaceName: "F", version: "", flowType: "HTTP", direction: "provider-to-consumer",
      attenuated: false, iface: base.iface(), consumption: base.consumption() }) as FlowInstance;
 
-const estate = [lien("A", "B"), lien("B", "C"), lien("D", "A")];
+const estate = [link("A", "B"), link("B", "C"), link("D", "A")];
 
 describe("rayon", () => {
   it("compte le départ à zéro saut", () => {
@@ -33,14 +33,14 @@ describe("rayon", () => {
   // Un cycle ne doit pas boucler : le classeur d'exemple en contient un, à
   // quatre composants, signalé par les contrôles.
   it("termine sur un cycle", () => {
-    const loop = [lien("A", "B"), lien("B", "A")];
+    const loop = [link("A", "B"), link("B", "A")];
     expect(radius(loop, "A", "downstream").get("B")).toBe(1);
   });
 
   // La distance doit être la PLUS COURTE : un parcours en profondeur donnerait
   // 2 sauts là où il y en a 1, dès qu'un chemin long arrive avant le court.
   it("rend la distance la plus courte quand deux chemins mènent au même", () => {
-    const diamond = [lien("A", "B"), lien("A", "C"), lien("B", "D"), lien("C", "D"), lien("D", "E")];
+    const diamond = [link("A", "B"), link("A", "C"), link("B", "D"), link("C", "D"), link("D", "E")];
     const r = radius(diamond, "A", "downstream");
     expect(r.get("D")).toBe(2);
     expect(r.get("E")).toBe(3);

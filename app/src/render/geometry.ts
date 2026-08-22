@@ -179,12 +179,12 @@ export function segmentIntersectsRect(a: Point, b: Point, r: Rect): boolean {
 // La pointe d'un trait tiré est à son DÉPART : c'est donc là qu'il faut lui
 // réserver sa place, sans quoi elle se dessinerait par-dessus la boîte de
 // départ au lieu de l'aborder.
-export function reculerPourLaPointe(points: Point[], length: number, pulled: boolean): Point[] {
-  if (!pulled) return pointsAvantPointe(points, length);
-  return pointsAvantPointe([...points].reverse(), length).reverse();
+export function setBackForTheHead(points: Point[], length: number, pulled: boolean): Point[] {
+  if (!pulled) return pointsBeforeHead(points, length);
+  return pointsBeforeHead([...points].reverse(), length).reverse();
 }
 
-export function pointsAvantPointe(points: Point[], length: number): Point[] {
+export function pointsBeforeHead(points: Point[], length: number): Point[] {
   const n = points.length;
   const penultimate = points[n - 2];
   const dernier = points[n - 1];

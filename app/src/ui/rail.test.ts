@@ -39,7 +39,7 @@ const modelWithFlows: ParsedModel = {
     { type: "Application", icon: "", nature: "Business", sheet: "ActorTypes", row: 0 },
     { type: "Middleware", icon: "", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ],
-  flowTypes: [base.typeFlux({ type: "HTTP" })],
+  flowTypes: [base.flowType({ type: "HTTP" })],
   milestones: [],
   interfaces: [iface({}), iface({ flowName: "F2", providerName: "Bus", expectedSheet: "FX_Bus_HTTP" })],
   consumptions: [
@@ -88,7 +88,7 @@ const callbacks: RailCallbacks = {
   onRoadmapSubject: noop,
   onWeightByCriticality: noop,
   onDisplayedMilestone: noop,
-  onPalierCompare: noop,
+  onComparedMilestone: noop,
   onCounterOption: noop,
   onEdgeLabel: noop,
   onMatrixOrder: noop,
@@ -105,7 +105,7 @@ const callbacks: RailCallbacks = {
   onMigrationLegacy: noop,
 };
 
-function optionsActeur(root: HTMLElement): string[] {
+function actorOptions(root: HTMLElement): string[] {
   return [...root.querySelectorAll(".rail-select option")].map((o) => o.textContent ?? "");
 }
 
@@ -114,7 +114,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
     const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
-    expect(optionsActeur(root)).toContain("Bus");
+    expect(actorOptions(root)).toContain("Bus");
   });
 
   // §5.2 : le sélecteur ne liste que les acteurs métier en fonctionnel.
@@ -125,7 +125,7 @@ describe("renderRail — sélecteur « par acteur »", () => {
     );
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
-    const options = optionsActeur(root);
+    const options = actorOptions(root);
     expect(options).toContain("Tatooine");
     expect(options).not.toContain("Bus");
   });
@@ -200,7 +200,7 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
     ],
     groups: [base.group({ name: "G" })],
     actorTypes: [base.actorType()],
-    flowTypes: [base.typeFlux()],
+    flowTypes: [base.flowType()],
     milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
     interfaces: [base.iface({ flowName: "F", providerName: "Bbb", expectedSheet: "FX_Bbb_HTTP" })],
     consumptions: [base.consumption({ flowName: "F", consumerName: "Aaa", sheet: "FX_Bbb_HTTP" })],

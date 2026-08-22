@@ -1,17 +1,17 @@
 import type { Roadmap } from "../aggregation/roadmap";
 import { INK, PAPER, styleOfNode } from "./node-styles";
-import { buildTitleBlock, HAUTEUR_CARTOUCHE, type DiagramContext } from "./title-block";
+import { buildTitleBlock, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-const POLICE = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
+const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 // Une grille, pas un graphe : un axe, une ligne par sujet. Passer par le moteur
 // de placement coûterait cher et donnerait un moins bon résultat -- il n'a rien
 // à placer ici, tout est déterminé par le rang du palier.
 const MARGE = 24;
-const LARGEUR_LIBELLE = 300;
-const LARGEUR_PALIER = 150;
-const HAUTEUR_LIGNE = 26;
+const LABEL_WIDTH = 300;
+const MILESTONE_WIDTH = 150;
+const LINE_HEIGHT = 26;
 const HEADER_HEIGHT = 44;
 const SECONDARY_GREY = "#39424f";
 
@@ -33,18 +33,18 @@ function text(x: number, y: number, content: string, size: number, colour: strin
 export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null, context: DiagramContext | null): SVGSVGElement {
   const svg = el("svg");
   svg.setAttribute("xmlns", SVG_NS);
-  svg.setAttribute("font-family", POLICE);
+  svg.setAttribute("font-family", FONT);
   svg.setAttribute("class", "fx-roadmap");
 
   const ranks = timeline.milestones.map((p) => p.rank);
-  const rangMin = ranks.length ? Math.min(...ranks) : 0;
+  const minRank = ranks.length ? Math.min(...ranks) : 0;
   // Une colonne de plus à droite : c'est là que se dessine « toujours là ».
-  const columns = ranks.length ? Math.max(...ranks) - rangMin + 2 : 1;
-  const x = (rank: number) => MARGE + LARGEUR_LIBELLE + (rank - rangMin) * LARGEUR_PALIER;
+  const columns = ranks.length ? Math.max(...ranks) - minRank + 2 : 1;
+  const x = (rank: number) => MARGE + LABEL_WIDTH + (rank - minRank) * MILESTONE_WIDTH;
 
-  const topOfLines = MARGE + (context ? HAUTEUR_CARTOUCHE : 0) + HEADER_HEIGHT;
-  const width = MARGE * 2 + LARGEUR_LIBELLE + columns * LARGEUR_PALIER;
-  const height = topOfLines + timeline.segments.length * HAUTEUR_LIGNE + MARGE;
+  const topOfLines = MARGE + (context ? TITLE_BLOCK_HEIGHT : 0) + HEADER_HEIGHT;
+  const width = MARGE * 2 + LABEL_WIDTH + columns * MILESTONE_WIDTH;
+  const height = topOfLines + timeline.segments.length * LINE_HEIGHT + MARGE;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
@@ -77,15 +77,15 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
 
   const style = styleOfNode({ kind: "actor", external: false });
   timeline.segments.forEach((s, i) => {
-    const y = topOfLines + i * HAUTEUR_LIGNE;
+    const y = topOfLines + i * LINE_HEIGHT;
     svg.appendChild(text(MARGE, y + 14, s.label, 12, INK));
 
-    const gauche = x(s.start);
+    const left = x(s.start);
     const right = x(s.end);
     const toolbar = el("rect");
-    toolbar.setAttribute("x", String(gauche));
+    toolbar.setAttribute("x", String(left));
     toolbar.setAttribute("y", String(y + 4));
-    toolbar.setAttribute("width", String(Math.max(6, right - gauche)));
+    toolbar.setAttribute("width", String(Math.max(6, right - left)));
     toolbar.setAttribute("height", "14");
     toolbar.setAttribute("rx", "4");
     toolbar.setAttribute("fill", style.fill);

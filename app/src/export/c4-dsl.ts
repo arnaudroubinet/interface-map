@@ -37,7 +37,7 @@ const text = (v: string) => v.trim().replace(/"/g, "'");
 // Une relation C4 n'a qu'un sens : l'initiative ne peut pas s'y dessiner comme
 // une pointe posée à l'autre bout. Elle passe donc en étiquette, où elle reste
 // lisible et filtrable.
-function sensDuFlux(f: FlowInstance): { de: string; vers: string } {
+function flowDirection(f: FlowInstance): { de: string; vers: string } {
   return { de: f.provider, vers: f.consumer };
 }
 
@@ -49,7 +49,7 @@ const ETIQUETTE_TIRE = "Pulled";
 // Structurizr accepte (Box, RoundedBox, Circle, Ellipse, Hexagon, Diamond,
 // Cylinder, Bucket, Pipe, Person, Robot, Folder, WebBrowser, Window,
 // Terminal, Shell, MobileDevicePortrait, MobileDeviceLandscape, Component).
-const FORME_PAR_TYPE: Record<string, string> = {
+const SHAPE_BY_TYPE: Record<string, string> = {
   queue: "Pipe",
   topic: "Pipe",
   broker: "Pipe",
@@ -77,7 +77,7 @@ function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): F
 export function modelToStructurizr(
   model: ParsedModel,
   rank: number | null,
-  nomClasseur: string,
+  workbookName: string,
   milestone: string | null = null,
   // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
   // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs,
@@ -86,7 +86,7 @@ export function modelToStructurizr(
 ): string {
   const actors = liveActors(model, rank);
   const ids = identifiers(actors.map((a) => a.name.trim()));
-  const name = nomClasseur.replace(/\.(xlsx|xlsm)$/i, "");
+  const name = workbookName.replace(/\.(xlsx|xlsm)$/i, "");
 
   const fonctionnel = mode === "functional";
   const rows: string[] = [
@@ -140,10 +140,10 @@ export function modelToStructurizr(
   // Deux consommations d'un même contrat par le même acteur ne font qu'un lien.
   // La technologie sert deux fois : dite sur le lien pour qu'on la lise, posée
   // en étiquette pour que la vue par technologie sache le retrouver.
-  const liens = new Set<string>();
+  const links = new Set<string>();
   const flows = exportableFlows(model, rank, mode);
   for (const f of flows) {
-    const { de, vers } = sensDuFlux(f);
+    const { de, vers } = flowDirection(f);
     const source = ids.get(de.trim());
     const target = ids.get(vers.trim());
     if (!source || !target) continue;
@@ -179,9 +179,9 @@ export function modelToStructurizr(
       ])
     );
     body.push("        }");
-    liens.add(body.join("\n"));
+    links.add(body.join("\n"));
   }
-  rows.push(...[...liens].sort((a, b) => a.localeCompare(b, "fr")));
+  rows.push(...[...links].sort((a, b) => a.localeCompare(b, "fr")));
 
   rows.push("    }", "", "    views {", ...views(model, actors, ids, flows, milestone), "", "        styles {");
   rows.push('            element "External" {', "                background #6E6579", "                color #ffffff", "            }");
@@ -194,7 +194,7 @@ export function modelToStructurizr(
   // et un type inconnu reste une boîte plutôt que de recevoir une forme au
   // hasard.
   for (const t of model.actorTypes) {
-    const shape = FORME_PAR_TYPE[normalizeText(t.type)];
+    const shape = SHAPE_BY_TYPE[normalizeText(t.type)];
     if (!shape) continue;
     rows.push(`            element "${text(t.type)}" {`, `                shape ${shape}`, "            }");
   }
@@ -240,14 +240,14 @@ function views(
     "        }",
   ];
 
-  const auPalier = milestone ? ` — milestone ${milestone}` : "";
-  const rows = [...view('systemLandscape "landscape"', `System landscape${auPalier}`, "*")];
+  const atMilestone = milestone ? ` — milestone ${milestone}` : "";
+  const rows = [...view('systemLandscape "landscape"', `System landscape${atMilestone}`, "*")];
 
   // Le même prédicat que les schémas : comparé en strict ici, un groupe saisi
   // « platform » était une plateforme à l'écran et n'en était plus une dans le
   // fichier C4, où la vue dédiée disparaissait sans un mot.
   if (model.groups.some((g) => groupIsPlatform(model, g.name))) {
-    rows.push(...view('systemLandscape "platform-only"', `Platform only${auPalier}`, '"element.tag==Platform"'));
+    rows.push(...view('systemLandscape "platform-only"', `Platform only${atMilestone}`, '"element.tag==Platform"'));
   }
 
   const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort((a, b) => a.localeCompare(b, "fr"));
@@ -256,7 +256,7 @@ function views(
     rows.push(
       ...view(
         `systemLandscape "tech-${keys.get(tech)!.replace(/_/g, "-")}"`,
-        `${tech} flows${auPalier}`,
+        `${tech} flows${atMilestone}`,
         `"relationship.tag==${text(tech)}"`
       )
     );
@@ -272,7 +272,7 @@ function views(
   for (const a of actors.filter((x) => touched.has(x.name.trim()) && !isAPerson(x))) {
     const id = ids.get(a.name.trim())!;
     rows.push(
-      ...view(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.name.trim()} — inbound and outbound${auPalier}`, "*")
+      ...view(`systemContext ${id} "actor-${id.replace(/_/g, "-")}"`, `${a.name.trim()} — inbound and outbound${atMilestone}`, "*")
     );
   }
 

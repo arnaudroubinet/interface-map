@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { buildFunctionalFlows, chainesCoupees, lectureUnion } from "./reading";
+import { buildFunctionalFlows, chainesCoupees, unionReading } from "./reading";
 import type { ParsedModel, Actor, ActorType, InterfaceCatalogue, Consumption, Milestone } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -29,7 +29,7 @@ const TYPES: ActorType[] = [
 ];
 
 function model(o: Partial<ParsedModel> = {}): ParsedModel {
-  return base.template({ actorTypes: TYPES, flowTypes: [base.typeFlux()], ...o });
+  return base.template({ actorTypes: TYPES, flowTypes: [base.flowType()], ...o });
 }
 
 // Tatooine ─► Bus ─► Naboo, le bus étant technique.
@@ -105,8 +105,8 @@ describe("buildFunctionalFlows", () => {
         consumption("trx.norm", "Naboo", "Bus"), consumption("ref.norm", "Coruscant", "Bus"),
       ],
     });
-    const liens = buildFunctionalFlows(m, null).map((f) => `${f.provider}→${f.consumer}`).sort();
-    expect(liens).toEqual(["Alderaan→Coruscant", "Tatooine→Naboo"]);
+    const links = buildFunctionalFlows(m, null).map((f) => `${f.provider}→${f.consumer}`).sort();
+    expect(links).toEqual(["Alderaan→Coruscant", "Tatooine→Naboo"]);
   });
 
   it("produit un lien par consommateur métier en diffusion", () => {
@@ -334,7 +334,7 @@ describe("lectureUnion", () => {
       milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
       groups: [base.group({ name: "G" })],
       actorTypes: [base.actorType()],
-      flowTypes: [base.typeFlux()],
+      flowTypes: [base.flowType()],
       fxSheetNames: ["FX_A_HTTP"],
       actors: [
         base.actor({ name: "A", introducedAt: "v1" }),
@@ -349,11 +349,11 @@ describe("lectureUnion", () => {
     });
 
   it("réunit les acteurs de tous les paliers, y compris ceux qui arrivent plus tard", () => {
-    expect(lectureUnion(estate(), "architecture").actors.map((a) => a.name).sort()).toEqual(["A", "B", "Tardif"]);
+    expect(unionReading(estate(), "architecture").actors.map((a) => a.name).sort()).toEqual(["A", "B", "Tardif"]);
   });
 
   it("réunit les flux de tous les paliers, y compris ceux qui disparaissent", () => {
-    const consumers = lectureUnion(estate(), "architecture").flows.map((f) => f.consumer).sort();
+    const consumers = unionReading(estate(), "architecture").flows.map((f) => f.consumer).sort();
     expect(consumers).toEqual(["B", "Tardif"]);
   });
 
@@ -362,13 +362,13 @@ describe("lectureUnion", () => {
   it("ne double pas un flux vivant à plusieurs paliers", () => {
     const m = estate();
     m.consumptions[0].retiredAt = "";
-    expect(lectureUnion(m, "architecture").flows).toHaveLength(2);
+    expect(unionReading(m, "architecture").flows).toHaveLength(2);
   });
 
   // Un classeur sans palier n'a rien à réunir : la lecture ordinaire suffit,
   // et fabriquer une union vide effacerait tout le parc.
   it("retombe sur la lecture ordinaire quand le classeur ne déclare aucun palier", () => {
     const m = base.template({ ...estate(), milestones: [] });
-    expect(lectureUnion(m, "architecture").actors).toHaveLength(3);
+    expect(unionReading(m, "architecture").actors).toHaveLength(3);
   });
 });

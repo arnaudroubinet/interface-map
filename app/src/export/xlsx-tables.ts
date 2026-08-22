@@ -50,7 +50,7 @@ export interface TableToApply {
   rows: number;
   // Colonnes calculées, par intitulé : Excel recopie la formule sur chaque
   // ligne ajoutée au tableau, et la restaure si on la remplace par une saisie.
-  formuleParColonne?: Readonly<Record<string, string>>;
+  formulaByColumn?: Readonly<Record<string, string>>;
   // Position (0 = A) de la première colonne du tableau sur la feuille. Permet
   // à plusieurs tableaux de cohabiter côte à côte sur une même feuille --
   // Listes en pose un par vocabulaire, chacun dimensionné à son seul contenu,
@@ -299,16 +299,16 @@ function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, n
 
   let nextFont = nbPolices;
   let nextFill = nbFonds;
-  const policeDe: Record<string, number> = {};
-  const fondDe: Record<string, number> = {};
+  const fontOf: Record<string, number> = {};
+  const fillOf: Record<string, number> = {};
   const policesXml: string[] = [];
   const fondsXml: string[] = [];
   for (const role of ROLES) {
-    policeDe[role] = nextFont++;
+    fontOf[role] = nextFont++;
     policesXml.push(ADDED_FONTS[role]);
     const fill = ADDED_FILLS[role];
     if (fill) {
-      fondDe[role] = nextFill++;
+      fillOf[role] = nextFill++;
       fondsXml.push(fill);
     }
   }
@@ -317,7 +317,7 @@ function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, n
   const xfsXml: string[] = [];
   ROLES.forEach((role, i) => {
     index[role] = nbXf + i;
-    xfsXml.push(xfForRole(role, policeDe[role], fondDe[role] ?? null));
+    xfsXml.push(xfForRole(role, fontOf[role], fillOf[role] ?? null));
   });
 
   const xml = styles
@@ -335,8 +335,8 @@ function applyTheStyles(sheet: string, parCellule: Map<string, number>): string 
   return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, ref: string, attributs: string, closed: string) => {
     const style = parCellule.get(ref);
     if (style === undefined) return tout;
-    const sansStyle = attributs.replace(/\s+s="\d+"/, "");
-    return `<c r="${ref}"${sansStyle} s="${style}"${closed}>`;
+    const withoutStyle = attributs.replace(/\s+s="\d+"/, "");
+    return `<c r="${ref}"${withoutStyle} s="${style}"${closed}>`;
   });
 }
 
@@ -377,18 +377,18 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   // pose un par vocabulaire (colonneDépart) -- et ne doivent y laisser qu'un
   // seul <tableParts>, qu'un seul jeu de relations : on groupe donc par
   // feuille plutôt que de traiter chaque tableau isolément.
-  const parFeuille = new Map<string, TableToApply[]>();
+  const bySheet = new Map<string, TableToApply[]>();
   for (const table of tables) {
-    const list = parFeuille.get(table.sheet) ?? [];
+    const list = bySheet.get(table.sheet) ?? [];
     list.push(table);
-    parFeuille.set(table.sheet, list);
+    bySheet.set(table.sheet, list);
   }
 
   let idTable = 0;
   const nomParTableau = new Map<TableToApply, string>();
   const usedNames = new Set<string>();
 
-  for (const [sheetName, tableauxDeLaFeuille] of parFeuille) {
+  for (const [sheetName, tablesOfSheet] of bySheet) {
     const index = names.indexOf(sheetName);
     if (index < 0) throw new Error(`sheet "${sheetName}" absente du workbook`);
 
@@ -409,7 +409,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     let lastSheetRow = initialExtent.row;
     let lastSheetColumnIndex = initialExtent.columnIdx;
 
-    for (const table of tableauxDeLaFeuille) {
+    for (const table of tablesOfSheet) {
       idTable += 1;
       const startColumn = table.startColumn ?? 0;
       // Un tableau couvre son en-tête ET au moins une ligne : c'est ce qu'Excel
@@ -421,7 +421,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       // colonnes -- nomDeTableau(feuille) seul retomberait sur le même nom
       // pour chacun.
       let name =
-        tableauxDeLaFeuille.length > 1
+        tablesOfSheet.length > 1
           ? nomDeTableau(sheetName, table.columns.join("_"))
           : nomDeTableau(sheetName);
       // Deux feuilles différentes peuvent s'assainir au même nom -- deux types
@@ -442,7 +442,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       writePart(
         cfb,
         `/xl/tables/table${idTable}.xml`,
-        xmlDuTableau(idTable, name, ref, table.columns, table.formuleParColonne)
+        xmlDuTableau(idTable, name, ref, table.columns, table.formulaByColumn)
       );
       relations.push(`<Relationship Id="rId${relations.length + 1}" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>`);
 
@@ -513,13 +513,13 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     if (!stylesXml) throw new Error("classeur illisible : xl/styles.xml absent");
     const { xml, index } = addTheStyles(stylesXml);
     writePart(cfb, "/xl/styles.xml", xml);
-    const parFeuilleStyle = new Map<string, Map<string, number>>();
-    for (const mise of styles) {
-      const map = parFeuilleStyle.get(mise.sheet) ?? new Map<string, number>();
-      for (const cellule of mise.cells) map.set(cellule, index[mise.role]);
-      parFeuilleStyle.set(mise.sheet, map);
+    const styleBySheet = new Map<string, Map<string, number>>();
+    for (const style of styles) {
+      const map = styleBySheet.get(style.sheet) ?? new Map<string, number>();
+      for (const cellule of style.cells) map.set(cellule, index[style.role]);
+      styleBySheet.set(style.sheet, map);
     }
-    for (const [sheetName, map] of parFeuilleStyle) {
+    for (const [sheetName, map] of styleBySheet) {
       const i = names.indexOf(sheetName);
       if (i < 0) throw new Error(`sheet "${sheetName}" absente du workbook`);
       const path = `/xl/worksheets/sheet${i + 1}.xml`;

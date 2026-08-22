@@ -29,7 +29,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
-      base.typeFlux({ type: "HTTP" }),
+      base.flowType({ type: "HTTP" }),
     ],
     interfaces: [iface({})],
     consumptions: [consumption({})],
@@ -76,7 +76,7 @@ describe("modeleEnStructurizr", () => {
   it("keeps the same direction whichever way the flow type reads", () => {
     const m = model({
       flowTypes: [
-        base.typeFlux({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
+        base.flowType({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
       ],
     });
     const dsl = modelToStructurizr(m, null, "carto.xlsx");
@@ -196,7 +196,7 @@ describe("modeleEnStructurizr", () => {
     const m = model({
       flowTypes: [
         ...model().flowTypes,
-        base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider \u2192 consumer" }),
+        base.flowType({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider \u2192 consumer" }),
       ],
     });
     expect(modelToStructurizr(m, null, "carto.xlsx")).not.toContain("tech-kafka");
@@ -214,7 +214,7 @@ describe("modeleEnStructurizr — sens de la relation", () => {
   const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "Fournisseur" }), actor({ name: "Appelant" })],
-      flowTypes: [base.typeFlux({ direction, rawDirection: "" })],
+      flowTypes: [base.flowType({ direction, rawDirection: "" })],
       interfaces: [iface({ providerName: "Fournisseur" })],
       consumptions: [consumption({ consumerName: "Appelant" })],
     });
@@ -303,7 +303,7 @@ describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
   });
 
   it("ne style pas Pulled quand aucun flux ne l'est", () => {
-    const pushed = model({ flowTypes: [base.typeFlux({ type: "HTTP", direction: "provider-to-consumer" })] });
+    const pushed = model({ flowTypes: [base.flowType({ type: "HTTP", direction: "provider-to-consumer" })] });
     expect(modelToStructurizr(pushed, null, "carto.xlsx")).not.toContain('relationship "Pulled"');
   });
 

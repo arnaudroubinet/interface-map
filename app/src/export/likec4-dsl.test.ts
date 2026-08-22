@@ -29,7 +29,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     actorTypes: [{ type: "Application", icon: "app-window", nature: "", sheet: "ActorTypes", row: 0 }],
     milestones: [],
     flowTypes: [
-      base.typeFlux({ type: "HTTP" }),
+      base.flowType({ type: "HTTP" }),
     ],
     interfaces: [iface({})],
     consumptions: [consumption({})],
@@ -79,7 +79,7 @@ describe("modeleEnLikeC4", () => {
   it("follows the flow type the other way round when it says so", () => {
     const m = model({
       flowTypes: [
-        base.typeFlux({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
+        base.flowType({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
       ],
     });
     expect(modelToLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
@@ -182,7 +182,7 @@ describe("modeleEnLikeC4", () => {
 // SEULE cible qui sache la dessiner.
 describe("modeleEnLikeC4 — la notation traverse l'export", () => {
   const estate = (direction: "consumer-to-provider" | "provider-to-consumer") =>
-    model({ flowTypes: [base.typeFlux({ type: "HTTP", direction: direction })] });
+    model({ flowTypes: [base.flowType({ type: "HTTP", direction: direction })] });
 
   it("pose une pointe ouverte sur une technologie tirée", () => {
     expect(modelToLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
@@ -199,7 +199,7 @@ describe("modeleEnLikeC4 — la notation traverse l'export", () => {
   });
 
   it("donne à la relation la couleur que la technologie a dans l'outil", () => {
-    const m = model({ flowTypes: [base.typeFlux({ type: "HTTP", colour: "#1f5fae" })] });
+    const m = model({ flowTypes: [base.flowType({ type: "HTTP", colour: "#1f5fae" })] });
     expect(modelToLikeC4(m, null)).toMatch(/relationship http \{[\s\S]*?color #1f5fae/);
   });
 

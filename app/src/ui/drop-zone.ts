@@ -6,7 +6,7 @@ import { el } from "../shared/dom";
 // C'est le mot exact que la cible de dépôt principale (app.ts) emploie pour
 // le même échec ; nommé ici pour que la fenêtre de migration le reprenne au
 // lieu d'en inventer un second.
-export const MESSAGE_CLASSEUR_ILLISIBLE = "Workbook unreadable or corrupted.";
+export const UNREADABLE_WORKBOOK_MESSAGE = "Workbook unreadable or corrupted.";
 
 export function buildDropTarget(onDownloadSample: () => void, onAide: () => void): HTMLElement {
   const button = el("button", { class: "export-button" }, ["Open a sample workbook"]);

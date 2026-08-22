@@ -1,6 +1,6 @@
 import { el, clear } from "../shared/dom";
-import { wireDropZone, MESSAGE_CLASSEUR_ILLISIBLE } from "./drop-zone";
-import { type RapportMigration } from "../export/legacy-upgrade";
+import { wireDropZone, UNREADABLE_WORKBOOK_MESSAGE } from "./drop-zone";
+import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
 import { downloadWorkbook } from "../export/download";
@@ -13,7 +13,7 @@ import { runIntegrityChecks } from "../integrity/checks";
 // qu'on ne puisse pas confondre « je veux voir ce fichier » et « je veux le
 // convertir » -- les deux prennent un .xlsx et n'en font pas la même chose.
 
-function row(report: RapportMigration): string[] {
+function row(report: MigrationReport): string[] {
   const points: string[] = [];
   if (report.actorsCreated.length > 0) {
     points.push(
@@ -94,7 +94,7 @@ export function openMigration(): void {
             ])
           );
         }
-        const points = repair.rapportLegacy ? row(repair.rapportLegacy) : [];
+        const points = repair.legacyReport ? row(repair.legacyReport) : [];
         if (points.length > 0) {
           const list = el("ul", { class: "migration-list" });
           for (const p of points) list.appendChild(el("li", {}, [p]));
@@ -111,7 +111,7 @@ export function openMigration(): void {
         // principale sur le même échec (§ fondateur : jamais de fausse cause).
         console.error(err);
         message.className = "drop-target-text error-message";
-        message.textContent = MESSAGE_CLASSEUR_ILLISIBLE;
+        message.textContent = UNREADABLE_WORKBOOK_MESSAGE;
       });
   };
 

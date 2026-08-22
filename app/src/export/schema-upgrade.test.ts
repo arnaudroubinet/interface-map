@@ -17,7 +17,7 @@ function originalModel(): ParsedModel {
     ],
     groups: [base.group({ name: "Socle" }), base.group({ name: "Ryloth", perimeter: "External" })],
     actorTypes: [base.actorType()],
-    flowTypes: [base.typeFlux()],
+    flowTypes: [base.flowType()],
     interfaces: [
       base.iface({
         flowName: "Authent", providerName: "Tatooine", description: "Ouverture de session",
@@ -238,7 +238,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
     return {
       ...templateDate(),
       groups: [{ name: "Socle", perimeter: "Plateforme", sheet: "Groups", row: 0 }, { name: "Lothal", perimeter: "Externe", sheet: "Groups", row: 0 }],
-      flowTypes: [base.typeFlux({ type: "HTTP", rawDirection: "consommateur → exposant" })],
+      flowTypes: [base.flowType({ type: "HTTP", rawDirection: "consommateur → exposant" })],
       consumptions: [{ ...templateDate().consumptions[0], criticality: "1 - Vitale", decision: "À transformer" }],
       interfaces: [{ ...templateDate().interfaces[0], legacyState: "" }],
     };
@@ -268,7 +268,7 @@ describe("mise à niveau — le classeur passe en anglais", () => {
   it("keeps the workbook's own flow types rather than reseeding them", () => {
     const template = {
       ...frenchModel(),
-      flowTypes: [base.typeFlux({ type: "Saleucami", rawDirection: "consommateur → exposant", description: "Protocole interne" })],
+      flowTypes: [base.flowType({ type: "Saleucami", rawDirection: "consommateur → exposant", description: "Protocole interne" })],
     };
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(template, THE_DAY))));
     if (!r.ok) throw new Error("illisible");
@@ -450,7 +450,7 @@ describe("mise à niveau — classeur sans onglet de groupes", () => {
 // retrouve pas disparaissait de la conversion sans un mot, et le classeur
 // converti ne disait plus nulle part qu'un relais avait été déclaré.
 describe("mise à niveau — les relais de la v3", () => {
-  const modeleV3 = (legacyRelays: string): ParsedModel => {
+  const modelV3 = (legacyRelays: string): ParsedModel => {
     const b = originalModel();
     return {
       ...b,
@@ -479,13 +479,13 @@ describe("mise à niveau — les relais de la v3", () => {
   };
 
   it("porte le relais sur la consommation qu'il désignait", () => {
-    const m = relire(modeleV3("Authent"));
+    const m = relire(modelV3("Authent"));
     const input = m.consumptions.find((c) => c.consumerName === "Bus")!;
     expect(input.republishedAs).toBe("Republié 1.0");
   });
 
   it("garde dans le classeur le relais qu'il n'a pas su placer", () => {
-    const m = relire(modeleV3("Introuvable"));
+    const m = relire(modelV3("Introuvable"));
     expect(m.consumptions.every((c) => c.republishedAs === "")).toBe(true);
     const iface = m.interfaces.find((i) => i.flowName === "Republié")!;
     expect(iface.comments).toContain("note");

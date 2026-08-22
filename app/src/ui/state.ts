@@ -209,7 +209,7 @@ export function withDisplayedMilestone(state: AppState, milestone: string | null
   return { ...state, shownMilestone: milestone, actorSelection: selectionRetenue(state, state.mode, milestone) };
 }
 
-export function withPalierCompare(state: AppState, milestone: string | null): AppState {
+export function withComparedMilestone(state: AppState, milestone: string | null): AppState {
   return { ...state, comparedMilestone: milestone };
 }
 
@@ -257,7 +257,7 @@ export function withTechnoMasquee(state: AppState, tech: string, hidden: boolean
   };
 }
 
-export function withActeurMasque(state: AppState, actor: string, hidden: boolean): AppState {
+export function withActorHidden(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
     actorFilters: { ...state.actorFilters, hiddenActors: basculer(state.actorFilters.hiddenActors, actor, hidden) },
@@ -318,7 +318,7 @@ export function withActorHiddenInMatrix(state: AppState, actor: string, hidden: 
   };
 }
 
-export function withActeurMasqueTechnologie(state: AppState, actor: string, hidden: boolean): AppState {
+export function withActorHiddenForTechnology(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
     technologyFilters: {

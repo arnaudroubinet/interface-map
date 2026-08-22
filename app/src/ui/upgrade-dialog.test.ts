@@ -7,7 +7,7 @@ vi.mock("../export/download", async (importOriginal) => {
   return { ...actual, downloadWorkbook: vi.fn() };
 });
 
-const donneesVides: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
+const emptyData: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
 function drop(zone: HTMLElement, file: File): void {
   const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -26,7 +26,7 @@ describe("ouvrirMigration — classeur corrompu", () => {
     openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
-    const complet = writeTemplate(donneesVides);
+    const complet = writeTemplate(emptyData);
     const truncated = complet.slice(0, Math.floor(complet.byteLength / 3));
     const file = { name: "corrompu.xlsx", arrayBuffer: async () => truncated } as unknown as File;
     drop(zone, file);
@@ -48,7 +48,7 @@ describe("ouvrirMigration — bouton de relance", () => {
     openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
 
-    const buffer = writeTemplate(donneesVides);
+    const buffer = writeTemplate(emptyData);
     const file = { name: "ok.xlsx", arrayBuffer: async () => buffer } as unknown as File;
     drop(zone, file);
 

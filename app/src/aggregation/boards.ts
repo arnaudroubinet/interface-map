@@ -1,6 +1,6 @@
 import type { ParsedModel } from "../parsing/model";
 import { type GraphNode, type GraphEdge, type Mode } from "./core";
-import { reading as lectureDuMode } from "./reading";
+import { reading as readingOfMode } from "./reading";
 import {
   buildGroupToGroupView,
   buildPlatformDetailView,
@@ -26,8 +26,8 @@ export interface Board {
 // A choice with no flow is dropped: its board would show a lone box or nothing
 // at all, and the integrity report already reports both the actor with no flow
 // and the unused flow type.
-export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode: Mode): Board[] {
-  const reading = lectureDuMode(model, rank, mode);
+export function allBoards(model: ParsedModel, rank: number | null, mode: Mode): Board[] {
+  const reading = readingOfMode(model, rank, mode);
   const options = { counters: true };
   const boards: Board[] = [
     { title: "Group to group", ...buildGroupToGroupView(model, reading, options) },

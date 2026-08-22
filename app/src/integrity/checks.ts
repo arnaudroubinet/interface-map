@@ -1,7 +1,7 @@
 import { AVAILABLE_ICONS } from "../render/icons";
 
 // Le même format que celui qu'accepte la palette (render/colors.ts).
-const COULEUR_HEXA = /^#?[0-9a-f]{6}$/i;
+const HEX_COLOUR = /^#?[0-9a-f]{6}$/i;
 import type {
   Actor,
   Consumption,
@@ -365,25 +365,25 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // le classeur aurait donc l'air de décider une teinte qu'il ne décide pas.
   for (const t of model.flowTypes) {
     const brut = t.colour.trim();
-    if (brut === "" || COULEUR_HEXA.test(brut)) continue;
+    if (brut === "" || HEX_COLOUR.test(brut)) continue;
     anomalies.push(anomaly(`${nameFlowType(t)}: colour "${brut}" is not a hex code such as #2a78d6.`, t));
   }
 
   // Deux technologies de la même couleur donnent deux traits indiscernables,
   // légende comprise. Le classeur ne le montre nulle part : deux cellules
   // voisines d'un référentiel se comparent mal à l'œil.
-  const parCouleur = new Map<string, FlowType>();
+  const byColour = new Map<string, FlowType>();
   for (const t of model.flowTypes) {
     const brut = t.colour.trim();
-    if (!COULEUR_HEXA.test(brut)) continue;
+    if (!HEX_COLOUR.test(brut)) continue;
     const key = brut.replace("#", "").toLowerCase();
-    const already = parCouleur.get(key);
+    const already = byColour.get(key);
     if (already) {
       anomalies.push(
         anomaly(`${nameFlowType(t)}: colour "${brut}" is already carried by "${already.type}" — the two would be drawn alike.`, t)
       );
     } else {
-      parCouleur.set(key, t);
+      byColour.set(key, t);
     }
   }
 
@@ -445,10 +445,10 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 // interface qui perd son dernier consommateur en v2, une chaîne de relais que
 // le temps coupe, ne se voient qu'à ce moment-là. Tout juger sur le classeur
 // entier les faisait disparaître en silence, sous un schéma vide.
-function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamily {
+function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
   const lookup = buildInterfaceLookup(model);
-  const lookupAuPalier = buildInterfaceLookup(auPalier);
+  const lookupAtMilestone = buildInterfaceLookup(atMilestone);
 
   for (const c of model.consumptions) {
     const iface = findInterfaceForConsumption(lookup, c);
@@ -457,8 +457,8 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
     }
   }
 
-  for (const iface of auPalier.interfaces) {
-    if (consumptionsForInterface(lookupAuPalier, auPalier, iface).length === 0) {
+  for (const iface of atMilestone.interfaces) {
+    if (consumptionsForInterface(lookupAtMilestone, atMilestone, iface).length === 0) {
       anomalies.push(anomaly(`${nameInterface(iface)} has no declared consumption.`, iface));
     }
   }
@@ -508,7 +508,7 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   // dirait deux fois la même case vide sous deux formes différentes.
   if (model.milestones.length > 0) {
     const actors = actorByName(model);
-    const vieActeur = (name: string): Interval => {
+    const actorLifespan = (name: string): Interval => {
       const a = actors.get(name.trim());
       return a ? lifespanOf(model, a) : ALWAYS;
     };
@@ -543,14 +543,14 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
 
     for (const i of model.interfaces) {
       checkNesting(nameInterface(i), i, [
-        { name: `its provider "${i.providerName}"`, interval: vieActeur(i.providerName) },
+        { name: `its provider "${i.providerName}"`, interval: actorLifespan(i.providerName) },
       ]);
     }
 
     for (const c of model.consumptions) {
       const iface = findInterfaceForConsumption(lookup, c);
       const parents = [
-        { name: `its consumer "${c.consumerName}"`, interval: vieActeur(c.consumerName) },
+        { name: `its consumer "${c.consumerName}"`, interval: actorLifespan(c.consumerName) },
         ...(iface
           ? [{
               name: `interface "${interfaceLabel(iface.flowName, iface.version)}"`,
@@ -573,7 +573,7 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   // Une chaîne coupée ne produit aucun lien fonctionnel. Sans ces deux lignes
   // le lien manquait EN SILENCE, ce qui est précisément ce que le contrôle du
   // bus fourre-tout, plus bas, cherche à éviter.
-  for (const cut of chainesCoupees(auPalier, null)) {
+  for (const cut of chainesCoupees(atMilestone, null)) {
     if (cut.reason === "loop") {
       anomalies.push(anomaly(`${nameInterface(cut.iface)}: its relay chain loops back on itself.`, cut.iface));
     }
@@ -594,11 +594,11 @@ function checkCoherence(model: ParsedModel, auPalier: ParsedModel): AnomalyFamil
   // Le bus fourre-tout : un flux entre dans la plomberie et n'en ressort pour
   // personne. Sans ce contrôle, le lien fonctionnel manquerait EN SILENCE, ce
   // qui est le pire des cas.
-  for (const i of auPalier.interfaces) {
-    const consumers = consumptionsForInterface(lookupAuPalier, auPalier, i).map((c) => c.consumerName);
+  for (const i of atMilestone.interfaces) {
+    const consumers = consumptionsForInterface(lookupAtMilestone, atMilestone, i).map((c) => c.consumerName);
     if (consumers.length === 0) continue;
-    if (!consumers.every((c) => isTechnicalActor(auPalier, c))) continue;
-    const springs = consumptionsForInterface(lookupAuPalier, auPalier, i).some((c) => c.republishedAs.trim() !== "");
+    if (!consumers.every((c) => isTechnicalActor(atMilestone, c))) continue;
+    const springs = consumptionsForInterface(lookupAtMilestone, atMilestone, i).some((c) => c.republishedAs.trim() !== "");
     if (!springs) {
       anomalies.push(
         anomaly(`${nameInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
@@ -787,9 +787,9 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
     // Tout ce qui consomme cette interface a un palier de retrait : elle n'aura
     // plus personne. Une décision « Remove » ne compte pas ici : elle dit qu'on
     // voudrait s'en passer, pas qu'un départ est daté.
-    const toutesEligibles = consumptions.every((c) => c.retiredAt.trim() !== "");
+    const allEligible = consumptions.every((c) => c.retiredAt.trim() !== "");
 
-    if (toutesEligibles) candidates.push(iface);
+    if (allEligible) candidates.push(iface);
   }
   const items = locatedItems(candidates, (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`);
 
@@ -1103,27 +1103,27 @@ function modelAtMilestone(model: ParsedModel, rank: number | null): ParsedModel 
 }
 
 export function runIntegrityChecks(model: ParsedModel, rank: number | null = null): IntegrityReport {
-  const auPalier = modelAtMilestone(model, rank);
+  const atMilestone = modelAtMilestone(model, rank);
   const families = [
     checkStructure(model),
     checkReferences(model),
     checkVocabularies(model),
-    checkCoherence(model, auPalier),
-    checkCompleteness(auPalier),
+    checkCoherence(model, atMilestone),
+    checkCompleteness(atMilestone),
   ];
   const infoBlocks = [
-    actorsWithNoFlow(auPalier),
-    missingCriticalities(auPalier),
-    interfacesAConfirmer(auPalier),
-    migrationsEnCours(auPalier),
-    decommissionCandidates(auPalier),
-    repeatedExchanges(auPalier),
-    dependencyCycles(auPalier),
-    unusedFlowTypes(auPalier),
+    actorsWithNoFlow(atMilestone),
+    missingCriticalities(atMilestone),
+    interfacesAConfirmer(atMilestone),
+    migrationsEnCours(atMilestone),
+    decommissionCandidates(atMilestone),
+    repeatedExchanges(atMilestone),
+    dependencyCycles(atMilestone),
+    unusedFlowTypes(atMilestone),
     // Une couleur ne dépend d'aucun palier : le classeur entier.
     unreadableColours(model),
-    rayonDImpact(auPalier),
-    usedGroups(auPalier),
+    rayonDImpact(atMilestone),
+    usedGroups(atMilestone),
   ];
   const totalAnomalies = families.reduce((sum, f) => sum + f.anomalies.length, 0);
   const total = (level: InfoBlock["level"]) =>

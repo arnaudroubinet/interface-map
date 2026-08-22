@@ -26,7 +26,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     actors: [actor({ name: "A", group: "G1" }), actor({ name: "B", group: "G2" })],
     groups: [base.group({ name: "G1" }), base.group({ name: "G2", perimeter: "External" })],
     actorTypes: [base.actorType()],
-    flowTypes: [base.typeFlux()],
+    flowTypes: [base.flowType()],
     interfaces: [iface()],
     consumptions: [consumption()],
     fxSheetNames: ["FX_A_HTTP"],
@@ -79,8 +79,8 @@ describe("buildFlowInstances", () => {
     const flows = buildFlowInstances(
       model({
         flowTypes: [
-          base.typeFlux({ type: "HTTP" }),
-          base.typeFlux({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
+          base.flowType({ type: "HTTP" }),
+          base.flowType({ type: "Kafka", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
         ],
         interfaces: [
           iface({ flowName: "F", providerName: "A", flowType: "HTTP", expectedSheet: "FX_A_HTTP" }),
@@ -279,14 +279,14 @@ describe("buildFlowInstances — filtrage par palier", () => {
 // chez quelqu'un qu'il n'a jamais choisi. Mieux vaut ne pas résoudre : le
 // contrôle de référence le dit alors clairement.
 describe("résolution d'une consommation — le nom seul ne tranche pas entre deux exposants", () => {
-  const twoPublishers = (feuilleConso: string) =>
+  const twoPublishers = (consumptionSheet: string) =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
       interfaces: [
         iface({ flowName: "Kashyyyk", providerName: "A", expectedSheet: "FX_A_HTTP" }),
         iface({ flowName: "Kashyyyk", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ],
-      consumptions: [consumption({ flowName: "Kashyyyk", consumerName: "C", sheet: feuilleConso })],
+      consumptions: [consumption({ flowName: "Kashyyyk", consumerName: "C", sheet: consumptionSheet })],
     });
 
   it("résout sans hésiter quand l'onglet désigne l'exposant", () => {
@@ -353,7 +353,7 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
   const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
-      flowTypes: [base.typeFlux({ direction, rawDirection: "" })],
+      flowTypes: [base.flowType({ direction, rawDirection: "" })],
       interfaces: [iface({ providerName: "A" })],
       consumptions: [consumption({ consumerName: "B" })],
     });
@@ -434,12 +434,12 @@ describe("nodesFromEdges", () => {
 describe("groupFlows — la criticité portée par le trait", () => {
   // Un parc où B consomme la même interface plusieurs fois, chaque ligne avec
   // sa propre criticité : c'est le cas que l'agrégation doit trancher.
-  const fluxAvec = (criticalities: string[]) =>
+  const flowsWith = (criticalities: string[]) =>
     buildFlowInstances(
       base.template({
         groups: [base.group({ name: "G" })],
         actorTypes: [base.actorType()],
-        flowTypes: [base.typeFlux()],
+        flowTypes: [base.flowType()],
         fxSheetNames: ["FX_A_HTTP"],
         actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
         interfaces: criticalities.map((_, i) =>
@@ -452,24 +452,24 @@ describe("groupFlows — la criticité portée par le trait", () => {
     );
 
   it("retient la criticité la plus forte des consommations agrégées", () => {
-    const g = groupFlows(fluxAvec(["3 - Standard", "1 - Critical", "2 - Important"]), identityNodeKey, true)[0];
+    const g = groupFlows(flowsWith(["3 - Standard", "1 - Critical", "2 - Important"]), identityNodeKey, true)[0];
     expect(g.criticality).toBe("1 - Critical");
   });
 
   it("garde la seule criticité présente quand il n'y en a qu'une", () => {
-    expect(groupFlows(fluxAvec(["2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
+    expect(groupFlows(flowsWith(["2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
   });
 
   // Une case vide n'est pas une criticité basse : elle n'est rien, et ne doit
   // pas écraser celle d'une autre consommation du même trait.
   it("ignore une criticité non renseignée", () => {
-    expect(groupFlows(fluxAvec(["", "2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
-    expect(groupFlows(fluxAvec([""]), identityNodeKey, true)[0].criticality).toBeUndefined();
+    expect(groupFlows(flowsWith(["", "2 - Important"]), identityNodeKey, true)[0].criticality).toBe("2 - Important");
+    expect(groupFlows(flowsWith([""]), identityNodeKey, true)[0].criticality).toBeUndefined();
   });
 
   // L'ordre se lit dans le vocabulaire lui-même : en tenir une seconde liste
   // ferait diverger les deux.
   it("range une valeur hors vocabulaire après toutes les autres", () => {
-    expect(groupFlows(fluxAvec(["Inconnue", "3 - Standard"]), identityNodeKey, true)[0].criticality).toBe("3 - Standard");
+    expect(groupFlows(flowsWith(["Inconnue", "3 - Standard"]), identityNodeKey, true)[0].criticality).toBe("3 - Standard");
   });
 });

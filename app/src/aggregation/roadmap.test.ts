@@ -12,7 +12,7 @@ function estate(overrides: Partial<ParsedModel> = {}): ParsedModel {
     ],
     groups: [base.group({ name: "G" })],
     actorTypes: [base.actorType()],
-    flowTypes: [base.typeFlux()],
+    flowTypes: [base.flowType()],
     fxSheetNames: ["FX_A_HTTP"],
     actors: [base.actor({ name: "A", group: "G", introducedAt: "v1" })],
     interfaces: [
