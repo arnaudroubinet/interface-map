@@ -549,8 +549,14 @@ describe("buildGraphSvg — légende", () => {
     expect(légende).not.toBeNull();
 
     const entrées = [...légende.querySelectorAll("text")].map((t) => t.textContent);
-    // Une entrée par technologie présente, plus le code des périmètres.
-    expect(entrées).toEqual(["HTTP", "Kafka", "Platform", "External"]);
+    // Une entrée par technologie présente, plus le code des périmètres. La
+    // notation (bout fournisseur, pointes) est testée à part, dans legende.ts.
+    expect(entrées.filter((t) => !t?.startsWith("○") && !t?.includes("head "))).toEqual([
+      "HTTP",
+      "Kafka",
+      "Platform",
+      "External",
+    ]);
 
     // Elle tient dans le cadre : sinon elle serait rognée à l'export.
     const [vbX, vbY, vbL, vbH] = svg.getAttribute("viewBox")!.split(" ").map(Number);
@@ -573,13 +579,16 @@ describe("buildGraphSvg — légende", () => {
     );
 
     const entrées = [...buildGraphSvg(layout, () => "#d03b3b").querySelectorAll(".fx-legende text")].map((t) => t.textContent);
-    expect(entrées).toEqual(["HTTP"]);
+    expect(entrées).not.toContain("Platform");
+    expect(entrées).not.toContain("External");
+    expect(entrées).toContain("HTTP");
   });
 
   // Le mode fonctionnel vide `technologie` sur toutes ses arêtes : une entrée
   // sans nom annoncerait un code couleur qu'on ne retrouve nulle part sur le
-  // dessin -- pas une entrée à afficher, mais une raison de ne rien afficher.
-  it("drops the legend entirely when every edge carries no technology name", async () => {
+  // dessin. La légende garde en revanche la NOTATION -- le cercle du bout
+  // fournisseur est dessiné là aussi, et il doit s'expliquer.
+  it("n'annonce aucune couleur quand aucune arête ne nomme sa technologie", async () => {
     const layout = await computeLayout(
       [
         { id: "A", label: "A", kind: "groupe" },
@@ -589,7 +598,8 @@ describe("buildGraphSvg — légende", () => {
     );
 
     const svg = buildGraphSvg(layout, () => "#2a78d6");
-    expect(svg.querySelector(".fx-legende")).toBeNull();
+    const entrées = [...svg.querySelectorAll(".fx-legende text")].map((t) => t.textContent);
+    expect(entrées).toEqual(["○ the provider end of the line"]);
   });
 
   it("keeps the named technologies and drops only the nameless ones", async () => {
@@ -606,7 +616,7 @@ describe("buildGraphSvg — légende", () => {
     );
 
     const entrées = [...buildGraphSvg(layout, () => "#2a78d6").querySelectorAll(".fx-legende text")].map((t) => t.textContent);
-    expect(entrées).toEqual(["HTTP"]);
+    expect(entrées.filter((t) => !t?.startsWith("○"))).toEqual(["HTTP"]);
   });
 });
 
@@ -980,5 +990,37 @@ describe("buildGraphSvg — la taille du schéma", () => {
     const texte = serializeSvg(svg, "#ffffff");
     expect(texte).toContain(`width="${l}"`);
     expect(texte).toContain(`height="${h}"`);
+  });
+});
+
+// --- Le cercle ouvert du bout fournisseur (convention du message flow BPMN).
+// Sans lui, la pointe ne dit rien : on ignore quel bout est le fournisseur.
+describe("buildGraphSvg — le bout fournisseur est marqué", () => {
+  const parc = async (sens: "pousse" | "tire") =>
+    computeLayout(
+      [{ id: "Fournisseur", label: "F", kind: "acteur" }, { id: "Consommateur", label: "C", kind: "acteur" }],
+      [{ from: "Fournisseur", to: "Consommateur", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, tire: sens === "tire" }]
+    );
+
+  it("pose un cercle OUVERT -- pas un point plein -- au départ du trait", async () => {
+    const svg = buildGraphSvg(await parc("pousse"), () => "#1f5fae");
+    const cercle = svg.querySelector(".fx-aretes circle")!;
+    expect(cercle.getAttribute("fill")).toBe("#ffffff");
+    expect(cercle.getAttribute("stroke")).toBe("#1f5fae");
+    expect(Number(cercle.getAttribute("r"))).toBeGreaterThanOrEqual(4);
+  });
+
+  // Le point qui rend les deux cas distinguables : poussé, le cercle est loin
+  // de la pointe ; tiré, il en est tout près.
+  it("place le cercle près de la pointe sur un flux tiré, loin sur un flux poussé", async () => {
+    const distance = async (sens: "pousse" | "tire") => {
+      const layout = await parc(sens);
+      const svg = buildGraphSvg(layout, () => "#1f5fae");
+      const c = svg.querySelector(".fx-aretes circle")!;
+      const points = layout.edges[0].points;
+      const boutPointe = sens === "tire" ? points[0] : points[points.length - 1];
+      return Math.hypot(Number(c.getAttribute("cx")) - boutPointe.x, Number(c.getAttribute("cy")) - boutPointe.y);
+    };
+    expect(await distance("tire")).toBeLessThan(await distance("pousse"));
   });
 });

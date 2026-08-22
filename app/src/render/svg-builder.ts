@@ -314,18 +314,37 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     g.appendChild(path);
   });
 
-  // Point de départ : marque explicitement le nœud d'origine, à l'image de
-  // la pointe qui marque l'arrivée -- un tronc de fusion part d'un point de
-  // confluence, pas d'un vrai nœud, donc n'en porte pas.
+  // Le cercle OUVERT du bout fournisseur. C'est le troisième signe, et sans lui
+  // les deux autres ne se lisent pas : la pointe dit qui appelle, mais rien ne
+  // disait quel bout était le fournisseur -- un flux poussé et un flux tiré se
+  // ressemblaient donc trait pour trait.
+  //
+  // C'est la convention du « message flow » de BPMN : cercle ouvert à la
+  // source, pointe à la cible. Poussé, le cercle et la pointe sont à des bouts
+  // OPPOSÉS ; tiré, ils sont au MÊME bout. La différence se voit d'un coup.
+  //
+  // Un tronc fusionné n'en porte pas : il agrège plusieurs fournisseurs, et un
+  // cercle y désignerait un bout qui n'appartient à personne.
   if (!edge.estTronc) {
+    // Décalé le long du trait : centré sur la façade, la moitié du cercle
+    // passerait sous la boîte -- et sur un flux tiré il tomberait dans la
+    // pointe, qui occupe déjà ce bout.
+    const ancre = reculerPourLaPointe(pointsTracé, RAYON_ORIGINE + 2, true)[0];
     const départ = el("circle");
-    départ.setAttribute("cx", String(edge.points[0].x));
-    départ.setAttribute("cy", String(edge.points[0].y));
-    départ.setAttribute("r", "2.75");
-    départ.setAttribute("fill", couleur);
+    départ.setAttribute("cx", String(ancre.x));
+    départ.setAttribute("cy", String(ancre.y));
+    départ.setAttribute("r", String(RAYON_ORIGINE));
+    départ.setAttribute("fill", PAPIER);
+    départ.setAttribute("stroke", couleur);
+    départ.setAttribute("stroke-width", "2");
     if (edge.atténué) départ.setAttribute("opacity", "0.6");
     g.appendChild(départ);
   }
+
+
+  // Point de départ : marque explicitement le nœud d'origine, à l'image de
+  // la pointe qui marque l'arrivée -- un tronc de fusion part d'un point de
+  // confluence, pas d'un vrai nœud, donc n'en porte pas.
 
   return g;
 }
@@ -567,6 +586,8 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
 const MARGE_CADRE = 24;
 
 const RAYON_DISQUE = 3.5;
+// Le cercle ouvert qui marque le bout fournisseur (convention BPMN).
+const RAYON_ORIGINE = 4;
 // Le disque plus son écart au texte : la place que taillePastille doit réserver.
 const LARGEUR_DISQUE = RAYON_DISQUE * 2 + 4;
 
@@ -635,7 +656,7 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
 
   let ligne = y + LEGENDE_PAD + LEGENDE_LIGNE / 2;
 
-  const trait = (é: Extract<ÉchantillonLegende, { forme: "trait" }>): SVGLineElement => {
+  const trait = (é: Extract<ÉchantillonLegende, { forme: "trait" }>): SVGElement => {
     const l = el("line");
     l.setAttribute("x1", String(x + LEGENDE_PAD));
     l.setAttribute("y1", String(ligne));
@@ -646,7 +667,21 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
     if (é.pointillé) l.setAttribute("stroke-dasharray", "6 4");
     if (é.pointe === "fin") l.setAttribute("marker-end", `url(#${idMarqueurFlèche(é.couleur)})`);
     if (é.pointe === "debut") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.couleur)})`);
-    return l;
+    if (!é.origine) return l;
+    // L'échantillon doit MONTRER le cercle qu'il annonce, et à sa place : sur
+    // un flux tiré, cercle et pointe sont au même bout, et c'est justement ce
+    // qui les distingue.
+    const g2 = el("g");
+    g2.appendChild(l);
+    const cercle = el("circle");
+    cercle.setAttribute("cx", String(x + LEGENDE_PAD + (é.pointe === "debut" ? RAYON_ORIGINE + 4 : 0)));
+    cercle.setAttribute("cy", String(ligne));
+    cercle.setAttribute("r", String(RAYON_ORIGINE - 0.5));
+    cercle.setAttribute("fill", PAPIER);
+    cercle.setAttribute("stroke", é.couleur);
+    cercle.setAttribute("stroke-width", "1.5");
+    g2.appendChild(cercle);
+    return g2;
   };
 
   // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous

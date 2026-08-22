@@ -12,13 +12,14 @@ describe("entreesDeLegende", () => {
       [noeud()],
       () => "#111111"
     );
-    expect(entrées.map((e) => e.texte)).toEqual(["HTTP", "SFTP"]);
+    expect(entrées.map((e) => e.texte).filter((t) => !t.startsWith("○"))).toEqual(["HTTP", "SFTP"]);
   });
 
   // Le mode fonctionnel vide `technologie` sur toutes ses arêtes : une entrée
   // sans nom annoncerait un code couleur introuvable sur le dessin.
   it("ignore une technologie vide", () => {
-    expect(entreesDeLegende([{ technologie: "" }], [noeud()], () => "#111111")).toEqual([]);
+    const textes = entreesDeLegende([{ technologie: "" }], [noeud()], () => "#111111").map((e) => e.texte);
+    expect(textes.filter((t) => !t.startsWith("○"))).toEqual([]);
   });
 
   // Un trait marqué d'un écart ne porte plus la couleur de sa technologie.
@@ -28,7 +29,10 @@ describe("entreesDeLegende", () => {
       [noeud()],
       () => "#111111"
     );
-    expect(entrées.map((e) => e.texte)).toEqual(["+n : flows added", "−n : flows removed"]);
+    expect(entrées.map((e) => e.texte).filter((t) => !t.startsWith("○"))).toEqual([
+      "+n : flows added",
+      "−n : flows removed",
+    ]);
   });
 
   // Les deux périmètres ne s'annoncent que si les deux sont dessinés : sur une
@@ -59,15 +63,15 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
       [noeud()],
       () => "#111111"
     ).map((e) => e.texte);
-    expect(textes).toContain("provider pushes — head at the consumer");
-    expect(textes).toContain("consumer pulls — head at the provider");
+    expect(textes).toContain("provider pushes — head away from the ○");
+    expect(textes).toContain("consumer pulls — head at the ○");
   });
 
   // Un tronc fusionné ne porte pas de pointe : l'annoncer expliquerait un
   // signe absent du dessin.
   it("n'explique aucune pointe quand aucun trait n'en porte", () => {
     const textes = entreesDeLegende([{ technologie: "HTTP", fleche: false, tire: true }], [noeud()], () => "#111111").map((e) => e.texte);
-    expect(textes.some((t) => t.includes("head at"))).toBe(false);
+    expect(textes.some((t) => t.includes("head "))).toBe(false);
   });
 
   // Là où toutes les pointes vont au consommateur, elles se lisent comme le
@@ -76,7 +80,7 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
   // pushes » affirmerait ce que le schéma ne sait pas.
   it("n'explique aucune pointe quand aucun flux n'est tiré", () => {
     const textes = entreesDeLegende([{ technologie: "Kafka", fleche: true, tire: false }], [noeud()], () => "#111111").map((e) => e.texte);
-    expect(textes.some((t) => t.includes("head at"))).toBe(false);
+    expect(textes.some((t) => t.includes("head "))).toBe(false);
   });
 
   // Le pointillé dit qu'un maillon transforme le contenu. C'est une
@@ -96,7 +100,7 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
   // COULEUR ensuite. La notation se lit avant le code couleur.
   it("place la notation avant les technologies", () => {
     const textes = entreesDeLegende([{ technologie: "HTTP", fleche: true, tire: true }], [noeud()], () => "#111111").map((e) => e.texte);
-    const notation = textes.findIndex((t) => t.includes("head at"));
+    const notation = textes.findIndex((t) => t.includes("head "));
     expect(notation).toBeGreaterThanOrEqual(0);
     expect(textes.indexOf("HTTP")).toBeGreaterThan(notation);
   });
@@ -105,7 +109,7 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
   // plus ni technologie ni sens, seulement un ajout ou un retrait.
   it("n'explique pas la pointe sur un schéma d'écart", () => {
     const textes = entreesDeLegende([{ technologie: "HTTP", ecart: "ajout", fleche: true, tire: true }], [noeud()], () => "#111111").map((e) => e.texte);
-    expect(textes.some((t) => t.includes("head at"))).toBe(false);
+    expect(textes.some((t) => t.includes("head "))).toBe(false);
   });
 });
 
@@ -135,6 +139,38 @@ describe("entreesDeLegende — les formes s'annoncent aussi", () => {
   // même gris à l'impression.
   it("montre le retrait en pointillé dans sa propre entrée", () => {
     const entrées = entreesDeLegende([{ technologie: "HTTP", ecart: "retrait" }], [noeud()], () => "#111111");
-    expect(entrées[0].échantillon).toMatchObject({ pointillé: true });
+    expect(entrées.find((e) => e.texte.includes("removed"))!.échantillon).toMatchObject({ pointillé: true });
+  });
+});
+
+// --- Le défaut trouvé à l'usage : la légende annonçait « provider pushes » et
+// « consumer pulls » alors que RIEN sur le dessin ne disait quel bout du trait
+// était le fournisseur. Les deux se ressemblaient donc trait pour trait.
+describe("entreesDeLegende — le bout fournisseur", () => {
+  it("annonce le cercle d'origine dès qu'un trait est dessiné", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP" }], [noeud()], () => "#111111");
+    expect(entrées[0].texte).toContain("provider end");
+    expect(entrées[0].échantillon).toMatchObject({ forme: "trait", origine: true });
+  });
+
+  // Il vient EN PREMIER : c'est lui qui rend les deux entrées de pointe
+  // lisibles, pas l'inverse.
+  it("le place avant les entrées de pointe", () => {
+    const textes = entreesDeLegende([{ technologie: "HTTP", fleche: true, tire: true }], [noeud()], () => "#111111").map((e) => e.texte);
+    expect(textes.findIndex((t) => t.includes("provider end"))).toBeLessThan(textes.findIndex((t) => t.includes("head ")));
+  });
+
+  // Les deux échantillons de pointe portent le cercle, à sa vraie place :
+  // opposé sur un flux poussé, du même côté sur un flux tiré -- c'est
+  // exactement ce que le lecteur doit apprendre à distinguer.
+  it("montre le cercle sur les deux échantillons de pointe", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP", fleche: true, tire: true }], [noeud()], () => "#111111");
+    for (const t of ["pushes", "pulls"]) {
+      expect(entrées.find((e) => e.texte.includes(t))!.échantillon).toMatchObject({ origine: true });
+    }
+  });
+
+  it("ne l'annonce pas sur une planche sans aucun trait", () => {
+    expect(entreesDeLegende([], [noeud(), noeud({ id: "B", externe: true })], () => "#111111").some((e) => e.texte.includes("provider end"))).toBe(false);
   });
 });
