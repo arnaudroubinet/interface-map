@@ -999,11 +999,22 @@ describe("buildGraphSvg — deux formes de pointe", () => {
     expect(pointe.getAttribute("stroke")).toBeNull();
   });
 
-  it("évide la pointe d'un flux tiré", async () => {
+  // Une SILHOUETTE différente, pas seulement un remplissage : un dard évidé et
+  // un dard plein se confondent à petite taille et à l'impression.
+  it("dessine un V ouvert pour un flux tiré", async () => {
     const svg = buildGraphSvg(await parc(true), () => "#1f5fae");
     const pointe = pointeDe(svg, "marker-start");
-    expect(pointe.getAttribute("fill")).toBe("#ffffff");
+    expect(pointe.getAttribute("fill")).toBe("none");
     expect(pointe.getAttribute("stroke")).toBe("#1f5fae");
+    // Ouvert : le tracé ne se referme pas.
+    expect(pointe.getAttribute("d")).not.toContain("Z");
+  });
+
+  it("garde les deux pointes dans la même boîte englobante, pour que le recul du trait ne change pas", async () => {
+    const plein = pointeDe(buildGraphSvg(await parc(false), () => "#1f5fae"), "marker-end");
+    const creux = pointeDe(buildGraphSvg(await parc(true), () => "#1f5fae"), "marker-start");
+    const extremeX = (d: string) => Math.max(...(d.match(/[\d.]+(?=,)/g) ?? []).map(Number));
+    expect(extremeX(creux.getAttribute("d")!)).toBe(extremeX(plein.getAttribute("d")!));
   });
 
   // Les deux marqueurs portent des identifiants distincts : partagés, la

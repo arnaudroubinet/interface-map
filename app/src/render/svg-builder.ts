@@ -531,15 +531,16 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
 // force d'un flux se lit à l'épaisseur du trait, pas à la taille de sa pointe.
 const TAILLE_POINTE = 12;
 
-// Deux pointes, et c'est ELLES qui disent qui appelle : pleine quand le
-// fournisseur pousse, creuse quand le consommateur tire. La position de la
-// pointe ne suffisait pas -- il aurait fallu savoir quel bout du trait était le
-// fournisseur, ce que le dessin ne dit pas. Deux formes se distinguent sans
-// rien connaître d'autre.
+// Deux pointes, et c'est ELLES qui disent qui appelle : un DARD PLEIN quand le
+// fournisseur pousse, un V OUVERT quand le consommateur tire. La position de
+// la pointe ne suffisait pas -- il aurait fallu savoir quel bout du trait était
+// le fournisseur, ce que le dessin ne dit pas.
 //
-// Plein contre creux est le couple que UML emploie déjà pour opposer deux
-// natures d'échange, et les deux DSL cibles savent l'écrire (normal / onormal
-// en LikeC4).
+// Deux silhouettes, pas seulement deux remplissages : un dard évidé et un dard
+// plein se confondent à petite taille et à l'impression. C'est le couple
+// qu'UML emploie sur ses messages -- triangle plein pour un appel synchrone, V
+// ouvert pour un message asynchrone -- et les deux DSL cibles savent l'écrire
+// (normal / vee en LikeC4).
 function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = false): void {
   const marker = el("marker");
   marker.setAttribute("id", idMarqueurFlèche(couleur, creuse));
@@ -550,17 +551,23 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = 
   marker.setAttribute("markerWidth", String(TAILLE_POINTE));
   marker.setAttribute("markerHeight", String(TAILLE_POINTE));
   marker.setAttribute("orient", "auto-start-reverse");
-  // Dard adouci : côtés légèrement convexes vers la pointe, dos légèrement
-  // concave (encoche) plutôt que les trois arêtes droites d'un triangle brut.
-  // Même boîte englobante (0..10, pointe en (10,5)) que l'ancienne forme :
-  // aucun impact sur le calcul de l'écart avant contact.
+  // Même boîte englobante dans les deux cas (0..10, pointe en (10,5)) : le
+  // recul du trait avant contact ne dépend donc pas de la forme.
   const arrowPath = el("path");
-  arrowPath.setAttribute("d", "M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
-  arrowPath.setAttribute("fill", creuse ? PAPIER : couleur);
   if (creuse) {
+    // Le V : deux traits ouverts, aucun remplissage, aucune base. Rien à voir
+    // avec la silhouette du dard, même de loin.
+    arrowPath.setAttribute("d", "M 0.5,0 L 10,5 L 0.5,10");
+    arrowPath.setAttribute("fill", "none");
     arrowPath.setAttribute("stroke", couleur);
-    arrowPath.setAttribute("stroke-width", "1.6");
+    arrowPath.setAttribute("stroke-width", "2");
+    arrowPath.setAttribute("stroke-linecap", "round");
     arrowPath.setAttribute("stroke-linejoin", "round");
+  } else {
+    // Dard adouci : côtés légèrement convexes vers la pointe, dos légèrement
+    // concave plutôt que les trois arêtes droites d'un triangle brut.
+    arrowPath.setAttribute("d", "M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
+    arrowPath.setAttribute("fill", couleur);
   }
   marker.appendChild(arrowPath);
   defs.appendChild(marker);
