@@ -184,8 +184,8 @@ function fusionnerParTechnologieVersCible(edges: LayoutEdge[]): RenderEdge[] {
   return résultat;
 }
 
-function idMarqueurFlèche(couleur: string): string {
-  return "fleche-" + couleur.replace(/[^a-zA-Z0-9]/g, "");
+function idMarqueurFlèche(couleur: string, creuse = false): string {
+  return (creuse ? "fleche-creuse-" : "fleche-") + couleur.replace(/[^a-zA-Z0-9]/g, "");
 }
 
 // Le moteur place les libellés lui-même, en leur réservant de la place le long
@@ -300,7 +300,7 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
     // définition sert les deux.
     if (edge.fleche) {
-      if (edge.tire && i === 0) path.setAttribute("marker-start", `url(#${idMarqueurFlèche(couleur)})`);
+      if (edge.tire && i === 0) path.setAttribute("marker-start", `url(#${idMarqueurFlèche(couleur, true)})`);
       if (!edge.tire && i === morceaux.length - 1) path.setAttribute("marker-end", `url(#${idMarqueurFlèche(couleur)})`);
     }
     if (edge.atténué) {
@@ -314,32 +314,6 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
     g.appendChild(path);
   });
 
-  // Le cercle OUVERT du bout fournisseur. C'est le troisième signe, et sans lui
-  // les deux autres ne se lisent pas : la pointe dit qui appelle, mais rien ne
-  // disait quel bout était le fournisseur -- un flux poussé et un flux tiré se
-  // ressemblaient donc trait pour trait.
-  //
-  // C'est la convention du « message flow » de BPMN : cercle ouvert à la
-  // source, pointe à la cible. Poussé, le cercle et la pointe sont à des bouts
-  // OPPOSÉS ; tiré, ils sont au MÊME bout. La différence se voit d'un coup.
-  //
-  // Un tronc fusionné n'en porte pas : il agrège plusieurs fournisseurs, et un
-  // cercle y désignerait un bout qui n'appartient à personne.
-  if (!edge.estTronc) {
-    // Décalé le long du trait : centré sur la façade, la moitié du cercle
-    // passerait sous la boîte -- et sur un flux tiré il tomberait dans la
-    // pointe, qui occupe déjà ce bout.
-    const ancre = reculerPourLaPointe(pointsTracé, RAYON_ORIGINE + 2, true)[0];
-    const départ = el("circle");
-    départ.setAttribute("cx", String(ancre.x));
-    départ.setAttribute("cy", String(ancre.y));
-    départ.setAttribute("r", String(RAYON_ORIGINE));
-    départ.setAttribute("fill", PAPIER);
-    départ.setAttribute("stroke", couleur);
-    départ.setAttribute("stroke-width", "2");
-    if (edge.atténué) départ.setAttribute("opacity", "0.6");
-    g.appendChild(départ);
-  }
 
 
   // Point de départ : marque explicitement le nœud d'origine, à l'image de
@@ -557,9 +531,18 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
 // force d'un flux se lit à l'épaisseur du trait, pas à la taille de sa pointe.
 const TAILLE_POINTE = 12;
 
-function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
+// Deux pointes, et c'est ELLES qui disent qui appelle : pleine quand le
+// fournisseur pousse, creuse quand le consommateur tire. La position de la
+// pointe ne suffisait pas -- il aurait fallu savoir quel bout du trait était le
+// fournisseur, ce que le dessin ne dit pas. Deux formes se distinguent sans
+// rien connaître d'autre.
+//
+// Plein contre creux est le couple que UML emploie déjà pour opposer deux
+// natures d'échange, et les deux DSL cibles savent l'écrire (normal / onormal
+// en LikeC4).
+function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string, creuse = false): void {
   const marker = el("marker");
-  marker.setAttribute("id", idMarqueurFlèche(couleur));
+  marker.setAttribute("id", idMarqueurFlèche(couleur, creuse));
   marker.setAttribute("viewBox", "0 0 10 10");
   marker.setAttribute("refX", "0");
   marker.setAttribute("refY", "5");
@@ -573,7 +556,12 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
   // aucun impact sur le calcul de l'écart avant contact.
   const arrowPath = el("path");
   arrowPath.setAttribute("d", "M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
-  arrowPath.setAttribute("fill", couleur);
+  arrowPath.setAttribute("fill", creuse ? PAPIER : couleur);
+  if (creuse) {
+    arrowPath.setAttribute("stroke", couleur);
+    arrowPath.setAttribute("stroke-width", "1.6");
+    arrowPath.setAttribute("stroke-linejoin", "round");
+  }
   marker.appendChild(arrowPath);
   defs.appendChild(marker);
 }
@@ -586,8 +574,6 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
 const MARGE_CADRE = 24;
 
 const RAYON_DISQUE = 3.5;
-// Le cercle ouvert qui marque le bout fournisseur (convention BPMN).
-const RAYON_ORIGINE = 4;
 // Le disque plus son écart au texte : la place que taillePastille doit réserver.
 const LARGEUR_DISQUE = RAYON_DISQUE * 2 + 4;
 
@@ -666,30 +652,20 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
 
   const trait = (é: Extract<ÉchantillonLegende, { forme: "trait" }>): SVGElement => {
     const l = el("line");
-    l.setAttribute("x1", String(x + LEGENDE_PAD));
+    // La pointe DÉBORDE du bout du trait, de TAILLE_POINTE. Sans ce
+    // raccourcissement elle empiétait sur le texte de l'entrée -- une légende
+    // qui se chevauche elle-même.
+    const marge = é.pointe ? TAILLE_POINTE : 0;
+    l.setAttribute("x1", String(x + LEGENDE_PAD + (é.pointe === "debut" ? marge : 0)));
     l.setAttribute("y1", String(ligne));
-    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON));
+    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON - (é.pointe === "fin" ? marge : 0)));
     l.setAttribute("y2", String(ligne));
     l.setAttribute("stroke", é.couleur);
     l.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
     if (é.pointillé) l.setAttribute("stroke-dasharray", "6 4");
     if (é.pointe === "fin") l.setAttribute("marker-end", `url(#${idMarqueurFlèche(é.couleur)})`);
-    if (é.pointe === "debut") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.couleur)})`);
-    if (!é.origine) return l;
-    // L'échantillon doit MONTRER le cercle qu'il annonce, et à sa place : sur
-    // un flux tiré, cercle et pointe sont au même bout, et c'est justement ce
-    // qui les distingue.
-    const g2 = el("g");
-    g2.appendChild(l);
-    const cercle = el("circle");
-    cercle.setAttribute("cx", String(x + LEGENDE_PAD + (é.pointe === "debut" ? RAYON_ORIGINE + 4 : 0)));
-    cercle.setAttribute("cy", String(ligne));
-    cercle.setAttribute("r", String(RAYON_ORIGINE - 0.5));
-    cercle.setAttribute("fill", PAPIER);
-    cercle.setAttribute("stroke", é.couleur);
-    cercle.setAttribute("stroke-width", "1.5");
-    g2.appendChild(cercle);
-    return g2;
+    if (é.pointe === "debut") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.couleur, true)})`);
+    return l;
   };
 
   // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous
@@ -809,12 +785,17 @@ export function buildGraphSvg(
   }
 
   const defs = el("defs");
-  const couleursAvecFlèche = new Set(renderEdges.filter((e) => e.fleche).map((e) => couleurArête(e, colorFor)));
+  const pleines = new Set(renderEdges.filter((e) => e.fleche && !e.tire).map((e) => couleurArête(e, colorFor)));
+  const creuses = new Set(renderEdges.filter((e) => e.fleche && e.tire).map((e) => couleurArête(e, colorFor)));
   // La légende dessine ses propres échantillons fléchés : leur marqueur doit
   // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
   // qu'elle explique une notation en ne la montrant pas.
-  if (entrées.some((e) => e.échantillon.forme === "trait" && e.échantillon.pointe)) couleursAvecFlèche.add(ENCRE);
-  for (const couleur of couleursAvecFlèche) ajouterMarqueurFlèche(defs, couleur);
+  for (const e of entrées) {
+    if (e.échantillon.forme !== "trait" || !e.échantillon.pointe) continue;
+    (e.échantillon.pointe === "debut" ? creuses : pleines).add(e.échantillon.couleur);
+  }
+  for (const couleur of pleines) ajouterMarqueurFlèche(defs, couleur);
+  for (const couleur of creuses) ajouterMarqueurFlèche(defs, couleur, true);
   svg.appendChild(defs);
 
   const background = rect(bornes.x0, bornes.y0, largeur, hauteur, PAPIER, "none", 0);

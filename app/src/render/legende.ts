@@ -6,7 +6,7 @@ import { COULEUR_ECART, ENCRE, styleDuNoeud } from "./styles-noeud";
 // dessiner exactement la même, et deux légendes divergentes pour un même
 // schéma sont précisément ce qu'on veut rendre impossible.
 export type ÉchantillonLegende =
-  | { forme: "trait"; couleur: string; pointillé?: boolean; pointe?: "debut" | "fin"; origine?: boolean }
+  | { forme: "trait"; couleur: string; pointillé?: boolean; pointe?: "debut" | "fin" }
   | { forme: "boite"; fond: string; bord: string; pointillé?: boolean; coinCoupé?: boolean; pile?: boolean };
 
 export interface EntreeLegende {
@@ -64,33 +64,22 @@ export function entreesDeLegende(
   // d'écart il n'y a pas de pointe à expliquer -- les traits n'y portent plus
   // ni technologie ni sens.
   //
-  // Les DEUX pointes ne s'expliquent que si un flux tiré est dessiné. Seule
-  // la pointe inversée surprend ; là où toutes les pointes vont au
-  // consommateur, elles se lisent comme le sens de la donnée et n'appellent
-  // aucune explication. Surtout, la lecture fonctionnelle pose « du
-  // fournisseur vers le consommateur » faute de mieux -- une chaîne traverse
-  // plusieurs médias, parfois de sens opposés -- et y annoncer « provider
-  // pushes » affirmerait ce que le schéma ne sait pas.
-  // Le bout fournisseur d'abord : c'est LUI qui rend les deux suivantes
-  // lisibles. Sans lui, une pointe ne dit rien -- on ignore quel bout du trait
-  // est le fournisseur, donc « pointe chez le consommateur » et « pointe chez
-  // le fournisseur » se ressemblent trait pour trait.
-  if (edges.length > 0) {
-    entrées.push({
-      échantillon: { forme: "trait", couleur: ENCRE, origine: true },
-      texte: "○ the provider end of the line",
-    });
-  }
-
+  // Les DEUX pointes ne s'expliquent que si un flux tiré est dessiné : c'est
+  // la pointe CREUSE qui surprend, et elle n'a de sens qu'opposée à la pleine.
+  // Là où toutes les pointes sont pleines, elles se lisent comme le sens de la
+  // donnée et n'appellent aucune explication. Surtout, la lecture fonctionnelle
+  // pose « du fournisseur vers le consommateur » faute de mieux -- une chaîne
+  // traverse plusieurs médias, parfois de sens opposés -- et y annoncer
+  // « provider pushes » affirmerait ce que le schéma ne sait pas.
   const dessin = edges.filter((e) => !e.ecart && e.fleche);
   if (dessin.some((e) => e.tire === true)) {
     entrées.push({
-      échantillon: { forme: "trait", couleur: ENCRE, pointe: "fin", origine: true },
-      texte: "provider pushes — head away from the ○",
+      échantillon: { forme: "trait", couleur: ENCRE, pointe: "fin" },
+      texte: "provider pushes",
     });
     entrées.push({
-      échantillon: { forme: "trait", couleur: ENCRE, pointe: "debut", origine: true },
-      texte: "consumer pulls — head at the ○",
+      échantillon: { forme: "trait", couleur: ENCRE, pointe: "debut" },
+      texte: "consumer pulls",
     });
   }
   if (edges.some((e) => !e.ecart && e.atténué === true)) {

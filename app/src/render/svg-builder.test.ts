@@ -126,24 +126,6 @@ describe("buildGraphSvg", () => {
     expect(text.getAttribute("fill")).toBe("#ffffff");
   });
 
-  it("marks each edge's origin with a small dot, except a fused trunk (which starts at a synthetic confluence point)", async () => {
-    const nodes: GraphNode[] = [
-      { id: "A1", label: "A1", kind: "groupe" },
-      { id: "A2", label: "A2", kind: "groupe" },
-      { id: "B", label: "B", kind: "groupe" },
-    ];
-    const edges: GraphEdge[] = [
-      { from: "A1", to: "B", technologie: "HTTP", count: 1, label: "F1", atténué: false },
-      { from: "A2", to: "B", technologie: "HTTP", count: 1, label: "F2", atténué: false },
-    ];
-    const layout = await computeLayout(nodes, edges);
-
-    const svg = buildGraphSvg(layout, () => "#2a78d6");
-
-    const cercles = svg.querySelectorAll(".fx-aretes circle");
-    expect(cercles).toHaveLength(2); // une par branche, pas sur le tronc fusionné
-  });
-
   it("fuses same-technology edges arriving at the same target into one arrowed trunk, keeping each branch's own name", async () => {
     const layout: LayoutResult = {
       nodes: [
@@ -551,7 +533,7 @@ describe("buildGraphSvg — légende", () => {
     const entrées = [...légende.querySelectorAll("text")].map((t) => t.textContent);
     // Une entrée par technologie présente, plus le code des périmètres. La
     // notation (bout fournisseur, pointes) est testée à part, dans legende.ts.
-    expect(entrées.filter((t) => !t?.startsWith("○") && !t?.includes("head "))).toEqual([
+    expect(entrées.filter((t) => t !== "provider pushes" && t !== "consumer pulls")).toEqual([
       "HTTP",
       "Kafka",
       "Platform",
@@ -588,7 +570,7 @@ describe("buildGraphSvg — légende", () => {
   // sans nom annoncerait un code couleur qu'on ne retrouve nulle part sur le
   // dessin. La légende garde en revanche la NOTATION -- le cercle du bout
   // fournisseur est dessiné là aussi, et il doit s'expliquer.
-  it("n'annonce aucune couleur quand aucune arête ne nomme sa technologie", async () => {
+  it("drops the legend entirely when every edge carries no technology name", async () => {
     const layout = await computeLayout(
       [
         { id: "A", label: "A", kind: "groupe" },
@@ -598,8 +580,7 @@ describe("buildGraphSvg — légende", () => {
     );
 
     const svg = buildGraphSvg(layout, () => "#2a78d6");
-    const entrées = [...svg.querySelectorAll(".fx-legende text")].map((t) => t.textContent);
-    expect(entrées).toEqual(["○ the provider end of the line"]);
+    expect(svg.querySelector(".fx-legende")).toBeNull();
   });
 
   it("keeps the named technologies and drops only the nameless ones", async () => {
@@ -616,7 +597,7 @@ describe("buildGraphSvg — légende", () => {
     );
 
     const entrées = [...buildGraphSvg(layout, () => "#2a78d6").querySelectorAll(".fx-legende text")].map((t) => t.textContent);
-    expect(entrées.filter((t) => !t?.startsWith("○"))).toEqual(["HTTP"]);
+    expect(entrées).toEqual(["HTTP"]);
   });
 });
 
@@ -996,34 +977,68 @@ describe("buildGraphSvg — la taille du schéma", () => {
   });
 });
 
-// --- Le cercle ouvert du bout fournisseur (convention du message flow BPMN).
-// Sans lui, la pointe ne dit rien : on ignore quel bout est le fournisseur.
-describe("buildGraphSvg — le bout fournisseur est marqué", () => {
-  const parc = async (sens: "pousse" | "tire") =>
-    computeLayout(
-      [{ id: "Fournisseur", label: "F", kind: "acteur" }, { id: "Consommateur", label: "C", kind: "acteur" }],
-      [{ from: "Fournisseur", to: "Consommateur", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, tire: sens === "tire" }]
-    );
 
-  it("pose un cercle OUVERT -- pas un point plein -- au départ du trait", async () => {
-    const svg = buildGraphSvg(await parc("pousse"), () => "#1f5fae");
-    const cercle = svg.querySelector(".fx-aretes circle")!;
-    expect(cercle.getAttribute("fill")).toBe("#ffffff");
-    expect(cercle.getAttribute("stroke")).toBe("#1f5fae");
-    expect(Number(cercle.getAttribute("r"))).toBeGreaterThanOrEqual(4);
+// --- Ce qui distingue un flux poussé d'un flux tiré, c'est la FORME de la
+// pointe, pas sa position : la position seule aurait demandé de savoir quel
+// bout du trait est le fournisseur, ce que le dessin ne dit pas.
+describe("buildGraphSvg — deux formes de pointe", () => {
+  const parc = async (tire: boolean) =>
+    computeLayout(
+      [{ id: "F", label: "F", kind: "acteur" }, { id: "C", label: "C", kind: "acteur" }],
+      [{ from: "F", to: "C", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, tire }]
+    );
+  const pointeDe = (svg: SVGSVGElement, attribut: string) => {
+    const url = svg.querySelector(`.fx-aretes [${attribut}]`)!.getAttribute(attribut)!;
+    return svg.querySelector(`#${url.slice(5, -1)} path`)!;
+  };
+
+  it("remplit la pointe d'un flux poussé", async () => {
+    const svg = buildGraphSvg(await parc(false), () => "#1f5fae");
+    const pointe = pointeDe(svg, "marker-end");
+    expect(pointe.getAttribute("fill")).toBe("#1f5fae");
+    expect(pointe.getAttribute("stroke")).toBeNull();
   });
 
-  // Le point qui rend les deux cas distinguables : poussé, le cercle est loin
-  // de la pointe ; tiré, il en est tout près.
-  it("place le cercle près de la pointe sur un flux tiré, loin sur un flux poussé", async () => {
-    const distance = async (sens: "pousse" | "tire") => {
-      const layout = await parc(sens);
-      const svg = buildGraphSvg(layout, () => "#1f5fae");
-      const c = svg.querySelector(".fx-aretes circle")!;
-      const points = layout.edges[0].points;
-      const boutPointe = sens === "tire" ? points[0] : points[points.length - 1];
-      return Math.hypot(Number(c.getAttribute("cx")) - boutPointe.x, Number(c.getAttribute("cy")) - boutPointe.y);
-    };
-    expect(await distance("tire")).toBeLessThan(await distance("pousse"));
+  it("évide la pointe d'un flux tiré", async () => {
+    const svg = buildGraphSvg(await parc(true), () => "#1f5fae");
+    const pointe = pointeDe(svg, "marker-start");
+    expect(pointe.getAttribute("fill")).toBe("#ffffff");
+    expect(pointe.getAttribute("stroke")).toBe("#1f5fae");
+  });
+
+  // Les deux marqueurs portent des identifiants distincts : partagés, la
+  // seconde définition écraserait la première et les deux flux sortiraient de
+  // la même forme.
+  it("déclare deux marqueurs distincts quand les deux sens coexistent", async () => {
+    const layout = await computeLayout(
+      [{ id: "F", label: "F", kind: "acteur" }, { id: "C", label: "C", kind: "acteur" }, { id: "D", label: "D", kind: "acteur" }],
+      [
+        { from: "F", to: "C", technologie: "HTTP", count: 1, label: "a", atténué: false, tire: false },
+        { from: "F", to: "D", technologie: "HTTP", count: 1, label: "b", atténué: false, tire: true },
+      ]
+    );
+    const svg = buildGraphSvg(layout, () => "#1f5fae");
+    const ids = [...svg.querySelectorAll("defs marker")].map((m) => m.getAttribute("id"));
+    expect(new Set(ids).size).toBe(ids.length);
+    // Les deux formes coexistent pour la MÊME couleur : partagées, la seconde
+    // définition écraserait la première.
+    expect(ids).toContain("fleche-1f5fae");
+    expect(ids).toContain("fleche-creuse-1f5fae");
+  });
+
+  // La pointe déborde du bout du trait : sans raccourcissement, l'échantillon
+  // de légende empiétait sur le texte de sa propre entrée.
+  it("garde l'échantillon fléché à l'intérieur de sa colonne", async () => {
+    const svg = buildGraphSvg(await parc(true), () => "#1f5fae");
+    const textes = [...svg.querySelectorAll(".fx-legende text")];
+    const gauche = Math.min(...textes.map((t) => Number(t.getAttribute("x"))));
+    for (const l of svg.querySelectorAll(".fx-legende line[marker-end]")) {
+      expect(Number(l.getAttribute("x2"))).toBeLessThanOrEqual(gauche);
+    }
+    for (const l of svg.querySelectorAll(".fx-legende line[marker-start]")) {
+      expect(Number(l.getAttribute("x1")) - 12).toBeGreaterThanOrEqual(
+        Math.min(...[...svg.querySelectorAll(".fx-legende rect")].map((r) => Number(r.getAttribute("x"))))
+      );
+    }
   });
 });
