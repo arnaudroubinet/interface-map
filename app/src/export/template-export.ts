@@ -38,8 +38,8 @@ import {
 } from "./xlsx-tables";
 import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, FLOW_TYPES, type RowRole } from "./template-data";
 
-// Les vocabulaires et le mode d'emploi vivent dans modele-donnees.ts ; ce
-// module-ci n'est plus que la machinerie qui les assemble en classeur.
+// The vocabularies and the instructions live in template-data.ts; this module
+// is nothing more than the machinery that assembles them into a workbook.
 export { LISTES, FLOW_TYPES } from "./template-data";
 
 
@@ -47,12 +47,12 @@ export { LISTES, FLOW_TYPES } from "./template-data";
 function sheet(rows: (string | number)[][], widths: number[], filtrable = true): XLSX.WorkSheet {
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws["!cols"] = widths.map((wch) => ({ wch }));
-  // L'autofiltre engendre un nom défini « _xlnm._FilterDatabase » qui cite le
-  // nom de la feuille entre apostrophes. SheetJS ne double PAS l'apostrophe
-  // interne de « Mode d'emploi », ce qui produit un nom défini malformé --
-  // Excel ouvre alors sur une demande de réparation, là où SheetJS relit son
-  // propre fichier sans rien voir. Une feuille de prose n'a de toute façon rien
-  // à filtrer.
+  // The autofilter generates a defined name "_xlnm._FilterDatabase" quoting the
+  // sheet's name between apostrophes. SheetJS does NOT double the inner
+  // apostrophe of "Mode d'emploi", which produces a malformed defined name --
+  // Excel then opens on a repair prompt, where SheetJS rereads its own file
+  // without noticing a thing. A prose sheet has nothing to filter anyway.
+  //
   if (filtrable && rows.length > 0) {
     ws["!autofilter"] = {
       ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: rows[0].length - 1 } }),
@@ -61,29 +61,29 @@ function sheet(rows: (string | number)[][], widths: number[], filtrable = true):
   return ws;
 }
 
-// Une feuille de saisie : sa ligne d'en-tête, et rien d'autre. Les largeurs
-// suivent la longueur du titre, faute de données pour les calibrer.
+// An entry sheet: its header row, and nothing else. The widths follow the
+// title's length, for want of data to calibrate them on.
 function emptySheet(columns: readonly string[]): XLSX.WorkSheet {
   return sheet([[...columns]], columns.map((c) => Math.max(14, c.length + 4)));
 }
 
-// La troisième colonne montre l'icône choisie sur la ligne. Elle ne se saisit
-// pas : c'est une formule, recopiée par Excel sur chaque nouvelle ligne du
-// tableau (colonne calculée). Elle va chercher l'aperçu dans l'onglet Listes,
-// en face du nom retenu.
+// The third column shows the icon chosen on the row. It is not typed in: it is
+// a formula, copied by Excel onto every new row of the table (a calculated
+// column). It fetches the preview from the Lists sheet, opposite the name
+// chosen.
 //
-// Références de plage, PAS de références structurées. La version précédente
-// écrivait « T_Lists[Preview] » : Excel charge les tables dans l'ordre, et
-// T_Listes est la septième — elle n'existait pas encore quand il validait la
-// troisième, qu'il supprimait donc en proposant de réparer le classeur. Son
-// journal le disait mot pour mot : « Enregistrements supprimés: Tableau dans
-// la partie /xl/tables/table3.xml ».
-// Le nom de l'onglet des listes, à un seul endroit. Il était écrit en toutes
-// lettres dans les formules et une fois de plus à la création : le passage à
-// l'anglais a renommé la seconde et oublié les premières, et Excel a lu
-// « Listes! » comme un renvoi vers un AUTRE CLASSEUR -- d'où l'avertissement
-// sur les liaisons externes, et des listes déroulantes qui ne se remplissaient
-// plus.
+// Range references, NOT structured references. The previous version wrote
+// "T_Lists[Preview]": Excel loads the tables in order, and T_Lists is the
+// seventh — it did not exist yet when Excel validated the third, which it
+// therefore deleted while offering to repair the workbook. Its log said so
+// word for word: "Records removed: Table from /xl/tables/table3.xml".
+//
+// The lists sheet's name, in one place only. It used to be spelled out in the
+// formulas and once more at creation time: the switch to English renamed the
+// latter and forgot the former, and Excel read "Listes!" as a reference to
+// ANOTHER WORKBOOK -- hence the external-links warning, and drop-downs that no
+// longer filled.
+//
 export const LISTS_SHEET = "Lists";
 
 export function previewFormula(row: number): string {
@@ -92,49 +92,49 @@ export function previewFormula(row: number): string {
   return `IFERROR(INDEX(${LISTS_SHEET}!$${preview}:$${preview},MATCH(B${row},${LISTS_SHEET}!$${icon}:$${icon},0)),"")`;
 }
 
-// Seul onglet pré-rempli : sans lui, tous les acteurs porteraient le jeton
-// neutre et un contrôle d'intégrité s'allumerait sur un classeur neuf.
+// The only pre-filled sheet: without it every actor would carry the neutral
+// token and an integrity check would light up on a brand-new workbook.
 function actorTypesSheet(declared: readonly (readonly string[])[]): XLSX.WorkSheet {
   const rows = declared.length > 0 ? declared.map((l) => [...l]) : DEFAULT_ICONS.map(([t, i]) => [t, i]);
   const headers = [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN];
-  // La colonne Aperçu suit COLONNES_TYPESACTEUR au lieu d'une lettre écrite en
-  // dur : l'ajout de "Nature" l'a décalée de C à D, et une lettre figée
-  // aurait écrasé la colonne voisine au lieu de la formule attendue.
+  // The Preview column follows ACTOR_TYPE_COLUMNS rather than a hard-coded
+  // letter: adding "Nature" shifted it from C to D, and a frozen letter would
+  // have overwritten the neighbouring column instead of the expected formula.
   const previewColumn = XLSX.utils.encode_col(ACTOR_TYPE_COLUMNS.length);
   const ws = sheet([headers, ...rows], [22, 18, 14, 12]);
   rows.forEach(([, icon], rank) => {
-    // La valeur en cache est celle qu'Excel recalculera de toute façon : elle
-    // sert à ce que l'aperçu s'affiche juste dès l'ouverture, avant le premier
-    // recalcul.
+    // The cached value is the one Excel will recompute anyway: it is there so
+    // that the preview shows correctly from the moment the file opens, before
+    // the first recalculation.
     ws[`${previewColumn}${rank + 2}`] = { t: "str", f: previewFormula(rank + 2), v: ICON_PREVIEWS[icon] ?? "" };
   });
   ws["!ref"] = `A1:${previewColumn}${rows.length + 1}`;
   return ws;
 }
 
-// Le numéro de schéma du classeur, dans un onglet à lui. Une seule valeur, sur
-// une feuille masquée : ce n'est pas une donnée à saisir, c'est la signature du
-// format, celle qui dit à l'outil s'il sait lire ce fichier tel quel.
+// The workbook's schema number, on a sheet of its own. A single value on a
+// hidden sheet: this is not data to be entered, it is the format's signature,
+// the one that tells the tool whether it can read this file as it stands.
 function versionSheet(): XLSX.WorkSheet {
   return sheet([[SCHEMA_VERSION_COLUMN], [SCHEMA_VERSION]], [20], false);
 }
 
-// Les onglets FX_ portent, hors du tableau de saisie et dans une colonne
-// masquée, une cellule qui donne le nom de leur propre onglet. Les deux
-// validations dépendantes savent ainsi sur quel onglet elles se trouvent, et
-// la cellule suit toute copie ou tout renommage de la feuille. Une cellule par
-// feuille plutôt que l'expression répétée dans chaque validation : CELL est
-// volatile.
+// The FX_ sheets carry, outside the entry table and in a hidden column, a cell
+// giving the name of their own sheet. The two dependent validations thereby
+// know which sheet they are on, and the cell follows any copy or rename of the
+// sheet. One cell per sheet rather than the expression repeated in every
+// validation: CELL is volatile.
+//
 export const EXTRA_COLUMN = XLSX.utils.encode_col(FX_COLUMNS.length + 1);
 export const TAB_CELL = `${EXTRA_COLUMN}1`;
 const TAB_NAME_FORMULA =
   'MID(CELL("filename",$A$1),FIND("]",CELL("filename",$A$1))+1,255)';
 
-// Une fonction postérieure à Excel 2007 se STOCKE dans le fichier sous un nom
-// préfixé -- « _xlfn. », et « _xlfn._xlws. » pour celles qui ne valent que sur
-// une feuille de calcul. Excel les réaffiche sans le préfixe. Sans lui, il ne
-// reconnaît pas la fonction, supprime la formule et propose de réparer le
-// classeur : c'est exactement ce qu'il a fait sur une première version.
+// A function newer than Excel 2007 is STORED in the file under a prefixed name
+// -- "_xlfn.", and "_xlfn._xlws." for those valid only on a worksheet. Excel
+// redisplays them without the prefix. Without it, Excel does not recognise the
+// function, deletes the formula and offers to repair the workbook: which is
+// exactly what it did on a first version.
 const NOMS_STOCKES: Record<string, string> = {
   FILTER: "_xlfn._xlws.FILTER",
   SORT: "_xlfn._xlws.SORT",
@@ -150,17 +150,17 @@ function nameForExcel(formule: string): string {
   );
 }
 
-// Les tables d'appoint lisent l'onglet Interfaces sur une plage déclarée
-// d'avance -- une formule à résultat étalé rend toujours la même hauteur. Cette
-// plage doit dépasser le nombre d'interfaces écrites, sans quoi les listes
-// dépendantes cessent de voir les derniers flux sans rien dire. Le plancher
-// laisse de quoi saisir dans un classeur neuf.
+// The helper tables read the Interfaces sheet over a range declared in
+// advance -- a spilled formula always returns the same height. That range must
+// exceed the number of interfaces written, failing which the dependent lists
+// silently stop seeing the last flows. The floor leaves room to type in a
+// brand-new workbook.
 const LIST_ROWS_MARGIN = 1000;
 const lastListRow = (nbInterfaces: number) => nbInterfaces + LIST_ROWS_MARGIN;
 
-// Emplacement des deux tables d'appoint dans l'onglet Listes : après les
-// colonnes de vocabulaire, séparées d'elles et l'une de l'autre par une colonne
-// vide, pour qu'on distingue à l'œil ce qui se saisit de ce qui se calcule.
+// Where the two helper tables sit on the Lists sheet: after the vocabulary
+// columns, separated from them and from each other by a blank column, so that
+// what is typed can be told by eye from what is computed.
 function extraColumns() {
   const base = Object.keys(LISTES).length;
   const col = (i: number) => XLSX.utils.encode_col(base + i);
@@ -174,14 +174,14 @@ function extraColumns() {
   };
 }
 
-// Les deux tables sont VIVANTES : figées à la génération, elles cesseraient
-// d'être justes dès la première interface ajoutée dans Excel. D'où des formules
-// à résultat étalé, sur une plage fixe déclarée d'avance -- INDEX + SEQUENCE
-// rendent toujours la même hauteur, et IFERROR vide le surplus.
-// La formule Excel refait l'assainissement d'assainirNomOnglet à l'identique.
-// Elle reconstruit le nom d'onglet pour retrouver les flux qui s'y rattachent :
-// raccourci d'un seul côté, ce nom ne désignerait plus rien et les listes
-// dépendantes d'un onglet au nom long resteraient vides.
+// Both tables are LIVE: frozen at generation time they would stop being right
+// the moment the first interface was added in Excel. Hence spilled formulas,
+// over a fixed range declared in advance -- INDEX + SEQUENCE always return the
+// same height, and IFERROR empties the surplus.
+// The Excel formula reproduces sanitiseTabName's sanitising identically. It
+// rebuilds the sheet name to find the flows attached to it: shortened on one
+// side only, that name would designate nothing any more and the dependent
+// lists of a long-named sheet would stay empty.
 function sanitiseTabFormula(expression: string): string {
   const sanitised = FORBIDDEN_TAB_CHARACTERS.reduce(
     (current, interdit) => `SUBSTITUTE(${current},"${interdit}","${REMPLACEMENT_ONGLET}")`,
@@ -197,8 +197,8 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
   const version = plage(columnOf(INTERFACE_COLUMNS, "Version"));
   const provider = plage(columnOf(INTERFACE_COLUMNS, "Provider"));
   const type = plage(columnOf(INTERFACE_COLUMNS, "Flow type"));
-  // L'onglet attendu, reconstruit comme partout ailleurs dans le projet
-  // (feuilleFxAttendue, dans parsing/build-model.ts, fait foi).
+  // The expected sheet, rebuilt as everywhere else in the project
+  // (feuilleFxAttendue, in parsing/build-model.ts, is authoritative).
   const tab = sanitiseTabFormula(`"${FX_SHEET_PREFIX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
   const notEmpty = `${flows}<>""`;
   const spread = (table: string) =>
@@ -206,29 +206,29 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
 
   return [
     {
-      // Clé (onglet|flux) et version, triées par clé : c'est le tri qui rend
-      // les versions d'un même flux contiguës, condition de MATCH + COUNTIF.
+      // Key (sheet|flow) and version, sorted by key: it is the sort that makes
+      // one flow's versions contiguous, the condition for MATCH + COUNTIF.
       cellule: `${c.versionKey}2`,
       ref: `${c.versionKey}2:${c.version}${lastRow}`,
       formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${notEmpty}),1,1)`),
     },
     {
-      // Couples (onglet, flux) dédoublonnés : sans UNIQUE, un flux à trois
-      // versions apparaîtrait trois fois dans la liste déroulante.
+      // (sheet, flow) pairs deduplicated: without UNIQUE, a flow with three
+      // versions would appear three times in the drop-down.
       cellule: `${c.flowTab}2`,
       ref: `${c.flowTab}2:${c.flows}${lastRow}`,
       formule: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${notEmpty})),1,1)`),
     },
     {
-      // Couples (exposant, interface versionnée), triés par exposant : c'est ce
-      // qui alimente la liste « Republished as » d'un onglet FX_, où l'on ne
-      // doit proposer que les interfaces de l'acteur de la ligne. La version
-      // est dans le libellé : deux versions d'un même flux sont deux
-      // republications possibles, et les confondre reviendrait à deviner.
+      // (publisher, versioned interface) pairs, sorted by publisher: this is what
+      // feeds an FX_ sheet's "Republished as" list, where only the interfaces of
+      // the row's actor may be offered. The version is in the label: two versions
+      // of one flow are two possible republications, and conflating them would
+      // amount to guessing.
       cellule: `${c.provider}2`,
       ref: `${c.provider}2:${c.publishedInterface}${lastRow}`,
-      // Le libellé versionné, construit comme libelleInterface : le nom, une
-      // espace seulement s'il y a une version, puis la version.
+      // The versioned label, built like interfaceLabel: the name, a space only if
+      // there is a version, then the version.
       formule: spread(
         `SORT(UNIQUE(FILTER(HSTACK(${provider},${flows}&IF(${version}="",""," ")&${version}),${notEmpty})),1,1)`
       ),
@@ -262,14 +262,14 @@ function listsSheet(lastRow: number): XLSX.WorkSheet {
   return ws;
 }
 
-// De quoi remplir le classeur. Vide, on obtient le modèle ; garni, le fichier
-// d'exemple -- même structure, mêmes tableaux, mêmes listes déroulantes, une
-// seule mécanique à maintenir.
+// What fills the workbook. Empty gives the template; filled gives the sample
+// file -- same structure, same tables, same drop-downs, one single mechanism
+// to maintain.
 export interface WorkbookData {
-  // Les deux référentiels du classeur. Vides, on retombe sur l'amorce : c'est
-  // le cas du modèle vierge. Renseignés, ils sont repris tels quels -- une mise
-  // à niveau qui les remplacerait par l'amorce effacerait les types que
-  // l'équipe a déclarés, et briserait toutes les interfaces qui s'y réfèrent.
+  // The workbook's two referentials. Empty, they fall back to the seed: that is
+  // the blank template's case. Filled, they are taken as they are -- an upgrade
+  // replacing them with the seed would erase the types the team declared, and
+  // break every interface referring to them.
   flowTypes: readonly (readonly string[])[];
   actorTypes: readonly (readonly string[])[];
   milestones: readonly (readonly string[])[];
@@ -281,18 +281,18 @@ export interface WorkbookData {
 
 const EMPTY_WORKBOOK: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
 
-// Un onglet FX_<exposant>_<type> de plus de 31 caractères, ou portant un
-// caractère qu'Excel refuse dans un nom de feuille, ferait échouer l'écriture
-// du classeur tout entier -- alors qu'un référentiel réel a des noms
-// d'acteur et de technologie longs. On l'écarte plutôt, comme le fait déjà
-// donneesDepuisModele() (migration-modele.ts) pour la réparation d'un
-// classeur courant : l'interface reste au catalogue, et le contrôle
-// d'intégrité, qui sait déjà lire « son onglet FX_ attendu n'existe pas »,
-// le signale à la relecture -- ce n'est donc pas un silence.
-// Les onglets de consommations, sous le nom qu'Excel accepte. La règle est
-// celle de feuilleFxAttendue et elle ne vit qu'à un endroit : l'appliquer aussi
-// ici rend l'écriture totale -- avant, un nom trop long était écarté en
-// silence, et ses consommations disparaissaient du classeur produit.
+// An FX_<publisher>_<type> sheet longer than 31 characters, or carrying a
+// character Excel refuses in a sheet name, would fail the writing of the whole
+// workbook -- whereas a real referential has long actor and technology names.
+// It is dropped instead, as dataFromModel() (schema-upgrade.ts) already does
+// when repairing a current workbook: the interface stays in the catalogue, and
+// the integrity check, which already knows how to say "its expected FX_ sheet
+// does not exist", reports it on re-reading -- so this is not a silence.
+//
+// The consumption sheets, under the name Excel accepts. The rule is the one in
+// feuilleFxAttendue and it lives in one place only: applying it here as well
+// makes the writing total -- before, an overlong name was dropped in silence,
+// and its consumptions disappeared from the produced workbook.
 function fxTabs(data: WorkbookData): WorkbookData["fx"] {
   return data.fx.map((o) => ({ ...o, name: sanitiseTabName(o.name) }));
 }
@@ -301,8 +301,8 @@ function filledSheet(columns: readonly string[], rows: readonly (readonly string
   return sheet([[...columns], ...rows.map((l) => [...l])], widths);
 }
 
-// Un onglet de consommations : le tableau de saisie, plus la cellule qui le
-// nomme, dans une colonne masquée au-delà du tableau.
+// A consumption sheet: the entry table, plus the cell naming it, in a hidden
+// column beyond the table.
 function fxSheet(rows: readonly (readonly string[])[], widths: number[]): XLSX.WorkSheet {
   const ws = filledSheet(FX_COLUMNS, rows, widths);
   ws[TAB_CELL] = { t: "s", v: "", f: TAB_NAME_FORMULA };
@@ -322,9 +322,9 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
   XLSX.utils.book_append_sheet(wb, sheet(INSTRUCTIONS.map((l) => [l.left, l.right]), [26, 104], false), "Instructions");
   XLSX.utils.book_append_sheet(wb, filledSheet(ACTOR_COLUMNS, data.actors, actorWidths), "Actors");
   XLSX.utils.book_append_sheet(wb, filledSheet(GROUP_COLUMNS, data.groups, [24, 16]), "Groups");
-  // Visible, et placé tôt : la chronologie de la plateforme se saisit, elle ne
-  // se déduit pas, et les deux bornes de validité de toutes les autres
-  // feuilles y puisent leur liste.
+  // Visible, and placed early: the platform's chronology is entered, it is not
+  // deduced, and every other sheet's two validity bounds draw their list from
+  // it.
   XLSX.utils.book_append_sheet(
     wb,
     filledSheet(MILESTONE_COLUMNS, data.milestones, MILESTONE_COLUMNS.map((c) => Math.max(14, c.length + 4))),
@@ -348,23 +348,23 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
   XLSX.utils.book_append_sheet(wb, listsSheet(lastListRow(data.interfaces.length)), LISTS_SHEET);
   XLSX.utils.book_append_sheet(wb, versionSheet(), VERSION_SHEET);
 
-  // Listes alimente les listes déroulantes, Version porte la signature du
-  // format : ni l'un ni l'autre ne se remplit à la main. Masqués, ils ne se
-  // confondent plus avec les onglets de saisie.
+  // Lists feeds the drop-downs, Version carries the format's signature: neither
+  // one is filled by hand. Hidden, they can no longer be confused with the entry
+  // sheets.
   const hidden = new Set([LISTS_SHEET, VERSION_SHEET]);
   wb.Workbook = { Sheets: wb.SheetNames.map((name) => ({ Hidden: hidden.has(name) ? 1 : 0 })) };
 
   return wb;
 }
 
-// Les feuilles de saisie deviennent de vrais tableaux Excel : la plage suit
-// les lignes qu'on ajoute, au lieu de laisser filtres et formats derrière soi.
-// La feuille de prose n'en est pas un.
-// Un référentiel vide retombe sur son amorce, renseigné il est repris tel quel
-// -- règle appliquée par les deux feuilles concernées. Le tableau structuré
-// doit compter les MÊMES lignes : dimensionné sur l'amorce, il déborde en
-// lignes vides quand l'équipe en a retiré, et laisse hors du tableau les types
-// qu'elle a ajoutés, donc hors de la liste déroulante qui le vise.
+// The entry sheets become real Excel tables: the range follows the rows one
+// adds, instead of leaving filters and formats behind.
+// The prose sheet is not one.
+// An empty referential falls back to its seed; filled, it is taken as it is --
+// a rule applied by both sheets concerned. The structured table must count the
+// SAME rows: sized on the seed, it spills into blank rows when the team has
+// removed some, and leaves the types it added outside the table, hence outside
+// the drop-down that targets it.
 const writtenRows = (declared: readonly unknown[], seed: readonly unknown[]) =>
   declared.length > 0 ? declared.length : seed.length;
 
@@ -377,20 +377,20 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
       sheet: "ActorTypes",
       columns: [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN],
       rows: writtenRows(data.actorTypes, DEFAULT_ICONS),
-      // Colonne calculée : Excel la remplit tout seul sur les lignes ajoutées.
-      // La formule stockée dans le tableau est celle de la première ligne de
-      // données : Excel la décale lui-même sur les lignes suivantes.
+      // Calculated column: Excel fills it by itself on the rows added. The
+      // formula stored in the table is the first data row's: Excel shifts it
+      // itself onto the following rows.
       formulaByColumn: { [ICON_PREVIEW_COLUMN]: previewFormula(2) },
     },
     { sheet: "FlowTypes", columns: FLOW_TYPE_COLUMNS, rows: writtenRows(data.flowTypes, FLOW_TYPES) },
     { sheet: "Interfaces", columns: INTERFACE_COLUMNS, rows: data.interfaces.length },
     ...fxTabs(data).map((o) => ({ sheet: o.name, columns: FX_COLUMNS, rows: o.rows.length })),
-    // Un tableau PAR vocabulaire, dimensionné à son seul contenu -- pas un
-    // tableau unique couvrant les huit colonnes, dimensionné sur la plus
-    // longue (Icon) : les listes plus courtes se seraient sinon retrouvées
-    // rembourrées de lignes vides jusqu'à cette hauteur, visibles dans le menu
-    // déroulant et comptées par COUNTA puisque SheetJS y écrit des cellules
-    // chaîne vides plutôt que de ne rien écrire.
+    // One table PER vocabulary, sized to its own content -- not a single table
+    // covering all eight columns, sized on the longest one (Icon): the shorter
+    // lists would otherwise have been padded with blank rows up to that height,
+    // visible in the drop-down and counted by COUNTA since SheetJS writes empty
+    // string cells there rather than writing nothing at all.
+    //
     ...Object.keys(LISTES).map((key, index) => ({
       sheet: LISTS_SHEET,
       columns: [key],
@@ -400,18 +400,18 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
   ];
 }
 
-// Colonne de l'onglet Listes portant un vocabulaire donné, calculée depuis
-// l'ordre de LISTES : ajouter une entrée ne doit pas décaler silencieusement
-// toutes les listes déroulantes.
+// The Lists column carrying a given vocabulary, computed from the order of
+// LISTS: adding an entry must not silently shift every drop-down.
+//
 function listColumn(key: string): string {
   const index = Object.keys(LISTES).indexOf(key);
   if (index < 0) throw new Error(`vocabulaire inconnu : ${key}`);
   return XLSX.utils.encode_col(index);
 }
 
-// « Toute référence à un acteur ou à un type passe par une liste déroulante. Ne
-// tapez jamais un nom à la main : une variante d'orthographe crée un acteur
-// fantôme. » -- la règle du classeur, appliquée par le fichier lui-même.
+// "Every reference to an actor or a type goes through a drop-down. Never type a
+// name by hand: a spelling variant creates a phantom actor." -- the workbook's
+// rule, enforced by the file itself.
 export function listsOfTemplate(): NamedList[] {
   return [
     { name: "L_Perimetre", sheet: LISTS_SHEET, heading: "Perimeter" },
@@ -421,8 +421,8 @@ export function listsOfTemplate(): NamedList[] {
     { name: "L_Confirmation", sheet: LISTS_SHEET, heading: "Confirmation" },
     { name: "L_Icone", sheet: LISTS_SHEET, heading: "Icon" },
     { name: "L_Nature", sheet: LISTS_SHEET, heading: "Nature" },
-    // Ces trois-là pointent sur des onglets de saisie : la liste s'enrichit à
-    // mesure qu'on remplit le classeur.
+    // These three point at entry sheets: the list grows as the workbook gets
+    // filled in.
     { name: "L_TypeActeur", sheet: "ActorTypes", heading: "Actor type" },
     { name: "L_Acteur", sheet: "Actors", heading: "Name" },
     { name: "L_Groupe", sheet: "Groups", heading: "Group" },
@@ -437,9 +437,9 @@ export function columnOf(columns: readonly string[], heading: string): string {
   return XLSX.utils.encode_col(index);
 }
 
-// Les deux listes dépendantes d'un onglet FX_. OFFSET découpe dans la table
-// d'appoint le bloc contigu que MATCH localise et que COUNTIF dimensionne --
-// MAX(1,...) parce qu'Excel refuse une plage de hauteur nulle.
+// An FX_ sheet's two dependent lists. OFFSET carves out of the helper table
+// the contiguous block MATCH locates and COUNTIF sizes -- MAX(1,...) because
+// Excel refuses a range of zero height.
 function dependentFormulas(lastRow: number) {
   const c = extraColumns();
   const flowColumn = columnOf(FX_COLUMNS, "Flow name");
@@ -449,32 +449,32 @@ function dependentFormulas(lastRow: number) {
     return `OFFSET(${LISTS_SHEET}!$${colValue}$2,MATCH(${key},${keys},0)-1,0,MAX(1,COUNTIF(${keys},${key})),1)`;
   };
   return {
-    // Les flux de CET onglet : la clé est le nom de l'onglet, porté par la
-    // cellule d'appoint.
+    // THIS sheet's flows: the key is the sheet's name, carried by the helper
+    // cell.
     flows: block(`$${EXTRA_COLUMN}$1`, c.flowTab, c.flows),
-    // Les versions du flux de CETTE ligne : la référence à la colonne du flux
-    // est relative en ligne, Excel décale donc la formule d'une ligne à l'autre.
+    // THIS row's flow's versions: the reference to the flow column is relative
+    // in row, so Excel shifts the formula from one row to the next.
     version: block(`$${EXTRA_COLUMN}$1&"|"&$${flowColumn}2`, c.versionKey, c.version),
-    // Les interfaces exposées par le consommateur de CETTE ligne : une
-    // republication ne peut désigner qu'une interface de son propre acteur.
+    // The interfaces published by THIS row's consumer: a republication can only
+    // name an interface of its own actor.
     republication: block(`$${consumerColumn}2`, c.provider, c.publishedInterface),
   };
 }
 
-// Ce qu'Excel dit à la sélection d'une cellule, colonne par colonne. On ne
-// commente que ce que l'en-tête ne dit pas déjà : l'ordre de saisie quand une
-// liste dépend d'une autre, et le sens exact d'une valeur quand il se devine
-// mal. Excel borne le titre à 32 caractères et le texte à 255.
-// Exporté pour que le test puisse vérifier qu'aucune invite ne vise une
-// colonne inexistante -- une couverture illusoire est pire qu'un trou connu.
+// What Excel says when a cell is selected, column by column. Only what the
+// header does not already say is commented: the entry order when one list
+// depends on another, and a value's exact meaning when it is hard to guess.
+// Excel caps the title at 32 characters and the text at 255.
+// Exported so the test can check that no prompt targets a non-existent column
+// -- illusory coverage is worse than a known hole.
 export const INVITES: Record<string, { title: string; text: string }> = {
   "Flow name": { title: "Interface", text: "An interface exposed by this sheet's provider. Declare it on the Interfaces sheet first." },
-  // Le défaut d'origine : sans le flux, la source de cette liste vaut #N/A et
-  // la liste ne s'ouvre pas. Le comportement est juste, il manquait de le dire.
+  // The original defect: without the flow, this list's source is #N/A and the
+  // list does not open. The behaviour is right, it just failed to say so.
   Version: { title: "Version", text: "Fill in Flow name first: the versions offered are the ones declared for that interface." },
-  // Un même intitulé ne veut pas dire la même chose partout : sur Interfaces,
-  // « Version » est la version QU'ON DÉCLARE, pas une à choisir dans une liste.
-  // La clé qualifiée par la feuille l'emporte sur la clé nue.
+  // One and the same heading does not mean the same thing everywhere: on
+  // Interfaces, "Version" is the version ONE DECLARES, not one to pick from a
+  // list. The sheet-qualified key wins over the bare key.
   "Interfaces.Version": {
     title: "Version",
     text:
@@ -494,8 +494,8 @@ export const INVITES: Record<string, { title: string; text: string }> = {
   Direction: { title: "Direction", text: "Which way the arrow is drawn for this technology, on every diagram." },
   "To confirm": { title: "To confirm", text: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
 
-  // --- Colonnes de saisie LIBRE. Aucune liste ne les guide, et elles étaient
-  // les seules à ne rien dire -- alors que ce sont celles où l'on hésite.
+  // --- FREE-entry columns. No list guides them, and they were the only ones
+  // saying nothing -- although they are the ones people hesitate over.
   Name: { title: "Name", text: "The component's name, as everyone here calls it. It becomes the reference used everywhere else: renaming it later means a find-and-replace across the whole workbook." },
   Group: { title: "Group", text: "The group this component belongs to. The group carries the perimeter — Platform or External — so everything it holds follows." },
   "Actor type": { title: "Actor type", text: "Declared on the ActorTypes sheet, which also gives it its icon and says whether it is business or technical." },
@@ -516,8 +516,8 @@ export const INVITES: Record<string, { title: string; text: string }> = {
   Consumer: { title: "Consumer", text: "The actor that consumes this interface. One line per consumer: an interface consumed by four actors has four lines." },
 };
 
-// La feuille d'abord, l'intitulé ensuite : un même nom de colonne ne dit pas la
-// même chose d'une feuille à l'autre.
+// The sheet first, the heading second: one and the same column name does not
+// mean the same thing from one sheet to the next.
 function invitePour(sheet: string, heading: string): { title: string; text: string } | undefined {
   return INVITES[`${sheet}.${heading}`] ?? INVITES[heading];
 }
@@ -530,16 +530,16 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     prompt: invitePour(sheet, heading),
   });
 
-  // Toute colonne qu'aucune liste ne guide reçoit quand même son infobulle :
-  // c'est la moitié du classeur, et c'était la moitié muette. On part de la
-  // LISTE DES COLONNES et non d'une énumération à la main -- une colonne
-  // ajoutée demain hérite ainsi du même traitement, ou se signale par son
-  // absence d'invite.
+  // Every column no list guides still gets its tooltip: that is half the
+  // workbook, and it was the mute half. This starts from the COLUMN LIST rather
+  // than a hand-written enumeration -- a column added tomorrow thereby inherits
+  // the same treatment, or reports itself by the absence of a prompt.
+  //
   const free = (sheet: string, columns: readonly string[], guided: readonly string[]) =>
     columns.filter((c) => !guided.includes(c) && invitePour(sheet, c)).map((c) => v(sheet, columns, c));
   const dependent = dependentFormulas(lastListRow(data.interfaces.length));
-  // Les deux bornes de validité se posent partout où l'on date des objets, et
-  // toujours de la même façon.
+  // The two validity bounds are set wherever objects are dated, and always the
+  // same way.
   const bounds = (sheet: string, columns: readonly string[]) =>
     VALIDITY_COLUMNS.map((heading) => v(sheet, columns, heading, "L_Palier"));
 
@@ -580,13 +580,13 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...free("ActorTypes", ACTOR_TYPE_COLUMNS, ["Icon", "Nature"]),
     ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Direction"]),
     ...free("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
-    // Les onglets de flux garnis reçoivent les mêmes listes que leur patron.
+    // The filled flow sheets get the same lists as their pattern.
     ...fxTabs(data).flatMap((o) => listesFx(o.name)),
   ];
 }
 
-// Les feuilles de saisie et leurs colonnes, en un seul endroit : l'en-tête à
-// styler, le volet à figer et l'invite à poser s'en déduisent tous les trois.
+// The entry sheets and their columns, in one place: the header to style, the
+// pane to freeze and the prompt to set are all three deduced from it.
 const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
   ["Actors", ACTOR_COLUMNS],
   ["Groups", GROUP_COLUMNS],
@@ -596,10 +596,10 @@ const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
   ["Interfaces", INTERFACE_COLUMNS],
 ];
 
-// La mise en forme de l'onglet d'explication : le rôle de chaque ligne décide
-// de son style, et c'est ce qui permet de ne plus couper les phrases à la main.
-// Les deux colonnes reçoivent le même style -- une section dont seule la
-// gauche serait colorée aurait l'air d'une erreur d'alignement.
+// The formatting of the explanation sheet: each row's role decides its style,
+// which is what allows sentences to no longer be broken by hand.
+// Both columns get the same style -- a section with only its left half
+// coloured would look like an alignment mistake.
 export function stylesOfTemplate(): StyleToApply[] {
   const byRole = new Map<RowRole, string[]>();
   INSTRUCTIONS.forEach((row, i) => {
@@ -612,8 +612,8 @@ export function stylesOfTemplate(): StyleToApply[] {
     cells,
     role,
   }));
-  // La ligne d'en-tête de chaque feuille de saisie : elle reste à l'écran
-  // (volet figé) et doit se distinguer des données qu'elle nomme.
+  // Each entry sheet's header row: it stays on screen (frozen pane) and must
+  // be distinguishable from the data it names.
   for (const [name, columns] of FEUILLES_DE_SAISIE) {
     styles.push({
       sheet: name,
@@ -626,14 +626,14 @@ export function stylesOfTemplate(): StyleToApply[] {
 
 export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Date = new Date()): ArrayBuffer {
   const workbook = buildTemplateWorkbook(data);
-  // Les propriétés de document, que l'outil ne posait pas : un classeur qu'il
-  // venait de produire se relisait donc SANS date de sauvegarde, et le
-  // cartouche de chaque schéma annonçait « save date unknown » sur des données
-  // fraîches. Excel remplit ModifiedDate à chaque enregistrement ; nous devons
-  // en faire autant, sans quoi c'est l'outil qui a l'air de mal lire.
+  // The document properties, which the tool did not set: a workbook it had just
+  // produced therefore reread WITHOUT a save date, and every diagram's title
+  // block announced "save date unknown" over fresh data. Excel fills
+  // ModifiedDate at every save; we must do the same, failing which it is the
+  // tool that looks like it is reading badly.
   //
-  // La date est injectée plutôt que lue de l'horloge, pour que l'écriture reste
-  // reproductible et testable -- comme la migration le fait déjà.
+  // The date is injected rather than read from the clock, so that the writing
+  // stays reproducible and testable -- as the migration already does.
   workbook.Props = {
     ...workbook.Props,
     Title: "Interface map",
@@ -648,8 +648,8 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
     validations: validationsOfTemplate(data),
     styles: [
       ...stylesOfTemplate(),
-      // Les onglets de flux garnis portent la même ligne d'en-tête que leur
-      // patron : sans cette ligne, seuls les onglets vides l'auraient.
+      // The filled flow sheets carry the same header row as their pattern:
+      // without this line, only the empty sheets would have it.
       ...fxTabs(data).map((o) => ({
         sheet: o.name,
         cells: FX_COLUMNS.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
@@ -661,10 +661,10 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
   return completed;
 }
 
-// Les classeurs générés ne portent plus aucun code : ce sont des .xlsx
-// ordinaires. Le VBA a été retiré parce qu'il ne survit pas à la
-// synchronisation SharePoint, et rien ne l'a remplacé -- il n'y a plus rien à
-// automatiser depuis que l'outil crée lui-même les onglets attendus.
+// The generated workbooks no longer carry any code: they are ordinary .xlsx
+// files. The VBA was removed because it does not survive SharePoint
+// synchronisation, and nothing replaced it -- there is nothing left to
+// automate now that the tool creates the expected sheets itself.
 export function downloadTemplateXlsx(filename: string, workbookData?: WorkbookData): void {
   const data = writeTemplate(workbookData);
   downloadWorkbook(data, filename);
