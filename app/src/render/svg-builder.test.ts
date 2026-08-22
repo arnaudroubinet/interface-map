@@ -883,3 +883,31 @@ describe("buildGraphSvg — l'encre n'est pas la couleur du trait", () => {
     expect(taillePastille("HTTP ×3", "HTTP").width).toBeGreaterThan(taillePastille("HTTP ×3", "").width);
   });
 });
+
+// --- QA : l'infobulle ne se posait qu'à partir de DEUX noms. Sur le classeur
+// d'exemple, 23 arêtes sur 24 n'en portaient donc aucune, et le nom de
+// l'échange n'était lisible nulle part.
+describe("buildGraphSvg — l'infobulle des arêtes", () => {
+  const parc = async (noms: string[]) =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "groupe" }, { id: "B", label: "B", kind: "groupe" }],
+      [{ from: "A", to: "B", technologie: "HTTP", count: noms.length, label: "HTTP", atténué: false, noms }]
+    );
+
+  it("pose l'infobulle même quand l'arête ne porte qu'un seul échange", async () => {
+    const svg = buildGraphSvg(await parc(["Policy events 1.0"]), () => "#111");
+    expect([...svg.querySelectorAll(".fx-aretes title")].map((t) => t.textContent)).toContain("Policy events 1.0");
+  });
+
+  it("liste tous les noms d'un trait fusionné, un par ligne", async () => {
+    const svg = buildGraphSvg(await parc(["A 1.0", "B 2.0"]), () => "#111");
+    expect(svg.querySelector(".fx-aretes title")?.textContent).toBe("A 1.0\nB 2.0");
+  });
+
+  // Une arête sans nom -- une vue agrégée qui ne les transporte pas -- ne doit
+  // pas produire une infobulle vide, qui s'ouvrirait sur rien.
+  it("ne pose rien quand l'arête ne porte aucun nom", async () => {
+    const svg = buildGraphSvg(await parc([]), () => "#111");
+    expect(svg.querySelector(".fx-aretes title")).toBeNull();
+  });
+});

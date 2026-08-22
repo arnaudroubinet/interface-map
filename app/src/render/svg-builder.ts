@@ -276,10 +276,11 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
   const g = el("g");
   const couleur = couleurArête(edge, colorFor);
 
-  // L'étiquette ne nomme que les premiers échanges du trait -- au-delà elle
-  // mangerait le dessin. La liste entière se lit ici, au survol, dans le
-  // navigateur comme dans un .svg ouvert seul.
-  if (edge.noms && edge.noms.length > 1) {
+  // Le nom de l'échange se lit ici, au survol, dans le navigateur comme dans
+  // un .svg ouvert seul. La condition « au moins deux noms » en privait toute
+  // arête simple, c'est-à-dire la quasi-totalité d'entre elles : sur le
+  // classeur d'exemple, 23 arêtes sur 24 étaient muettes.
+  if (edge.noms && edge.noms.length > 0) {
     const infobulle = el("title");
     infobulle.textContent = edge.noms.join("\n");
     g.appendChild(infobulle);
