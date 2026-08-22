@@ -22,7 +22,14 @@ import {
 } from "./core";
 import type { Lecture } from "./fonctionnel";
 import { estActeurTechnique } from "./nature";
+import { rayon, type Voisinage } from "./impact";
 import { ordonner, type ContexteOrdre, type OrdreMatrice } from "./seriation";
+
+// L'opacité d'un nœud selon sa distance au point d'intérêt.
+function attenuationDeDistance(saut: number): number | undefined {
+  if (saut <= 1) return undefined;
+  return saut === 2 ? 0.7 : 0.45;
+}
 
 export interface ViewResult {
   nodes: GraphNode[];
@@ -227,10 +234,21 @@ function fluxDeLActeur(flux: FlowInstance[], acteurNom: string) {
 export interface OptionsVueActeur {
   technosMasquees?: readonly string[];
   acteursMasques?: readonly string[];
+  // Jusqu'où porte le regard : les voisins immédiats, ce dont l'acteur dépend,
+  // ou ce qui dépend de lui -- c'est-à-dire ce que sa chute toucherait.
+  voisinage?: Voisinage;
 }
 
 export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteurNom: string, options: OptionsVueActeur): ViewResult {
-  const flows = fluxDeLActeur(flux, acteurNom);
+  const voisinage = options.voisinage ?? "direct";
+  const distances = rayon(flux, acteurNom, voisinage);
+  // En direct, le comportement historique : les flux qui TOUCHENT l'acteur.
+  // Au-delà, tout flux dont les deux bouts sont dans le rayon -- sinon la
+  // planche montrerait des boîtes sans les liens qui les y ont amenées.
+  const flows =
+    voisinage === "direct"
+      ? fluxDeLActeur(flux, acteurNom)
+      : flux.filter((f) => distances.has(f.exposant.trim()) && distances.has(f.consommateur.trim()));
   const technosMasquees = new Set(options.technosMasquees ?? []);
   const acteursMasques = new Set(options.acteursMasques ?? []);
 
@@ -273,6 +291,10 @@ export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteu
     label: id,
     kind: id === acteurNom ? "acteur-selectionne" : "acteur",
     ...détailsActeur(model, id),
+    // Atténué selon la distance : un saut à plein, deux à 70 %, au-delà à
+    // 45 %. C'est le degree-of-interest -- ce qui est loin reste visible mais
+    // cesse de disputer l'attention au point de départ.
+    ...(voisinage === "direct" ? {} : { attenuation: attenuationDeDistance(distances.get(id) ?? 0) }),
   }));
 
   return { nodes, edges };

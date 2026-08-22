@@ -23,6 +23,10 @@ export interface GraphNode {
   // `agrégat` : le nœud replie plusieurs acteurs, et combien.
   technique?: boolean;
   agrégat?: number;
+  // Opacité du nœud, quand la vue veut mettre en retrait sans faire
+  // disparaître : ce qui est loin du point d'intérêt reste visible mais cesse
+  // de lui disputer l'attention.
+  attenuation?: number;
   // Nom d'icône, résolu depuis l'onglet TypesActeur du classeur. Le rendu ne
   // décide plus quelle icône va à quel type : il l'applique.
   icone?: string;

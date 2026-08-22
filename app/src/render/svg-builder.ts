@@ -447,6 +447,7 @@ function buildFrontiereElement(node: LayoutNode): SVGGElement {
 
 function buildNodeElement(node: LayoutNode): SVGGElement {
   const g = el("g");
+  if (node.attenuation !== undefined) g.setAttribute("opacity", String(node.attenuation));
   const x = node.x - node.width / 2;
   const y = node.y - node.height / 2;
   const style = styleDuNoeud(node);

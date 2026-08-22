@@ -1334,3 +1334,42 @@ describe("contrôles — couleurs trop claires pour être dessinées", () => {
     expect(bloc("bleu ciel")?.items).toEqual([]);
   });
 });
+
+// --- Le graphe de dépendances existait et ne servait qu'aux cycles. « Si X
+// tombe, qui est touché ? » est pourtant la question du jour où il faut
+// arbitrer une migration, et rien n'y répondait.
+describe("contrôles — rayon d'impact", () => {
+  const bloc = (m: ParsedModel) => runIntegrityChecks(m).blocsInformatifs.find((b) => b.id === "rayon-impact");
+
+  // A fournit B, B fournit C : A entraîne les deux.
+  const chaine = () =>
+    model({
+      acteurs: [acteur({ nom: "A" }), acteur({ nom: "B" }), acteur({ nom: "C" })],
+      fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
+      interfaces: [
+        iface({ nomDuFlux: "F1", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" }),
+        iface({ nomDuFlux: "F2", acteurExposant: "B", feuilleAttendue: "FX_B_HTTP" }),
+      ],
+      consommations: [
+        conso({ nomDuFlux: "F1", acteurConsommateur: "B", feuille: "FX_A_HTTP" }),
+        conso({ nomDuFlux: "F2", acteurConsommateur: "C", feuille: "FX_B_HTTP" }),
+      ],
+    });
+
+  it("compte l'aval transitif, pas seulement les voisins", () => {
+    expect(bloc(chaine())?.items[0]).toBe("A: 2 components downstream.");
+  });
+
+  it("classe le plus entraînant en tête", () => {
+    expect(bloc(chaine())?.items.map((i) => i.split(":")[0])).toEqual(["A", "B"]);
+  });
+
+  // Nommer avec un zéro allongerait la liste sans rien y ajouter.
+  it("ne nomme pas ceux qui n'entraînent personne", () => {
+    expect(bloc(chaine())?.items.some((i) => i.startsWith("C:"))).toBe(false);
+  });
+
+  it("accorde le singulier", () => {
+    expect(bloc(chaine())?.items[1]).toBe("B: 1 component downstream.");
+  });
+});

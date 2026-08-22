@@ -888,6 +888,35 @@ function atteignables(depuis: string, arcs: Map<string, Set<string>>): Set<strin
   return vus;
 }
 
+// Qui, en tombant, entraîne le plus de monde. Le graphe de dépendances existait
+// déjà ici et ne servait qu'à détecter les cycles ; c'est pourtant la question
+// qu'on pose le jour où il faut arbitrer une migration.
+//
+// On ne liste que ceux qui entraînent quelqu'un : nommer les autres avec un
+// zéro allongerait la liste sans rien y ajouter.
+function rayonDImpact(model: ParsedModel): InfoBlock {
+  const arcs = dependances(model);
+  const versLAval = new Map<string, Set<string>>();
+  for (const [de, vers] of arcs) {
+    for (const v of vers) {
+      if (!versLAval.has(v)) versLAval.set(v, new Set());
+      versLAval.get(v)!.add(de);
+    }
+  }
+  const portée = [...versLAval.keys()]
+    .map((nom) => ({ nom, aval: atteignables(nom, versLAval).size }))
+    .filter((x) => x.aval > 0)
+    .sort((a, b) => b.aval - a.aval || a.nom.localeCompare(b.nom, "fr"));
+
+  return {
+    id: "rayon-impact",
+    titre: "Blast radius",
+    description: "How many components each one takes with it, directly or through others.",
+    items: portée.map((x) => `${x.nom}: ${x.aval} component${x.aval > 1 ? "s" : ""} downstream.`),
+    niveau: "info",
+  };
+}
+
 // Des composants qui ont besoin les uns des autres, directement ou de proche en
 // proche. Aucun ne peut arriver, partir ou changer de contrat sans les autres :
 // c'est une contrainte d'architecture, pas une faute de saisie.
@@ -1090,6 +1119,7 @@ export function runIntegrityChecks(model: ParsedModel, rang: number | null = nul
     typesFluxInutilises(auPalier),
     // Une couleur ne dépend d'aucun palier : le classeur entier.
     couleursIllisibles(model),
+    rayonDImpact(auPalier),
     groupesUtilises(auPalier),
   ];
   const totalAnomalies = familles.reduce((sum, f) => sum + f.anomalies.length, 0);

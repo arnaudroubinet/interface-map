@@ -2,6 +2,7 @@ import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { OrdreMatrice } from "../aggregation/seriation";
+import type { Voisinage } from "../aggregation/impact";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { palierCourant, rangDuPalier } from "../aggregation/paliers";
@@ -73,6 +74,9 @@ export interface AppOptions {
 export interface FiltresVueActeur {
   technosMasquees: string[];
   acteursMasques: string[];
+  // Jusqu'où la planche porte : les voisins immédiats, l'amont, ou l'aval --
+  // « si cet acteur tombe, qui est touché ? ».
+  voisinage: Voisinage;
 }
 
 // Idem pour la vue par technologie : masquer d'un bloc tout ce qui est hors
@@ -124,7 +128,7 @@ export function initialState(): AppState {
     palierAffiche: null,
     palierCompare: null,
     options: { compteurs: true, libelléArête: "technology", echellePng: 2 },
-    filtresActeur: { technosMasquees: [], acteursMasques: [] },
+    filtresActeur: { technosMasquees: [], acteursMasques: [], voisinage: "direct" },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
@@ -166,7 +170,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     mode: "architecture",
     palierAffiche: courant?.nom ?? null,
     palierCompare: précédent?.nom ?? null,
-    filtresActeur: { technosMasquees: [], acteursMasques: [] },
+    filtresActeur: { technosMasquees: [], acteursMasques: [], voisinage: "direct" },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur", ordre: "alphabetique" },
     selectionActeur: null,
@@ -227,7 +231,7 @@ export function withOptions(state: AppState, patch: Partial<AppOptions>): AppSta
 
 export function withSelectionActeur(state: AppState, acteur: string | null): AppState {
   if (acteur === state.selectionActeur) return { ...state, selectionActeur: acteur };
-  return { ...state, selectionActeur: acteur, filtresActeur: { technosMasquees: [], acteursMasques: [] } };
+  return { ...state, selectionActeur: acteur, filtresActeur: { ...state.filtresActeur, technosMasquees: [], acteursMasques: [] } };
 }
 
 function basculer(liste: string[], valeur: string, masqué: boolean): string[] {
@@ -247,6 +251,12 @@ export function withActeurMasque(state: AppState, acteur: string, masqué: boole
     ...state,
     filtresActeur: { ...state.filtresActeur, acteursMasques: basculer(state.filtresActeur.acteursMasques, acteur, masqué) },
   };
+}
+
+// Le voisinage ne touche pas aux masquages : élargir le regard ne révèle ni ne
+// cache personne de plus que ce que le rayon apporte.
+export function withVoisinage(state: AppState, voisinage: Voisinage): AppState {
+  return { ...state, filtresActeur: { ...state.filtresActeur, voisinage } };
 }
 
 export function withSelectionChaine(state: AppState, chaîne: string | null): AppState {

@@ -4,6 +4,7 @@ import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import type { OrdreMatrice } from "../aggregation/seriation";
 import { chainesDisponibles } from "../aggregation/chaine";
+import type { Voisinage } from "../aggregation/impact";
 import { rangDuPalier } from "../aggregation/paliers";
 
 // L'ordre de lecture va du plus court au plus complet.
@@ -50,12 +51,20 @@ const ORDRES_MATRICE: { id: OrdreMatrice; label: string }[] = [
   { id: "blocs", label: "Order: blocks" },
 ];
 
+// Jusqu'où la planche par acteur porte le regard.
+const VOISINAGES: { id: Voisinage; label: string }[] = [
+  { id: "direct", label: "Neighbours: direct" },
+  { id: "amont", label: "Neighbours: what it depends on" },
+  { id: "aval", label: "Neighbours: what depends on it" },
+];
+
 export interface RailCallbacks {
   onMode: (mode: Mode) => void;
   onVue: (vue: Vue) => void;
   onSelectionActeur: (nom: string) => void;
   onSelectionTechnologie: (type: string) => void;
   onSelectionChaine: (chaîne: string) => void;
+  onVoisinage: (value: Voisinage) => void;
   onPalierAffiche: (palier: string) => void;
   onPalierCompare: (palier: string) => void;
   onOptionCompteurs: (value: boolean) => void;
@@ -265,6 +274,18 @@ export function renderRail(
     }
     select.addEventListener("change", () => callbacks.onSelectionActeur(select.value));
     root.appendChild(select);
+
+    // Jusqu'où porter le regard. « Ce qui dépend de lui » répond à la question
+    // qu'on pose le jour où il faut arbitrer une migration : si cet acteur
+    // tombe, qui est touché ?
+    const voisinage = el("select", { class: "rail-selecteur rail-voisinage" });
+    for (const v of VOISINAGES) {
+      const option = el("option", { value: v.id }, [v.label]);
+      if (v.id === state.filtresActeur.voisinage) option.selected = true;
+      voisinage.appendChild(option);
+    }
+    voisinage.addEventListener("change", () => callbacks.onVoisinage(voisinage.value as Voisinage));
+    root.appendChild(voisinage);
   }
 
   if (state.vue === "par-technologie") {

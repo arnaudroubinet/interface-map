@@ -58,6 +58,7 @@ import {
   withSelectionActeur,
   withSelectionTechnologie,
   withSelectionChaine,
+  withVoisinage,
   withTechnoMasquee,
   withActeurMasque,
   withMasquerExternes,
@@ -402,6 +403,7 @@ export function mountApp(root: HTMLElement): void {
           ? buildByActorView(model, lecture.flux, state.selectionActeur, {
               technosMasquees: state.filtresActeur.technosMasquees,
               acteursMasques: state.filtresActeur.acteursMasques,
+              voisinage: state.filtresActeur.voisinage,
             })
           : { nodes: [], edges: [] };
       } else {
@@ -498,6 +500,7 @@ export function mountApp(root: HTMLElement): void {
       onMode: (mode) => setState(withMode(state, mode)),
       onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
       onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),
+      onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onSelectionChaine: (chaîne) => setState(withSelectionChaine(withMessageBandeau(state, null), chaîne)),
       onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),
       onPalierAffiche: (palier) => setState(recalculerRapport(withPalierAffiche(withMessageBandeau(state, null), palier))),

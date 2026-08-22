@@ -84,6 +84,7 @@ const callbacks: RailCallbacks = {
   onSelectionActeur: noop,
   onSelectionTechnologie: noop,
   onSelectionChaine: noop,
+  onVoisinage: noop,
   onPalierAffiche: noop,
   onPalierCompare: noop,
   onOptionCompteurs: noop,

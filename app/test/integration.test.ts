@@ -31,7 +31,7 @@ describe("chaîne complète sur le classeur d'exemple", () => {
 
     const report = runIntegrityChecks(built.model);
     expect(report.familles).toHaveLength(5);
-    expect(report.blocsInformatifs).toHaveLength(10);
+    expect(report.blocsInformatifs).toHaveLength(11);
     // Les identifiants, pas seulement le compte : un bloc qui disparaît en
     // même temps qu'un autre arrive laisserait le compte intact.
     expect(new Set(report.blocsInformatifs.map((b) => b.id)).size).toBe(report.blocsInformatifs.length);
