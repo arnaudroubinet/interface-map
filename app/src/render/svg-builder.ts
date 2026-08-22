@@ -205,21 +205,28 @@ function placerLesLibellés(edges: RenderEdge[]): Map<RenderEdge, Point> {
 // pastille pour se détacher du sien. Un liseré blanc le protège en revanche des
 // AUTRES traits qui passeraient derrière -- « paint-order: stroke » peint ce
 // liseré sous les lettres, ce qui évite de les épaissir.
+// Le rappel de couleur passe par un DISQUE, pas par l'encre du texte : les
+// huit teintes de la palette échouent toutes à 4,5:1 comme texte, et écrire en
+// couleur rendait le schéma illisible en niveaux de gris. C'est exactement ce
+// que la matrice fait déjà. Une couleur d'écart, elle, reste l'encre : là, la
+// teinte EST le message, et les deux passent le seuil (5,05 et 4,80).
 function construireLibelléArête(
   cx: number,
   cy: number,
   texte: string,
   sousTexte: string | undefined,
   couleur: string,
-  atténué: boolean
+  atténué: boolean,
+  pastilleCouleur: boolean
 ): SVGGElement {
   const g = el("g");
   const hauteur = HAUTEUR_PASTILLE + (sousTexte ? 10 : 0);
   const yTexte = sousTexte ? cy - hauteur / 2 + 9 : cy + 3.5;
+  const décalage = pastilleCouleur ? LARGEUR_DISQUE : 0;
 
   const poser = (contenu: string, y: number, taille: string, remplissage: string, gras: boolean) => {
     const t = el("text");
-    t.setAttribute("x", String(cx));
+    t.setAttribute("x", String(cx + décalage / 2));
     t.setAttribute("y", String(y));
     t.setAttribute("text-anchor", "middle");
     t.setAttribute("font-size", taille);
@@ -234,7 +241,19 @@ function construireLibelléArête(
     g.appendChild(t);
   };
 
-  poser(texte, yTexte, "10", couleur, true);
+  if (pastilleCouleur) {
+    const disque = el("circle");
+    disque.setAttribute("cx", String(cx - largeurPastille(texte) / 2 - décalage / 2 + RAYON_DISQUE + 7));
+    disque.setAttribute("cy", String(yTexte - 3.5));
+    disque.setAttribute("r", String(RAYON_DISQUE));
+    disque.setAttribute("fill", couleur);
+    disque.setAttribute("stroke", PAPIER);
+    disque.setAttribute("stroke-width", "1.5");
+    if (atténué) disque.setAttribute("opacity", "0.7");
+    g.appendChild(disque);
+  }
+
+  poser(texte, yTexte, "10", pastilleCouleur ? ENCRE : couleur, true);
   if (sousTexte) poser(sousTexte, yTexte + 10, "8.5", "#6b7480", false);
   return g;
 }
@@ -505,6 +524,10 @@ function ajouterMarqueurFlèche(defs: SVGDefsElement, couleur: string): void {
 // largement déborder de ce cadre-là.
 const MARGE_CADRE = 24;
 
+const RAYON_DISQUE = 3.5;
+// Le disque plus son écart au texte : la place que taillePastille doit réserver.
+const LARGEUR_DISQUE = RAYON_DISQUE * 2 + 4;
+
 const ID_TITRE = "fx-titre";
 const ID_DESC = "fx-desc";
 
@@ -724,7 +747,15 @@ export function buildGraphSvg(
     const ancre = libellés.get(edge);
     if (!edge.label || !ancre) continue;
     coucheLibellés.appendChild(
-      construireLibelléArête(ancre.x, ancre.y, edge.label, sousLibelléDe(edge.label, edge.technologie), couleurArête(edge, colorFor), edge.atténué)
+      construireLibelléArête(
+        ancre.x,
+        ancre.y,
+        edge.label,
+        sousLibelléDe(edge.label, edge.technologie),
+        couleurArête(edge, colorFor),
+        edge.atténué,
+        !edge.ecart && edge.technologie.trim() !== ""
+      )
     );
   }
   svg.appendChild(coucheLibellés);

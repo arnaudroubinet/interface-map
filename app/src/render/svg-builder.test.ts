@@ -2,7 +2,8 @@ import { describe, it, expect } from "vitest";
 import { ICONES, ICONE_PAR_DEFAUT } from "./icones";
 import { buildGraphSvg } from "./svg-builder";
 import { styleDuNoeud } from "./styles-noeud";
-import { computeLayout } from "../layout/graph-layout";
+import { computeLayout, taillePastille } from "../layout/graph-layout";
+import { ratioDeContraste } from "./contraste";
 import { colorForTechnologies } from "./colors";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "../layout/graph-layout";
@@ -848,5 +849,37 @@ describe("buildGraphSvg — le cartouche", () => {
     const avec = buildGraphSvg(layout, () => "#111", contexte);
     const haut = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
     expect(haut(avec)).toBeLessThan(haut(sans));
+  });
+});
+
+// --- §2.5 : les huit teintes de la palette échouent à 4,5:1 comme encre, et
+// écrire en couleur rendait le schéma illisible en niveaux de gris. Le rappel
+// visuel passe par un disque, comme la matrice le fait déjà.
+describe("buildGraphSvg — l'encre n'est pas la couleur du trait", () => {
+  const parc = async (technologie: string, label: string) =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "groupe" }, { id: "B", label: "B", kind: "groupe" }],
+      [{ from: "A", to: "B", technologie, count: 1, label, atténué: false }]
+    );
+
+  it("écrit le libellé en encre et pose un disque de la couleur de la technologie", async () => {
+    const svg = buildGraphSvg(await parc("HTTP", "HTTP"), () => "#eda100");
+    for (const t of svg.querySelectorAll(".fx-libelles text")) {
+      expect(ratioDeContraste(t.getAttribute("fill")!, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    }
+    expect(svg.querySelector(".fx-libelles circle")?.getAttribute("fill")).toBe("#eda100");
+  });
+
+  // La lecture fonctionnelle vide `technologie` : un disque n'aurait rien à
+  // rappeler, et il volerait la place du texte.
+  it("ne pose pas de disque quand aucune technologie n'est nommée", async () => {
+    const svg = buildGraphSvg(await parc("", "Policy events 1.0"), () => "#111111");
+    expect(svg.querySelector(".fx-libelles circle")).toBeNull();
+  });
+
+  // Le disque prend de la place : elle doit être réservée AVANT le placement,
+  // sans quoi l'étiquette déborde de la boîte qu'ELK lui a gardée.
+  it("réserve la place du disque dans la taille de la pastille", () => {
+    expect(taillePastille("HTTP ×3", "HTTP").width).toBeGreaterThan(taillePastille("HTTP ×3", "").width);
   });
 });

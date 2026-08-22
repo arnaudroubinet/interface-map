@@ -114,11 +114,17 @@ export function sousLibellé(label: string | undefined, technologie: string): st
   return tech && !label.startsWith(tech) ? `[${tech}]` : undefined;
 }
 
+// Le disque de rappel de la technologie vit devant le texte : sa place se
+// réserve ICI, avant le placement. Réservée trop courte, l'étiquette déborde
+// de la boîte qu'ELK lui a gardée.
+const LARGEUR_DISQUE = 11;
+
 export function taillePastille(label: string | undefined, technologie: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
   const sous = sousLibellé(label, technologie);
+  const disque = technologie.trim() !== "" ? LARGEUR_DISQUE : 0;
   return {
-    width: Math.max(largeurPastille(label), sous ? largeurPastille(sous) : 0),
+    width: Math.max(largeurPastille(label) + disque, sous ? largeurPastille(sous) : 0),
     height: HAUTEUR_PASTILLE + (sous ? HAUTEUR_SOUS_LIGNE : 0),
   };
 }
