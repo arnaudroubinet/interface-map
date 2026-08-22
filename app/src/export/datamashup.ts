@@ -292,8 +292,15 @@ async function entryOfZip(zip: Uint8Array, path: string): Promise<Uint8Array | n
 
 // The URL a given query fetches. The literal doubles its quotes, so the
 // expression stops at the first quote NOT followed by another.
-function urlOfQuery(section: string, name: string): string {
-  const match = new RegExp(`shared\\s+${name}\\s*=[\\s\\S]*?Web\\.Contents\\(\\s*"((?:[^"]|"")*)"`).exec(section);
+// The search stops at the next `shared`, which opens the following query. A
+// query that carries no Web.Contents -- hand-edited, or rewritten by Excel --
+// would otherwise hand back its NEIGHBOUR's URL under its own name, and the
+// page would show a referential the workbook does not point at.
+export function urlOfQuery(section: string, name: string): string {
+  const start = new RegExp(`shared\\s+${name}\\s*=`).exec(section);
+  if (!start) return "";
+  const body = section.slice(start.index + start[0].length).split(/\n\s*shared\s/)[0];
+  const match = /Web\.Contents\(\s*"((?:[^"]|"")*)"/.exec(body);
   return match ? match[1].replace(/""/g, '"') : "";
 }
 

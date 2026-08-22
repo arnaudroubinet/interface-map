@@ -3,7 +3,7 @@
 // jsdom's Blob has no stream() method, which both the reader and this file's
 // deflate helper rely on. Node's own Blob does.
 import { describe, it, expect, vi } from "vitest";
-import { sectionM, customXmlItem, storedZip, hasReferential, NO_REFERENTIAL } from "./datamashup";
+import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL } from "./datamashup";
 import * as XLSX from "xlsx";
 import { readReferentialUrls, mashupStream } from "./datamashup";
 
@@ -32,6 +32,30 @@ describe("sectionM", () => {
     const m = sectionM({ actors: "https://ref/a.csv", technologies: "" });
     expect(m).toContain("shared RefActors =");
     expect(m).not.toContain("shared RefTechnologies =");
+  });
+});
+
+describe("urlOfQuery", () => {
+  it("reads the URL of the query it names", () => {
+    expect(urlOfQuery(sectionM({ actors: "https://ref/a.csv", technologies: "https://ref/t.csv" }), "RefTechnologies")).toBe(
+      "https://ref/t.csv"
+    );
+  });
+
+  // A query with no Web.Contents -- hand-edited, or rewritten by Excel -- used
+  // to let the search run on into the FOLLOWING query and hand back ITS URL
+  // under this query's name.
+  it("does not walk into the next query when its own has no source", () => {
+    const section =
+      "section Section1;\n\n" +
+      "shared RefActors = let\n    Source = Table.FromRows({})\nin\n    Source;\n\n" +
+      'shared RefTechnologies = let\n    Source = Csv.Document(Web.Contents("https://ref/t.csv"))\nin\n    Source;\n';
+    expect(urlOfQuery(section, "RefActors")).toBe("");
+    expect(urlOfQuery(section, "RefTechnologies")).toBe("https://ref/t.csv");
+  });
+
+  it("returns nothing for a query the section does not declare", () => {
+    expect(urlOfQuery(sectionM({ actors: "https://ref/a.csv", technologies: "" }), "RefTechnologies")).toBe("");
   });
 });
 
