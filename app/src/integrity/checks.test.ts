@@ -6,8 +6,8 @@ import { buildFunctionalFlows } from "../aggregation/reading";
 import { SCHEMA_VERSION, expectedFxSheet } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
-// Un parc qui ne déclenche rien : chaque test n'introduit alors qu'une seule
-// faute, celle qu'il examine.
+// An estate that triggers nothing: each test then introduces a single fault,
+// the one it examines.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ description: "d", ...o });
 }
@@ -70,7 +70,7 @@ describe("7.1 structure", () => {
   });
 });
 
-describe("7.2 références", () => {
+describe("7.2 references", () => {
   it("reports nothing when all references resolve", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.families.find((f) => f.id === "references")!.anomalies).toHaveLength(0);
@@ -81,7 +81,7 @@ describe("7.2 références", () => {
     expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("Inconnu"))).toBe(true);
   });
 
-  it("flags an unknown type de flux", () => {
+  it("flags an unknown flow type", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ flowType: "SFTP" })] }));
     expect(report.families.find((f) => f.id === "references")!.anomalies.some((a) => a.message.includes("SFTP"))).toBe(true);
   });
@@ -106,8 +106,8 @@ describe("7.2 références", () => {
     // flagged elsewhere as a 7.1 duplicate). The consumption is filed under
     // the FIRST interface's tab (FX_A_HTTP) — a name-only lookup (the pre-fix
     // behaviour) always keeps the LAST-inserted entry (FX_C_HTTP) and would
-    // wrongly flag this correctly-filed row as "rangée dans le mauvais
-    // onglet"; only a (feuille, nom du flux) lookup (§3.3) gets this right.
+    // wrongly flag this correctly-filed row as "filed in the wrong sheet";
+    // only a (sheet, flow name) lookup (§3.3) gets this right.
     const report = runIntegrityChecks(
       model({
         interfaces: [iface({ expectedSheet: "FX_A_HTTP" }), iface({ providerName: "C", expectedSheet: "FX_C_HTTP" })],
@@ -119,7 +119,7 @@ describe("7.2 références", () => {
   });
 });
 
-describe("7.3 cohérence", () => {
+describe("7.3 consistency", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.families.find((f) => f.id === "coherence")!.anomalies).toHaveLength(0);
@@ -135,8 +135,8 @@ describe("7.3 cohérence", () => {
     expect(report.families.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("no declared consumption"))).toBe(true);
   });
 
-  // Un composant sans flux n'invalide rien : il n'apparaît simplement nulle
-  // part. C'est un avertissement, pas une erreur.
+  // A component with no flow invalidates nothing: it simply appears nowhere. It
+  // is a warning, not an error.
   it("warns about an actor with no flow at all", () => {
     const report = runIntegrityChecks(model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "Isole" })] }));
     expect(report.families.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("Isole"))).toBe(false);
@@ -146,7 +146,7 @@ describe("7.3 cohérence", () => {
   });
 });
 
-describe("7.4 complétude", () => {
+describe("7.4 completeness", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.families.find((f) => f.id === "completude")!.anomalies).toHaveLength(0);
@@ -162,14 +162,14 @@ describe("7.4 complétude", () => {
     expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
   });
 
-  it("flags a consumption with empty usage or décision", () => {
+  it("flags a consumption with an empty usage or decision", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ usage: "", decision: "" })] }));
     expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(2);
   });
 
-  // Un retrait déclaré dit déjà ce qu'on fait de cette consommation : elle
-  // part, à ce palier-là. Réclamer en plus une décision de jugement demanderait
-  // deux fois la même chose.
+  // A declared retirement already says what is done with that consumption: it
+  // leaves, at that milestone. Asking for a judgement decision on top would ask
+  // for the same thing twice.
   it("does not ask for a decision on a consumption that has a retirement milestone", () => {
     const report = runIntegrityChecks(
       model({ milestones: [], consumptions: [consumption({ decision: "", retiredAt: "v2" })] })
@@ -183,8 +183,8 @@ describe("7.4 complétude", () => {
     expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(1);
   });
 
-  // Le périmètre se saisit désormais sur le groupe, plus sur l'acteur.
-  it("flags a groupe with an empty périmètre", () => {
+  // The perimeter is now entered on the group, no longer on the actor.
+  it("flags a group with an empty perimeter", () => {
     const report = runIntegrityChecks(model({ groups: [{ name: "G", perimeter: "", sheet: "Groups", row: 0 }] }));
     const messages = report.families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
     expect(messages).toContain('Group "G" (Groups, row 0): perimeter not filled in.');
@@ -211,7 +211,7 @@ describe("7.6 onglet Groupes", () => {
   });
 });
 
-describe("7.5 candidats au décommissionnement", () => {
+describe("7.5 candidates for decommissioning", () => {
   it("is empty when nothing qualifies", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toHaveLength(0);
@@ -224,22 +224,22 @@ describe("7.5 candidats au décommissionnement", () => {
 
 
 
-  // Le statut d'un composant n'existe plus : il ne peut plus décider seul
-  // qu'une interface est candidate au décommissionnement.
+  // A component's status no longer exists: it can no longer decide on its own
+  // that an interface is a candidate for decommissioning.
   it("does not list an interface whose consumptions are all active", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toEqual([]);
   });
 });
 
-describe("7.6 interfaces à confirmer", () => {
+describe("7.6 interfaces to confirm", () => {
   it("lists interfaces flagged Oui", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F", toConfirm: true })] }));
     expect(report.infoBlocks.find((b) => b.id === "a-confirmer")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 });
 
-describe("7.7 groupes utilisés", () => {
+describe("7.7 groups used", () => {
   it("counts actors per non-empty groupe", () => {
     const report = runIntegrityChecks(
       model({ actors: [actor({ name: "A", group: "Socle" }), actor({ name: "B", group: "Socle" })] })
@@ -258,16 +258,16 @@ describe("totalAnomalies", () => {
   });
 });
 
-// C'est le seul contrôle où une faute de frappe produit un schéma FAUX en
-// silence : une valeur non reconnue cesse d'atténuer le flux, ou inverse la
-// flèche pour un sens de représentation.
+// This is the only check where a typo produces a WRONG diagram in silence: an
+// unrecognised value stops dimming the flow, or reverses the arrow for a
+// representation direction.
 describe("7.6 vocabulaires", () => {
   it("reports nothing when every value is in its list", () => {
     const report = runIntegrityChecks(model({}));
     expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
   });
 
-  it("flags a mistyped decision or criticité", () => {
+  it("flags a mistyped decision or criticality", () => {
     const report = runIntegrityChecks(
       model({ consumptions: [consumption({ decision: "A garder", criticality: "Haute" })] })
     );
@@ -277,9 +277,9 @@ describe("7.6 vocabulaires", () => {
     expect(messages.some((m) => m.includes("Haute"))).toBe(true);
   });
 
-  // build-model retombe silencieusement sur « consommateur → exposant » pour
-  // toute valeur qu'il ne reconnaît pas : la flèche s'inverserait sans un mot.
-  it("flags an unknown sens de représentation, which would silently flip the arrow", () => {
+  // build-model falls back silently to "consumer → publisher" for any value it
+  // does not recognise: the arrow would reverse without a word.
+  it("flags an unknown representation direction, which would silently flip the arrow", () => {
     const report = runIntegrityChecks(
       model({
         flowTypes: [
@@ -301,22 +301,22 @@ describe("7.6 vocabulaires", () => {
     ).toBe(true);
   });
 
-  it("stays silent on an empty value, which the complétude family already covers", () => {
+  it("stays silent on an empty value, which the completeness family already covers", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ legacyStatus: "", decision: "", criticality: "" })] }));
     expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
   });
 });
 
 describe("7.7 signaux non bloquants", () => {
-  it("warns about a missing criticité rather than failing the file", () => {
+  it("warns about a missing criticality rather than failing the file", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ criticality: "" })] }));
     const block = report.infoBlocks.find((b) => b.id === "criticite-manquante")!;
     expect(block.level).toBe("warning");
     expect(block.items).toHaveLength(1);
   });
 
-  // Deux composants peuvent échanger plusieurs fois par la même technologie :
-  // c'est légitime, on le montre sans le reprocher.
+  // Two components may exchange several times over the same technology: that is
+  // legitimate, it is shown without being held against them.
   it("reports a repeated exchange between the same pair as information", () => {
     const report = runIntegrityChecks(
       model({ consumptions: [consumption({}), consumption({ flowName: "F", consumerName: "B" })] })
@@ -341,8 +341,8 @@ describe("7.7 signaux non bloquants", () => {
   });
 });
 
-// Un raccourci pour les modèles à deux versions d'un même contrat : c'est la
-// situation que toute cette famille de contrôles décrit.
+// A shortcut for the models with two versions of one contract: that is the
+// situation this whole family of checks describes.
 function modelTwoVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return model({
     milestones,
@@ -355,7 +355,7 @@ function modelTwoVersions(overrides: Partial<ParsedModel> = {}): ParsedModel {
   });
 }
 
-describe("versions d'interface — références", () => {
+describe("interface versions — references", () => {
   it("reports a consumption whose version is absent from the catalogue", () => {
     const report = runIntegrityChecks(modelTwoVersions({ consumptions: [consumption({ version: "9.9" })] }));
     const messages = report.families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
@@ -370,7 +370,7 @@ describe("versions d'interface — références", () => {
 });
 
 
-describe("versions d'interface — cohérence", () => {
+describe("interface versions — consistency", () => {
   it("reports a consumer sitting on two versions of the same contract", () => {
     const report = runIntegrityChecks(
       modelTwoVersions({ consumptions: [consumption({ version: "1.0" }), consumption({ version: "2.0" })] })
@@ -394,7 +394,7 @@ describe("versions d'interface — cohérence", () => {
 
 });
 
-describe("versions d'interface — bloc action des migrations", () => {
+describe("interface versions — the migrations' action block", () => {
   it("names the interface, both versions and the consumers left behind", () => {
     const report = runIntegrityChecks(modelTwoVersions());
     const block = report.infoBlocks.find((b) => b.id === "migrations")!;
@@ -407,8 +407,8 @@ describe("versions d'interface — bloc action des migrations", () => {
     expect(report.totalActions).toBeGreaterThan(0);
   });
 
-  // Sans ce libellé, le rapport laisserait croire qu'il suffit de déplacer une
-  // cellule, alors que la version d'arrivée reste à créer.
+  // Without this wording, the report would suggest that moving a cell is enough,
+  // whereas the arrival version is still to be created.
   it("says so when no active version exists to migrate towards", () => {
     const report = runIntegrityChecks(
       model({ milestones, interfaces: [iface({ version: "1.0", retiredAt: "v3", introducedAt: "v1" })], consumptions: [consumption({ version: "1.0", introducedAt: "v1" })] })
@@ -449,7 +449,7 @@ function messagesCoherence(m: ParsedModel): string {
   return runIntegrityChecks(m).families.find((f) => f.id === "coherence")!.anomalies.map((a) => a.message).join(" | ");
 }
 
-describe("paliers — contrôles temporels", () => {
+describe("milestones — temporal checks", () => {
   it("says nothing on a workbook whose intervals nest properly", () => {
     const m = model({
       milestones,
@@ -460,8 +460,8 @@ describe("paliers — contrôles temporels", () => {
     expect(messagesCoherence(m)).not.toContain("milestone");
   });
 
-  // Le même contrôle vu des deux bouts : une interface qui déborde de la vie
-  // de son exposant, c'est aussi un acteur retiré qui porte encore des flux.
+  // The same check seen from both ends: an interface spilling out of its
+  // publisher's life is also a retired actor still carrying flows.
   it("reports an interface living outside its exposant's own interval", () => {
     const m = model({
       milestones,
@@ -506,15 +506,15 @@ describe("paliers — contrôles temporels", () => {
     expect(struct.join(" ")).toContain("rank");
   });
 
-  // Sans palier livré, le palier courant est indéterminé : les vues se
-  // rabattent sur le premier déclaré, autant le dire.
+  // With no milestone delivered, the current milestone is undetermined: the views
+  // fall back on the first declared, so it may as well be said.
   it("reports a Paliers sheet without a single delivered palier", () => {
     const m = model({ milestones: milestones.map((p) => ({ ...p, status: "Planned" })) });
     const struct = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies.map((a) => a.message);
     expect(struct.join(" ")).toContain("Delivered");
   });
 
-  // Un classeur sans aucun palier déclaré ne doit pas se mettre à en parler.
+  // A workbook with no milestone declared must not start talking about them.
   it("stays silent on a workbook that declares no palier at all", () => {
     const report = runIntegrityChecks(model({}));
     const tout = report.families.flatMap((f) => f.anomalies.map((a) => a.message)).join(" ");
@@ -523,13 +523,13 @@ describe("paliers — contrôles temporels", () => {
   });
 });
 
-describe("paliers — complétude", () => {
+describe("milestones — completeness", () => {
   function messagesCompleteness(m: ParsedModel): string {
     return runIntegrityChecks(m).families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message).join(" | ");
   }
 
-  // On ne devine pas à la place de celui qui tient le fichier : au pire il
-  // mettra un palier arbitraire, mais le choix lui revient.
+  // Nothing is guessed on behalf of whoever keeps the file: at worst they will
+  // put an arbitrary milestone, but the choice is theirs.
   it("reports an interface with no arrival palier", () => {
     const m = model({ milestones, interfaces: [iface({})], consumptions: [] });
     expect(messagesCompleteness(m)).toContain("introduction milestone");
@@ -549,7 +549,7 @@ describe("paliers — complétude", () => {
     expect(messagesCompleteness(m)).toContain("Actor");
   });
 
-  // Un retrait vide n'est pas un manque : c'est un fait, la ligne est encore là.
+  // An empty retirement is not a gap: it is a fact, the row is still there.
   it("says nothing about an empty retirement palier", () => {
     const m = model({
       milestones,
@@ -560,21 +560,21 @@ describe("paliers — complétude", () => {
     expect(messagesCompleteness(m)).not.toContain("milestone");
   });
 
-  // Tant que l'équipe n'a pas adopté l'axe, l'outil n'en parle pas.
+  // Until the team has adopted the axis, the tool says nothing of it.
   it("stays silent when no palier is declared at all", () => {
     const m = model({ interfaces: [iface({})], consumptions: [consumption({})] });
     expect(messagesCompleteness(m)).not.toContain("milestone");
   });
 });
 
-describe("paliers — le rapport suit le palier affiché", () => {
+describe("milestones — the report follows the displayed milestone", () => {
   const threeMilestones = [
     { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
     { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
   ];
 
-  // Un acteur retiré en v2 n'a évidemment plus de flux en v2 : le signaler
-  // remplirait le rapport de fausses anomalies dès la première ligne retirée.
+  // An actor retired at v2 obviously has no flow left at v2: reporting it would
+  // fill the report with false anomalies from the first retired row onwards.
   it("does not blame a retired acteur for having no flow any more", () => {
     const m = model({
       milestones: threeMilestones,
@@ -592,7 +592,7 @@ describe("paliers — le rapport suit le palier affiché", () => {
     expect(block(2)).not.toContain("C (Actors, row 0)");
   });
 
-  // La structure, elle, juge le classeur et pas un instant de son histoire.
+  // The structure, for its part, judges the workbook and not a moment of its history.
   it("keeps structural checks independent of the displayed palier", () => {
     const m = model({
       milestones: threeMilestones,
@@ -608,9 +608,9 @@ describe("paliers — le rapport suit le palier affiché", () => {
   });
 });
 
-// Un rapport sert à corriger. Sans l'adresse, chaque ligne oblige à retrouver
-// soi-même la case dans le classeur, et l'ordre de lecture ne suit rien.
-describe("emplacement des anomalies", () => {
+// A report exists to be acted on. Without the address, every line forces one
+// to find the cell oneself, and the reading order follows nothing.
+describe("the anomalies' location", () => {
   const messages = (m: ParsedModel, id: string) =>
     runIntegrityChecks(m).families.find((f) => f.id === id)!.anomalies.map((a) => a.message);
 
@@ -662,7 +662,7 @@ describe("emplacement des anomalies", () => {
   });
 });
 
-describe("emplacement des blocs informatifs", () => {
+describe("the informational blocks' location", () => {
   const block = (m: ParsedModel, id: string) =>
     runIntegrityChecks(m).infoBlocks.find((b) => b.id === id)!.items;
 
@@ -694,13 +694,13 @@ describe("emplacement des blocs informatifs", () => {
   });
 });
 
-describe("cycles de dépendance", () => {
+describe("dependency cycles", () => {
   const cycles = (m: ParsedModel, rank: number | null = null) =>
     runIntegrityChecks(m, rank).infoBlocks.find((b) => b.id === "cycles")!.items;
 
-  // Un consommateur dépend de l'exposant de l'interface qu'il consomme.
-  // A expose F1 que B consomme ; B expose F2 que A consomme : chacun a besoin
-  // de l'autre pour fonctionner.
+  // A consumer depends on the publisher of the interface it consumes.
+  // A publishes F1 which B consumes; B publishes F2 which A consumes: each needs
+  // the other to work.
   function loop(names: string[]) {
     const interfaces = names.map((name, i) =>
       iface({ flowName: `F${i}`, providerName: name, expectedSheet: `FX_${name}_HTTP` })
@@ -708,7 +708,7 @@ describe("cycles de dépendance", () => {
     const consumptions = names.map((name, i) =>
       consumption({
         flowName: `F${i}`,
-        // Chacun est consommé par le suivant, le dernier par le premier.
+        // Each is consumed by the next, the last by the first.
         consumerName: names[(i + 1) % names.length],
         sheet: `FX_${name}_HTTP`,
       })
@@ -729,13 +729,13 @@ describe("cycles de dépendance", () => {
     expect(cycles(model(loop(["A", "B"])))).toEqual(["A, B (2 components)"]);
   });
 
-  // La dépendance se propage : A a besoin de C sans jamais le citer.
+  // The dependency propagates: A needs C without ever naming it.
   it("finds a loop that closes through a third component", () => {
     expect(cycles(model(loop(["A", "B", "C"])))).toEqual(["A, B, C (3 components)"]);
   });
 
-  // Un acteur qui consomme sa propre interface n'est pas un cycle entre
-  // composants : c'est une boucle interne, que les vues agrégées masquent déjà.
+  // An actor consuming its own interface is not a cycle between components: it
+  // is an internal loop, which the aggregated views already hide.
   it("ignores a component that consumes its own interface", () => {
     const m = model({
       actors: [actor({ name: "A" })],
@@ -757,8 +757,8 @@ describe("cycles de dépendance", () => {
     expect(cycles(m)).toEqual(["A, B (2 components)", "Y, Z (2 components)"]);
   });
 
-  // Le cycle est un état de la plateforme, pas un défaut du fichier : ce qui
-  // est retiré au palier affiché ne le referme plus.
+  // The cycle is a state of the platform, not a defect in the file: what is
+  // retired at the displayed milestone no longer closes it.
   it("reads the loop at the milestone on show", () => {
     const loopV1 = loop(["A", "B"]);
     const m = model({
@@ -769,7 +769,7 @@ describe("cycles de dépendance", () => {
       consumptions: loopV1.consumptions.map((c, i) => ({
         ...c,
         introducedAt: "v1",
-        // Un seul des deux liens part au palier 2 : la boucle s'ouvre.
+        // Only one of the two links leaves at milestone 2: the loop opens.
         retiredAt: i === 0 ? "v2" : "",
       })),
     });
@@ -778,7 +778,7 @@ describe("cycles de dépendance", () => {
   });
 });
 
-describe("nature et relais", () => {
+describe("nature and relays", () => {
   const TYPES = [
     { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 2 },
     { type: "Middleware", icon: "server", nature: "Technical", sheet: "ActorTypes", row: 3 },
@@ -786,8 +786,8 @@ describe("nature et relais", () => {
   const messages = (m: ParsedModel, family: string) =>
     runIntegrityChecks(m).families.find((f) => f.id === family)!.anomalies.map((a) => a.message).join(" | ");
 
-  // La republication est portée par la ligne de consommation du bus : c'est
-  // elle qui dit sous laquelle de SES interfaces l'entrée ressort.
+  // The republication is carried by the bus's consumption row: it is that row
+  // that says under which of ITS interfaces the input comes back out.
   function relayEstate(republishedAs = "trx.norm"): ParsedModel {
     return model({
       actorTypes: TYPES,
@@ -804,28 +804,28 @@ describe("nature et relais", () => {
     });
   }
 
-  it("ne signale rien sur une chaîne entière", () => {
+  it("reports nothing on a whole chain", () => {
     expect(messages(relayEstate(), "references")).not.toContain("republished");
     expect(messages(relayEstate(), "coherence")).not.toContain("republish");
   });
 
-  it("signale une republication vers une interface que l'acteur n'expose pas", () => {
+  it("reports a republication towards an interface the actor does not publish", () => {
     expect(messages(relayEstate("Fantôme"), "references")).toContain("Fantôme");
   });
 
-  it("signale une republication déclarée par un acteur métier", () => {
+  it("reports a republication declared by a business actor", () => {
     const m = relayEstate();
     m.consumptions[1].republishedAs = "Autre chose";
     expect(messages(m, "coherence")).toContain("only plumbing relays");
   });
 
-  it("signale une interface republiée que rien n'alimente", () => {
+  it("reports a republished interface that nothing feeds", () => {
     expect(messages(relayEstate(""), "coherence")).toContain("nothing feeds it");
   });
 
-  // Le bus fourre-tout : le flux entre dans la plomberie et n'en ressort pour
-  // personne, sans quoi le lien fonctionnel manquerait en silence.
-  it("signale un flux qui entre chez un technique et n'en ressort pour personne", () => {
+  // The catch-all bus: the flow goes into the plumbing and comes out for nobody,
+  // failing which the functional link would be missing in silence.
+  it("reports a flow that enters a technical actor and comes out for nobody", () => {
     const m = relayEstate();
     m.interfaces.push(iface({ flowName: "Référentiel", providerName: "Tatooine", expectedSheet: "FX_Tatooine_REF" }));
     m.consumptions.push(consumption({ flowName: "Référentiel", consumerName: "Bus", sheet: "FX_Tatooine_REF" }));
@@ -833,33 +833,33 @@ describe("nature et relais", () => {
     expect(messages(m, "coherence")).toContain("Référentiel");
   });
 
-  it("signale une nature hors vocabulaire", () => {
+  it("reports a nature outside the vocabulary", () => {
     const m = relayEstate();
     m.actorTypes = [{ ...TYPES[0], nature: "Métier" }, TYPES[1]];
     expect(messages(m, "vocabulaires")).toContain("Métier");
   });
 
-  it("réclame la nature manquante dès qu'un type en déclare une", () => {
+  it("asks for the missing nature as soon as one type declares one", () => {
     const m = relayEstate();
     m.actorTypes = [{ ...TYPES[0], nature: "" }, TYPES[1]];
     expect(messages(m, "completude")).toContain("nature");
   });
 
-  // Tant que l'équipe n'a pas adopté la distinction, l'outil n'en parle pas.
-  it("se tait sur un classeur où aucun type ne déclare de nature", () => {
+  // Until the team has adopted the distinction, the tool says nothing of it.
+  it("stays silent on a workbook where no type declares a nature", () => {
     const m = relayEstate();
     m.actorTypes = TYPES.map((t) => ({ ...t, nature: "" }));
     expect(messages(m, "completude")).not.toContain("nature");
   });
 });
 
-// --- QA : le rapport et les schémas décrivent le MÊME palier et doivent donc
-// retenir les mêmes flux. Les schémas (aggregation/core.ts) exigent la chaîne
-// entière vivante -- exposant, interface, consommation, consommateur ; le
-// rapport filtrait les trois tables chacune de son côté, donc gardait une
-// consommation dont l'acteur avait disparu. Le rapport contredisait le schéma
-// affiché à côté de lui.
-describe("rapport au palier — la chaîne entière, comme les schémas", () => {
+// --- QA: the report and the diagrams describe the SAME milestone and must
+// therefore keep the same flows. The diagrams (aggregation/core.ts) require the
+// whole chain alive -- publisher, interface, consumption, consumer; the report
+// filtered the three tables each on its own side, and so kept a consumption
+// whose actor had disappeared. The report contradicted the diagram displayed
+// beside it.
+describe("the report at the milestone — the whole chain, like the diagrams", () => {
   const atMilestone = (rank: number) =>
     runIntegrityChecks(
       model({
@@ -874,34 +874,34 @@ describe("rapport au palier — la chaîne entière, comme les schémas", () => 
       rank
     );
 
-  it("ne cite plus un acteur retiré dans les blocs informatifs", () => {
+  it("no longer quotes a retired actor in the informational blocks", () => {
     expect(JSON.stringify(atMilestone(1).infoBlocks)).not.toContain('"A"');
   });
 
-  it("laisse tomber la consommation dont l'exposant a disparu", () => {
+  it("drops the consumption whose publisher has disappeared", () => {
     const withoutFlows = atMilestone(1).infoBlocks.find((b) => b.title.includes("no flow"));
     expect(withoutFlows?.items.join(" ")).toContain("B");
   });
 
-  it("garde tout tant que l'acteur vit", () => {
+  it("keeps everything as long as the actor is alive", () => {
     const withoutFlows = atMilestone(0).infoBlocks.find((b) => b.title.includes("no flow"));
     expect(withoutFlows?.items.join(" ")).not.toContain("B");
   });
 });
 
-// --- QA : la frise elle-même n'était pas contrôlée. Un rang illisible vaut 0
-// à la lecture -- « un contrôle réclame le rang », promettait le commentaire de
-// build-model.ts, mais ce contrôle n'existait pas. Et deux paliers dont les
-// noms ne diffèrent que par la casse se confondent, puisque c'est sur le nom
-// normalisé que toute ligne datée résout son rang.
-describe("frise des paliers", () => {
+// --- QA: the roadmap itself was not checked. An unreadable rank counts as 0 on
+// reading -- "a check asks for the rank", build-model.ts's comment promised, but
+// that check did not exist. And two milestones whose names differ only by case
+// blur together, since it is on the normalised name that every dated row
+// resolves its rank.
+describe("the milestone roadmap", () => {
   const milestone = (name: string, rank: number) => ({
     name, rank, label: "", status: "Delivered", date: "", description: "",
     sheet: "Milestones", row: 0,
   });
-  // Toute ligne datée doit porter sa borne d'introduction dès qu'une frise
-  // existe : sans elle, ce sont ces anomalies-là qu'on lirait, pas celles de
-  // la frise.
+  // Every dated row must carry its introduction bound as soon as a roadmap
+  // exists: without it, those are the anomalies one would read, not the
+  // roadmap's.
   const anomalies = (milestones: ReturnType<typeof milestone>[]) => {
     const asSoonAs = { introducedAt: milestones[0].name };
     return runIntegrityChecks(
@@ -917,23 +917,23 @@ describe("frise des paliers", () => {
       .join(" ");
   };
 
-  it("réclame un rang exploitable", () => {
+  it("asks for a usable rank", () => {
     expect(anomalies([milestone("v1", 1), milestone("v2", 0)])).toContain("v2");
   });
 
-  it("signale deux paliers que la casse seule distingue", () => {
+  it("reports two milestones separated by case alone", () => {
     expect(anomalies([milestone("v1", 1), milestone("V1", 2)])).toContain("V1");
   });
 
-  it("laisse une frise saine tranquille", () => {
+  it("leaves a sound roadmap alone", () => {
     expect(anomalies([milestone("v1", 1), milestone("v2", 2)])).toBe("");
   });
 });
 
-// --- QA : deux blocs nommaient l'interface sans sa version. Deux versions d'un
-// même contrat donnaient alors deux items rigoureusement identiques à l'œil,
-// alors que « Migrations under way » sait écrire « F 1.0 » depuis le début.
-describe("blocs informatifs — une interface se nomme avec sa version", () => {
+// --- QA: two blocks named the interface without its version. Two versions of
+// one contract then gave two items strictly identical to the eye, although
+// "Migrations under way" has been able to write "F 1.0" from the start.
+describe("informational blocks — an interface is named with its version", () => {
   const twoVersions = () =>
     model({
       interfaces: [
@@ -943,25 +943,25 @@ describe("blocs informatifs — une interface se nomme avec sa version", () => {
       consumptions: [],
     });
 
-  it("distingue les deux versions dans « Interfaces to confirm »", () => {
+  it("tells the two versions apart in \"Interfaces to confirm\"", () => {
     const block = runIntegrityChecks(twoVersions()).infoBlocks.find((b) => b.title === "Interfaces to confirm")!;
     expect(block.items).toHaveLength(2);
     expect(new Set(block.items.map((i) => i.replace(/\(.*\)/, "")))).toHaveProperty("size", 2);
   });
 });
 
-// --- QA : deux acteurs peuvent publier un contrat de même nom sans s'être
-// concertés -- c'est banal, et ce sont deux interfaces distinctes. Le contrôle
-// les prenait pour un doublon parce qu'il ne regardait que (nom, version) : sur
-// un classeur réel, 4 faux doublons sur 9. L'exposant fait partie de l'identité.
-describe("doublon d'interface — l'exposant fait partie de l'identité", () => {
+// --- QA: two actors may publish a contract of the same name without having
+// agreed on it -- that is commonplace, and they are two distinct interfaces. The
+// check took them for a duplicate because it looked only at (name, version): on
+// a real workbook, 4 false duplicates out of 9. The publisher is part of the identity.
+describe("duplicate interface — the publisher is part of the identity", () => {
   const avec = (interfaces: ReturnType<typeof iface>[]) =>
     runIntegrityChecks(model({ interfaces, consumptions: [] }))
       .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((m) => m.includes("more than once"));
 
-  it("ne signale pas deux exposants différents pour un même nom", () => {
+  it("does not report two different publishers for one name", () => {
     expect(
       avec([
         iface({ flowName: "Kashyyyk", providerName: "A", expectedSheet: "FX_A_HTTP" }),
@@ -970,7 +970,7 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
     ).toHaveLength(0);
   });
 
-  it("signale toujours le même nom chez le même exposant", () => {
+  it("still reports the same name at the same publisher", () => {
     expect(
       avec([
         iface({ flowName: "Kashyyyk", providerName: "A" }),
@@ -979,7 +979,7 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
     ).toHaveLength(1);
   });
 
-  it("laisse deux versions d'un même contrat tranquilles", () => {
+  it("leaves two versions of one contract alone", () => {
     expect(
       avec([
         iface({ flowName: "Kashyyyk", version: "1.0", providerName: "A" }),
@@ -989,11 +989,11 @@ describe("doublon d'interface — l'exposant fait partie de l'identité", () => 
   });
 });
 
-// --- QA : couper le nom à 31 caractères peut faire tomber deux couples
-// (exposant, type de flux) sur le même onglet. Les fondre mélangerait les
-// consommations de deux contrats sans un mot ; le contrôle le dit, et
-// l'utilisateur raccourcit un nom.
-describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
+// --- QA: cutting the name at 31 characters can land two (publisher, flow type)
+// pairs on the same sheet. Merging them would mix two contracts' consumptions
+// without a word; the check says so, and the user shortens a name.
+//
+describe("FX_ sheet — two pairs landing on the same name", () => {
   const messages = (interfaces: ReturnType<typeof iface>[]) =>
     runIntegrityChecks(model({ interfaces, consumptions: [] }))
       .families.flatMap((f) => f.anomalies)
@@ -1002,7 +1002,7 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
 
   const long = (suffix: string) => `Plateforme de règlement-livraison ${suffix}`;
 
-  it("signale deux exposants dont les noms coupés se confondent", () => {
+  it("reports two publishers whose cut names blur together", () => {
     const dits = messages([
       iface({ flowName: "F", providerName: long("Nord"), expectedSheet: expectedFxSheet(long("Nord"), "HTTP") }),
       iface({ flowName: "G", providerName: long("Sud"), expectedSheet: expectedFxSheet(long("Sud"), "HTTP"), row: 1 }),
@@ -1011,7 +1011,7 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
     expect(dits[0]).toContain("Plateforme de règlement-livraison");
   });
 
-  it("ne dit rien quand les onglets diffèrent", () => {
+  it("says nothing when the sheets differ", () => {
     expect(
       messages([
         iface({ flowName: "F", providerName: "Tatooine", expectedSheet: expectedFxSheet("Tatooine", "HTTP") }),
@@ -1020,7 +1020,7 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
     ).toHaveLength(0);
   });
 
-  it("ne dit rien pour deux interfaces du même couple, qui partagent l'onglet à juste titre", () => {
+  it("says nothing for two interfaces of the same pair, which rightly share the sheet", () => {
     expect(
       messages([
         iface({ flowName: "F", providerName: "Tatooine" }),
@@ -1030,21 +1030,21 @@ describe("onglet FX_ — deux couples qui tombent sur le même nom", () => {
   });
 });
 
-// --- QA : une chaîne coupée par un relais qu'on ne peut pas suivre ne
-// produisait AUCUNE anomalie. Le lien fonctionnel manquait donc en silence --
-// exactement ce que le contrôle du bus fourre-tout cherche à éviter par
+// --- QA: a chain broken by a relay that cannot be followed produced NO anomaly
+// at all. The functional link was therefore missing in silence -- exactly what
+// the catch-all bus check sets out to avoid elsewhere
 // ailleurs.
-// --- Les deux cas simples sont couverts plus haut. Celui-ci ne l'est pas : la
-// chaîne casse AU MILIEU, à deux sauts du consommateur métier. La remontée
-// devant descendre récursivement, une coupure profonde pourrait très bien ne
+// --- The two simple cases are covered above. This one is not: the chain breaks
+// IN THE MIDDLE, two hops from the business consumer. The walk-up having to
+// recurse, a deep break could very well not
 // jamais remonter jusqu'au rapport.
-describe("chaîne cassée en son milieu", () => {
+describe("a chain broken in its middle", () => {
   const TYPES = [
     { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
     { type: "Middleware", icon: "server", nature: "Technical", sheet: "ActorTypes", row: 0 },
   ];
 
-  it("signale l'interface fautive, pas celle par laquelle on est entré", () => {
+  it("reports the offending interface, not the one it was entered by", () => {
     const m = model({
       actorTypes: TYPES,
       actors: [
@@ -1059,8 +1059,8 @@ describe("chaîne cassée en son milieu", () => {
         iface({ flowName: "f2", providerName: "Y", expectedSheet: "FX_Y_HTTP", row: 2 }),
       ],
       consumptions: [
-        // f0 arrive bien chez X, mais X ne dit pas sous quoi il le republie :
-        // c'est f1 qui n'est alimentée par rien.
+        // f0 does reach X, but X does not say under what it republishes it: it is
+        // f1 that nothing feeds.
         consumption({ flowName: "f0", consumerName: "X", sheet: "FX_A_HTTP" }),
         consumption({ flowName: "f1", consumerName: "Y", sheet: "FX_X_HTTP", republishedAs: "f2", row: 1 }),
         consumption({ flowName: "f2", consumerName: "C", sheet: "FX_Y_HTTP", row: 2 }),
@@ -1077,11 +1077,11 @@ describe("chaîne cassée en son milieu", () => {
 });
 
 
-// --- La couleur des technologies viendra d'un référentiel externe, en
-// hexadécimal. Une valeur qui n'en est pas une, ou deux technologies qui
-// partagent la même, ne se voient pas dans le classeur : la première retombe
-// silencieusement sur la palette, la seconde rend deux traits indiscernables.
-describe("couleur déclarée d'une technologie", () => {
+// --- The technologies' colour will come from an external referential, in
+// hexadecimal. A value that is not one, or two technologies sharing the same,
+// cannot be seen in the workbook: the first falls back silently on the palette,
+// the second makes two lines indistinguishable.
+describe("a technology's declared colour", () => {
   const estate = (colours: [string, string][]) =>
     model({
       flowTypes: colours.map(([type, colour], i) => base.flowType({ type, colour, row: i })),
@@ -1095,32 +1095,32 @@ describe("couleur déclarée d'une technologie", () => {
   const messages = (m: ParsedModel) =>
     runIntegrityChecks(m).families.flatMap((f) => f.anomalies).map((a) => a.message).filter((x) => x.includes("colour"));
 
-  it("accepte un hexadécimal, avec ou sans dièse", () => {
+  it("accepts a hexadecimal, with or without a hash", () => {
     expect(messages(estate([["HTTP", "#2a78d6"], ["Kafka", "eb6834"]]))).toHaveLength(0);
   });
 
-  it("accepte une couleur absente", () => {
+  it("accepts an absent colour", () => {
     expect(messages(estate([["HTTP", ""], ["Kafka", ""]]))).toHaveLength(0);
   });
 
-  it("signale une valeur qui n'est pas une couleur", () => {
+  it("reports a value that is not a colour", () => {
     expect(messages(estate([["HTTP", "bleu ciel"]]))[0]).toContain("bleu ciel");
   });
 
-  it("signale deux technologies qui déclarent la même couleur", () => {
+  it("reports two technologies declaring the same colour", () => {
     const dits = messages(estate([["HTTP", "#2a78d6"], ["Kafka", "#2A78D6"]]));
     expect(dits).toHaveLength(1);
     expect(dits[0]).toContain("Kafka");
   });
 });
 
-// --- Une technologie non déclarée au référentiel rend son sens de
-// représentation inconnu : l'interface et toutes ses consommations sortent des
-// schémas. Le rapport nommait la faute sans dire ce qu'elle coûte -- sur un
-// classeur réel, 24 interfaces sur 59 absentes de tout dessin, pour une ligne
-// qui avait l'air d'un simple rappel de vocabulaire.
-describe("technologie absente du référentiel", () => {
-  it("dit que l'interface n'est plus dessinée", () => {
+// --- A technology not declared in the referential makes its representation
+// direction unknown: the interface and all its consumptions drop out of the
+// diagrams. The report named the fault without saying what it costs -- on a real
+// workbook, 24 interfaces out of 59 absent from every drawing, for a line that
+// looked like a plain vocabulary reminder.
+describe("a technology absent from the referential", () => {
+  it("says the interface is no longer drawn", () => {
     const m = model({
       interfaces: [iface({ flowType: "Inconnue" })],
       consumptions: [],
@@ -1133,42 +1133,42 @@ describe("technologie absente du référentiel", () => {
   });
 });
 
-// --- QA : le périmètre décide de tout le dessin -- ce qui est dans la
-// frontière, ce qui est dehors -- et son vocabulaire n'était pas contrôlé. Une
-// valeur fautive ne déclenchait donc rien : le groupe n'était ni plateforme ni
+// --- QA: the perimeter decides the whole drawing -- what is inside the
+// boundary, what is outside -- and its vocabulary was not checked. A faulty
+// value therefore triggered nothing: the group was neither platform nor
 // externe, silencieusement.
-describe("vocabulaire du périmètre", () => {
+describe("the perimeter's vocabulary", () => {
   const messages = (perimeter: string) =>
     runIntegrityChecks(model({ groups: [{ name: "G", perimeter, sheet: "Groups", row: 0 }] }))
       .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
       .filter((m) => m.toLowerCase().includes("perimeter"));
 
-  it("accepte les deux valeurs, à la casse et aux accents près", () => {
+  it("accepts both values, up to case and accents", () => {
     for (const v of ["Platform", "platform", "External", "EXTERNAL"]) {
       expect(messages(v).filter((m) => m.includes("unknown"))).toHaveLength(0);
     }
   });
 
-  it("signale une valeur hors vocabulaire", () => {
+  it("reports a value outside the vocabulary", () => {
     expect(messages("Platfrom").some((m) => m.includes("Platfrom"))).toBe(true);
   });
 });
 
-// --- QA : le filtre du palier jugeait l'EXISTENCE en plus de la vie. Un
-// exposant absent de l'onglet Actors -- une faute de référence, que les
-// contrôles signalent par ailleurs -- faisait donc disparaître son interface du
-// rapport, alors que les schémas la dessinent (core.ts la traite comme vivante,
-// délibérément). Le rapport déclarait « B sans flux » sous un schéma qui montre
-// un flux vers B.
-describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () => {
+// --- QA: the milestone filter judged EXISTENCE as well as life. A publisher
+// absent from the Actors sheet -- a reference fault, which the checks report
+// separately -- therefore made its interface vanish from the report, although
+// the diagrams draw it (core.ts treats it as alive, deliberately). The report
+// declared "B has no flow" under a diagram showing a flow towards B.
+//
+describe("the milestone filter — an unknown actor is not a dead actor", () => {
   const fantome = () =>
     model({
       milestones: [
         { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
         { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 1 },
       ],
-      // « Fantome » expose, mais ne figure pas dans l'onglet Actors.
+      // "Fantome" publishes, but does not appear in the Actors sheet.
       actors: [actor({ name: "B", introducedAt: "v1" })],
       interfaces: [iface({ providerName: "Fantome", introducedAt: "v1" })],
       consumptions: [consumption({ consumerName: "B", introducedAt: "v1" })],
@@ -1177,20 +1177,20 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
   const blocks = (rank: number | null) =>
     runIntegrityChecks(fantome(), rank).infoBlocks.flatMap((b) => b.items.map((i) => `${b.title} | ${i}`));
 
-  it("ne déclare pas sans flux un acteur que le schéma relie", () => {
+  it("does not declare flowless an actor the diagram links", () => {
     expect(buildFlowInstances(fantome(), 1)).toHaveLength(1);
     expect(blocks(1).filter((i) => i.includes("no flow"))).toHaveLength(0);
   });
 
-  it("dit la même chose au palier et hors palier", () => {
+  it("says the same thing at a milestone and without one", () => {
     expect(blocks(1).filter((i) => /no flow|Unused flow/.test(i))).toEqual(
       blocks(null).filter((i) => /no flow|Unused flow/.test(i))
     );
   });
 
-  // Un acteur CONNU et retiré, lui, retire bien ses flux : c'est l'autre moitié
-  // de la règle, corrigée plus tôt, et elle ne doit pas se rouvrir.
-  it("retire toujours les flux d'un acteur connu et retiré", () => {
+  // A KNOWN and retired actor does remove its flows: that is the other half of
+  // the rule, fixed earlier, and it must not reopen.
+  it("still removes the flows of a known, retired actor", () => {
     const m = model({
       milestones: [{ name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 }],
       actors: [actor({ name: "A", introducedAt: "v1", retiredAt: "v1" }), actor({ name: "B", introducedAt: "v1" })],
@@ -1201,16 +1201,16 @@ describe("filtre du palier — un acteur inconnu n'est pas un acteur mort", () =
   });
 });
 
-// --- QA : les contrôles de cohérence jugeaient TOUS le classeur entier. Ce que
-// le schéma du palier affiché montre -- une interface qui y perd son dernier
-// consommateur, une chaîne de relais que le temps coupe -- disparaissait donc
-// en silence sous un schéma vide. Symétriquement, deux lignes datées d'une même
-// migration étaient comptées ensemble, et le fichier se voyait reprocher de
+// --- QA: the consistency checks ALL judged the whole workbook. What the
+// displayed milestone's diagram shows -- an interface losing its last consumer
+// there, a relay chain that time cuts -- therefore disappeared in silence under
+// an empty diagram. Symmetrically, two dated rows of one migration were counted
+// together, and the file was reproached for
 // suivre sa propre consigne.
 const fixtureMessages = (m: Parameters<typeof runIntegrityChecks>[0], rank: number | null) =>
   runIntegrityChecks(m, rank).families.flatMap((f) => f.anomalies.map((a) => a.message));
 // ---------------------------------------------------------------------------
-// 3. Le rapport d'intégrité face à l'axe des paliers.
+// 3. The integrity report against the milestone axis.
 // ---------------------------------------------------------------------------
 
 const MILESTONES_FIXTURE = [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 }), base.milestone({ name: "v3", rank: 3 })];
@@ -1222,11 +1222,11 @@ const CORE_FIXTURE = {
   fxSheetNames: ["FX_A_HTTP"],
 };
 
-describe("le rapport d'intégrité et l'axe des paliers", () => {
-  it("ne crie pas à l'incohérence sur une migration datée à deux lignes", () => {
-    // Ce que le mode d'emploi du classeur prescrit : « Obsolete row: do not
-    // delete it: give it a retirement milestone. » Les deux intervalles sont
-    // DISJOINTS -- à aucun palier B ne consomme deux versions.
+describe("the integrity report and the milestone axis", () => {
+  it("does not cry inconsistency over a two-row dated migration", () => {
+    // What the workbook's instructions prescribe: "Obsolete row: do not delete
+    // it: give it a retirement milestone." The two intervals are DISJOINT -- at no
+    // milestone does B consume two versions.
     const m = base.template({
       ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
@@ -1246,7 +1246,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     }
   });
 
-  it("signale une consommation dont l'intervalle ne rencontre jamais celui de son interface", () => {
+  it("reports a consumption whose interval never meets its interface's", () => {
     const m = base.template({
       ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
@@ -1257,7 +1257,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     expect(fixtureMessages(m, 2).some((x) => x.includes("lives outside the lifetime"))).toBe(true);
   });
 
-  it("dit qu'une interface n'a plus de consommation au palier affiché", () => {
+  it("says an interface has no consumption left at the displayed milestone", () => {
     const m = base.template({
       ...CORE_FIXTURE,
       actors: [base.actor({ name: "A", introducedAt: "v1" }), base.actor({ name: "B", introducedAt: "v1" })],
@@ -1268,7 +1268,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     expect(fixtureMessages(m, 2).some((x) => x.includes("no declared consumption"))).toBe(true);
   });
 
-  it("dit qu'une chaîne de relais est coupée par le temps", () => {
+  it("says a relay chain is cut by time", () => {
     const m = base.template({
       milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],
       groups: [base.group({ name: "G" })],
@@ -1294,7 +1294,7 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
     expect(fixtureMessages(m, 2).some((x) => x.includes("nothing feeds it"))).toBe(true);
   });
 
-  it("ne prétend pas qu'un nom de flux est absent du catalogue quand le schéma le dessine", () => {
+  it("does not claim a flow name is absent from the catalogue when the diagram draws it", () => {
     const m = base.template({
       groups: [base.group({ name: "G" })],
       actors: [base.actor({ name: "A" }), base.actor({ name: "B" })],
@@ -1310,38 +1310,38 @@ describe("le rapport d'intégrité et l'axe des paliers", () => {
 });
 
 
-// --- Le classeur fait foi sur la couleur, mais il doit savoir qu'on a dû la
-// corriger : sinon la teinte à l'écran n'est pas celle qu'il a écrite, et
-// personne ne comprend pourquoi.
-describe("contrôles — couleurs trop claires pour être dessinées", () => {
+// --- The workbook is authoritative on the colour, but it must know it had to
+// be corrected: otherwise the hue on screen is not the one it wrote, and nobody
+// understands why.
+describe("checks — colours too light to be drawn", () => {
   const block = (colour: string) =>
     runIntegrityChecks(model({ flowTypes: [base.flowType({ type: "HTTP", colour })] })).infoBlocks.find(
       (b) => b.id === "contraste"
     );
 
-  it("signale une couleur déclarée trop claire pour un trait", () => {
+  it("reports a declared colour too light for a line", () => {
     expect(block("#ffee00")?.items.join(" ")).toContain("HTTP");
     expect(block("#ffee00")?.level).toBe("warning");
   });
 
-  it("ne signale rien quand la couleur déclarée passe le seuil", () => {
+  it("reports nothing when the declared colour passes the threshold", () => {
     expect(block("#1f5fae")?.items).toEqual([]);
   });
 
-  // Une valeur qui n'est pas une couleur relève des contrôles de vocabulaire,
-  // pas d'ici : la signaler deux fois dirait deux fois la même case.
-  it("ne signale pas une valeur qui n'est pas une couleur", () => {
+  // A value that is not a colour falls to the vocabulary checks, not here:
+  // reporting it twice would say the same cell twice.
+  it("does not report a value that is not a colour", () => {
     expect(block("bleu ciel")?.items).toEqual([]);
   });
 });
 
-// --- Le graphe de dépendances existait et ne servait qu'aux cycles. « Si X
-// tombe, qui est touché ? » est pourtant la question du jour où il faut
-// arbitrer une migration, et rien n'y répondait.
-describe("contrôles — rayon d'impact", () => {
+// --- The dependency graph existed and served only the cycles. "If X falls, who
+// is affected?" is nonetheless the question of the day a migration has to be
+// arbitrated, and nothing answered it.
+describe("checks — blast radius", () => {
   const block = (m: ParsedModel) => runIntegrityChecks(m).infoBlocks.find((b) => b.id === "rayon-impact");
 
-  // A fournit B, B fournit C : A entraîne les deux.
+  // A supplies B, B supplies C: A takes both down.
   const chain = () =>
     model({
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C" })],
@@ -1356,26 +1356,26 @@ describe("contrôles — rayon d'impact", () => {
       ],
     });
 
-  it("compte l'aval transitif, pas seulement les voisins", () => {
+  it("counts the transitive downstream, not merely the neighbours", () => {
     expect(block(chain())?.items[0]).toBe("A: 2 components downstream.");
   });
 
-  it("classe le plus entraînant en tête", () => {
+  it("ranks the one taking most down first", () => {
     expect(block(chain())?.items.map((i) => i.split(":")[0])).toEqual(["A", "B"]);
   });
 
-  // Nommer avec un zéro allongerait la liste sans rien y ajouter.
-  it("ne nomme pas ceux qui n'entraînent personne", () => {
+  // Naming with a zero would lengthen the list without adding anything to it.
+  it("does not name those who take nobody down", () => {
     expect(block(chain())?.items.some((i) => i.startsWith("C:"))).toBe(false);
   });
 
-  it("accorde le singulier", () => {
+  it("agrees in the singular", () => {
     expect(block(chain())?.items[1]).toBe("B: 1 component downstream.");
   });
 
-  // Un cycle ramène l'acteur dans son propre aval : « combien j'en entraîne »
-  // ne doit pas me compter moi-même.
-  it("ne se compte pas soi-même quand un cycle y ramène", () => {
+  // A cycle brings the actor back into its own downstream: "how many I take
+  // down" must not count me.
+  it("does not count itself when a cycle brings it back", () => {
     const loop = model({
       actors: [actor({ name: "A" }), actor({ name: "B" })],
       fxSheetNames: ["FX_A_HTTP", "FX_B_HTTP"],
