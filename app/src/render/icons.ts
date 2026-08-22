@@ -1,15 +1,15 @@
-// Catalogue d'icônes, isolé du rendu : les contrôles d'intégrité doivent citer
-// les noms valides sans dépendre du module qui dessine.
+// Icon catalogue, isolated from the rendering: the integrity checks must be
+// able to quote the valid names without depending on the drawing module.
 export interface IconElem {
   tag: "path" | "rect" | "circle" | "line" | "polyline" | "ellipse";
   attrs: Record<string, string>;
 }
 
-// Catalogue Lucide embarqué (https://lucide.dev, licence ISC), tracés repris
-// tels quels. Le livrable est un HTML autonome hors ligne : on ne peut pas
-// aller chercher une icône par son nom sur un CDN, donc le catalogue est fini.
-// Ce qui vient du classeur, c'est le CHOIX -- quel type d'acteur porte quelle
-// icône -- et non le dessin.
+// Embedded Lucide catalogue (https://lucide.dev, ISC licence), paths taken as
+// they are. The deliverable is a self-contained offline HTML: an icon cannot
+// be fetched by name from a CDN, so the catalogue is finite. What comes from
+// the workbook is the CHOICE -- which actor type carries which icon -- not the
+// drawing.
 export const ICONS: Record<string, IconElem[]> = {
   "app-window": [
       { tag: "rect", attrs: { x: "2", y: "4", width: "20", height: "16", rx: "2" } },
@@ -157,16 +157,16 @@ export const ICONS: Record<string, IconElem[]> = {
   ],
 };
 
-// Les noms utilisables dans la colonne « Icône » de l'onglet TypesActeur.
-// Exposé pour que les contrôles d'intégrité puissent citer la liste au lieu de
-// se contenter de dire « inconnu ».
+// The names usable in the "Icon" column of the ActorTypes sheet. Exposed so
+// that the integrity checks can quote the list instead of merely saying
+// "unknown".
 export const AVAILABLE_ICONS: string[] = Object.keys(ICONS).sort();
 
-// Approximation en emoji de chaque icône, pour que la colonne « Icône » du
-// classeur se lise dans Excel. Ce n'est PAS l'icône dessinée -- celle-ci est
-// vectorielle et vit dans le schéma ; c'est un repère visuel pour choisir un
-// nom sans avoir à l'essayer. Excel ne sait pas afficher nos tracés SVG, et
-// SheetJS n'écrit ni image ni forme.
+// An emoji approximation of each icon, so that the workbook's "Icon" column
+// reads in Excel. This is NOT the drawn icon -- that one is vector and lives
+// in the diagram; this is a visual cue for picking a name without having to
+// try it. Excel cannot display our SVG paths, and SheetJS writes neither
+// images nor shapes.
 export const ICON_PREVIEWS: Record<string, string> = {
   "app-window": "🪟",
   bot: "🤖",
@@ -195,6 +195,6 @@ export const ICON_PREVIEWS: Record<string, string> = {
   workflow: "🔀",
 };
 
-// Repli quand le classeur ne dit rien : un jeton neutre, qui ne prétend pas
-// connaître la nature de l'acteur.
+// Fallback when the workbook says nothing: a neutral token, which claims no
+// knowledge of the actor's nature.
 export const DEFAULT_ICON = "layers";

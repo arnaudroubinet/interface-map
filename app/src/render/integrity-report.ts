@@ -2,9 +2,9 @@ import type { IntegrityReport } from "../integrity/checks";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-// Icônes Lucide (https://lucide.dev, licence ISC) : « check » pour une section
-// saine, « octagon-x » pour une alerte -- l'octogone est le panneau stop, il se
-// distingue de la coche sans dépendre de la seule couleur.
+// Lucide icons (https://lucide.dev, ISC licence): "check" for a sound section,
+// "octagon-x" for an alert -- the octagon is the stop sign, and it tells itself
+// apart from the tick without depending on colour alone.
 const PATHS: Record<string, string[]> = {
   check: ["M20 6 9 17l-5-5"],
   stop: [
@@ -13,11 +13,11 @@ const PATHS: Record<string, string[]> = {
     "m9 9 6 6",
   ],
   info: ["M12 16v-4", "M12 8h.01"],
-  // « list-checks » : une liste à cocher, pas un panneau d'alerte. Une action
-  // n'est pas un défaut du fichier, c'est du travail qui attend quelqu'un.
+  // "list-checks": a checklist, not a warning sign. An action is not a defect
+  // in the file, it is work waiting for someone.
   action: ["M13 5h8", "M13 12h8", "M13 19h8", "m3 17 2 2 4-4", "m3 7 2 2 4-4"],
-  // « triangle-alert » : l'avertissement se distingue de l'octogone d'erreur
-  // par sa forme autant que par sa couleur.
+  // "triangle-alert": a warning tells itself apart from the error octagon by
+  // its shape as much as by its colour.
   alert: [
     "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3",
     "M12 9v4",
@@ -52,8 +52,8 @@ function icon(name: keyof typeof PATHS): SVGSVGElement {
   return svg;
 }
 
-// Ce qu'une section signale quand elle n'est pas vide : une faute qui invalide
-// les schémas, une saisie à trancher, ou une simple information.
+// What a section reports when it is not empty: a fault that invalidates the
+// diagrams, an entry to be decided, or plain information.
 type Severity = "error" | "action" | "warning" | "info";
 
 const CSS_CLASS: Record<Severity, string> = {
@@ -69,9 +69,9 @@ const ICON: Record<Severity, keyof typeof PATHS> = {
   info: "info",
 };
 
-// Une section sans rien à signaler est repliée : elle n'appelle aucune action,
-// et la déplier ne montrerait qu'un « Rien à signaler ». Les sections qui
-// portent quelque chose s'ouvrent d'office.
+// A section with nothing to report is collapsed: it calls for no action, and
+// unfolding it would show nothing but a "Nothing to report". Sections that
+// carry something open by default.
 function buildSection(
   cssClass: string,
   title: string,
@@ -113,11 +113,11 @@ function buildSection(
   return section;
 }
 
-// Ordre de lecture : ce qui appelle une correction d'abord, ce qui n'appelle
-// rien à la fin. Une section vide passe donc derrière toutes les autres, quelle
-// que soit sa nature -- elle ne porte plus qu'une coche.
-// Les actions passent avant les avertissements : elles s'adressent au lecteur,
-// là où un avertissement ne fait que constater une saisie incomplète.
+// Reading order: what calls for a correction first, what calls for nothing at
+// the end. An empty section therefore goes behind all the others, whatever its
+// nature -- it carries nothing but a tick.
+// Actions come before warnings: they address the reader, where a warning
+// merely records an incomplete entry.
 const RANK: Record<Severity, number> = { error: 0, action: 1, warning: 2, info: 3 };
 const EMPTY_RANK = 4;
 
@@ -129,10 +129,10 @@ export interface ReportSection {
   severity: Severity;
 }
 
-// Le rapport à plat, dans son ordre de lecture. L'écran et le fichier Markdown
-// le lisent tous deux d'ici : deux personnes regardant le même rapport, l'une à
-// l'écran et l'autre dans un ticket, doivent y trouver les mêmes sections dans
-// le même ordre.
+// The report flattened, in its reading order. Both the screen and the Markdown
+// file read it from here: two people looking at the same report, one on screen
+// and the other in a ticket, must find the same sections there in the same
+// order.
 export function reportSections(report: IntegrityReport): ReportSection[] {
   const sections: ReportSection[] = [
     ...report.families.map((f) => ({
@@ -142,8 +142,8 @@ export function reportSections(report: IntegrityReport): ReportSection[] {
       items: f.anomalies.map((a) => a.message),
       severity: "error" as Severity,
     })),
-    // Un bloc informatif ne porte jamais de faute : au pire une décision en
-    // attente (action) ou une saisie incomplète (avertissement).
+    // An informational block never carries a fault: at worst a pending decision
+    // (action) or an incomplete entry (warning).
     ...report.infoBlocks.map((b) => ({
       cssClass: "block-info",
       title: b.title,
@@ -154,8 +154,8 @@ export function reportSections(report: IntegrityReport): ReportSection[] {
   ];
 
   const rank = (s: ReportSection) => (s.items.length === 0 ? EMPTY_RANK : RANK[s.severity]);
-  // Tri stable : à rang égal, les sections gardent l'ordre où les contrôles
-  // les ont produites.
+  // Stable sort: at equal rank, sections keep the order the checks produced
+  // them in.
   return [...sections].sort((a, b) => rank(a) - rank(b));
 }
 

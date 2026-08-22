@@ -1,19 +1,19 @@
 import type { LayoutNode } from "../layout/graph-layout";
 
-// Fixe, indépendant du thème de l'appli : un export doit rester lisible
-// ouvert seul, hors de toute page qui l'habillerait en clair/sombre (§8).
+// Fixed, independent of the app's theme: an export must stay legible when
+// opened on its own, outside any page that would dress it light or dark (§8).
 export const PAPER = "#ffffff";
 export const INK = "#14181f";
 
-// Épaisseur uniforme pour tous les traits. Faire varier l'épaisseur avec le
-// nombre de flux agrégés produisait un effet de gras sur les troncs fusionnés,
-// qui écrasait visuellement leurs voisins ; le volume se lit dans le « ×N » du
-// libellé, pas dans la graisse du trait.
+// Uniform width for every line. Varying the width with the number of
+// aggregated flows produced a bold effect on merged trunks that visually
+// crushed their neighbours; the volume reads in the label's "×N", not in the
+// line's weight.
 export const STROKE_WIDTH = 2;
 
-// Un écart ne porte pas la couleur de sa technologie : il porte celle de son
-// sens. C'est aussi ce que dit PAPIER/ENCRE -- un export ne suit pas le thème
-// de qui l'affiche.
+// A change does not carry its technology's colour: it carries the colour of
+// its direction. That is also what PAPER/INK says -- an export does not follow
+// the theme of whoever displays it.
 export const CHANGE_COLOUR: Record<"added" | "removed", string> = {
   added: "#1a7f43",
   removed: "#d03b3b",
@@ -26,21 +26,21 @@ export interface NodeStyle {
   strokeWidth: number;
 }
 
-// Palette par kind, dans l'esprit C4 (Structurizr) : gris-bleu neutre pour un
-// système de contexte, bleu soutenu pour ce qui est mis en avant (plateforme,
-// acteur sélectionné).
+// Palette by kind, in the C4 spirit (Structurizr): neutral blue-grey for a
+// context system, strong blue for what is brought forward (platform, selected
+// actor).
 //
-// La couleur code le PÉRIMÈTRE, pas la technologie : c'est le levier de
-// lisibilité le plus fort quand une plateforme centrale est entourée de
-// systèmes tiers -- la technologie, elle, est déjà portée par la couleur des
-// traits et par la légende.
+// Colour encodes the PERIMETER, not the technology: it is the strongest
+// legibility lever when a central platform is surrounded by third-party
+// systems -- the technology, for its part, is already carried by the lines'
+// colour and by the legend.
 //
-// Couleurs relevées dans la source du gabarit C4 de draw.io (Sidebar-C4.js),
-// puis assombries : le texte des boîtes est toujours blanc, et deux de ces
-// fonds ne le portaient pas -- blanc sur #23A2D9 donnait 2,90:1 et blanc sur
-// #8C8496 3,59:1, pour un seuil de 4,5:1. Chacun reprend la teinte de sa
-// PROPRE BORDURE ou son équivalent : la famille de couleur ne change pas,
-// seule sa clarté descend. #0E7DAD donne 4,61:1 et #6E6579 donne 5,53:1.
+// Colours taken from the source of draw.io's C4 template (Sidebar-C4.js), then
+// darkened: box text is always white, and two of these fills did not carry it
+// -- white on #23A2D9 gave 2.90:1 and white on #8C8496 gave 3.59:1, against a
+// 4.5:1 threshold. Each takes the hue of its OWN BORDER or its equivalent: the
+// colour family does not change, only its lightness comes down. #0E7DAD gives
+// 4.61:1 and #6E6579 gives 5.53:1.
 export function styleOfNode(node: Pick<LayoutNode, "kind" | "external">): NodeStyle {
   if (node.kind === "focus-actor") {
     return { fill: "#083F75", stroke: "#06315C", lightText: true, strokeWidth: 2 };

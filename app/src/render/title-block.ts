@@ -1,9 +1,9 @@
 import { INK } from "./node-styles";
 
-// Ce qu'un schéma doit dire de lui-même. C4 en fait sa règle première : un
-// diagramme collé dans un dossier, un ticket ou une présentation ne disait ni
-// de quel classeur il vient, ni à quel palier il se lit, ni selon quelle
-// lecture -- et ces trois informations changent tout son sens.
+// What a diagram must say about itself. C4 makes this its first rule: a
+// diagram pasted into a folder, a ticket or a slide deck said neither which
+// workbook it came from, nor at which milestone it reads, nor under which
+// reading -- and those three change its whole meaning.
 export interface DiagramContext {
   title: string;
   reading: string;
@@ -13,8 +13,8 @@ export interface DiagramContext {
   components: number;
   flows: number;
   technologies: number;
-  // Ce que la planche compte, quand « composants et flux » ne veut rien dire :
-  // une frise compte des lignes et des paliers, pas des boîtes et des traits.
+  // What the board counts, when "components and flows" means nothing: a roadmap
+  // counts rows and milestones, not boxes and lines.
   detail?: string;
 }
 
@@ -28,9 +28,9 @@ export function titleBlockText(c: DiagramContext): { title: string; subtitle: st
   };
 }
 
-// La convention de lecture ne figure NULLE PART dans le texte du schéma : un
-// lecteur d'écran ne peut pas la déduire du dessin. Elle appartient donc à la
-// description, avec les comptes.
+// The reading convention appears NOWHERE in the diagram's text: a screen
+// reader cannot deduce it from the drawing. It therefore belongs in the
+// description, along with the counts.
 export function descriptionAccessible(c: DiagramContext): string {
   return (
     `${c.source} · ${c.detail ?? `${singularOrPlural(c.components, "component")}, ${singularOrPlural(c.flows, "flow")}, ${singularOrPlural(c.technologies, "technology", "technologies")}`}. ` +
@@ -40,10 +40,10 @@ export function descriptionAccessible(c: DiagramContext): string {
 
 export const TITLE_BLOCK_HEIGHT = 44;
 
-// Un gris pâle sur blanc se lit mal, même au-dessus du seuil : #5b6472 tenait
-// 5,98:1 et restait inconfortable en petit corps. L'ardoise franc donne
-// 10,16:1, et la hiérarchie reste portée par la taille et la graisse -- pas
-// par la pâleur.
+// A pale grey on white reads badly, even above the threshold: #5b6472 held
+// 5.98:1 and stayed uncomfortable at small sizes. Frank slate gives 10.16:1,
+// and the hierarchy is still carried by size and weight -- not by paleness.
+//
 const SUBTITLE_GREY = "#39424f";
 
 export function buildTitleBlock(c: DiagramContext, x: number, y: number): SVGGElement {

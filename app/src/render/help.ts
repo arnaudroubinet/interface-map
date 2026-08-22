@@ -1,17 +1,17 @@
 import { el } from "../shared/dom";
 
-// La page qui explique l'outil, dans l'outil. Elle vit ici et non dans un
-// fichier à côté : l'application est un seul fichier HTML qu'on s'échange, une
-// documentation qui ne voyagerait pas avec lui ne serait jamais lue.
+// The page that explains the tool, inside the tool. It lives here rather than
+// in a file alongside: the application is a single HTML file that gets passed
+// around, and documentation that did not travel with it would never be read.
 //
-// Elle ne dépend d'aucun classeur : elle se consulte avant même d'en avoir
-// déposé un.
+// It depends on no workbook: it can be consulted before one has even been
+// dropped.
 
 interface Section {
   title: string;
   paragraphes: string[];
-  // Un terme et ce qu'il veut dire. La moitié des malentendus vient du
-  // vocabulaire, pas du fonctionnement.
+  // A term and what it means. Half the misunderstandings come from the
+  // vocabulary, not from how the thing works.
   definitions?: [string, string][];
 }
 
@@ -143,15 +143,15 @@ export function buildAide(): HTMLElement {
   return el("div", { class: "integrity-report" }, blocks);
 }
 
-// Ce que la page documente, pour que rien de nouveau ne s'ajoute au rail sans
-// une ligne ici. Une documentation qui prend du retard est pire que pas de
-// documentation : elle affirme.
+// What the page documents, so that nothing new is added to the rail without a
+// line here. Documentation that falls behind is worse than no documentation:
+// it asserts.
 export function vuesDocumentees(): string[] {
   return termesDe("The views");
 }
 
-// Même dispositif pour les exports : un huitième format ne peut pas arriver
-// sans sa ligne ici, le test s'en assure.
+// The same device for the exports: an eighth format cannot arrive without its
+// line here, and the test makes sure of it.
 export function exportsDocumentes(): string[] {
   return termesDe("The exports");
 }
