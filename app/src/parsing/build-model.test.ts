@@ -6,9 +6,9 @@ function wb(sheets: RawSheet[]): ParsedWorkbook {
   return { sheets, savedAt: null };
 }
 
-// Les vrais en-têtes viennent de la ligne 1 de la feuille, pas des lignes de
-// données (voir RawSheet.headers) ; pour une fixture de test avec au moins
-// une ligne, l'union de ses clés est un équivalent fidèle.
+// The real headers come from row 1 of the sheet, not from the data rows (see
+// RawSheet.headers); for a test fixture with at least one row, the union of
+// its keys is a faithful equivalent.
 function sheet(name: string, rows: Record<string, string>[], headers?: string[]): RawSheet {
   return {
     name,
@@ -82,10 +82,10 @@ describe("buildModel — happy path", () => {
     expect(result.model.actors).toHaveLength(2);
   });
 
-  // L'intention n'a pas changé -- ne jamais laisser un nom qu'Excel refuse
-  // atteindre le classeur -- mais le moyen, si : on l'assainit à la source au
-  // lieu de le marquer invalide et de le jeter à l'écriture, ce qui emportait
-  // les consommations de l'onglet sans un mot.
+  // The intent has not changed -- never let a name Excel refuses reach the
+  // workbook -- but the means has: it is sanitised at the source instead of
+  // being marked invalid and thrown away at writing time, which carried the
+  // sheet's consumptions off without a word.
   it("keeps a reconstructed FX_ name within what Excel accepts, however long the flow type", () => {
     const longTypeName: RawSheet = sheet("FlowTypes", [
       { "Flow type": "Un type de flux vraiment beaucoup trop long", "Direction": "consumer → provider", Description: "" },
@@ -151,7 +151,7 @@ describe("buildModel — blocking errors", () => {
   });
 });
 
-describe("buildModel — version et état d'interface", () => {
+describe("buildModel — an interface's version and state", () => {
   it("reads the Version and État columns of an interface", () => {
     const interfaces = sheet("Interfaces", [
       { "Flow name": "Authent", Version: "1.0", "État": "À décommissionner", "Provider": "Tatooine", "Flow type": "HTTP" },
@@ -173,8 +173,8 @@ describe("buildModel — version et état d'interface", () => {
     expect(result.model.consumptions[0].version).toBe("2.0");
   });
 
-  // Une version vide est une version, pas une absence : c'est ce qui laisse les
-  // classeurs antérieurs se rattacher exactement comme avant.
+  // An empty version is a version, not an absence: that is what lets earlier
+  // workbooks match exactly as before.
   it("leaves version empty rather than absent when the column is missing", () => {
     const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk, fxTatooineHttp]));
     expect(result.ok).toBe(true);
@@ -184,7 +184,7 @@ describe("buildModel — version et état d'interface", () => {
   });
 });
 
-describe("buildModel — numéro de schéma du classeur", () => {
+describe("buildModel — the workbook's schema number", () => {
   it("reads the schema number from the hidden Version sheet", () => {
     const version = sheet("Version", [{ "Model version": "1" }]);
     const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk, version]));
@@ -193,7 +193,7 @@ describe("buildModel — numéro de schéma du classeur", () => {
     expect(result.model.schemaVersion).toBe(1);
   });
 
-  // Tous les classeurs produits avant cette évolution.
+  // Every workbook produced before this change.
   it("treats a workbook without the sheet as version 0", () => {
     const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk]));
     expect(result.ok).toBe(true);
@@ -234,8 +234,8 @@ describe("buildModel — onglet Paliers", () => {
     expect(result.model.milestones[2].status).toBe("Planned");
   });
 
-  // L'ordre vient du rang, pas de l'ordre des lignes : un tri dans Excel
-  // détruirait un ordre implicite sans rien dire.
+  // The order comes from the rank, not from the row order: a sort in Excel would
+  // destroy an implicit order without saying a word.
   it("orders by rank, not by row order", () => {
     const shuffled: RawSheet = sheet("Milestones", [
       { Milestone: "v3", Rank: "3", Status: "Planned" },
@@ -256,7 +256,7 @@ describe("buildModel — onglet Paliers", () => {
   });
 });
 
-describe("buildModel — colonnes de validité", () => {
+describe("buildModel — validity columns", () => {
   it("reads the introduction and retirement paliers of an acteur", () => {
     const actors: RawSheet = sheet("Actors", [
       { Name: "Tatooine", Group: "Socle", "Introduced at": "v1", "Retired at": "v3" },
@@ -282,8 +282,8 @@ describe("buildModel — colonnes de validité", () => {
     expect(result.model.consumptions[0].retiredAt).toBe("v3");
   });
 
-  // Vides, elles gardent le sens habituel du projet : « depuis toujours » et
-  // « toujours là ». Les classeurs qui ne datent rien se lisent à l'identique.
+  // Empty, they keep the project's usual meaning: "always been there" and
+  // "still there". Workbooks that date nothing read identically.
   it("leaves them empty rather than absent when nothing is declared", () => {
     const result = buildModel(wb([actorsOk, flowTypesOk, interfacesOk, fxTatooineHttp]));
     expect(result.ok).toBe(true);
@@ -294,8 +294,8 @@ describe("buildModel — colonnes de validité", () => {
   });
 });
 
-describe("nature du type d'acteur et relais d'interface", () => {
-  it("lit la nature déclarée sur le type d'acteur", () => {
+describe("an actor type's nature and an interface's relay", () => {
+  it("reads the nature declared on the actor type", () => {
     const result = buildModel(
       wb([
         sheet("Actors", [{ Name: "Tatooine", Group: "Socle", "Actor type": "Application" }]),
@@ -315,7 +315,7 @@ describe("nature du type d'acteur et relais d'interface", () => {
     ]);
   });
 
-  it("lit le relais déclaré sur une interface", () => {
+  it("reads the relay declared on an interface", () => {
     const result = buildModel(
       wb([
         sheet("Actors", [{ Name: "Bus", Group: "Socle", "Actor type": "Middleware" }]),
@@ -329,9 +329,9 @@ describe("nature du type d'acteur et relais d'interface", () => {
     expect(result.model.interfaces[0].legacyRelays).toBe("Transactions");
   });
 
-  // Un classeur d'avant la v3 n'a ni l'une ni l'autre colonne : il doit se
-  // lire à l'identique, les deux champs vides.
-  it("lit les deux champs vides quand les colonnes manquent", () => {
+  // A workbook from before v3 has neither column: it must read identically, with
+  // both fields empty.
+  it("reads both fields empty when the columns are missing", () => {
     const result = buildModel(
       wb([
         sheet("Actors", [{ Name: "Tatooine", Group: "Socle", "Actor type": "Application" }]),
@@ -347,29 +347,29 @@ describe("nature du type d'acteur et relais d'interface", () => {
   });
 });
 
-// --- QA : Excel refuse un nom d'onglet de plus de 31 caractères ou portant
-// l'un de : \ / ? * [ ]. Le nom étant DÉRIVÉ de l'exposant et du type de flux,
-// un acteur au nom un peu long produisait un onglet impossible -- et l'écriture
-// l'écartait en silence, emportant ses consommations. Le nom est désormais
-// assaini au seul endroit où il se fabrique.
-describe("feuilleFxAttendue — un nom qu'Excel accepte toujours", () => {
-  it("coupe à 31 caractères", () => {
+// --- QA: Excel refuses a sheet name longer than 31 characters or carrying one
+// of: \ / ? * [ ]. The name being DERIVED from the publisher and the flow type,
+// an actor with a slightly long name produced an impossible sheet -- and the
+// writing dropped it in silence, taking its consumptions with it. The name is
+// now sanitised at the one place it is made.
+describe("expectedFxSheet — a name Excel always accepts", () => {
+  it("cuts at 31 characters", () => {
     const name = expectedFxSheet("Plateforme de règlement-livraison", "HTTP");
     expect(name).toHaveLength(31);
     expect(isValidTabName(name)).toBe(true);
   });
 
-  it("remplace les caractères qu'Excel interdit", () => {
+  it("replaces the characters Excel forbids", () => {
     const name = expectedFxSheet("Referentiel", "OIDC/SSO");
     expect(name).toBe("FX_Referentiel_OIDC-SSO");
     expect(isValidTabName(name)).toBe(true);
   });
 
-  it("ne touche pas à un nom déjà acceptable", () => {
+  it("leaves an already acceptable name alone", () => {
     expect(expectedFxSheet("Tatooine", "HTTP")).toBe("FX_Tatooine_HTTP");
   });
 
-  it("assainit chacun des caractères interdits", () => {
+  it("sanitises every one of the forbidden characters", () => {
     for (const c of [":", "\\", "/", "?", "*", "[", "]"]) {
       expect(isValidTabName(expectedFxSheet("A", `X${c}Y`))).toBe(true);
     }

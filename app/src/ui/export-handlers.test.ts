@@ -4,13 +4,13 @@ import { initialState, withLoadedFile, withView, withMode, withActorSelection, t
 import type { IntegrityReport } from "../integrity/checks";
 import * as base from "../testing/fixtures";
 
-// Les sept exports, éprouvés un par un. C'est ce que leur sortie de la
-// fermeture de mountApp rend possible : avant, il fallait monter le DOM entier
-// pour en toucher un seul, et aucun n'avait de test.
+// The seven exports, exercised one by one. That is what their move out of
+// mountApp's closure makes possible: before, the whole DOM had to be mounted to
+// touch a single one, and none had a test.
 //
-// On intercepte les fonctions de téléchargement : ce qu'on vérifie ici, ce
-// n'est pas qu'un fichier descend -- le navigateur s'en charge -- mais CE QU'ON
-// LUI DONNE : le bon contenu, sous le bon nom.
+// The download functions are intercepted: what is checked here is not that a
+// file comes down -- the browser handles that -- but WHAT IT IS GIVEN: the
+// right content, under the right name.
 
 const downloads: { name: string; content: string }[] = [];
 vi.mock("../export/download", () => ({
@@ -67,7 +67,7 @@ beforeEach(() => {
 });
 
 describe("handlersExport", () => {
-  it("ne fait rien tant qu'aucun classeur n'est chargé", async () => {
+  it("does nothing while no workbook is loaded", async () => {
     const { handlers } = context(initialState());
     handlers.onExportSvg();
     await handlers.onExportPng();
@@ -76,41 +76,41 @@ describe("handlersExport", () => {
     expect(downloads).toHaveLength(0);
   });
 
-  it("ne fait rien quand aucun schéma n'est à l'écran", () => {
+  it("does nothing when no diagram is on screen", () => {
     const { handlers } = context(withView(loaded(), "platform-detail"), null);
     handlers.onExportSvg();
     expect(downloads).toHaveLength(0);
   });
 
-  // Le nom porte la vue, le palier et la sélection : sans elle, deux lectures
-  // différentes se téléchargeraient sous le même nom.
-  it("met la sélection dans le nom de la vue par acteur", () => {
+  // The name carries the view, the milestone and the selection: without it, two
+  // different readings would download under the same name.
+  it("puts the selection in the by-actor view's name", () => {
     const s = withActorSelection(withView(loaded(), "by-actor"), "Tatooine");
     context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("tatooine");
     expect(downloads[0].name).toMatch(/\.svg$/);
   });
 
-  // Le rapport juge le CLASSEUR, pas une lecture du classeur : son contenu ne
-  // bouge pas d'un mode à l'autre, son nom ne doit donc pas bouger non plus.
-  it("ne met pas le mode dans le nom du rapport Markdown", () => {
+  // The report judges the WORKBOOK, not a reading of it: its content does not
+  // move from one mode to the other, so its name must not move either.
+  it("does not put the mode in the Markdown report's name", () => {
     const s = withMode(withView(loaded(), "checks"), "functional");
     context(s).handlers.onExportMarkdown();
     expect(downloads[0].name).not.toContain("functional");
     expect(downloads[0].content).toContain("Integrity report");
   });
 
-  it("met le mode dans le nom d'un schéma, lui", () => {
+  it("does put the mode in a diagram's name, though", () => {
     const s = withMode(withView(loaded(), "platform-detail"), "functional");
     context(s).handlers.onExportSvg();
     expect(downloads[0].name).toContain("functional");
   });
 
-  // Un navigateur qui refuse la conversion doit le DIRE : sans message, le
-  // bouton semblerait ne rien faire. Et c'est le message de l'export qui
-  // s'affiche : il distingue deux échecs, le banner n'en invente pas un
-  // troisième.
-  it("prévient dans le banner quand le PNG échoue, et ne télécharge rien", async () => {
+  // A browser that refuses the conversion must SAY so: with no message, the
+  // button would seem to do nothing. And it is the export's message that is
+  // shown: it distinguishes two failures, and the banner invents no third one.
+  //
+  it("warns in the banner when the PNG fails, and downloads nothing", async () => {
     renderedPng.ok = false;
     const { handlers, state } = context(withView(loaded(), "platform-detail"));
     await handlers.onExportPng();
@@ -118,19 +118,19 @@ describe("handlersExport", () => {
     expect(state().messageBandeau).toBe("No PNG here.");
   });
 
-  it("télécharge le PNG quand la conversion passe", async () => {
+  it("downloads the PNG when the conversion succeeds", async () => {
     const { handlers } = context(withView(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads[0].name).toMatch(/\.png$/);
   });
 
-  it("exporte la matrix affichée, sous le nom de la vue matrix", () => {
+  it("exports the displayed matrix, under the matrix view's name", () => {
     context(withView(loaded(), "matrix")).handlers.onExportXlsx();
     expect(downloads[0].name).toMatch(/matrix.*\.xlsx$/);
   });
 
-  // Les deux DSL décrivent le MODÈLE : ni nom de vue, ni sélection, ni mode.
-  it("nomme les deux DSL d'après le modèle, pas d'après la vue", () => {
+  // Both DSLs describe the MODEL: no view name, no selection, no mode.
+  it("names both DSLs after the model, not after the view", () => {
     const s = withMode(withView(loaded(), "by-actor"), "functional");
     const { handlers } = context(s);
     handlers.onExportStructurizr();
@@ -140,26 +140,26 @@ describe("handlersExport", () => {
     expect(downloads[1].content).toContain("specification");
   });
 
-  it("emporte toutes les planches dans le draw.io, quelle que soit la vue ouverte", async () => {
+  it("carries every board into the draw.io, whatever view is open", async () => {
     await context(withView(loaded(), "checks")).handlers.onExportDrawio();
     expect(downloads[0].name).toMatch(/boards.*\.drawio$/);
     expect(downloads[0].content).toContain("<mxfile");
   });
 });
 
-// --- §2.8 : le facteur d'échelle du PNG était codé en dur à 2. Un schéma
-// d'architecture est du trait fin avec de petits caractères : c'est le cas où
-// une haute résolution paie encore.
+// --- §2.8: the PNG's scale factor was hard-coded at 2. An architecture diagram
+// is thin lines with small type: the case where high resolution still pays.
+//
 const dernierScalePng = () => renderedPng.scale;
 
-describe("onExportPng — l'échelle est choisie", () => {
-  it("garde 2 comme échelle par défaut", async () => {
+describe("onExportPng — the scale is chosen", () => {
+  it("keeps 2 as the default scale", async () => {
     const { handlers } = context(loaded());
     await handlers.onExportPng();
     expect(dernierScalePng()).toBe(2);
   });
 
-  it("exporte à l'échelle retenue", async () => {
+  it("exports at the chosen scale", async () => {
     const s = loaded();
     const { handlers } = context({ ...s, options: { ...s.options, pngScale: 4 } });
     await handlers.onExportPng();

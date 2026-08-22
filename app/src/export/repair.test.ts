@@ -8,10 +8,10 @@ import { buildModel, SCHEMA_VERSION } from "../parsing/build-model";
 
 const THE_DAY = new Date("2026-08-17T00:00:00Z");
 
-// La forme réelle du format d'origine : feuilles et colonnes en français
-// (voir /Exemples/exemple legacy.xlsx). Un classeur écrit avec des intitulés
-// anglais ne ressemble à rien que le parseur d'origine reconnaisse -- il faut
-// la vraie forme pour exercer réellement la conversion.
+// The original format's real shape: French sheets and columns (see
+// /Exemples/exemple legacy.xlsx). A workbook written with English headings
+// looks like nothing the original parser recognises -- the real shape is needed
+// to really exercise the conversion.
 function legacyWorkbook(): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
@@ -39,9 +39,9 @@ function legacyWorkbook(): ArrayBuffer {
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
-// Un classeur d'origine dont rien ne se reconnaît : ni les feuilles, ni les
-// colonnes du seul onglet qui pourrait en tenir lieu. C'est le scénario du
-// classeur réel « revenu complètement vide, en silence ».
+// An original workbook where nothing is recognised: neither the sheets nor the
+// columns of the one sheet that could stand in for them. This is the scenario
+// of the real workbook that "came back completely empty, in silence".
 function unrecognisableWorkbook(): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
@@ -52,9 +52,9 @@ function unrecognisableWorkbook(): ArrayBuffer {
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
-// Composants se lit, Flux non : les acteurs sortent, aucune interface.
-// C'est la variante déguisée du classeur vide -- une liste d'applications
-// sans rien entre elles -- plausible pour un format maison qui a dérivé.
+// Composants reads, Flux does not: the actors come out, no interface does.
+// This is the disguised variant of the empty workbook -- a list of applications
+// with nothing between them -- plausible for a home-grown format that drifted.
 function workbookActorsWithoutInterfaces(): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
@@ -82,22 +82,22 @@ describe("reparerClasseur", () => {
     expect(r.data.fx[0].rows[0][0]).toBe("Checkout");
   });
 
-  // §fondateur : un classeur d'où rien ne se récupère ne doit jamais repartir
-  // en silence comme s'il avait été traité -- c'est exactement l'incident
-  // survenu avec un classeur réel de cette famille.
+  // Founding §: a workbook from which nothing is recovered must never leave in
+  // silence as though it had been processed -- that is exactly the incident that
+  // happened with a real workbook of this family.
   it("throws rather than return a silently empty workbook when nothing at all is recovered", () => {
     expect(() => repairWorkbook(unrecognisableWorkbook(), THE_DAY)).toThrow();
   });
 
-  // Le seuil est sur les interfaces, pas sur les acteurs : une cartographie
-  // d'interfaces sans la moindre interface n'est pas un résultat, même quand
-  // des acteurs, eux, se sont bien récupérés.
+  // The threshold is on the interfaces, not on the actors: an interface
+  // cartography without a single interface is not a result, even when actors
+  // were recovered just fine.
   it("throws when actors are recovered but not a single interface", () => {
     expect(() => repairWorkbook(workbookActorsWithoutInterfaces(), THE_DAY)).toThrow();
   });
 
-  // Un classeur de notre famille n'est pas une conversion : c'est une remise en
-  // état, et il n'y a rien à signaler d'inféré.
+  // A workbook of our family is not a conversion: it is a repair, and there is
+  // nothing inferred to report.
   it("upgrades one of our own workbooks without a legacy report", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
     expect(r.legacyReport).toBeNull();
@@ -106,8 +106,8 @@ describe("reparerClasseur", () => {
     expect(reread.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
-  // C'est ce qui remplace la macro : rendre un fichier où il ne manque aucun
-  // onglet, même pour une interface qui n'a pas encore de consommation.
+  // This is what replaces the macro: returning a file where no sheet is missing,
+  // even for an interface that has no consumption yet.
   it("returns a workbook where every expected sheet exists", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
     const reread = buildModel(parseWorkbook(writeTemplate(r.data)));
@@ -117,13 +117,13 @@ describe("reparerClasseur", () => {
   });
 });
 
-// --- QA : la forme française du modèle ACTUEL -- à ne pas confondre avec le
-// format d'origine, qui décrit un LIEN entre deux composants. Ici les feuilles
-// portent déjà le modèle d'aujourd'hui, simplement nommées en français :
-// RefActeur, RefTypesActeur, Flux, et une colonne « Usine responsable ». Le
-// parseur ne reconnaissait ni ces trois noms d'onglet ni cette colonne, donc il
-// rejetait le classeur avant même d'arriver à la traduction des valeurs, que
-// l'étape v0→v1 sait pourtant faire depuis toujours.
+// --- QA: the French shape of the CURRENT model -- not to be confused with the
+// original format, which describes a LINK between two components. Here the
+// sheets already carry today's model, merely named in French: RefActeur,
+// RefTypesActeur, Flux, and an "Usine responsable" column. The parser
+// recognised neither those three sheet names nor that column, so it rejected
+// the workbook before even reaching the value translation, which the v0→v1
+// step has been able to do since day one.
 function frenchWorkbook(): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(
@@ -161,13 +161,13 @@ function frenchWorkbook(): ArrayBuffer {
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
-describe("classeur au modèle actuel nommé en français", () => {
-  it("se lit comme un classeur de la famille, sans passer par la conversion d'origine", () => {
+describe("a workbook on the current model named in French", () => {
+  it("reads as a workbook of the family, without going through the original conversion", () => {
     const repair = repairWorkbook(frenchWorkbook(), THE_DAY);
     expect(repair.legacyReport).toBeNull();
   });
 
-  it("garde les acteurs, leur responsable et l'interface", () => {
+  it("keeps the actors, their owner and the interface", () => {
     const reread = buildModel(parseWorkbook(writeTemplate(repairWorkbook(frenchWorkbook(), THE_DAY).data)));
     expect(reread.ok).toBe(true);
     if (!reread.ok) return;
@@ -177,7 +177,7 @@ describe("classeur au modèle actuel nommé en français", () => {
     expect(reread.model.consumptions).toHaveLength(1);
   });
 
-  it("traduit les valeurs françaises au passage", () => {
+  it("translates the French values along the way", () => {
     const reread = buildModel(parseWorkbook(writeTemplate(repairWorkbook(frenchWorkbook(), THE_DAY).data)));
     if (!reread.ok) return;
     expect(reread.model.consumptions[0].decision).toBe("Keep");

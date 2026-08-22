@@ -48,12 +48,12 @@ describe("computeLayout", () => {
   });
 });
 
-// --- Les invariants du placement, qui n'étaient gardés par rien. Mesuré : en
-// faisant passer elk.direction de RIGHT à DOWN, tout le produit se retourne et
-// pas un des 617 tests ne tombait. Or c'est de ce sens que dépend la lecture
-// des schémas -- un trait sort par la droite du fournisseur -- et de la
-// convention du centre que dépend toute la géométrie exportée.
-describe("computeLayout — les invariants du placement", () => {
+// --- The layout's invariants, which nothing guarded. Measured: switching
+// elk.direction from RIGHT to DOWN turns the whole product on its side and not
+// one of the 617 tests failed. Yet the reading of the diagrams depends on that
+// direction -- a line leaves by the provider's right -- and all the exported
+// geometry depends on the centre convention.
+describe("computeLayout — the layout's invariants", () => {
   const chain = async () => {
     const nodes: GraphNode[] = [
       { id: "A", label: "A", kind: "actor" },
@@ -67,25 +67,25 @@ describe("computeLayout — les invariants du placement", () => {
     return computeLayout(nodes, edges);
   };
 
-  // Le sens de lecture du produit entier : la donnée va vers la droite.
-  it("place une chaîne de gauche à droite", async () => {
+  // The whole product's reading direction: the data goes to the right.
+  it("lays a chain out from left to right", async () => {
     const l = await chain();
     const x = (id: string) => l.nodes.find((n) => n.id === id)!.x;
     expect(x("A")).toBeLessThan(x("B"));
     expect(x("B")).toBeLessThan(x("C"));
   });
 
-  it("ne l'empile pas verticalement", async () => {
+  it("does not stack it vertically", async () => {
     const l = await chain();
     const n = (id: string) => l.nodes.find((x) => x.id === id)!;
-    // l'écart horizontal domine : c'est ce qui distingue RIGHT de DOWN.
+    // the horizontal gap dominates: that is what tells RIGHT from DOWN.
     expect(Math.abs(n("C").x - n("A").x)).toBeGreaterThan(Math.abs(n("C").y - n("A").y));
   });
 
-  // x et y sont le CENTRE de la boîte, pas son coin. Lu comme un coin, chaque
-  // boîte se décale d'une demi-largeur -- le défaut qui avait déplacé 93 boîtes
-  // dans l'export draw.io.
-  it("exprime la position au centre de la boîte, pas au coin", async () => {
+  // x and y are the box's CENTRE, not its corner. Read as a corner, every box
+  // shifts by half a width -- the defect that had moved 93 boxes in the draw.io
+  // export.
+  it("expresses the position at the box's centre, not at its corner", async () => {
     const l = await chain();
     for (const n of l.nodes) {
       expect(n.x - n.width / 2).toBeGreaterThanOrEqual(-1);
@@ -95,10 +95,10 @@ describe("computeLayout — les invariants du placement", () => {
     }
   });
 
-  // Un enfant de conteneur est exprimé dans le MÊME repère que son parent :
-  // c'est ce qui permet aux rendus de le dessiner sans conversion, et à
-  // l'export draw.io d'en retrancher l'origine du parent.
-  it("garde un enfant dans les bornes de son conteneur", async () => {
+  // A container's child is expressed in the SAME frame as its parent: that is
+  // what lets the renderers draw it with no conversion, and lets the draw.io
+  // export subtract the parent's origin from it.
+  it("keeps a child within its container's bounds", async () => {
     const nodes: GraphNode[] = [
       { id: "cadre", label: "Cadre", kind: "boundary" },
       { id: "A", label: "A", kind: "actor", parent: "cadre" },
@@ -118,12 +118,12 @@ describe("computeLayout — les invariants du placement", () => {
   });
 });
 
-// --- Deux constantes de mise en page que rien ne gardait, et qui décident de
-// ce qui tient dans une boîte. Mesuré par mutation : doubler le nombre de
-// lignes de description, ou diviser par deux la largeur d'un caractère, ne
-// faisait tomber aucun test — alors que les deux font déborder le dessin.
-describe("ce qui tient dans une boîte", () => {
-  it("plafonne la description à trois lignes, la dernière abrégée", () => {
+// --- Two layout constants nothing guarded, and which decide what fits in a
+// box. Measured by mutation: doubling the number of description lines, or
+// halving a character's width, made no test fail — although both make the
+// drawing overflow.
+describe("what fits in a box", () => {
+  it("caps the description at three lines, the last abbreviated", () => {
     const long = "un texte assez long pour occuper plusieurs lignes dans une boîte étroite "
       + "et déborder largement de ce que la maquette prévoit pour une description";
     const rows = descriptionLines(long);
@@ -131,24 +131,24 @@ describe("ce qui tient dans une boîte", () => {
     expect(rows[rows.length - 1]).toMatch(/…$/);
   });
 
-  it("tronque un nom à ce qui tient réellement dans la largeur de la boîte", () => {
+  it("truncates a name to what really fits the box's width", () => {
     const long = "Plateforme de règlement-livraison interbancaire et conservation";
     const truncated = truncatedName(long);
-    // La largeur estimée du nom, icône comprise, doit tenir dans la boîte :
-    // c'est la seule chose qui compte, et elle dépend des deux constantes.
+    // The name's estimated width, icon included, must fit in the box: that is the
+    // only thing that matters, and it depends on both constants.
     expect(truncated.length * 8.2 + 25).toBeLessThanOrEqual(NODE_WIDTH);
     expect(truncated).toMatch(/…$/);
   });
 
-  it("laisse intact un nom qui tient déjà", () => {
+  it("leaves a name that already fits untouched", () => {
     expect(truncatedName("Tatooine")).toBe("Tatooine");
   });
 });
 
-// --- §2.4 : le placement est calculé UNE FOIS sur l'union de tous les paliers,
-// puis restreint. C'est ce qui rend la stabilité exacte plutôt qu'approchée --
-// mesuré, aucun réglage interactif d'ELK n'y parvient : sur une planche à
-// frontière, le mode interactif ne reproduit même pas son propre résultat.
+// --- §2.4: the layout is computed ONCE over the union of all milestones, then
+// restricted. That is what makes the stability exact rather than approximate --
+// measured, no interactive ELK setting achieves it: on a board with a boundary,
+// interactive mode does not even reproduce its own result.
 describe("restreindreLayout", () => {
   const union = (): LayoutResult => ({
     width: 100,
@@ -172,29 +172,29 @@ describe("restreindreLayout", () => {
     edges: [{ from: "A", to: "B", technology: "HTTP", count: 2, label: "HTTP ×2", attenuated: false }],
   };
 
-  it("ne garde que les nœuds et arêtes du palier", () => {
+  it("keeps only the milestone's nodes and edges", () => {
     const restricted = restrictLayout(union(), atMilestone);
     expect(restricted.nodes.map((n) => n.id)).toEqual(["A", "B"]);
     expect(restricted.edges).toHaveLength(1);
   });
 
-  // Le point qui justifie tout : les positions ne sont PAS recalculées.
-  it("laisse chaque boîte exactement où l'union l'a posée", () => {
+  // The point that justifies everything: the positions are NOT recomputed.
+  it("leaves every box exactly where the union put it", () => {
     const restricted = restrictLayout(union(), atMilestone);
     expect(restricted.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
     expect([restricted.width, restricted.height]).toEqual([100, 100]);
   });
 
-  // Le libellé, lui, appartient au PALIER : « HTTP ×3 » sur l'union n'est pas
-  // ce qu'on lit à un palier où deux flux seulement sont vivants.
-  it("reprend du palier le libellé et le compteur, pas ceux de l'union", () => {
+  // The label, for its part, belongs to the MILESTONE: "HTTP ×3" on the union is
+  // not what one reads at a milestone where only two flows are alive.
+  it("takes the label and the counter from the milestone, not from the union", () => {
     const edge = restrictLayout(union(), atMilestone).edges[0];
     expect([edge.label, edge.count]).toEqual(["HTTP ×2", 2]);
   });
 
-  // La frontière de plateforme n'est pas un acteur : elle n'apparaît dans
-  // aucune vue de palier, et la perdre ferait disparaître le cadre.
-  it("garde la frontière de plateforme, qu'aucune vue ne liste", () => {
+  // The platform boundary is not an actor: it appears in no milestone view, and
+  // losing it would make the frame disappear.
+  it("keeps the platform boundary, which no view lists", () => {
     const avecFrontiere = union();
     avecFrontiere.nodes.push({ id: "__frontiere__", label: "Platform", kind: "boundary", x: 0, y: 0, width: 100, height: 100 });
     expect(restrictLayout(avecFrontiere, atMilestone).nodes.map((n) => n.id)).toContain("__frontiere__");
