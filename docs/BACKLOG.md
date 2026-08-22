@@ -41,6 +41,30 @@ et CSV plutôt que classeur comme format du référentiel.
 
 ---
 
+### Deux points laissés ouverts par le référentiel externe
+
+**Relevés le 22 août 2026** pendant la revue de l'implémentation, jugés mineurs
+et différés plutôt que corrigés à chaud.
+
+- **La réparation reconduit les URL au mauvais étage.** `repairWorkbook`
+  (`app/src/export/repair.ts`) passe par `dataFromModel`, qui ne connaît pas les
+  URL — elles vivent dans le flux binaire, pas dans une feuille. Le correctif
+  vit donc chez son unique appelant, `app/src/ui/upgrade-dialog.ts`. Un second
+  appelant ajouté plus tard rouvrirait le défaut en silence, et rien ne garde
+  `repairWorkbook` lui-même. Le déplacer proprement suppose de rendre
+  `readReferentialUrls` synchrone ou de rendre `repairWorkbook` asynchrone, ce
+  qui contamine six appels de test pour aucun gain de comportement.
+- **Les couleurs ne se rejoignent pas à la casse près.** `coloursOfModel`
+  (`app/src/render/colors.ts`) indexe par le nom brut de la technologie, sans
+  `normalizeText`. Une technologie écrite `HTTP` dans le classeur et `http` dans
+  le référentiel ne se rejoint pas : le trait retombe sur la palette, sans rien
+  dire. Le motif est antérieur à ce travail, mais **l'exposition est neuve** —
+  jusqu'ici les deux sources étaient le même onglet ; désormais le référentiel
+  est tenu par d'autres gens. La même fonction normalise déjà ailleurs, pour
+  apparier les technologies dessinées : elle est incohérente avec elle-même.
+
+---
+
 ## Non reproduit, à éclaircir
 
 ### Téléchargement du classeur d'exemple et du modèle
