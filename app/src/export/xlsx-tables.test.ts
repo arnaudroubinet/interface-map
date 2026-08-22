@@ -177,5 +177,13 @@ describe("query tables", () => {
     expect(readPart(cfb, "/xl/tables/table1.xml")!).not.toContain("queryTable");
     expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
     expect(XLSX.CFB.find(cfb, "/xl/tables/_rels/table1.xml.rels")).toBeFalsy();
+    // What every table needs whether or not a query feeds it, and what nothing
+    // pinned until a change to this loop wrote 14 spurious parts into every
+    // workbook with all the tests still green: the sheet relates to its table,
+    // and the package declares the part.
+    expect(readPart(cfb, "/xl/worksheets/_rels/sheet1.xml.rels")!).toContain("../tables/table1.xml");
+    expect(readPart(cfb, "/[Content_Types].xml")!).toContain(
+      `<Override PartName="/xl/tables/table1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml"/>`
+    );
   });
 });
