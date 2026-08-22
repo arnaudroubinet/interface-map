@@ -1,6 +1,6 @@
 import { AVAILABLE_ICONS } from "../render/icons";
 
-// Le même format que celui qu'accepte la palette (render/colors.ts).
+// The same format the palette accepts (render/colors.ts).
 const HEX_COLOUR = /^#?[0-9a-f]{6}$/i;
 import type {
   Actor,
@@ -40,15 +40,15 @@ import { normalizeText } from "../shared/text";
 
 export interface Anomaly {
   message: string;
-  // Où aller corriger. Absent quand l'anomalie ne vise aucune ligne : un
-  // onglet manquant, un classeur sans palier livré. Ces anomalies-là passent
-  // en tête du rapport, elles concernent le fichier et non une saisie.
+  // Where to go and fix it. Absent when the anomaly targets no row: a missing
+  // sheet, a workbook delivered without milestones. Those anomalies go at the
+  // head of the report, as they concern the file and not an entry.
   emplacement?: Location;
 }
 
-// L'unique fabrique du sujet d'un message : ce dont on parle, puis où le
-// retrouver. Tout message qui vise une ligne passe par ici, sinon l'adresse
-// s'écrirait de trois façons selon la famille.
+// The single factory for a message's subject: what is being talked about, then
+// where to find it again. Every message targeting a row goes through here,
+// otherwise the address would be written three ways depending on the family.
 function address(e: Location): string {
   return `(${e.sheet}, row ${e.row})`;
 }
@@ -65,9 +65,9 @@ const nameActorType = (t: ActorType) => located("Actor type", t.type, t);
 const nameFlowType = (t: FlowType) => located("Flow type", t.type, t);
 const nameMilestone = (p: Milestone) => located("Milestone", p.name, p);
 
-// Les éléments d'un bloc suivent le même ordre que les anomalies : la feuille,
-// puis la ligne. Ils portent leur adresse dans le texte, faute d'avoir, comme
-// une anomalie, un champ pour la loger.
+// A block's items follow the same order as the anomalies: the sheet, then the
+// row. They carry their address in the text, for want of having, as an anomaly
+// does, a field to hold it.
 function locatedItems<T extends Location>(rows: T[], text: (l: T) => string): string[] {
   return [...rows]
     .sort((a, b) => a.sheet.localeCompare(b.sheet, "fr") || a.row - b.row)
@@ -78,9 +78,9 @@ function anomaly(message: string, e?: Location): Anomaly {
   return e ? { message, emplacement: { sheet: e.sheet, row: e.row } } : { message };
 }
 
-// Ce qui n'a pas d'adresse d'abord -- ça vise le fichier entier, donc ça se lit
-// avant toute correction de saisie. Le reste suit le classeur : feuille, puis
-// ligne croissante, l'ordre dans lequel on le corrigera.
+// What has no address first -- it targets the whole file, so it reads before
+// any data-entry correction. The rest follows the workbook: sheet, then
+// increasing row, the order in which it will be fixed.
 function parEmplacement(anomalies: Anomaly[]): Anomaly[] {
   return [...anomalies].sort((a, b) => {
     if (!a.emplacement || !b.emplacement) return (a.emplacement ? 1 : 0) - (b.emplacement ? 1 : 0);
@@ -103,11 +103,11 @@ export interface InfoBlock {
   title: string;
   description: string;
   items: string[];
-  // « avertissement » signale une saisie à trancher, pas une faute : ça se
-  // compte et se voit, mais ça ne détourne pas l'utilisateur de ses schémas
-  // au chargement, contrairement aux anomalies.
-  // « action » : le fichier est juste, mais une décision attend quelqu'un.
-  // C'est autre chose qu'un avertissement, qui signale une saisie manquante.
+  // "warning" reports an entry to be decided, not a fault: it is counted and
+  // seen, but it does not divert the user from their diagrams on load, unlike
+  // anomalies.
+  // "action": the file is correct, but a decision is waiting for someone. That
+  // is something other than a warning, which reports a missing entry.
   level: "info" | "action" | "warning";
 }
 
@@ -125,15 +125,15 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
   return map;
 }
 
-// Le rattachement d'une consommation à son interface est défini une seule
-// fois, dans aggregation/core : le rapport et le diagramme doivent lire la
-// même ligne de la même façon, sinon ils se contredisent sur le même fichier.
+// The matching of a consumption to its interface is defined once, in
+// aggregation/core: the report and the diagram must read the same row the same
+// way, otherwise they contradict each other on the same file.
 
-// Même résolution que findInterfaceForConsommation (clé exacte, repli par
-// nom) : une consommation rangée dans le mauvais onglet reste rattachée à
-// l'interface que le diagramme lui associe réellement (aggregation/core.ts),
-// pas ignorée ici — sinon §7.3/§7.5 et le schéma se contrediraient sur la
-// même ligne mal rangée.
+// The same resolution as findInterfaceForConsumption (exact key, name
+// fallback): a consumption filed in the wrong sheet stays attached to the
+// interface the diagram actually associates it with (aggregation/core.ts),
+// rather than ignored here — otherwise §7.3/§7.5 and the diagram would
+// contradict each other on the same misfiled row.
 function consumptionsForInterface(lookup: InterfaceLookup, model: ParsedModel, iface: InterfaceCatalogue): Consumption[] {
   return model.consumptions.filter((c) => findInterfaceForConsumption(lookup, c) === iface);
 }
@@ -162,16 +162,16 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   }
 
   for (const name of duplicates(model.actors.map((a) => a.name))) {
-    // La ligne citée est la seconde : la première est légitime, c'est le doublon
-    // qu'on va supprimer.
+    // The row quoted is the second: the first is legitimate, it is the duplicate
+    // that will be removed.
     const duplicate = model.actors.filter((a) => a.name.trim() === name)[1];
     anomalies.push(anomaly(`${nameActor(duplicate)} is declared more than once in the repository.`, duplicate));
   }
 
-  // Sur (exposant, nom, version) et non sur le nom seul. Deux versions d'un même
-  // contrat sont deux lignes légitimes, c'est tout l'objet de la colonne ; et
-  // deux acteurs peuvent publier un contrat de même nom sans s'être concertés,
-  // ce qui fait deux interfaces distinctes -- pas un doublon.
+  // On (publisher, name, version) and not on the name alone. Two versions of one
+  // contract are two legitimate rows, that being the column's whole point; and
+  // two actors may publish a contract of the same name without having agreed on
+  // it, which makes two distinct interfaces -- not a duplicate.
   const identity = (i: InterfaceCatalogue) =>
     `${normalizeText(i.providerName)}\u0000${normalizeText(interfaceLabel(i.flowName, i.version))}`;
   for (const key of duplicates(model.interfaces.map(identity))) {
@@ -181,19 +181,19 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     );
   }
 
-  // La frise elle-même n'était pas contrôlée. Un rang illisible vaut 0 à la
-  // lecture, pour que la ligne ne disparaisse pas en silence -- encore faut-il
-  // le dire : sinon la frise part de zéro et le palier courant désigne le
-  // mauvais, sans une anomalie pour l'expliquer.
+  // The roadmap itself was not checked. An unreadable rank counts as 0 on
+  // reading, so that the row does not vanish silently -- but that must still be
+  // said: otherwise the roadmap starts from zero and the current milestone
+  // designates the wrong one, with no anomaly to explain it.
   for (const milestone of model.milestones) {
     if (milestone.rank > 0) continue;
     anomalies.push(anomaly(`Milestone "${milestone.name}" has no usable rank; a milestone is placed by a rank of 1 or more.`, milestone));
   }
 
-  // Deux paliers que seuls la casse ou un accent distinguent se confondent :
-  // toute ligne datée résout son rang sur le nom NORMALISÉ et prend donc le
-  // premier des deux. Les acteurs et les interfaces avaient ce contrôle, la
-  // frise ne l'avait pas.
+  // Two milestones separated only by case or an accent blur together: every
+  // dated row resolves its rank on the NORMALISED name and so takes the first of
+  // the two. Actors and interfaces had this check, the roadmap did not.
+  //
   for (const name of duplicates(model.milestones.map((p) => normalizeText(p.name)))) {
     const duplicate = model.milestones.filter((p) => normalizeText(p.name) === name)[1];
     anomalies.push(
@@ -201,10 +201,10 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     );
   }
 
-  // Le nom d'onglet est coupé à ce qu'Excel accepte : deux couples (exposant,
-  // type de flux) différents peuvent donc tomber sur le même. Les fondre
-  // mélangerait les consommations de deux contrats sans un mot -- on le dit, et
-  // c'est un nom d'acteur ou de type qu'il faut raccourcir.
+  // The sheet name is cut to what Excel accepts: two different (publisher, flow
+  // type) pairs can therefore land on the same one. Merging them would mix two
+  // contracts' consumptions without a word -- it is said, and it is an actor or
+  // type name that must be shortened.
   const coupleDeLOnglet = new Map<string, { provider: string; type: string }>();
   for (const i of model.interfaces) {
     const couple = { provider: i.providerName.trim(), type: i.flowType.trim() };
@@ -238,18 +238,18 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Le périmètre est une propriété du groupe. Sans cet onglet, on le déduit des
-  // acteurs -- un groupe mixte devient alors « Plateforme » dès qu'un seul de
-  // ses membres l'est, ce qui fausse couleurs et décomptes.
+  // The perimeter is a property of the group. Without this sheet it is deduced
+  // from the actors -- a mixed group then becomes "Platform" as soon as a single
+  // one of its members is, which distorts colours and counts.
   if (model.actorTypes.length === 0) {
     anomalies.push({
       message: 'Sheet "ActorTypes" missing or empty, so every actor wears the neutral icon. Add an "ActorTypes" sheet with the columns "Actor type" and "Icon".',
     });
   }
 
-  // Le périmètre est une propriété du groupe, et il ne se devine pas : sans cet
-  // onglet, aucun acteur n'est situé dedans ou dehors, et les schémas cessent
-  // de distinguer la plateforme de ce qui l'entoure.
+  // The perimeter is a property of the group, and it is not guessed: without
+  // this sheet no actor is placed inside or outside, and the diagrams stop
+  // telling the platform apart from what surrounds it.
   if (model.groupsSheetMissing) {
     anomalies.push({
       message:
@@ -257,8 +257,8 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     });
   }
 
-  // L'onglet Paliers ne se contrôle que s'il existe : un classeur qui ne date
-  // rien ne doit pas se mettre à parler de paliers.
+  // The Milestones sheet is only checked if it exists: a workbook that dates
+  // nothing must not start talking about milestones.
   if (model.milestones.length > 0) {
     for (const rank of duplicates(model.milestones.map((p) => String(p.rank)))) {
       const names = model.milestones.filter((p) => String(p.rank) === rank).map((p) => p.name);
@@ -285,11 +285,11 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
       anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" unknown to the repository.`, iface));
     }
     if (!flowTypes.has(iface.flowType.trim())) {
-      // La conséquence, et pas seulement la faute : sans type déclaré, le sens
-      // de la flèche est indéterminable, donc l'interface et TOUTES ses
-      // consommations sortent des schémas. Dit sans cela, l'énoncé passait pour
-      // un rappel de vocabulaire -- sur un classeur réel, 24 interfaces sur 59
-      // manquaient à tous les dessins pour cette seule raison.
+      // The consequence, and not merely the fault: with no declared type the
+      // arrow's direction cannot be determined, so the interface and ALL its
+      // consumptions drop out of the diagrams. Said without that, the statement
+      // passed for a vocabulary reminder -- on a real workbook, 24 interfaces out
+      // of 59 were missing from every drawing for that reason alone.
       anomalies.push(
         anomaly(
           `${nameInterface(iface)}: flow type "${iface.flowType}" unknown to the repository, so this interface and its consumptions are not drawn.`,
@@ -308,7 +308,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
       anomalies.push(anomaly(`${nameConsumption(c)}: flow name missing from the Interfaces catalogue.`, c));
       continue;
     }
-    // Le nom existe, la version non : on ne rattache pas au hasard, on le dit.
+    // The name exists, the version does not: nothing is matched at random, it is said.
     const iface = lookup.byNameVersion.get(nameVersionKey(c.flowName, c.version));
     if (!iface) {
       anomalies.push(anomaly(`${nameConsumption(c)}: version "${c.version}" missing from the catalogue for this flow.`, c));
@@ -320,9 +320,9 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Un palier cité mais absent de l'onglet Paliers date une ligne d'un jalon
-  // qui n'existe pas : la ligne serait lue comme « depuis toujours », ce qui
-  // n'est pas ce que la saisie voulait dire.
+  // A milestone quoted but absent from the Milestones sheet dates a row against
+  // a marker that does not exist: the row would be read as "always been there",
+  // which is not what the entry meant.
   const declaredMilestones = new Set(model.milestones.map((p) => normalizeText(p.name)));
   const citations = [
     ...model.actors.flatMap((a) => citedBounds(nameActor(a), a)),
@@ -335,10 +335,10 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Une consommation republiée désigne l'une des interfaces de SON PROPRE
-  // consommateur : republier sous l'interface d'un autre ne veut rien dire.
-  // Deux versions du même flux exposées par cet acteur rendent le nom seul
-  // ambigu -- on ne choisit pas au hasard, on réclame la version.
+  // A republished consumption names one of ITS OWN consumer's interfaces:
+  // republishing under someone else's interface means nothing. Two versions of
+  // the same flow published by that actor make the name alone ambiguous --
+  // nothing is chosen at random, the version is asked for.
   for (const c of model.consumptions) {
     const target = c.republishedAs.trim();
     if (target === "") continue;
@@ -360,18 +360,18 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // La couleur d'une technologie vient du référentiel externe, en hexadécimal.
-  // Une valeur qui n'en est pas une retombe silencieusement sur la palette --
-  // le classeur aurait donc l'air de décider une teinte qu'il ne décide pas.
+  // A technology's colour comes from the external referential, in hexadecimal.
+  // A value that is not one falls back silently to the palette -- the workbook
+  // would then appear to decide a hue that it does not decide.
   for (const t of model.flowTypes) {
     const raw = t.colour.trim();
     if (raw === "" || HEX_COLOUR.test(raw)) continue;
     anomalies.push(anomaly(`${nameFlowType(t)}: colour "${raw}" is not a hex code such as #2a78d6.`, t));
   }
 
-  // Deux technologies de la même couleur donnent deux traits indiscernables,
-  // légende comprise. Le classeur ne le montre nulle part : deux cellules
-  // voisines d'un référentiel se comparent mal à l'œil.
+  // Two technologies of the same colour give two indistinguishable lines, legend
+  // included. The workbook shows this nowhere: two neighbouring cells of a
+  // referential compare badly by eye.
   const byColour = new Map<string, FlowType>();
   for (const t of model.flowTypes) {
     const raw = t.colour.trim();
@@ -387,8 +387,8 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Le catalogue d'icônes est embarqué (livrable hors ligne) : un nom inventé
-  // ne dessinerait rien, autant le dire avec la liste des noms valides.
+  // The icon catalogue is embedded (offline deliverable): an invented name would
+  // draw nothing, so it may as well be said along with the list of valid names.
   for (const t of model.actorTypes) {
     if (t.icon && !AVAILABLE_ICONS.includes(t.icon.trim())) {
       anomalies.push(
@@ -397,9 +397,9 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Un classeur vierge n'est pas incohérent, il est vide : sans un seul acteur,
-  // une déclaration « inutilisée » ne signale rien. Sans cette garde, le modèle
-  // téléchargé s'ouvrait sur six erreurs.
+  // A blank workbook is not inconsistent, it is empty: with not a single actor,
+  // an "unused" declaration reports nothing. Without this guard, the downloaded
+  // template opened on six errors.
   if (model.actorTypes.length > 0 && model.actors.length > 0) {
     const declaredTypes = new Set(model.actorTypes.map((t) => normalizeText(t.type)));
     const vus = new Set<string>();
@@ -439,12 +439,12 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   return { id: "references", title: "References", description: "A value points at nothing.", anomalies: parEmplacement(anomalies) };
 }
 
-// Deux lectures, une seule section. Les fautes de SAISIE se jugent sur le
-// classeur entier -- un intervalle impossible reste impossible quel que soit le
-// palier regardé. Ce que le SCHÉMA montre se juge au palier affiché : une
-// interface qui perd son dernier consommateur en v2, une chaîne de relais que
-// le temps coupe, ne se voient qu'à ce moment-là. Tout juger sur le classeur
-// entier les faisait disparaître en silence, sous un schéma vide.
+// Two readings, one section. DATA-ENTRY faults are judged on the whole
+// workbook -- an impossible interval stays impossible whatever milestone is
+// looked at. What the DIAGRAM shows is judged at the displayed milestone: an
+// interface losing its last consumer at v2, a relay chain that time cuts, are
+// only visible then. Judging everything on the whole workbook made them vanish
+// silently, under an empty diagram.
 function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
   const lookup = buildInterfaceLookup(model);
@@ -463,15 +463,15 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     }
   }
 
-  // Un consommateur ne consomme pas deux versions d'un contrat à la fois :
-  // c'est une incohérence, pas une étape de migration. La migration consiste
-  // à changer la version d'une ligne, pas à en ajouter une seconde.
+  // A consumer does not consume two versions of a contract at once: that is an
+  // inconsistency, not a migration step. Migration means changing a row's
+  // version, not adding a second one.
   //
-  // « À la fois » se prend au mot : deux lignes dont les intervalles ne se
-  // rencontrent jamais sont la migration datée que le mode d'emploi du
-  // classeur prescrit -- « Obsolete row: do not delete it: give it a
-  // retirement milestone. » Les compter ensemble reprochait au fichier de
-  // suivre sa propre consigne.
+  // "At once" is taken literally: two rows whose intervals never meet are the
+  // dated migration the workbook's instructions prescribe -- "Obsolete row: do
+  // not delete it: give it a retirement milestone." Counting them together
+  // reproached the file for following its own instruction.
+  //
   const byFlowAndConsumer = new Map<string, Consumption[]>();
   for (const c of model.consumptions) {
     const key = JSON.stringify([normalizeText(c.sheet), normalizeText(c.flowName), normalizeText(c.consumerName)]);
@@ -499,13 +499,13 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
   }
 
 
-  // L'axe des paliers, quand il est utilisé. Un intervalle qui déborde de
-  // celui dont il dépend décrit une plateforme impossible : un flux exposé par
-  // un acteur qui n'existe pas encore, ou plus.
+  // The milestone axis, when it is used. An interval spilling out of the one it
+  // depends on describes an impossible platform: a flow published by an actor
+  // that does not exist yet, or any more.
   //
-  // On ne juge que ce qui a été SAISI, borne par borne : une arrivée absente
-  // est déjà réclamée par la complétude (§7.4), la signaler ici en plus
-  // dirait deux fois la même case vide sous deux formes différentes.
+  // Only what was ENTERED is judged, bound by bound: a missing arrival is
+  // already asked for by completeness (§7.4); reporting it here as well would
+  // say the same empty cell twice under two different forms.
   if (model.milestones.length > 0) {
     const actors = actorByName(model);
     const actorLifespan = (name: string): Interval => {
@@ -529,10 +529,10 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
       for (const parent of parents) {
         const tooEarly = arrivalFilled && interval.start < parent.interval.start;
         const tooLate = retraitSaisi && interval.end > parent.interval.end;
-        // Deux intervalles qui ne se rencontrent JAMAIS ne débordent ni d'un
-        // côté ni de l'autre : une consommation qui commence là où son
-        // interface se retire ne déclenchait donc rien, alors qu'elle décrit
-        // un lien qui n'existe à aucun palier.
+        // Two intervals that NEVER meet spill on neither side: a consumption
+        // starting where its interface retires therefore triggered nothing, while
+        // describing a link that exists at no milestone at all.
+        //
         const neverTogether =
           parent.interval.start < parent.interval.end && !intervalsMeet(interval, parent.interval);
         if (tooEarly || tooLate || neverTogether) {
@@ -570,17 +570,17 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     }
   }
 
-  // Une chaîne coupée ne produit aucun lien fonctionnel. Sans ces deux lignes
-  // le lien manquait EN SILENCE, ce qui est précisément ce que le contrôle du
-  // bus fourre-tout, plus bas, cherche à éviter.
+  // A broken chain produces no functional link. Without these two rows the link
+  // was missing IN SILENCE, which is precisely what the catch-all bus check
+  // below sets out to avoid.
   for (const cut of chainesCoupees(atMilestone, null)) {
     if (cut.reason === "loop") {
       anomalies.push(anomaly(`${nameInterface(cut.iface)}: its relay chain loops back on itself.`, cut.iface));
     }
-    // Une interface republiée que rien n'alimente : l'acteur technique l'expose,
-    // mais aucune de ses consommations ne la désigne. Le lien fonctionnel
-    // qu'on en attendait n'existe pas, et sans cette ligne il manquerait EN
-    // SILENCE.
+    // A republished interface that nothing feeds: the technical actor publishes
+    // it, but none of its consumptions names it. The functional link one
+    // expected from it does not exist, and without this row it would be missing
+    // IN SILENCE.
     if (cut.reason === "no-input") {
       anomalies.push(
         anomaly(
@@ -591,9 +591,9 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     }
   }
 
-  // Le bus fourre-tout : un flux entre dans la plomberie et n'en ressort pour
-  // personne. Sans ce contrôle, le lien fonctionnel manquerait EN SILENCE, ce
-  // qui est le pire des cas.
+  // The catch-all bus: a flow goes into the plumbing and comes out for nobody.
+  // Without this check, the functional link would be missing IN SILENCE, which
+  // is the worst case of all.
   for (const i of atMilestone.interfaces) {
     const consumers = consumptionsForInterface(lookupAtMilestone, atMilestone, i).map((c) => c.consumerName);
     if (consumers.length === 0) continue;
@@ -614,15 +614,15 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
   };
 }
 
-// Vocabulaires fermés. C'est le seul endroit où une faute de frappe produit un
-// schéma FAUX sans rien dire : « Décomissionné » avec un m manquant n'est plus
-// reconnu, le flux cesse d'être atténué et l'option cible ne l'exclut plus. Un
-// sens de représentation inconnu, lui, INVERSE la flèche (build-model.ts
-// retombe silencieusement sur consommateur → exposant).
+// Closed vocabularies. This is the only place where a typo produces a WRONG
+// diagram without saying a word: "Decomissioned" with an m missing is no
+// longer recognised, the flow stops being dimmed and the target option no
+// longer excludes it. An unknown representation direction, for its part,
+// REVERSES the arrow (build-model.ts falls back silently to consumer →
 //
-// Les valeurs elles-mêmes viennent d'aggregation/vocabulaires.ts : ce sont les
-// mêmes que celles proposées dans les listes déroulantes du classeur, et les
-// deux ne doivent pas pouvoir diverger.
+// publisher). The values themselves come from aggregation/vocabularies.ts:
+// they are the same as those offered in the workbook's drop-downs, and the two
+// must not be able to drift apart.
 const VOCABULARIES = {
   decision: VOCABULARY_DECISION,
   criticality: VOCABULARY_CRITICALITY,
@@ -639,9 +639,9 @@ function outOfVocabulary(value: string, allowed: readonly string[]): boolean {
 function checkVocabularies(model: ParsedModel): AnomalyFamily {
   const anomalies: Anomaly[] = [];
 
-  // Le périmètre décide de ce qui entre dans la frontière et de ce qui reste
-  // dehors. Une valeur fautive ne faisait rien basculer : le groupe n'était ni
-  // plateforme ni externe, sans un mot.
+  // The perimeter decides what goes inside the boundary and what stays outside.
+  // A faulty value tipped nothing either way: the group was neither platform nor
+  // external, without a word.
   for (const g of model.groups) {
     if (outOfVocabulary(g.perimeter, VOCABULARIES.perimeter)) {
       anomalies.push(
@@ -705,9 +705,9 @@ function checkCompleteness(model: ParsedModel): AnomalyFamily {
 
   for (const c of model.consumptions) {
     if (!c.usage.trim()) anomalies.push(anomaly(`${nameConsumption(c)}: usage not described.`, c));
-    // Un palier de retrait tient lieu de décision : il dit que la consommation
-    // part, et quand. Réclamer en plus un jugement demanderait deux fois la
-    // même chose.
+    // A retirement milestone stands in for a decision: it says the consumption
+    // is leaving, and when. Asking for a judgement as well would ask for the
+    // same thing twice.
     if (!c.decision.trim() && !c.retiredAt.trim()) {
       anomalies.push(anomaly(`${nameConsumption(c)}: decision empty.`, c));
     }
@@ -731,13 +731,13 @@ function checkCompleteness(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // L'arrivée sur l'axe des paliers : sans elle, on ne sait pas à partir de
-  // quand la ligne compte, et aucune vue ne peut la placer dans le temps. Le
-  // retrait vide, lui, n'est pas un manque : c'est un fait, la ligne est
-  // encore là.
+  // The arrival on the milestone axis: without it, there is no knowing from when
+  // the row counts, and no view can place it in time. An empty retirement, for
+  // its part, is not a gap: it is a fact, the row is still there.
   //
-  // Réclamé seulement quand l'équipe a adopté l'axe -- un classeur sans aucun
-  // palier déclaré ne doit pas se mettre à parler de paliers.
+  //
+  // Asked for only once the team has adopted the axis -- a workbook with no
+  // milestone declared must not start talking about milestones.
   if (model.milestones.length > 0) {
     for (const a of model.actors) {
       if (!a.introducedAt.trim()) {
@@ -758,8 +758,8 @@ function checkCompleteness(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  // Tant qu'aucun type ne déclare de nature, l'équipe n'a pas adopté la
-  // distinction et l'outil n'en parle pas -- même règle que pour les paliers.
+  // As long as no type declares a nature, the team has not adopted the
+  // distinction and the tool says nothing of it -- the same rule as for milestones.
   const adoptedNature = model.actorTypes.some((t) => t.nature.trim() !== "");
   if (adoptedNature) {
     for (const t of model.actorTypes) {
@@ -783,10 +783,10 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
     const consumptions = consumptionsForInterface(lookup, model, iface);
     if (consumptions.length === 0) continue;
 
-    // L'état est porté par le flux : l'acteur n'en a plus.
-    // Tout ce qui consomme cette interface a un palier de retrait : elle n'aura
-    // plus personne. Une décision « Remove » ne compte pas ici : elle dit qu'on
-    // voudrait s'en passer, pas qu'un départ est daté.
+    // The state is carried by the flow: the actor no longer has one.
+    // Everything consuming this interface has a retirement milestone: it will
+    // have nobody left. A "Remove" decision does not count here: it says one
+    // would like to do without it, not that a departure is dated.
     const allEligible = consumptions.every((c) => c.retiredAt.trim() !== "");
 
     if (allEligible) candidates.push(iface);
@@ -802,9 +802,9 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
   };
 }
 
-// Un composant qu'aucun flux ne touche n'invalide pas les schémas : il n'y
-// apparaît simplement pas. C'est un signal, pas une faute -- et un flux
-// décommissionné reste un flux, donc il compte ici comme les autres.
+// A component no flow touches does not invalidate the diagrams: it simply does
+// not appear in them. It is a signal, not a fault -- and a decommissioned flow
+// is still a flow, so it counts here like the others.
 function actorsWithNoFlow(model: ParsedModel): InfoBlock {
   const touched = new Set<string>();
   for (const iface of model.interfaces) touched.add(iface.providerName.trim());
@@ -818,8 +818,8 @@ function actorsWithNoFlow(model: ParsedModel): InfoBlock {
   };
 }
 
-// La criticité sert à arbitrer : sans elle on ne peut pas trancher, mais le
-// schéma reste juste.
+// Criticality is there to arbitrate: without it nothing can be decided, but
+// the diagram stays correct.
 function missingCriticalities(model: ParsedModel): InfoBlock {
   return {
     id: "criticite-manquante",
@@ -833,9 +833,9 @@ function missingCriticalities(model: ParsedModel): InfoBlock {
   };
 }
 
-// Deux composants peuvent échanger plusieurs fois par la même technologie :
-// c'est légitime, mais ça vaut d'être vu, ne serait-ce que pour vérifier que ce
-// ne sont pas deux saisies du même flux.
+// Two components may exchange several times over the same technology: that is
+// legitimate, but it is worth seeing, if only to check that these are not two
+// entries of the same flow.
 function repeatedExchanges(model: ParsedModel): InfoBlock {
   const lookup = buildInterfaceLookup(model);
   const counts = new Map<string, number>();
@@ -857,10 +857,10 @@ function repeatedExchanges(model: ParsedModel): InfoBlock {
   };
 }
 
-// Qui a besoin de qui : consommer une interface, c'est dépendre de celui qui
-// l'expose. Un acteur qui consomme la sienne ne compte pas -- c'est une boucle
-// interne, que les vues agrégées masquent déjà, et non une dépendance entre
-// composants.
+// Who needs whom: consuming an interface means depending on whoever publishes
+// it. An actor consuming its own does not count -- that is an internal loop,
+// which the aggregated views already hide, and not a dependency between
+// components.
 function dependencies(model: ParsedModel): Map<string, Set<string>> {
   const lookup = buildInterfaceLookup(model);
   const arcs = new Map<string, Set<string>>();
@@ -888,12 +888,12 @@ function atteignables(start: string, arcs: Map<string, Set<string>>): Set<string
   return vus;
 }
 
-// Qui, en tombant, entraîne le plus de monde. Le graphe de dépendances existait
-// déjà ici et ne servait qu'à détecter les cycles ; c'est pourtant la question
-// qu'on pose le jour où il faut arbitrer une migration.
+// Who, in falling, takes the most people down. The dependency graph already
+// existed here and served only to detect cycles; yet it is the question asked
+// on the day a migration has to be arbitrated.
 //
-// On ne liste que ceux qui entraînent quelqu'un : nommer les autres avec un
-// zéro allongerait la liste sans rien y ajouter.
+// Only those who take somebody down are listed: naming the others with a zero
+// would lengthen the list without adding anything to it.
 function blastRadius(model: ParsedModel): InfoBlock {
   const arcs = dependencies(model);
   const versLAval = new Map<string, Set<string>>();
@@ -904,9 +904,9 @@ function blastRadius(model: ParsedModel): InfoBlock {
     }
   }
   const reach = [...versLAval.keys()]
-    // Retranché de lui-même : un cycle ramène l'acteur dans son propre aval, et
-    // « combien j'en entraîne » ne me compte pas. Sur le classeur d'exemple,
-    // qui contient un cycle à quatre composants, cela se voyait.
+    // Subtracted from itself: a cycle brings the actor back into its own
+    // downstream, and "how many I take down" does not count me. On the sample
+    // workbook, which contains a four-component cycle, this showed.
     .map((name) => ({ name, downstream: [...atteignables(name, versLAval)].filter((x) => x !== name).length }))
     .filter((x) => x.downstream > 0)
     .sort((a, b) => b.downstream - a.downstream || a.name.localeCompare(b.name, "fr"));
@@ -920,18 +920,18 @@ function blastRadius(model: ParsedModel): InfoBlock {
   };
 }
 
-// Des composants qui ont besoin les uns des autres, directement ou de proche en
-// proche. Aucun ne peut arriver, partir ou changer de contrat sans les autres :
-// c'est une contrainte d'architecture, pas une faute de saisie.
+// Components that need one another, directly or step by step. None can arrive,
+// leave or change contract without the others: that is an architectural
+// constraint, not a data-entry fault.
 //
-// On nomme les groupes plutôt que les chemins : énumérer tous les chemins d'un
-// enchevêtrement en produit un nombre qui explose, là où le groupe dit la même
-// chose en une ligne. Deux composants sont du même groupe quand chacun atteint
-// l'autre -- un classeur tient quelques centaines d'acteurs, le parcours est
-// immédiat.
+// The groups are named rather than the paths: enumerating every path of a
+// tangle produces a number that explodes, where the group says the same thing
+// in one line. Two components belong to the same group when each reaches the
+// other -- a workbook holds a few hundred actors, so the walk is immediate.
+//
 function dependencyCycles(model: ParsedModel): InfoBlock {
   const arcs = dependencies(model);
-  // Seuls les acteurs qui dépendent d'au moins un autre peuvent boucler.
+  // Only actors depending on at least one other can form a cycle.
   const candidates = [...arcs.keys()];
   const reach = new Map(candidates.map((n) => [n, atteignables(n, arcs)]));
 
@@ -955,7 +955,7 @@ function dependencyCycles(model: ParsedModel): InfoBlock {
   };
 }
 
-// Un type déclaré que personne n'emploie : le référentiel dit plus que le parc.
+// A declared type nobody uses: the referential says more than the estate does.
 function unusedFlowTypes(model: ParsedModel): InfoBlock {
   const used = new Set(model.interfaces.map((i) => normalizeText(i.flowType)));
   return {
@@ -967,9 +967,9 @@ function unusedFlowTypes(model: ParsedModel): InfoBlock {
   };
 }
 
-// Une couleur trop claire est CORRIGÉE à l'affichage pour que le trait reste
-// visible. Le classeur doit l'apprendre ici : sinon la teinte à l'écran n'est
-// pas celle qu'il a écrite, et rien ne l'explique.
+// A colour that is too light is CORRECTED on display so that the line stays
+// visible. The workbook must learn of it here: otherwise the hue on screen is
+// not the one it wrote, and nothing explains it.
 function unreadableColours(model: ParsedModel): InfoBlock {
   const items: string[] = [];
   for (const t of model.flowTypes) {
@@ -1002,9 +1002,9 @@ function interfacesAConfirmer(model: ParsedModel): InfoBlock {
   };
 }
 
-// Qui n'a pas encore bougé. Une interface à décommissionner qui porte encore
-// des consommateurs est un travail en cours, pas une faute du classeur : c'est
-// une décision qui attend quelqu'un, donc un bloc « action ».
+// Who has not moved yet. An interface to be decommissioned that still carries
+// consumers is work in progress, not a fault of the workbook: it is a decision
+// waiting for someone, hence an "action" block.
 function migrationsEnCours(model: ParsedModel): InfoBlock {
   const lookup = buildInterfaceLookup(model);
   const enCours: { iface: InterfaceCatalogue; text: string }[] = [];
@@ -1014,9 +1014,9 @@ function migrationsEnCours(model: ParsedModel): InfoBlock {
     const remaining = [...new Set(consumptionsForInterface(lookup, model, iface).map((c) => c.consumerName.trim()))];
     if (remaining.length === 0) continue;
 
-    // La cible, ce sont les versions actives du MÊME flux sur le même onglet.
-    // On les nomme toutes plutôt que d'en élire une : choisir à la place du
-    // classeur reviendrait à inventer la destination.
+    // The target is the active versions of the SAME flow on the same sheet. They
+    // are all named rather than one being elected: choosing on the workbook's
+    // behalf would amount to inventing the destination.
     const actives = model.interfaces
       .filter(
         (other) =>
@@ -1063,33 +1063,33 @@ function usedGroups(model: ParsedModel): InfoBlock {
   };
 }
 
-// Le classeur réduit à ce qui vit au palier affiché. Les contrôles qui jugent
-// un ÉTAT de la plateforme -- cohérence, complétude, blocs informatifs -- s'y
-// appliquent ; ceux qui jugent le FICHIER -- structure, références,
-// vocabulaires, contrôles temporels -- travaillent sur le classeur entier.
+// The workbook cut down to what lives at the displayed milestone. The checks
+// that judge a STATE of the platform -- consistency, completeness,
+// informational blocks -- apply to it; those that judge the FILE -- structure,
+// references, vocabularies, temporal checks -- work on the whole workbook.
 //
-// Sans cette distinction, l'axe se saborde : un acteur retiré au palier 2 n'a
-// évidemment plus de flux au palier 3, et le rapport se remplirait d'anomalies
-// fausses dès la première ligne retirée.
+// Without that distinction the axis scuttles itself: an actor retired at
+// milestone 2 obviously has no flow left at milestone 3, and the report would
+// fill with false anomalies from the first retired row onwards.
 function modelAtMilestone(model: ParsedModel, rank: number | null): ParsedModel {
   if (rank === null || model.milestones.length === 0) return model;
   const live = (v: { introducedAt: string; retiredAt: string }) =>
     isLiveAt(lifespanOf(model, v), rank);
-  // Un flux n'existe au palier que si TOUTE sa chaîne y existe : exposant,
-  // interface, consommation, consommateur. C'est la règle que les schémas
-  // appliquent (buildFlowInstances). Filtrer les trois tables chacune de son
-  // côté gardait une consommation dont l'acteur avait disparu : le rapport
-  // contredisait alors le schéma du même palier, affiché juste à côté.
+  // A flow exists at the milestone only if its WHOLE chain exists there:
+  // publisher, interface, consumption, consumer. That is the rule the diagrams
+  // apply (buildFlowInstances). Filtering the three tables each on its own side
+  // kept a consumption whose actor had disappeared: the report then
+  // contradicted the diagram of the same milestone, displayed right beside it.
   //
-  // Une consommation qui ne désigne aucune interface disparaît donc aussi --
-  // c'est bien une faute, mais elle relève des contrôles de référence, qui
-  // jugent le classeur entier.
+  // A consumption naming no interface therefore disappears too -- that is
+  // indeed a fault, but it falls to the reference checks, which judge the
+  // whole workbook.
   const actors = model.actors.filter(live);
-  // Un acteur INCONNU du classeur n'est pas un acteur mort. C'est une faute de
-  // référence, que les contrôles signalent par ailleurs, et les schémas
-  // dessinent son flux (buildFlowInstances traite l'introuvable comme vivant,
-  // délibérément). Juger l'existence ici faisait dire au rapport « B sans flux »
-  // sous un schéma qui montre justement un flux vers B.
+  // An actor UNKNOWN to the workbook is not a dead actor. It is a reference
+  // fault, which the checks report separately, and the diagrams do draw its
+  // flow (buildFlowInstances treats the not-found as live, deliberately).
+  // Judging existence here made the report say "B has no flow" under a diagram
+  // showing precisely a flow towards B.
   const retired = (name: string) => {
     const a = model.actors.find((x) => x.name.trim() === name.trim());
     return a !== undefined && !live(a);
@@ -1120,7 +1120,7 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     repeatedExchanges(atMilestone),
     dependencyCycles(atMilestone),
     unusedFlowTypes(atMilestone),
-    // Une couleur ne dépend d'aucun palier : le classeur entier.
+    // A colour depends on no milestone: the whole workbook.
     unreadableColours(model),
     blastRadius(atMilestone),
     usedGroups(atMilestone),
