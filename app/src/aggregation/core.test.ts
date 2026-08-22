@@ -414,3 +414,16 @@ describe("libelleCellule — ce qui s'écrit sur le trait", () => {
     expect(libelleCellule("", 2, noms, "both")).toBe("Policy events 1.0, Claims 2.0");
   });
 });
+
+// --- Trier cette liste a été essayé comme prérequis de stabilité entre
+// paliers, et mesuré : 16 % de surface en plus sur la vue détaillée pour rien,
+// la stabilité venant du placement sur l'union des paliers.
+describe("nodesFromEdges", () => {
+  const arêtes = (paires: [string, string][]) =>
+    paires.map(([from, to]) => ({ from, to, technologie: "HTTP", count: 1, label: "HTTP", atténué: false }));
+
+  it("ne perd ni ne double aucun nœud", () => {
+    const ids = nodesFromEdges(arêtes([["A", "B"], ["B", "C"], ["A", "C"]]), (id) => id, () => "acteur").map((n) => n.id);
+    expect(ids).toEqual(["A", "B", "C"]);
+  });
+});

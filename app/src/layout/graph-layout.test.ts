@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { computeLayout, lignesDescription, nomTronque, LARGEUR_NOEUD } from "./graph-layout";
+import { restreindreLayout, computeLayout, lignesDescription, nomTronque, LARGEUR_NOEUD } from "./graph-layout";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
+import type { LayoutResult } from "./graph-layout";
 
 describe("computeLayout", () => {
   it("positions two connected nodes with finite coordinates", async () => {
@@ -141,5 +142,61 @@ describe("ce qui tient dans une boîte", () => {
 
   it("laisse intact un nom qui tient déjà", () => {
     expect(nomTronque("Tatooine")).toBe("Tatooine");
+  });
+});
+
+// --- §2.4 : le placement est calculé UNE FOIS sur l'union de tous les paliers,
+// puis restreint. C'est ce qui rend la stabilité exacte plutôt qu'approchée --
+// mesuré, aucun réglage interactif d'ELK n'y parvient : sur une planche à
+// frontière, le mode interactif ne reproduit même pas son propre résultat.
+describe("restreindreLayout", () => {
+  const union = (): LayoutResult => ({
+    width: 100,
+    height: 100,
+    nodes: [
+      { id: "A", label: "A", kind: "acteur", x: 10, y: 10, width: 40, height: 20 },
+      { id: "B", label: "B", kind: "acteur", x: 60, y: 10, width: 40, height: 20 },
+      { id: "Tardif", label: "Tardif", kind: "acteur", x: 60, y: 60, width: 40, height: 20 },
+    ],
+    edges: [
+      { from: "A", to: "B", technologie: "HTTP", count: 3, label: "HTTP ×3", atténué: false, points: [{ x: 0, y: 0 }] },
+      { from: "A", to: "Tardif", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, points: [{ x: 0, y: 0 }] },
+    ],
+  });
+
+  const auPalier = {
+    nodes: [
+      { id: "A", label: "A", kind: "acteur" as const },
+      { id: "B", label: "B", kind: "acteur" as const },
+    ],
+    edges: [{ from: "A", to: "B", technologie: "HTTP", count: 2, label: "HTTP ×2", atténué: false }],
+  };
+
+  it("ne garde que les nœuds et arêtes du palier", () => {
+    const restreint = restreindreLayout(union(), auPalier);
+    expect(restreint.nodes.map((n) => n.id)).toEqual(["A", "B"]);
+    expect(restreint.edges).toHaveLength(1);
+  });
+
+  // Le point qui justifie tout : les positions ne sont PAS recalculées.
+  it("laisse chaque boîte exactement où l'union l'a posée", () => {
+    const restreint = restreindreLayout(union(), auPalier);
+    expect(restreint.nodes.map((n) => [n.x, n.y])).toEqual([[10, 10], [60, 10]]);
+    expect([restreint.width, restreint.height]).toEqual([100, 100]);
+  });
+
+  // Le libellé, lui, appartient au PALIER : « HTTP ×3 » sur l'union n'est pas
+  // ce qu'on lit à un palier où deux flux seulement sont vivants.
+  it("reprend du palier le libellé et le compteur, pas ceux de l'union", () => {
+    const arête = restreindreLayout(union(), auPalier).edges[0];
+    expect([arête.label, arête.count]).toEqual(["HTTP ×2", 2]);
+  });
+
+  // La frontière de plateforme n'est pas un acteur : elle n'apparaît dans
+  // aucune vue de palier, et la perdre ferait disparaître le cadre.
+  it("garde la frontière de plateforme, qu'aucune vue ne liste", () => {
+    const avecFrontiere = union();
+    avecFrontiere.nodes.push({ id: "__frontiere__", label: "Platform", kind: "frontiere", x: 0, y: 0, width: 100, height: 100 });
+    expect(restreindreLayout(avecFrontiere, auPalier).nodes.map((n) => n.id)).toContain("__frontiere__");
   });
 });

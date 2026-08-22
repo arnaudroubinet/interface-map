@@ -208,6 +208,32 @@ export function lecture(
   };
 }
 
+// La lecture RÉUNIE de tous les paliers. Elle ne sert pas à dessiner : elle
+// sert à PLACER. Le placement se fait une fois sur l'union, puis chaque palier
+// n'en montre que son sous-ensemble, aux positions déjà connues du lecteur --
+// c'est la sémantique des « filtered views » de Structurizr.
+//
+// Sans elle, trois arêtes de plus suffisaient à déplacer les treize mêmes
+// boîtes de 400 px en médiane entre deux paliers, et l'axe du temps ne servait
+// qu'à lire un relevé texte. Aucun réglage interactif d'ELK n'y remédie : sur
+// une planche à frontière, le mode interactif ne reproduit même pas son propre
+// résultat (277 px de médiane sur une entrée identique).
+export function lectureUnion(model: ParsedModel, mode: Mode): Lecture {
+  if (model.paliers.length === 0) return lecture(model, null, mode);
+  const flux: FlowInstance[] = [];
+  const vus = new Set<string>();
+  for (const palier of model.paliers) {
+    for (const f of fluxDuMode(model, palier.rang, mode)) {
+      const clé = JSON.stringify([f.exposant, f.consommateur, f.typeDeFlux, f.interfaceNom, f.version]);
+      if (vus.has(clé)) continue;
+      vus.add(clé);
+      flux.push(f);
+    }
+  }
+  const acteurs = model.acteurs.filter((a) => model.paliers.some((p) => acteursDuMode(model, p.rang, mode).includes(a)));
+  return { flux, acteurs };
+}
+
 export function chainesCoupees(
   model: ParsedModel,
   rang: number | null,

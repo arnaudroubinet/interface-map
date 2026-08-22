@@ -421,5 +421,11 @@ export function nodesFromEdges(
     ids.add(e.from);
     ids.add(e.to);
   }
+  // L'ordre de parcours des arêtes, et non l'ordre alphabétique. Trier a été
+  // essayé et MESURÉ, comme prérequis de stabilité entre paliers : il coûtait
+  // 16 % de surface sur la vue détaillée (1 573k contre 1 356k) et dégradait
+  // le rapport de forme de 3,63 à 4,04. La stabilité vient d'ailleurs -- le
+  // placement se fait une fois sur l'union des paliers (lectureUnion) -- donc
+  // le tri ne payait plus que son coût.
   return [...ids].map((id) => ({ id, label: labelFor(id), kind: kindFor(id), ...detailsFor(id) }));
 }

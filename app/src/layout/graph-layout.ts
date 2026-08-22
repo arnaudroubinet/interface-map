@@ -388,6 +388,34 @@ function croisements(tracés: Point[][]): number {
 const PAD_FRONTIERE = 24;
 const ENTETE_FRONTIERE = 22;
 
+// La clé d'une arête, indépendante de son libellé : celui-ci porte le compteur
+// « ×N », qui n'est pas le même sur l'union et sur un palier.
+function cléArête(e: { from: string; to: string; technologie: string }): string {
+  return JSON.stringify([e.from, e.to, e.technologie]);
+}
+
+// Le placement de l'union, restreint à ce qu'un palier montre. Les positions ne
+// sont PAS recalculées : c'est tout l'objet -- une boîte présente aux deux
+// paliers ne bouge pas d'un pixel. Les libellés, eux, viennent de la vue du
+// palier : « HTTP ×2 » à v1 n'est pas « HTTP ×3 » à v2.
+export function restreindreLayout(union: LayoutResult, vue: { nodes: GraphNode[]; edges: GraphEdge[] }): LayoutResult {
+  const idsVivants = new Set(vue.nodes.map((n) => n.id));
+  const arêtesVivantes = new Map(vue.edges.map((e) => [cléArête(e), e]));
+  return {
+    // La taille reste celle de l'UNION : c'est ce qui garde le cadre immobile
+    // d'un palier à l'autre, et donc les boîtes à la même place à l'écran.
+    width: union.width,
+    height: union.height,
+    nodes: union.nodes.filter((n) => idsVivants.has(n.id) || n.kind === "frontiere"),
+    edges: union.edges
+      .filter((e) => arêtesVivantes.has(cléArête(e)))
+      .map((e) => {
+        const vivante = arêtesVivantes.get(cléArête(e))!;
+        return { ...e, label: vivante.label, count: vivante.count, noms: vivante.noms, atténué: vivante.atténué, ecart: vivante.ecart };
+      }),
+  };
+}
+
 export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Promise<LayoutResult> {
   // Deux règles de lecture, portées par des ports posés aux deux bouts des
   // arêtes de RETOUR (celles dont la source est plus à droite que la cible) :

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { buildFunctionalFlows, chainesCoupees } from "./fonctionnel";
+import { buildFunctionalFlows, chainesCoupees, lectureUnion } from "./fonctionnel";
 import type { ParsedModel, Acteur, TypeActeur, InterfaceCatalogue, Consommation, Palier } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
@@ -324,3 +324,51 @@ describe("remontée — un relayeur qui agrège plusieurs sources", () => {
   });
 });
 
+
+// --- §2.4 : le placement se fait sur l'UNION de tous les paliers, puis chaque
+// palier n'en montre que son sous-ensemble. Sans cela, trois arêtes de plus
+// suffisaient à déplacer les treize mêmes boîtes de 400 px en médiane.
+describe("lectureUnion", () => {
+  const parc = () =>
+    base.modele({
+      paliers: [base.palier({ nom: "v1", rang: 1 }), base.palier({ nom: "v2", rang: 2 })],
+      groupes: [base.groupe({ nom: "G" })],
+      typesActeur: [base.typeActeur()],
+      typesFlux: [base.typeFlux()],
+      fxSheetNames: ["FX_A_HTTP"],
+      acteurs: [
+        base.acteur({ nom: "A", palierIntroduction: "v1" }),
+        base.acteur({ nom: "B", palierIntroduction: "v1" }),
+        base.acteur({ nom: "Tardif", palierIntroduction: "v2" }),
+      ],
+      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" })],
+      consommations: [
+        base.conso({ nomDuFlux: "F", acteurConsommateur: "B", feuille: "FX_A_HTTP", palierIntroduction: "v1", palierRetrait: "v2" }),
+        base.conso({ nomDuFlux: "F", acteurConsommateur: "Tardif", feuille: "FX_A_HTTP", palierIntroduction: "v2" }),
+      ],
+    });
+
+  it("réunit les acteurs de tous les paliers, y compris ceux qui arrivent plus tard", () => {
+    expect(lectureUnion(parc(), "architecture").acteurs.map((a) => a.nom).sort()).toEqual(["A", "B", "Tardif"]);
+  });
+
+  it("réunit les flux de tous les paliers, y compris ceux qui disparaissent", () => {
+    const consommateurs = lectureUnion(parc(), "architecture").flux.map((f) => f.consommateur).sort();
+    expect(consommateurs).toEqual(["B", "Tardif"]);
+  });
+
+  // Un même flux vivant à deux paliers ne doit pas compter deux fois : la
+  // planche placerait deux traits superposés.
+  it("ne double pas un flux vivant à plusieurs paliers", () => {
+    const m = parc();
+    m.consommations[0].palierRetrait = "";
+    expect(lectureUnion(m, "architecture").flux).toHaveLength(2);
+  });
+
+  // Un classeur sans palier n'a rien à réunir : la lecture ordinaire suffit,
+  // et fabriquer une union vide effacerait tout le parc.
+  it("retombe sur la lecture ordinaire quand le classeur ne déclare aucun palier", () => {
+    const m = base.modele({ ...parc(), paliers: [] });
+    expect(lectureUnion(m, "architecture").acteurs).toHaveLength(3);
+  });
+});

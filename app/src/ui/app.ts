@@ -16,10 +16,13 @@ import {
   type MatrixResult,
 } from "../aggregation/views";
 import { acteursMetier } from "../aggregation/nature";
-import { computeLayout } from "../layout/graph-layout";
+import { computeLayout, restreindreLayout, type LayoutResult } from "../layout/graph-layout";
 import { toutesLesPlanches } from "../aggregation/planches";
 import { buildGraphSvg } from "../render/svg-builder";
 import type { ContexteSchema } from "../render/cartouche";
+import type { Lecture } from "../aggregation/fonctionnel";
+import { lectureUnion } from "../aggregation/fonctionnel";
+import type { ViewResult } from "../aggregation/views";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
 import { buildIntegrityReport } from "../render/integrity-report";
@@ -147,6 +150,9 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
 
+      // Les positions d'un parc n'ont aucun sens sur un autre.
+      placements.clear();
+
       const report = runIntegrityChecks(built.model);
       // Le rapport porté par withFichierCharge n'est pas encore calé sur le
       // palier courant (recalculerRapport le remplace juste après) : la vue
@@ -175,6 +181,10 @@ export function mountApp(root: HTMLElement): void {
   // Incrémentée à chaque demande de schéma : seule la dernière a le droit
   // d'écrire dans la zone de rendu.
   let générationRendu = 0;
+  // Les placements déjà calculés, par (vue, lecture, filtres) -- sans le
+  // palier. Vidée au chargement d'un autre classeur : les positions d'un parc
+  // n'ont aucun sens sur un autre.
+  const placements = new Map<string, Promise<LayoutResult>>();
   // La matrice affichée, gardée pour l'export : la recalculer au clic risquerait
   // de livrer autre chose que ce qui est à l'écran.
   let matriceCourante: MatrixResult | null = null;
@@ -337,7 +347,12 @@ export function mountApp(root: HTMLElement): void {
       const couleurs = couleursDuModele(model);
       zoneRendu.appendChild(buildMatrixTable(matrix, (t) => couleurs.get(t) ?? "#000"));
     } else {
-      let view;
+      // La MÊME construction pour le palier affiché et pour l'union de tous
+      // les paliers : c'est ce qui garantit que les deux vues se correspondent
+      // nœud pour nœud, donc que le placement de l'union se restreint sans
+      // rien inventer.
+      const construireVue = (lecture: Lecture): ViewResult => {
+      let view: ViewResult;
       if (state.vue === "groupe-a-groupe") {
         view = buildGroupToGroupView(model, lecture, options);
       } else if (state.vue === "plateforme-detaillee") {
@@ -349,8 +364,7 @@ export function mountApp(root: HTMLElement): void {
         // d'elle désignerait un acteur que l'utilisateur ne peut même pas voir.
         const acteursDisponibles = lecture.acteurs;
         if (!state.selectionActeur && acteursDisponibles.length > 0) {
-          setState(withSelectionActeur(state, [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))[0].nom));
-          return;
+          acteurParDefaut = [...acteursDisponibles].sort((a, b) => a.nom.localeCompare(b.nom, "fr"))[0].nom;
         }
         view = state.selectionActeur
           ? buildByActorView(model, lecture.flux, state.selectionActeur, {
@@ -360,8 +374,7 @@ export function mountApp(root: HTMLElement): void {
           : { nodes: [], edges: [] };
       } else {
         if (!state.selectionTechnologie && model.typesFlux.length > 0) {
-          setState(withSelectionTechnologie(state, [...model.typesFlux].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
-          return;
+          besoinDeSelectionTechnologie = true;
         }
         view = state.selectionTechnologie
           ? buildByTechnologyView(model, lecture.flux, state.selectionTechnologie, {
@@ -371,6 +384,20 @@ export function mountApp(root: HTMLElement): void {
               acteursMasques: state.filtresTechnologie.acteursMasques,
             })
           : { nodes: [], edges: [] };
+      }
+      return view;
+      };
+
+      let besoinDeSelectionTechnologie = false;
+      let acteurParDefaut: string | null = null;
+      const view = construireVue(lecture);
+      if (acteurParDefaut) {
+        setState(withSelectionActeur(state, acteurParDefaut));
+        return;
+      }
+      if (besoinDeSelectionTechnologie) {
+        setState(withSelectionTechnologie(state, [...model.typesFlux].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
+        return;
       }
 
       // Un acteur métier isolé (§5.2) produit un nœud seul, zéro arête : ce
@@ -385,9 +412,22 @@ export function mountApp(root: HTMLElement): void {
         const génération = ++générationRendu;
         const couleurs = couleursDuModele(model);
         const vueDuCalcul = view;
-        computeLayout(vueDuCalcul.nodes, vueDuCalcul.edges)
-          .then((positioned) => {
+        // On place l'UNION de tous les paliers, une seule fois, et chaque
+        // palier n'en montre que son sous-ensemble : une boîte présente aux
+        // deux paliers ne bouge alors pas d'un pixel. La clé de mémoire ne
+        // contient donc PAS le palier -- c'est précisément d'un palier à
+        // l'autre qu'on veut la continuité.
+        const cléPlacement = JSON.stringify([
+          state.vue, state.mode, state.selectionActeur, state.selectionTechnologie,
+          state.filtresActeur, state.filtresTechnologie, options,
+        ]);
+        const vueUnion = construireVue(lectureUnion(model, state.mode));
+        const placement = placements.get(cléPlacement) ?? computeLayout(vueUnion.nodes, vueUnion.edges);
+        placements.set(cléPlacement, placement);
+        placement
+          .then((union) => {
             if (génération !== générationRendu) return;
+            const positioned = restreindreLayout(union, vueDuCalcul);
             zoneRendu.appendChild(buildGraphSvg(positioned, (t) => couleurs.get(t) ?? "#000", contexteDuSchema(state, fichier, vueDuCalcul)));
             // Les boutons d'export dépendent de la présence du SVG, qui
             // n'existait pas encore au moment du rendu du bandeau.
