@@ -1063,6 +1063,40 @@ function usedGroups(model: ParsedModel): InfoBlock {
   };
 }
 
+// What the workbook declares and the referential does not know. Not an anomaly:
+// a cartography is often drawn before the central referential catches up, and
+// refusing the name would stop the work for a bookkeeping lag. But an unknown
+// name is also what a typo looks like, so it is worth seeing.
+function outOfReferential(model: ParsedModel): InfoBlock {
+  const knownActors = new Set(model.referentialActors.map((a) => normalizeText(a.name)));
+  const knownTechnologies = new Set(model.referentialTechnologies.map((t) => normalizeText(t.type)));
+
+  const items = [
+    ...(knownActors.size === 0
+      ? []
+      : locatedItems(
+          model.actors.filter((a) => a.name.trim() !== "" && !knownActors.has(normalizeText(a.name))),
+          (a) => `actor "${a.name}" ${address(a)}`
+        )),
+    ...(knownTechnologies.size === 0
+      ? []
+      : locatedItems(
+          model.flowTypes.filter((t) => t.type.trim() !== "" && !knownTechnologies.has(normalizeText(t.type))),
+          (t) => `technology "${t.type}" ${address(t)}`
+        )),
+  ];
+
+  return {
+    id: "out-of-referential",
+    title: "Declared here, unknown to the referential",
+    description:
+      "These names are used by this workbook but do not appear in the external referential. " +
+      "That is legitimate while the referential catches up; it is also what a typo looks like.",
+    items,
+    level: "info",
+  };
+}
+
 // The workbook cut down to what lives at the displayed milestone. The checks
 // that judge a STATE of the platform -- consistency, completeness,
 // informational blocks -- apply to it; those that judge the FILE -- structure,
@@ -1125,6 +1159,11 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     blastRadius(atMilestone),
     usedGroups(atMilestone),
   ];
+  // Unlike its neighbours above, this block is left out entirely rather than
+  // shown empty: a workbook that carries no referential must read exactly as
+  // it did before the referential existed, not report every actor unknown.
+  const referentialGap = outOfReferential(atMilestone);
+  if (referentialGap.items.length > 0) infoBlocks.push(referentialGap);
   const totalAnomalies = families.reduce((sum, f) => sum + f.anomalies.length, 0);
   const total = (level: InfoBlock["level"]) =>
     infoBlocks.filter((b) => b.level === level).reduce((sum, b) => sum + b.items.length, 0);

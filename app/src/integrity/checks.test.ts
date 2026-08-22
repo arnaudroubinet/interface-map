@@ -1393,3 +1393,43 @@ describe("checks — blast radius", () => {
     expect(block(loop)?.items).toEqual(["A: 1 component downstream.", "B: 1 component downstream."]);
   });
 });
+
+describe("out of referential", () => {
+  it("says nothing when the workbook carries no referential", () => {
+    const report = runIntegrityChecks(model({ referentialActors: [], referentialTechnologies: [] }));
+    expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  });
+
+  it("names an actor the referential does not know", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "Tatooine" }), actor({ name: "Alderaan" })],
+        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).toContain("Alderaan");
+    expect(infoBlock.items.join(" ")).not.toContain("Tatooine");
+  });
+
+  it("names a technology the referential does not know", () => {
+    const report = runIntegrityChecks(
+      model({
+        flowTypes: [base.flowType({ type: "HTTP" }), base.flowType({ type: "MQ" })],
+        referentialTechnologies: [{ type: "HTTP", direction: "", description: "", colour: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).toContain("MQ");
+  });
+
+  it("compares regardless of case and accents, as every other check does", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "TATOOINE" })],
+        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  });
+});
