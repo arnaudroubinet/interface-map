@@ -17,51 +17,27 @@ cases cochées cesse d'être lue.
 
 ### Référentiel externe chargé par Power Query
 
-**Décidé le 18 août 2026.** Le classeur source ses acteurs — et plus tard ses
-technologies, avec leur couleur — depuis un référentiel externe, chargé par une
-requête Power Query.
+**Décidé le 18 août 2026. Spec écrite le 22 août 2026 :**
+`docs/superpowers/specs/2026-08-22-referentiel-externe-design.md`.
 
-Ce qui a été arrêté :
+Périmètre arrêté le 22 août : **acteurs et technologies, chacun son onglet.**
 
-- **L'URL est une propriété du CLASSEUR, pas de l'outil.** Elle vit dans la
-  définition de la requête, voyage avec le fichier, et chaque cartographie peut
-  donc viser un référentiel différent. Un fichier pivot centralisateur a été
-  écarté pour cette raison précise : il rendrait impossible de changer de
-  référentiel pour un seul classeur, ce qui est justement la fonctionnalité
-  demandée.
-- **Le geste** : on dépose le classeur, la page affiche l'URL qu'il porte déjà,
-  on la garde ou on la remplace.
-- **L'outil ne va rien chercher sur le réseau.** Il écrit la définition de la
-  requête ; Excel fait le chargement.
-- **La migration doit reposer la requête** quand elle est absente du fichier
-  qu'elle convertit, sans quoi chaque changement de schéma l'effacerait.
+La question qui bloquait — fabriquer le flux **DataMashup** (MS-QDEFF) hors
+d'Excel — est tranchée **par l'expérience, pas par le raisonnement** : un fichier
+fabriqué de zéro s'ouvre, liste ses deux requêtes et les évalue. Aucune
+dépendance n'est nécessaire ; `excel-datamashup` et les Data Mashup Cmdlets sont
+écartés. Les blocages réels n'étaient ni les Permission Bindings ni la
+cryptographie, mais trois conventions d'écriture : `customXml/item1.xml` en
+UTF-16 avec BOM, les XML internes sans l'espace de noms `DataMashup` par défaut,
+et un contenu de métadonnées qui doit être un zip **vide** plutôt qu'absent.
+Détail complet en §6 de la spec.
 
-Ce qui manque :
+Deux conclusions annoncées ce jour-là et retirées ensuite, à ne pas ressortir :
+« une dépendance coûte moins cher que l'écrire » (avancé sans mesure) et « le
+test répond non » (avancé sans avoir éliminé les autres causes).
 
-- Une spec. Elle n'a jamais été écrite, et c'est par là que le sujet s'est perdu.
-- Le périmètre exact : les acteurs seuls d'abord, ou acteurs + technologies.
-- Une décision sur la fabrication de la partie `customXml/item*.xml` : le flux
-  binaire **DataMashup**, spécifié par Microsoft sous **MS-QDEFF**. Deux
-  implémentations libres existent — [excel-datamashup](https://github.com/Vladinator/excel-datamashup)
-  (TypeScript) et les [Data Mashup Cmdlets](https://bengribaudo.com/tools/datamashupcmdlets),
-  le format étant [documenté ici](https://bengribaudo.com/blog/2020/04/22/5198/data-mashup-binary-stream).
-  Une dépendance pèse sur un livrable mono-fichier de 2,2 Mo ; l'écrire nous-mêmes
-  est faisable mais demande une vérification dans le vrai Excel.
-- Il faudra aussi `xl/connections.xml` et un tableau de destination sur un onglet
-  masqué — notre couche OOXML sait déjà poser des tableaux et des plages nommées.
-
-Point de fait relevé à l'époque : le classeur `.xlsm` d'origine contenait **déjà**
-deux requêtes, `TblActeur` et `TblTypesActeur`. Le mécanisme avait donc été monté
-une fois, dans le format à macro, avant d'être perdu avec lui.
-
-### Nom du fichier produit par le build
-
-`npm run build` écrit toujours `app/dist/carte-des-interfaces.html`. Tout le
-reste du dépôt — code, commentaires, tests, interface — est passé en anglais ;
-ce nom est le dernier mot français que l'utilisateur voit, et c'est celui du
-livrable qu'on s'échange. Le renommer (`interface-map.html`) change le nom du
-fichier que les gens ont déjà en pièce jointe et en favori : la décision revient
-à celui qui le diffuse, elle n'est pas technique.
+Ce qui reste ouvert, listé en §11 de la spec : zip interne stocké ou compressé,
+et CSV plutôt que classeur comme format du référentiel.
 
 ---
 
