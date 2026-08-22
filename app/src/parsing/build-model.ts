@@ -42,6 +42,14 @@ export const LEGACY_STATUS_COLUMN = "Statut";
 
 export const ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description", "Comments", ...VALIDITY_COLUMNS];
 
+// The two sheets the external referential fills. They exist whether or not a
+// referential is declared: the schema must not depend on a URL being set, or a
+// workbook would change shape the day someone types one in.
+export const REF_ACTORS_SHEET = "RefActors";
+export const REF_TECHNOLOGIES_SHEET = "RefTechnologies";
+export const REF_ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description"];
+export const REF_TECHNOLOGY_COLUMNS = ["Flow type", "Direction", "Description", "Colour"];
+
 export const GROUP_COLUMNS = ["Group", "Perimeter"];
 // "Preview" is a calculated column of the workbook, not data: the template
 // puts a formula there showing the chosen icon. The parser ignores it.

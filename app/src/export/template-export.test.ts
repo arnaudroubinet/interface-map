@@ -11,6 +11,8 @@ import {
   EXTRA_COLUMN,
   TAB_CELL,
   LISTES,
+  REF_ACTORS_SHEET,
+  REF_TECHNOLOGIES_SHEET,
   type WorkbookData,
 } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
@@ -28,6 +30,8 @@ import {
 import { runIntegrityChecks } from "../integrity/checks";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { SAMPLE_DATA } from "./sample-data";
+import { readPart } from "./xlsx-tables";
+import { readReferentialUrls } from "./datamashup";
 
 // The written file is reread, not the in-memory object: that is the one the
 // user will open, and it is the one that must go back through our parser.
@@ -80,6 +84,8 @@ describe("the workbook template", () => {
       "FlowTypes",
       "Interfaces",
       "Lists",
+      "RefActors",
+      "RefTechnologies",
       "Version",
     ]);
   });
@@ -207,7 +213,7 @@ describe("the workbook template", () => {
     expect(expected).toBeGreaterThan(1);
     expect(actors).toContain(`<dataValidations count="${expected}">`);
     expect(actors).toContain('type="list"');
-    expect(actors).toContain("<formula1>L_TypeActeur</formula1>");
+    expect(actors).toContain("<formula1>L_RefTypeActeur</formula1>");
     // Placed between the data and the ignored errors: the order of a sheet's
     // elements is imposed by the OOXML schema.
     expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<dataValidations"));
@@ -234,6 +240,10 @@ describe("the workbook template", () => {
       ["L_Groupe", "TblGroups[Group]"],
       ["L_TypeFlux", "TblFlowTypes[Flow type]"],
       ["L_Palier", "TblMilestones[Milestone]"],
+      ["L_RefActeur", "TblRefActors[Name]"],
+      ["L_RefGroupe", "TblRefActors[Group]"],
+      ["L_RefTypeActeur", "TblRefActors[Actor type]"],
+      ["L_RefTypeFlux", "TblRefTechnologies[Flow type]"],
     ];
     expect(listsOfTemplate().map((l) => l.name).sort()).toEqual(expected.map(([name]) => name).sort());
     for (const [name, reference] of expected) {
@@ -295,11 +305,11 @@ describe("the workbook template", () => {
   });
 
   // Neither the pattern nor the dictionary is filled by hand.
-  it("hides Lists and Version, visible on the entry sheets", () => {
+  it("hides Lists, the two referential sheets and Version, visible on the entry sheets", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const states = wb.Workbook!.Sheets!;
     const hidden = wb.SheetNames.filter((_, i) => states[i].Hidden);
-    expect(hidden).toEqual(["Lists", "Version"]);
+    expect(hidden).toEqual(["Lists", "RefActors", "RefTechnologies", "Version"]);
   });
 
   it("ships the common flow types, ready to use", () => {
@@ -930,5 +940,43 @@ describe("the workbook template — the data-entry aids", () => {
       const heading = key.includes(".") ? key.split(".")[1] : key;
       expect(all, `prompt orpheline : ${key}`).toContain(heading);
     }
+  });
+});
+
+// --- The referential's two sheets: they exist whether or not a referential is
+// declared, and only carry a live query -- hence a connection, a queryTable
+// part -- when the corresponding URL is actually set.
+describe("referential sheets", () => {
+  it("adds both sheets, hidden, even with no referential", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate()), { type: "array" });
+    const workbook = readPart(cfb, "/xl/workbook.xml")!;
+    expect(workbook).toContain(`name="${REF_ACTORS_SHEET}"`);
+    expect(workbook).toContain(`name="${REF_TECHNOLOGIES_SHEET}"`);
+    for (const name of [REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET]) {
+      const sheet = new RegExp(`<sheet name="${name}"[^>]*state="hidden"`).test(workbook);
+      expect(sheet).toBe(true);
+    }
+  });
+
+  it("writes no query when the workbook declares no referential", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate()), { type: "array" });
+    expect(XLSX.CFB.find(cfb, "/customXml/item1.xml")).toBeFalsy();
+    expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
+  });
+
+  it("carries both URLs through to the written workbook", async () => {
+    const urls = { actors: "https://ref/actors.csv", technologies: "https://ref/tech.csv" };
+    const bytes = writeTemplate({
+      flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [],
+      referentials: urls,
+    });
+    expect(await readReferentialUrls(bytes)).toEqual(urls);
+  });
+
+  it("feeds the actor and flow-type drop-downs from the referential", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate()), { type: "array" });
+    const workbook = readPart(cfb, "/xl/workbook.xml")!;
+    expect(workbook).toContain("L_RefActeur");
+    expect(workbook).toContain("L_RefTypeFlux");
   });
 });

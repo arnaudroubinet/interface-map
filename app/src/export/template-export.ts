@@ -20,6 +20,10 @@ import {
   REMPLACEMENT_ONGLET,
   MAX_TAB_LENGTH,
   FX_SHEET_SEPARATOR,
+  REF_ACTORS_SHEET,
+  REF_TECHNOLOGIES_SHEET,
+  REF_ACTOR_COLUMNS,
+  REF_TECHNOLOGY_COLUMNS,
 } from "../parsing/build-model";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import {
@@ -37,10 +41,15 @@ import {
   type StyleToApply,
 } from "./xlsx-tables";
 import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, FLOW_TYPES, type RowRole } from "./template-data";
+import { NO_REFERENTIAL } from "./datamashup";
+import type { ReferentialUrls } from "./datamashup";
 
 // The vocabularies and the instructions live in template-data.ts; this module
 // is nothing more than the machinery that assembles them into a workbook.
 export { LISTES, FLOW_TYPES } from "./template-data";
+// The referential sheets' names, re-exported for whoever wants to point at
+// them without reaching into build-model.ts directly.
+export { REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET } from "../parsing/build-model";
 
 
 
@@ -277,6 +286,9 @@ export interface WorkbookData {
   actors: readonly (readonly string[])[];
   interfaces: readonly (readonly string[])[];
   fx: readonly { name: string; rows: readonly (readonly string[])[] }[];
+  // Where the two referentials are published. Absent means the workbook has
+  // none, which is an ordinary state.
+  referentials?: ReferentialUrls;
 }
 
 const EMPTY_WORKBOOK: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
@@ -346,12 +358,21 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
     XLSX.utils.book_append_sheet(wb, fxSheet(tab.rows, fxWidths), tab.name);
   }
   XLSX.utils.book_append_sheet(wb, listsSheet(lastListRow(data.interfaces.length)), LISTS_SHEET);
+  // Query-owned, and therefore empty here: Excel pours the rows in on the first
+  // refresh. The header row alone is written, so the structured table has
+  // something to declare.
+  XLSX.utils.book_append_sheet(wb, sheet([[...REF_ACTOR_COLUMNS]], REF_ACTOR_COLUMNS.map(() => 20)), REF_ACTORS_SHEET);
+  XLSX.utils.book_append_sheet(
+    wb,
+    sheet([[...REF_TECHNOLOGY_COLUMNS]], REF_TECHNOLOGY_COLUMNS.map(() => 20)),
+    REF_TECHNOLOGIES_SHEET
+  );
   XLSX.utils.book_append_sheet(wb, versionSheet(), VERSION_SHEET);
 
   // Lists feeds the drop-downs, Version carries the format's signature: neither
   // one is filled by hand. Hidden, they can no longer be confused with the entry
   // sheets.
-  const hidden = new Set([LISTS_SHEET, VERSION_SHEET]);
+  const hidden = new Set([LISTS_SHEET, VERSION_SHEET, REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET]);
   wb.Workbook = { Sheets: wb.SheetNames.map((name) => ({ Hidden: hidden.has(name) ? 1 : 0 })) };
 
   return wb;
@@ -369,6 +390,12 @@ const writtenRows = (declared: readonly unknown[], seed: readonly unknown[]) =>
   declared.length > 0 ? declared.length : seed.length;
 
 export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToApply[] {
+  // Per query, not per workbook: queriesOf (datamashup.ts) only writes the M
+  // section for a URL that is actually set -- "a query pointing nowhere is not
+  // written". Marking a table as a queryTable for a query that was never
+  // written would leave its connection pointing at nothing, which is worse
+  // than the ordinary, query-less table this sheet gets when its URL is blank.
+  const referentials = data.referentials ?? NO_REFERENTIAL;
   return [
     { sheet: "Actors", columns: ACTOR_COLUMNS, rows: data.actors.length },
     { sheet: "Groups", columns: GROUP_COLUMNS, rows: data.groups.length },
@@ -397,6 +424,18 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
       rows: LISTES[key].length,
       startColumn: index,
     })),
+    {
+      sheet: REF_ACTORS_SHEET,
+      columns: REF_ACTOR_COLUMNS,
+      rows: 0,
+      query: referentials.actors.trim() ? REF_ACTORS_SHEET : undefined,
+    },
+    {
+      sheet: REF_TECHNOLOGIES_SHEET,
+      columns: REF_TECHNOLOGY_COLUMNS,
+      rows: 0,
+      query: referentials.technologies.trim() ? REF_TECHNOLOGIES_SHEET : undefined,
+    },
   ];
 }
 
@@ -428,6 +467,12 @@ export function listsOfTemplate(): NamedList[] {
     { name: "L_Groupe", sheet: "Groups", heading: "Group" },
     { name: "L_TypeFlux", sheet: "FlowTypes", heading: "Flow type" },
     { name: "L_Palier", sheet: "Milestones", heading: "Milestone" },
+    // The referential's vocabulary. It grows on refresh, so a named range over
+    // the table follows it without anything to recompute.
+    { name: "L_RefActeur", sheet: REF_ACTORS_SHEET, heading: "Name" },
+    { name: "L_RefGroupe", sheet: REF_ACTORS_SHEET, heading: "Group" },
+    { name: "L_RefTypeActeur", sheet: REF_ACTORS_SHEET, heading: "Actor type" },
+    { name: "L_RefTypeFlux", sheet: REF_TECHNOLOGIES_SHEET, heading: "Flow type" },
   ];
 }
 
@@ -563,8 +608,10 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...free(sheet, FX_COLUMNS, GUIDEES_FX),
   ];
   return [
-    v("Actors", ACTOR_COLUMNS, "Group", "L_Groupe"),
-    v("Actors", ACTOR_COLUMNS, "Actor type", "L_TypeActeur"),
+    v("Actors", ACTOR_COLUMNS, "Name", "L_RefActeur"),
+    v("Actors", ACTOR_COLUMNS, "Group", "L_RefGroupe"),
+    v("Actors", ACTOR_COLUMNS, "Actor type", "L_RefTypeActeur"),
+    v("FlowTypes", FLOW_TYPE_COLUMNS, "Flow type", "L_RefTypeFlux"),
     v("Groups", GROUP_COLUMNS, "Perimeter", "L_Perimetre"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Icon", "L_Icone"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Nature", "L_Nature"),
@@ -574,11 +621,11 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     v("Interfaces", INTERFACE_COLUMNS, "To confirm", "L_Confirmation"),
     ...bounds("Actors", ACTOR_COLUMNS),
     ...bounds("Interfaces", INTERFACE_COLUMNS),
-    ...free("Actors", ACTOR_COLUMNS, ["Group", "Actor type", ...VALIDITY_COLUMNS]),
+    ...free("Actors", ACTOR_COLUMNS, ["Name", "Group", "Actor type", ...VALIDITY_COLUMNS]),
     ...free("Groups", GROUP_COLUMNS, ["Perimeter"]),
     ...free("Milestones", MILESTONE_COLUMNS, []),
     ...free("ActorTypes", ACTOR_TYPE_COLUMNS, ["Icon", "Nature"]),
-    ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Direction"]),
+    ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Flow type", "Direction"]),
     ...free("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
     // The filled flow sheets get the same lists as their pattern.
     ...fxTabs(data).flatMap((o) => listesFx(o.name)),
@@ -646,6 +693,7 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
     tables: tablesOfTemplate(data),
     lists: listsOfTemplate(),
     validations: validationsOfTemplate(data),
+    referentials: data.referentials ?? NO_REFERENTIAL,
     styles: [
       ...stylesOfTemplate(),
       // The filled flow sheets carry the same header row as their pattern:
