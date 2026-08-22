@@ -21,6 +21,7 @@ import {
   type Mode,
 } from "./core";
 import type { Lecture } from "./fonctionnel";
+import { estActeurTechnique } from "./nature";
 
 export interface ViewResult {
   nodes: GraphNode[];
@@ -37,7 +38,7 @@ function tronquer(texte: string, max: number): string {
 function détailsActeur(
   model: ParsedModel,
   nom: string
-): { sousTitre?: string; description?: string; externe?: boolean; icone?: string } {
+): { sousTitre?: string; description?: string; externe?: boolean; icone?: string; technique?: boolean } {
   const acteur = model.acteurs.find((a) => a.nom === nom);
   if (!acteur) return {};
   return {
@@ -45,6 +46,9 @@ function détailsActeur(
     icone: icôneDuTypeActeur(model, acteur.typeActeur),
     description: acteur.description.trim() ? tronquer(acteur.description.trim(), LONGUEUR_DESCRIPTION_MAX) : undefined,
     externe: groupeEstExterne(model, acteur.groupe) || undefined,
+    // La nature se décide ICI, où le modèle est connu : le rendu applique une
+    // forme, il ne va pas la chercher.
+    technique: estActeurTechnique(model, nom) || undefined,
   };
 }
 
@@ -52,11 +56,16 @@ function détailsActeur(
 // unique, mais le nombre d'acteurs qu'il représente est une donnée réelle.
 // `acteurs` est déjà la lecture au (rang, mode) courant -- ni la plomberie ni
 // un acteur retiré n'y figurent, donc pas à re-juger ici.
-function détailsGroupe(model: ParsedModel, groupe: string, acteurs: readonly Acteur[]): { sousTitre?: string; externe?: boolean } {
+function détailsGroupe(
+  model: ParsedModel,
+  groupe: string,
+  acteurs: readonly Acteur[]
+): { sousTitre?: string; externe?: boolean; agrégat?: number } {
   const membres = acteurs.filter((a) => a.groupe === groupe);
   if (membres.length === 0) return {};
   return {
     sousTitre: `${membres.length} actor${membres.length > 1 ? "s" : ""}`,
+    agrégat: membres.length,
     // Le périmètre du groupe, et lui seul : c'est ce qui fait fonctionner le
     // code couleur sur les vues agrégées, où les nœuds ne sont pas des acteurs.
     externe: groupeEstExterne(model, groupe) || undefined,

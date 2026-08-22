@@ -108,3 +108,33 @@ describe("entreesDeLegende — la notation, pas seulement la couleur", () => {
     expect(textes.some((t) => t.includes("head at"))).toBe(false);
   });
 });
+
+// --- WCAG 1.4.1 / G111 : ce que la couleur dit, une forme doit le redire. Et
+// une forme non annoncée est une notation muette de plus.
+describe("entreesDeLegende — les formes s'annoncent aussi", () => {
+  it("annonce le coin coupé dès qu'un acteur technique est dessiné", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP" }], [noeud({ technique: true })], () => "#111111");
+    const forme = entrées.find((e) => e.texte.includes("technical component"));
+    expect(forme).toBeDefined();
+    expect(forme!.échantillon).toMatchObject({ forme: "boite", coinCoupé: true });
+  });
+
+  it("annonce la pile dès qu'un nœud replie plusieurs acteurs", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP" }], [noeud({ agrégat: 4 })], () => "#111111");
+    expect(entrées.find((e) => e.texte.includes("several components"))?.échantillon).toMatchObject({ pile: true });
+  });
+
+  // Un groupe d'un seul acteur n'est pas une pile : le dessiner empilé
+  // affirmerait qu'il en cache d'autres.
+  it("n'annonce pas la pile pour un groupe d'un seul acteur", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP" }], [noeud({ agrégat: 1 })], () => "#111111");
+    expect(entrées.some((e) => e.texte.includes("several components"))).toBe(false);
+  });
+
+  // Le retrait porte le tiret long : sans lui, vert et rouge deviennent le
+  // même gris à l'impression.
+  it("montre le retrait en pointillé dans sa propre entrée", () => {
+    const entrées = entreesDeLegende([{ technologie: "HTTP", ecart: "retrait" }], [noeud()], () => "#111111");
+    expect(entrées[0].échantillon).toMatchObject({ pointillé: true });
+  });
+});

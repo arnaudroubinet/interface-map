@@ -15,6 +15,14 @@ export interface GraphNode {
   sousTitre?: string;
   description?: string;
   externe?: boolean;
+  // Ce que la FORME doit redire, faute de quoi la couleur reste seule à le
+  // porter -- donc rien du tout à l'impression et pour un daltonien (WCAG
+  // 1.4.1). Deux variantes, pas plus : au-delà on tombe dans le zoo UML.
+  //
+  // `technique` : l'acteur est de la plomberie (nature Technical).
+  // `agrégat` : le nœud replie plusieurs acteurs, et combien.
+  technique?: boolean;
+  agrégat?: number;
   // Nom d'icône, résolu depuis l'onglet TypesActeur du classeur. Le rendu ne
   // décide plus quelle icône va à quel type : il l'applique.
   icone?: string;

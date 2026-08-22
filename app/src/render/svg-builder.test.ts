@@ -911,3 +911,46 @@ describe("buildGraphSvg — l'infobulle des arêtes", () => {
     expect(svg.querySelector(".fx-aretes title")).toBeNull();
   });
 });
+
+// --- §2.6 : une seule forme de nœud dans tout l'outil. Nature, agrégat et
+// retrait ne se lisaient qu'à la couleur -- donc pas du tout à l'impression
+// ni pour un daltonien (WCAG 1.4.1).
+describe("buildGraphSvg — la forme redit ce que la couleur dit", () => {
+  const parc = async (a: Partial<GraphNode>, b: Partial<GraphNode> = {}, e: Partial<GraphEdge> = {}) =>
+    computeLayout(
+      [{ id: "A", label: "A", kind: "acteur", ...a }, { id: "B", label: "B", kind: "acteur", ...b }],
+      [{ from: "A", to: "B", technologie: "HTTP", count: 1, label: "HTTP", atténué: false, ...e }]
+    );
+
+  it("coupe le coin d'un acteur technique", async () => {
+    const svg = buildGraphSvg(await parc({ technique: true }), () => "#111");
+    expect(svg.querySelectorAll(".fx-noeuds path.fx-coin-coupe")).toHaveLength(1);
+  });
+
+  it("laisse la boîte rectangulaire pour un acteur métier", async () => {
+    const svg = buildGraphSvg(await parc({}), () => "#111");
+    expect(svg.querySelector(".fx-noeuds path.fx-coin-coupe")).toBeNull();
+  });
+
+  it("empile la boîte d'un nœud qui replie plusieurs acteurs", async () => {
+    const svg = buildGraphSvg(await parc({ agrégat: 4 }), () => "#111");
+    expect(svg.querySelectorAll(".fx-noeuds .fx-pile rect").length).toBeGreaterThan(1);
+  });
+
+  // Un groupe d'un seul acteur ne cache rien : l'empiler affirmerait le
+  // contraire.
+  it("n'empile pas un groupe d'un seul acteur", async () => {
+    const svg = buildGraphSvg(await parc({ agrégat: 1 }), () => "#111");
+    expect(svg.querySelector(".fx-noeuds .fx-pile")).toBeNull();
+  });
+
+  it("met en pointillé le trait d'un retrait", async () => {
+    const svg = buildGraphSvg(await parc({}, {}, { ecart: "retrait" }), () => "#111");
+    expect(svg.querySelector(".fx-aretes path")?.getAttribute("stroke-dasharray")).not.toBeNull();
+  });
+
+  it("laisse le trait d'un ajout plein", async () => {
+    const svg = buildGraphSvg(await parc({}, {}, { ecart: "ajout" }), () => "#111");
+    expect(svg.querySelector(".fx-aretes path")?.getAttribute("stroke-dasharray")).toBeNull();
+  });
+});

@@ -7,7 +7,7 @@ import { COULEUR_ECART, ENCRE, styleDuNoeud } from "./styles-noeud";
 // schéma sont précisément ce qu'on veut rendre impossible.
 export type ÉchantillonLegende =
   | { forme: "trait"; couleur: string; pointillé?: boolean; pointe?: "debut" | "fin" }
-  | { forme: "boite"; fond: string; bord: string; pointillé?: boolean };
+  | { forme: "boite"; fond: string; bord: string; pointillé?: boolean; coinCoupé?: boolean; pile?: boolean };
 
 export interface EntreeLegende {
   échantillon: ÉchantillonLegende;
@@ -16,6 +16,13 @@ export interface EntreeLegende {
 
 // Le strict nécessaire pour décider d'une entrée : la légende ne connaît pas
 // le type interne du constructeur SVG, et n'a pas à le connaître.
+export interface NoeudLegendable {
+  kind: LayoutNode["kind"];
+  externe?: boolean;
+  technique?: boolean;
+  agrégat?: number;
+}
+
 export interface ArêteLegendable {
   technologie: string;
   ecart?: "ajout" | "retrait";
@@ -36,14 +43,19 @@ const LIBELLE_ECART: Record<"ajout" | "retrait", string> = {
 
 export function entreesDeLegende(
   edges: readonly ArêteLegendable[],
-  nodes: readonly Pick<LayoutNode, "kind" | "externe">[],
+  nodes: readonly NoeudLegendable[],
   colorFor: (tech: string) => string
 ): EntreeLegende[] {
   const entrées: EntreeLegende[] = [];
 
   for (const ecart of ["ajout", "retrait"] as const) {
     if (edges.some((e) => e.ecart === ecart)) {
-      entrées.push({ échantillon: { forme: "trait", couleur: COULEUR_ECART[ecart] }, texte: LIBELLE_ECART[ecart] });
+      entrées.push({
+        // Le retrait porte aussi le tiret long : sans lui, vert et rouge
+        // deviennent le même gris à l'impression.
+        échantillon: { forme: "trait", couleur: COULEUR_ECART[ecart], pointillé: ecart === "retrait" },
+        texte: LIBELLE_ECART[ecart],
+      });
     }
   }
 
@@ -91,6 +103,24 @@ export function entreesDeLegende(
   // La frontière de plateforme est un repère de fond, pas un acteur : la
   // compter ferait apparaître « External » toute seule.
   const dessinables = nodes.filter((n) => n.kind !== "frontiere");
+
+  // Une forme non annoncée est une notation muette de plus, exactement ce que
+  // la pointe était avant.
+  if (dessinables.some((n) => n.technique)) {
+    const style = styleDuNoeud({ kind: "acteur", externe: false });
+    entrées.push({
+      échantillon: { forme: "boite", fond: style.fond, bord: style.bord, coinCoupé: true },
+      texte: "cut corner: technical component",
+    });
+  }
+  if (dessinables.some((n) => (n.agrégat ?? 0) > 1)) {
+    const style = styleDuNoeud({ kind: "acteur", externe: false });
+    entrées.push({
+      échantillon: { forme: "boite", fond: style.fond, bord: style.bord, pile: true },
+      texte: "stacked box: several components",
+    });
+  }
+
   if (dessinables.some((n) => n.externe) && dessinables.some((n) => !n.externe)) {
     for (const [texte, externe] of [["Platform", false], ["External", true]] as [string, boolean][]) {
       const style = styleDuNoeud({ kind: "acteur", externe });

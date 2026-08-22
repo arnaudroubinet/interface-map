@@ -307,6 +307,10 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
       path.setAttribute("stroke-dasharray", "6 4");
       path.setAttribute("opacity", "0.5");
     }
+    // Un retrait n'était que ROUGE, un ajout que vert : à l'impression, les
+    // deux devenaient le même gris. Le tiret long dit « ce trait s'en va »
+    // sans dépendre de la couleur.
+    if (edge.ecart === "retrait") path.setAttribute("stroke-dasharray", "10 5");
     g.appendChild(path);
   });
 
@@ -410,8 +414,45 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const style = styleDuNoeud(node);
   const estExterne = !!node.externe;
 
-  const boîte = rect(x, y, node.width, node.height, style.fond, style.bord, style.épaisseurBord);
-  boîte.setAttribute("rx", "10"); // arcSize=10 dans le gabarit draw.io
+  // Un groupe replié se dessine en PILE : deux boîtes décalées derrière la
+  // sienne. Le lecteur voit d'un coup d'œil que ce nœud en contient plusieurs,
+  // là où seul le sous-titre « 4 actors » le disait.
+  if (node.agrégat && node.agrégat > 1) {
+    const pile = el("g");
+    pile.setAttribute("class", "fx-pile");
+    for (const décalage of [8, 4]) {
+      const derrière = rect(x + décalage, y - décalage, node.width, node.height, style.fond, style.bord, style.épaisseurBord);
+      derrière.setAttribute("rx", "10");
+      derrière.setAttribute("opacity", "0.55");
+      pile.appendChild(derrière);
+    }
+    g.appendChild(pile);
+  }
+
+  // Un acteur TECHNIQUE porte un coin coupé, comme un composant. C'est la
+  // convention qu'ArchiMate a déjà tranchée (§3.9) : la forme redit ce que la
+  // couleur dit, et la couleur seule ne dit rien en noir et blanc ni pour un
+  // daltonien (WCAG 1.4.1, technique G111).
+  const COUPE = 14;
+  let boîte: SVGElement;
+  if (node.technique) {
+    const chemin = el("path");
+    chemin.setAttribute("class", "fx-coin-coupe");
+    chemin.setAttribute(
+      "d",
+      `M${x + 10} ${y} H${x + node.width - COUPE} L${x + node.width} ${y + COUPE} V${y + node.height - 10}` +
+        ` a10 10 0 0 1 -10 10 H${x + 10} a10 10 0 0 1 -10 -10 V${y + 10} a10 10 0 0 1 10 -10 Z`
+    );
+    chemin.setAttribute("fill", style.fond);
+    chemin.setAttribute("stroke", style.bord);
+    chemin.setAttribute("stroke-width", String(style.épaisseurBord));
+    chemin.setAttribute("stroke-linejoin", "round");
+    boîte = chemin;
+  } else {
+    const r = rect(x, y, node.width, node.height, style.fond, style.bord, style.épaisseurBord);
+    r.setAttribute("rx", "10"); // arcSize=10 dans le gabarit draw.io
+    boîte = r;
+  }
   // Le trait discontinu redit « externe » par la forme : la couleur seule ne
   // suffit pas en noir et blanc ni pour un daltonien.
   if (estExterne) boîte.setAttribute("stroke-dasharray", "8 5");
@@ -608,8 +649,33 @@ function construireLegende(entrées: readonly EntreeLegende[], x: number, y: num
     return l;
   };
 
-  const boite = (é: Extract<ÉchantillonLegende, { forme: "boite" }>): SVGRectElement => {
-    const r = rect(x + LEGENDE_PAD, ligne - 5, LEGENDE_ECHANTILLON, 10, é.fond, é.bord, 1);
+  // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous
+  // « cut corner » serait une entrée de légende aussi muette que le signe
+  // qu'elle prétend expliquer.
+  const boite = (é: Extract<ÉchantillonLegende, { forme: "boite" }>): SVGElement => {
+    const x0 = x + LEGENDE_PAD;
+    const y0 = ligne - 5;
+    const l = LEGENDE_ECHANTILLON;
+    const h = 10;
+    if (é.pile) {
+      const g2 = el("g");
+      for (const [dx, dy, op] of [[4, -3, "0.55"], [0, 0, "1"]] as [number, number, string][]) {
+        const r = rect(x0 + dx, y0 + dy, l - 4, h, é.fond, é.bord, 1);
+        r.setAttribute("opacity", op);
+        g2.appendChild(r);
+      }
+      return g2;
+    }
+    if (é.coinCoupé) {
+      const coupe = 4;
+      const p2 = el("path");
+      p2.setAttribute("d", `M${x0} ${y0} H${x0 + l - coupe} L${x0 + l} ${y0 + coupe} V${y0 + h} H${x0} Z`);
+      p2.setAttribute("fill", é.fond);
+      p2.setAttribute("stroke", é.bord);
+      p2.setAttribute("stroke-width", "1");
+      return p2;
+    }
+    const r = rect(x0, y0, l, h, é.fond, é.bord, 1);
     if (é.pointillé) r.setAttribute("stroke-dasharray", "3 2");
     return r;
   };
