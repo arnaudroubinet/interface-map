@@ -280,6 +280,7 @@ export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteu
       to,
       technologie: flow.typeDeFlux,
       count: 1,
+      criticite: flow.conso.criticite.trim() || undefined,
       tire: flow.sens === "consommateur-exposant",
       label: libelleInterface(flow.interfaceNom, flow.version),
       atténué: flow.atténué,

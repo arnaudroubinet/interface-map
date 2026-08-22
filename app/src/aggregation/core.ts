@@ -433,6 +433,7 @@ export function aggregateEdges(
     to: g.to,
     technologie: g.technologie,
     count: g.count,
+    criticite: g.criticite,
     // Sans compteur on ne nomme que le tuyau, sauf si l'utilisateur a demandé
     // autre chose : « counters » décide du ×N, pas de ce qui est nommé.
     label:

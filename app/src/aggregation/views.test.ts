@@ -500,3 +500,35 @@ describe("le trait va du fournisseur au consommateur, partout", () => {
     expect(sens.every((s) => s.includes("Fournisseur → Consommateur"))).toBe(true);
   });
 });
+
+// --- QA : la criticité se perdait entre l'agrégation et le rendu. Le réglage
+// « épaisseur par criticité » était donc coché et sans effet -- un réglage qui
+// ne fait rien est pire qu'un réglage absent.
+describe("les vues transportent la criticité jusqu'au trait", () => {
+  const parc = () =>
+    base.modele({
+      groupes: [{ nom: "Socle", perimetre: "Platform", feuille: "Groups", ligne: 0 }],
+      typesActeur: [base.typeActeur()],
+      typesFlux: [base.typeFlux()],
+      fxSheetNames: ["FX_A_HTTP"],
+      acteurs: [base.acteur({ nom: "A", groupe: "Socle" }), base.acteur({ nom: "B", groupe: "Socle" })],
+      interfaces: [base.iface({ nomDuFlux: "F", acteurExposant: "A", feuilleAttendue: "FX_A_HTTP" })],
+      consommations: [
+        base.conso({ nomDuFlux: "F", acteurConsommateur: "B", feuille: "FX_A_HTTP", criticite: "1 - Critical" }),
+      ],
+    });
+
+  it("la porte à travers les vues agrégées", () => {
+    const m = parc();
+    const vue = buildPlatformDetailView(m, lectureDuMode(m, null, "architecture"), { compteurs: true });
+    expect(vue.edges[0].criticite).toBe("1 - Critical");
+  });
+
+  // Cette vue fabrique ses arêtes elle-même, sans passer par l'agrégation :
+  // c'est exactement là qu'un champ nouveau se perd.
+  it("la porte aussi dans la vue par acteur, qui fabrique ses arêtes à part", () => {
+    const m = parc();
+    const vue = buildByActorView(m, lectureDuMode(m, null, "architecture").flux, "A", {});
+    expect(vue.edges[0].criticite).toBe("1 - Critical");
+  });
+});
