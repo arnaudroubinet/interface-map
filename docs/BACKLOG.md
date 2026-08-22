@@ -54,14 +54,18 @@ et différés plutôt que corrigés à chaud.
   `repairWorkbook` lui-même. Le déplacer proprement suppose de rendre
   `readReferentialUrls` synchrone ou de rendre `repairWorkbook` asynchrone, ce
   qui contamine six appels de test pour aucun gain de comportement.
-- **Les couleurs ne se rejoignent pas à la casse près.** `coloursOfModel`
-  (`app/src/render/colors.ts`) indexe par le nom brut de la technologie, sans
-  `normalizeText`. Une technologie écrite `HTTP` dans le classeur et `http` dans
-  le référentiel ne se rejoint pas : le trait retombe sur la palette, sans rien
-  dire. Le motif est antérieur à ce travail, mais **l'exposition est neuve** —
-  jusqu'ici les deux sources étaient le même onglet ; désormais le référentiel
-  est tenu par d'autres gens. La même fonction normalise déjà ailleurs, pour
-  apparier les technologies dessinées : elle est incohérente avec elle-même.
+- **Deux technologies qui ne diffèrent que par la casse partagent leur couleur.**
+  Depuis que `coloursOfModel` (`app/src/render/colors.ts`) apparie sur le nom
+  normalisé — nécessaire pour rejoindre le référentiel, qui est tenu par
+  d'autres gens —, un classeur déclarant `HTTP` en `#aaa` et `http` en `#bbb`
+  donne `#bbb` aux deux. Avant, chacune gardait la sienne. Aucun des deux
+  comportements n'est juste : déclarer deux fois la même technologie est une
+  faute de saisie. Ce qui manque, c'est qu'elle soit **signalée** — et elle ne
+  l'est nulle part : `checks.ts` contrôle les doublons d'acteurs, d'interfaces
+  et de paliers, pas de technologies, et le contrôle « deux technologies de la
+  même couleur » s'appuie sur les couleurs déclarées brutes, donc reste muet
+  précisément dans ce cas. Le correctif est un contrôle de doublon sur
+  `FlowTypes`, pas un retour en arrière sur la normalisation.
 
 ---
 
