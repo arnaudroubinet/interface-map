@@ -235,6 +235,24 @@ const OPTIONS: Record<string, string> = {
   "elk.padding": `[top=${MARGE},left=${MARGE},bottom=${MARGE},right=${MARGE}]`,
 };
 
+// Ce qui a été mesuré pour resserrer la planche -- son rapport de forme atteint
+// 3,6 sur la vue détaillée -- et ÉCARTÉ, faute d'un échange qui vaille :
+//
+//   - elk.aspectRatio vaut DÉJÀ 1.6 par défaut sous layered, et ne pilote que
+//     l'empaquetage des composantes connexes : sur un graphe connexe il ne fait
+//     rien, ce que la mesure confirme ;
+//   - wrapping.strategy en SINGLE_EDGE ne change rien du tout ; en MULTI_EDGE
+//     il ramène « plateforme seule » de 3,92 à 1,61, mais en passant de 2 à 5
+//     croisements pour 36 % de surface en plus. Une planche plus carrée et plus
+//     enchevêtrée est un mauvais échange ;
+//   - layering.nodePromotion.strategy n'a rien changé sur les cinq vues ;
+//   - compaction.postCompaction.strategy=LEFT gagnait 2 à 6 % de surface sans
+//     un croisement de plus... et fait LEVER ELK sur un multigraphe
+//     (« Invalid hitboxes for scanline constraint calculation »). Un plantage
+//     ne s'achète pas avec 4 % de surface.
+//
+// Le levier qui reste est le zoom, livré par ailleurs.
+
 type CôtéRetour = "NORTH" | "SOUTH";
 
 interface PortElk {
