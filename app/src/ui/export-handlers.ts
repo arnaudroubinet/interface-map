@@ -16,41 +16,41 @@ import { exportPng, downloadPngBlob } from "../export/png-export";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadText } from "../export/download";
 
-// Les sept exports, hors de la fermeture de mountApp.
+// The seven exports, outside mountApp's closure.
 //
-// Ils y vivaient parmi dix-huit fonctions imbriquées, et l'on ne pouvait en
-// éprouver aucun sans monter le DOM entier. Or ils ne dépendent que de quatre
-// choses : l'état, de quoi le remplacer, le SVG à l'écran et la matrix
-// affichée. C'est ce contrat-là qui est déclaré ci-dessous, et il tient en
-// quatre lignes.
+// They used to live in there among eighteen nested functions, and none could
+// be exercised without mounting the whole DOM. Yet they depend on only four
+// things: the state, a way to replace it, the SVG on screen and the displayed
+// matrix. That is the contract declared below, and it fits in four lines.
 //
-// Les fonctions sont demandées plutôt que les valeurs : l'état change à chaque
-// rendu, et un gestionnaire câblé une fois doit lire l'état du moment où on
-// clique, pas celui d'où on l'a construit.
+//
+// Functions are asked for rather than values: the state changes at every
+// render, and a handler wired once must read the state at the moment of the
+// click, not the one it was built from.
 export interface ExportContext {
   legacyState: () => AppState;
   setState: (state: AppState) => void;
-  // Le schéma à l'écran. Absent sur la matrix, le rapport et l'aide.
+  // The diagram on screen. Absent on the matrix, the report and the help.
   svgCourant: () => SVGSVGElement | null;
-  // La matrix AFFICHÉE, et non recalculée au clic : la recalculer risquerait
-  // de livrer autre chose que ce que l'utilisateur a sous les yeux.
+  // The DISPLAYED matrix, not one recomputed on click: recomputing it would
+  // risk delivering something other than what the user has in front of them.
   currentMatrix: () => MatrixResult | null;
 }
 
-// Ce que le nom de fichier doit porter en plus de la vue : la sélection quand
-// il y en a une, sans quoi deux lectures différentes se téléchargent sous le
-// même nom.
+// What the file name must carry beyond the view: the selection when there is
+// one, failing which two different readings download under the same name.
+//
 function nameSelection(state: AppState): string | null {
   if (state.view === "by-actor") return state.actorSelection;
   if (state.view === "by-technology") return state.technologySelection;
-  // Un écart se lit ENTRE deux paliers : le nom doit porter les deux. Le palier
-  // d'arrivée est déjà ajouté par ailleurs.
+  // A change reads BETWEEN two milestones: the name must carry both. The
+  // arrival milestone is already appended elsewhere.
   if (state.view === "changes") return state.comparedMilestone;
   return null;
 }
 
-// Le palier affiché vaut pour tout ce qui décrit le MODÈLE plutôt qu'une
-// planche : ces exports ne portent ni nom de vue ni sélection.
+// The displayed milestone applies to everything describing the MODEL rather
+// than a board: these exports carry neither a view name nor a selection.
 function shownRank(state: AppState): number | null {
   if (!state.file || state.shownMilestone === null) return null;
   return rankOfMilestone(state.file.model, state.shownMilestone) ?? null;
@@ -80,8 +80,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       if (!svg || !ctx.legacyState().file) return;
       const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.pngScale);
       if (!result.ok) {
-        // Le message vient de l'export : il en distingue deux, et le recopier
-        // ici en avait effacé un.
+        // The message comes from the export: it distinguishes two of them, and
+        // copying it here had erased one.
         ctx.setState(withMessageBandeau(ctx.legacyState(), result.error));
         return;
       }
@@ -97,19 +97,19 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     onExportMarkdown() {
       const state = ctx.legacyState();
       if (!state.file) return;
-      // Pas de mode ici : le rapport juge le CLASSEUR, pas une lecture du
-      // classeur (§5.3). Son contenu ne bouge pas d'un mode à l'autre, son nom
-      // ne doit donc pas bouger non plus.
+      // No mode here: the report judges the WORKBOOK, not a reading of the
+      // workbook (§5.3). Its content does not move from one mode to the other, so
+      // its name must not move either.
       downloadText(
         reportToMarkdown(state.file.report, state.file.name, state.shownMilestone),
         fileName("md", false)
       );
     },
 
-    // Le fichier draw.io porte TOUTES les planches, une par onglet : il ne
-    // dépend pas de la vue ouverte. Les placements se calculent à la demande --
-    // une soixantaine de planches tient en moins d'une seconde, et les garder
-    // au chaud obligerait à les refaire à chaque changement de palier.
+    // The draw.io file carries EVERY board, one per tab: it does not depend on
+    // the view that is open. The layouts are computed on demand -- some sixty
+    // boards fit in under a second, and keeping them warm would mean redoing
+    // them at every milestone change.
     async onExportDrawio() {
       const state = ctx.legacyState();
       if (!state.file) return;
@@ -122,8 +122,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
           title: board.title,
           actor: board.actor,
           layout,
-          // Chaque page se décrit, comme chaque SVG : draw.io est le format
-          // destiné à CIRCULER, et ses pages partaient sans titre ni légende.
+          // Each page describes itself, like each SVG: draw.io is the format meant to
+          // CIRCULATE, and its pages used to leave with neither title nor legend.
           context: {
             title: board.title,
             reading: state.mode === "functional" ? "functional" : "architecture",

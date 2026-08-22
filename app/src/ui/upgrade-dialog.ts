@@ -8,10 +8,10 @@ import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
 import { runIntegrityChecks } from "../integrity/checks";
 
-// Fenêtre de migration : on y dépose un classeur au format d'origine, elle rend
-// sa conversion au format actuel. Elle vit à part du dépôt principal, pour
-// qu'on ne puisse pas confondre « je veux voir ce fichier » et « je veux le
-// convertir » -- les deux prennent un .xlsx et n'en font pas la même chose.
+// The migration dialog: a workbook in the original format is dropped in it,
+// and it returns its conversion to the current format. It lives apart from the
+// main drop target so that "I want to see this file" and "I want to convert
+// it" cannot be confused -- both take an .xlsx and do different things with it.
 
 function row(report: MigrationReport): string[] {
   const points: string[] = [];
@@ -21,9 +21,9 @@ function row(report: MigrationReport): string[] {
     );
   }
   if (report.unknownTypes.length > 0) {
-    // Le code sait seulement que ces types ne figurent pas au référentiel : il
-    // ne sait pas POURQUOI, ni ce qu'il faudrait en faire. Le dire autrement
-    // reviendrait à généraliser un cas particulier.
+    // The code only knows these types are not in the referential: it does not know
+    // WHY, nor what should be done about them. Saying otherwise would amount to
+    // generalising a particular case.
     points.push(
       `flow types missing from the current repository, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
         "Their direction being unknown, the arrow was drawn as a call from the consumer to the provider."
@@ -67,10 +67,10 @@ export function openMigration(): void {
         const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
 
-        // On fait passer les contrôles sur ce qu'on vient d'écrire : annoncer
-        // « il restera des choses à saisir » sans les compter laisserait croire
-        // à une formule de style. Ce sont les mêmes contrôles que ceux de
-        // l'outil, sur le même fichier.
+        // The checks are run over what has just been written: announcing "there
+        // will be things left to fill in" without counting them would sound like a
+        // figure of speech. These are the same checks as the tool's, on the same
+        // file.
         const reread = buildModel(parseWorkbook(workbook));
         const bilan = reread.ok ? runIntegrityChecks(reread.model) : null;
 
@@ -105,10 +105,10 @@ export function openMigration(): void {
         zone.appendChild(encore);
       })
       .catch((err) => {
-        // La cause précise (bytes tronqués, zip corrompu, feuille Flux
-        // absente...) n'est pas établie ici : la prétendre serait pire que de
-        // ne rien dire. Même message, même mot, que la cible de dépôt
-        // principale sur le même échec (§ fondateur : jamais de fausse cause).
+        // The precise cause (truncated bytes, corrupt zip, missing Flux sheet...)
+        // is not established here: claiming it would be worse than saying nothing.
+        // The same message, the same wording, as the main drop target on the same
+        // failure (founding §: never a false cause).
         console.error(err);
         message.className = "drop-target-text error-message";
         message.textContent = UNREADABLE_WORKBOOK_MESSAGE;
@@ -118,8 +118,8 @@ export function openMigration(): void {
   reset();
   wireDropZone(zone, convertir);
 
-  // Le glisser-déposer ne suffit pas : depuis un dossier ou un courriel, on veut
-  // pouvoir choisir le fichier.
+  // Drag and drop is not enough: from a folder or an email, one wants to be able
+  // to pick the file.
   const choose = el("input", { type: "file", accept: ".xlsx,.xlsm" }) as HTMLInputElement;
   choose.className = "file-field";
   choose.addEventListener("change", () => {

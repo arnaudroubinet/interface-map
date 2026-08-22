@@ -11,46 +11,46 @@ export interface BannerCallbacks {
   onExportLikeC4: () => void;
 }
 
-// La table des exports. Sept aujourd'hui, et un huitième ne devrait pas obliger
-// à retrouver, dans quatre-vingts lignes de boutons, laquelle des quatre règles
-// de désactivation lui ressemble. Elles sont ici, côte à côte, en une colonne :
-// la question « laquelle s'applique à moi » se répond en lisant les voisines.
+// The exports table. Seven today, and an eighth should not force anyone to
+// hunt, through eighty lines of buttons, for which of the four disabling rules
+// resembles it. They are here, side by side, in one column: the question
+// "which one applies to me" is answered by reading its neighbours.
 //
-// Le test de render.test.ts compare cette liste à ce que la page d'aide
-// documente, exactement comme il le fait déjà pour les vues du rail : un
-// huitième format ne peut donc pas arriver sans sa ligne d'explication.
+// The test in render.test.ts compares this list with what the help page
+// documents, exactly as it already does for the rail's views: an eighth format
+// therefore cannot arrive without its line of explanation.
 export interface FormatExport {
   label: string;
   rappel: keyof BannerCallbacks;
-  // `dessinDisponible` dit qu'un schéma est à l'écran et prêt à être rendu.
+  // `drawingAvailable` says a diagram is on screen and ready to be rendered.
   active: (state: AppState, drawingAvailable: boolean) => boolean;
 }
 
 const onADiagram = (state: AppState, drawingAvailable: boolean) =>
   state.file !== null && state.view !== "matrix" && state.view !== "checks" && drawingAvailable;
 
-// Ces trois-là emportent TOUT le classeur -- draw.io une planche par onglet,
-// les DSL une vue par planche -- donc aucun ne dépend de la vue ouverte.
+// These three carry away the WHOLE workbook -- draw.io one board per tab, the
+// DSLs one view per board -- so none depends on the view that is open.
 const surTout = (state: AppState) => state.file !== null && state.view !== "upgrade";
 
 export const EXPORTS: FormatExport[] = [
   { label: "SVG", rappel: "onExportSvg", active: onADiagram },
   { label: "PNG", rappel: "onExportPng", active: onADiagram },
-  // La matrix n'est pas un dessin : ce qu'on veut en emporter, c'est le
-  // tableau, dans l'outil où on le trie et le filtre.
+  // The matrix is not a drawing: what one wants to take away is the table, in
+  // the tool where it gets sorted and filtered.
   { label: "Excel", rappel: "onExportXlsx", active: (s) => s.file !== null && s.view === "matrix" },
-  // Le rapport n'est ni un dessin ni un tableau : c'est une liste de lignes à
-  // corriger, chacune avec son adresse. Emportée en Markdown, elle se colle
-  // dans un ticket et se traite sans rouvrir l'outil.
+  // The report is neither a drawing nor a table: it is a list of rows to fix,
+  // each with its address. Taken away as Markdown, it pastes into a ticket and
+  // gets handled without reopening the tool.
   { label: "Markdown", rappel: "onExportMarkdown", active: (s) => s.file !== null && s.view === "checks" },
-  // draw.io est un dessin : il suit le mode de lecture.
+  // draw.io is a drawing: it follows the reading mode.
   { label: "draw.io", rappel: "onExportDrawio", active: surTout },
-  // Ces deux-là étaient fermés en lecture fonctionnelle, au motif qu'un schéma
-  // fonctionnel n'est pas une architecture C4. Le motif ne tient pas : un
-  // système qui rend un service à un autre est le cas d'usage central d'un
-  // systemLandscape. Ce qu'on s'interdit, c'est de livrer un fichier qui
-  // raconte autre chose que l'écran -- il suffit donc que le fichier DISE ce
-  // qu'il est, ce qu'il fait maintenant.
+  // These two were closed in the functional reading, on the grounds that a
+  // functional diagram is not a C4 architecture. The reason does not hold: a
+  // system rendering a service to another is a systemLandscape's central use
+  // case. What is forbidden is delivering a file that tells something other than
+  // the screen -- so it is enough for the file to SAY what it is, which it now
+  // does.
   { label: "Structurizr", rappel: "onExportStructurizr", active: surTout },
   { label: "LikeC4", rappel: "onExportLikeC4", active: surTout },
 ];
@@ -71,8 +71,8 @@ export function renderBanner(
     legacyState.classList.add("banner-error");
     legacyState.textContent = state.messageBandeau;
   } else if (state.file) {
-    // Un classeur fraîchement produit n'a pas encore de date d'enregistrement :
-    // le dire plutôt que d'afficher « saved » suivi d'un vide.
+    // A freshly produced workbook has no save date yet: say so rather than show
+    // "saved" followed by a blank.
     const date = state.file.dateModification
       ? `saved ${state.file.dateModification.toLocaleString("en-GB")}`
       : "save date unknown";

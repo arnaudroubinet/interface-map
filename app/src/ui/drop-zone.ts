@@ -1,11 +1,11 @@
 import { el } from "../shared/dom";
 
-// Le seul message que l'outil se permet quand un classeur ne se laisse pas
-// lire du tout : il ne sait alors rien de la cause réelle (bytes tronqués,
-// zip corrompu, format inconnu...), donc il ne prétend rien de plus précis.
-// C'est le mot exact que la cible de dépôt principale (app.ts) emploie pour
-// le même échec ; nommé ici pour que la fenêtre de migration le reprenne au
-// lieu d'en inventer un second.
+// The only message the tool allows itself when a workbook cannot be read at
+// all: it then knows nothing of the real cause (truncated bytes, corrupt zip,
+// unknown format...), so it claims nothing more precise. It is the exact
+// wording the main drop target (app.ts) uses for the same failure; named here
+// so that the migration dialog takes it up rather than inventing a second one.
+//
 export const UNREADABLE_WORKBOOK_MESSAGE = "Workbook unreadable or corrupted.";
 
 export function buildDropTarget(onDownloadSample: () => void, onAide: () => void): HTMLElement {
@@ -18,8 +18,8 @@ export function buildDropTarget(onDownloadSample: () => void, onAide: () => void
     el("p", { class: "drop-target-text" }, [
       "The workbook is never uploaded or stored: everything happens in this browser.",
     ]),
-    // Sans classeur sous la main, le plus utile est d'en essayer un rempli :
-    // le modèle vide reste accessible en pied de rail.
+    // With no workbook at hand, the most useful thing is to try a filled one: the
+    // empty template stays available at the rail's foot.
     el("div", { class: "drop-target-actions" }, [button, aide]),
   ]);
 }

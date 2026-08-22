@@ -8,7 +8,7 @@ import type { Neighbourhood } from "../aggregation/impact";
 import type { RoadmapSubject } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
 
-// L'ordre de lecture va du plus court au plus complet.
+// The reading order goes from the shortest to the most complete.
 const EDGE_LABELS: [EdgeLabelMode, string][] = [
   ["technology", "technology"],
   ["exchanges", "what flows"],
@@ -18,9 +18,9 @@ import type { Reading } from "../aggregation/reading";
 import type { AppState, View } from "./state";
 import { VIEWS_MOOT_IN_FUNCTIONAL, VIEW_LABEL } from "./state";
 
-// L'ordre du rail, et lui seul : les libellés viennent de LIBELLE_VUE, qui est
-// la seule table. « mise-a-niveau » n'y figure pas -- on n'y navigue pas, on y
-// est envoyé.
+// The rail's order, and nothing else: the labels come from VIEW_LABEL, which
+// is the only table. "upgrade" is not in it -- one does not navigate there,
+// one is sent there.
 const VIEW_ORDER: View[] = [
   "group-to-group",
   "platform-detail",
@@ -37,15 +37,15 @@ const VIEW_ORDER: View[] = [
 
 export const VIEWS: { id: View; label: string }[] = VIEW_ORDER.map((id) => ({ id, label: VIEW_LABEL[id] }));
 
-// Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
-// qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
+// The matrix's three reading scales, with the title of the checkbox block that
+// goes with them: what gets unticked is the rows actually drawn.
 const GRANULARITES_MATRICE: { id: MatrixGrain; label: string; filterTitle: string }[] = [
   { id: "actor", label: "Actor to actor", filterTitle: "Actors" },
   { id: "group", label: "Group to group", filterTitle: "Groups" },
   { id: "platform", label: "Platform to group", filterTitle: "Actors and groups" },
 ];
 
-// Les quatre ordres proposés, du plus neutre au plus interprétatif.
+// The four orders offered, from the most neutral to the most interpretative.
 const MATRIX_ORDERS: { id: MatrixOrder; label: string }[] = [
   { id: "alphabetical", label: "Order: alphabetical" },
   { id: "group", label: "Order: by group" },
@@ -53,7 +53,7 @@ const MATRIX_ORDERS: { id: MatrixOrder; label: string }[] = [
   { id: "blocks", label: "Order: blocks" },
 ];
 
-// Jusqu'où la planche par acteur porte le regard.
+// How far the by-actor board carries the eye.
 const NEIGHBOURHOODS: { id: Neighbourhood; label: string }[] = [
   { id: "direct", label: "Neighbours: direct" },
   { id: "upstream", label: "Neighbours: what it depends on" },
@@ -87,9 +87,9 @@ export interface RailCallbacks {
   onMigrationLegacy: () => void;
 }
 
-// Un palier se choisit dans une liste, jamais ne se tape : son libellé et son
-// statut sont affichés en regard, pour qu'on sache si l'on regarde du livré ou
-// du planifié.
+// A milestone is picked from a list, never typed: its label and its status are
+// shown alongside, so one knows whether one is looking at what is delivered or
+// what is planned.
 function milestoneSelect(
   title: string,
   milestones: readonly { name: string; label: string; status: string }[],
@@ -110,17 +110,17 @@ function milestoneSelect(
   return block;
 }
 
-// Le mode se choisit avant la vue, parce qu'il décide lesquelles ont un sens.
-// Toujours offert, même sur un classeur sans aucune nature renseignée : le mode
-// fonctionnel y fusionne déjà les médias, et c'est ce qui le rend découvrable
-// -- caché, personne ne saurait qu'il faut remplir la colonne.
+// The mode is chosen before the view, because it decides which ones make
+// sense. Always offered, even on a workbook with no nature filled in: the
+// functional mode already merges the media there, and that is what makes it
+// discoverable -- hidden, nobody would know the column had to be filled.
 function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => void): void {
   const block = el("label", { class: "rail-milestone" });
   block.appendChild(el("span", { class: "rail-milestone-title" }, ["Reading"]));
   const select = el("select", { class: "rail-select" });
-  // Les deux lectures sont justes et n'empruntaient pas le vocabulaire que
-  // leurs lecteurs possèdent déjà : ce sont les viewpoints ArchiMate
-  // « Application Cooperation » et « Application Usage ».
+  // Both readings are correct and did not borrow the vocabulary their readers
+  // already have: these are the ArchiMate viewpoints "Application Cooperation"
+  // and "Application Usage".
   for (const [value, label] of [
     ["architecture", "Architecture — application interfaces (how it travels)"],
     ["functional", "Functional — application services (who feeds whom)"],
@@ -134,7 +134,7 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
   root.appendChild(block);
 }
 
-// Interrupteur « masquer les externes », identique d'une vue à l'autre.
+// The "hide externals" switch, identical from one view to the next.
 function basculeExternes(checked: boolean, onChange: (value: boolean) => void): HTMLElement {
   const label = el("label", { class: "rail-toggle" });
   const input = el("input", { type: "checkbox" });
@@ -145,8 +145,8 @@ function basculeExternes(checked: boolean, onChange: (value: boolean) => void): 
   return label;
 }
 
-// Un groupe de cases à cocher repliable. Coché = visible, décoché = masqué :
-// on décrit ce qu'on voit, pas ce qu'on retire.
+// A collapsible group of checkboxes. Ticked = visible, unticked = hidden: what
+// is described is what one sees, not what one removes.
 function filterBlock(
   title: string,
   values: string[],
@@ -169,8 +169,8 @@ function filterBlock(
   return block;
 }
 
-// Pied de rail : de quoi partir. Il s'affiche même sans classeur chargé --
-// c'est précisément là qu'on cherche un modèle ou un exemple.
+// The rail's foot: something to start from. It shows even with no workbook
+// loaded -- that is precisely when one looks for a template or a sample.
 export function renderRailFoot(
   root: HTMLElement,
   callbacks: Pick<RailCallbacks, "onDownloadTemplate" | "onDownloadSample" | "onMigrationLegacy">
@@ -195,10 +195,10 @@ export function renderRailFoot(
 export function renderRail(
   root: HTMLElement,
   state: AppState,
-  // La MÊME lecture que les vues, et non le modèle entier : le rail proposait
-  // des acteurs que le palier affiché avait retirés, et en sélectionnait un
-  // tout seul faute de mieux -- l'utilisateur obtenait alors une boîte fantôme
-  // sans un mot d'explication.
+  // The SAME reading as the views, not the whole model: the rail used to offer
+  // actors the displayed milestone had retired, and selected one on its own for
+  // want of anything better -- the user then got a phantom box with not a word
+  // of explanation.
   reading: Reading,
   currentTechnologies: string[],
   callbacks: RailCallbacks
@@ -210,8 +210,8 @@ export function renderRail(
     return;
   }
 
-  // Sur l'écran de mise à niveau, les vues restent visibles mais inertes : les
-  // rendre cliquables pour les voir refuser serait pire que de les griser.
+  // On the upgrade screen the views stay visible but inert: making them
+  // clickable only to see them refuse would be worse than greying them out.
   const blocked = state.view === "upgrade";
 
   renderMode(root, state, callbacks.onMode);
@@ -222,13 +222,13 @@ export function renderRail(
     const button = el("button", { class: "rail-view-item" }, [v.label]);
     if (blocked) button.disabled = true;
     if (v.id === state.view) button.setAttribute("aria-current", "true");
-    // Trois compteurs, trois natures : les anomalies invalident les schémas
-    // (rouge), les actions attendent une décision (bleu), les avertissements
-    // signalent une saisie incomplète (jaune). Seul le rouge détourne
-    // l'utilisateur de sa vue.
-    // Sur l'écran de mise à niveau, le rapport porte sur un classeur mal lu
-    // (§ vueAuChargement) : ses comptes ne veulent rien dire, les montrer
-    // laisserait croire à un diagnostic qu'on n'a pas.
+    // Three counters, three natures: anomalies invalidate the diagrams (red),
+    // actions await a decision (blue), warnings report an incomplete entry
+    // (yellow). Only red diverts the user from their view.
+    //
+    // On the upgrade screen the report concerns a badly-read workbook
+    // (§ viewOnLoad): its counts mean nothing, and showing them would suggest a
+    // diagnosis one does not have.
     if (v.id === "checks" && !blocked) {
       const { totalAnomalies, totalActions, totalWarnings } = state.file.report;
       if (totalAnomalies > 0) {
@@ -252,9 +252,9 @@ export function renderRail(
   }
   root.appendChild(nav);
 
-  // Le sélecteur de palier passe avant tout le reste : il vaut pour l'outil
-  // entier, pas pour la vue courante. Absent quand le classeur ne déclare
-  // aucun palier -- proposer un axe vide n'apprendrait rien.
+  // The milestone selector comes before everything else: it applies to the whole
+  // tool, not to the current view. Absent when the workbook declares no
+  // milestone -- offering an empty axis would teach nothing.
   const milestones = state.file.model.milestones;
   if (milestones.length > 0 && !blocked) {
     const block = el("div", { class: "rail-milestones" });
@@ -267,9 +267,9 @@ export function renderRail(
 
   if (state.view === "by-actor") {
     const select = el("select", { class: "rail-select" });
-    // Le sélecteur ne propose que ce que la lecture courante retient : les
-    // acteurs techniques disparaissent en fonctionnel (§5.2), les retirés
-    // disparaissent au palier où ils le sont.
+    // The selector offers only what the current reading keeps: the technical
+    // actors disappear in the functional reading (§5.2), the retired ones
+    // disappear at the milestone where they are.
     const availableActors = reading.actors;
     for (const actor of [...availableActors].sort((a, b) => a.name.localeCompare(b.name, "fr"))) {
       const option = el("option", { value: actor.name }, [actor.name]);
@@ -279,9 +279,9 @@ export function renderRail(
     select.addEventListener("change", () => callbacks.onActorSelection(select.value));
     root.appendChild(select);
 
-    // Jusqu'où porter le regard. « Ce qui dépend de lui » répond à la question
-    // qu'on pose le jour où il faut arbitrer une migration : si cet acteur
-    // tombe, qui est touché ?
+    // How far to carry the eye. "What depends on it" answers the question asked
+    // on the day a migration has to be arbitrated: if this actor falls, who is
+    // affected?
     const neighbourhood = el("select", { class: "rail-select rail-neighbourhood" });
     for (const v of NEIGHBOURHOODS) {
       const option = el("option", { value: v.id }, [v.label]);
@@ -303,8 +303,8 @@ export function renderRail(
     root.appendChild(select);
   }
 
-  // Filtres de la vue par acteur : l'acteur regardé n'est pas décochable, sans
-  // quoi la vue perdrait son sujet.
+  // The by-actor view's filters: the actor being looked at cannot be unticked,
+  // failing which the view would lose its subject.
   if (state.view === "by-actor" && state.actorSelection) {
     const available = actorFilterOptions(flows, state.actorSelection);
     const techs = filterBlock("Technologies", available.technologies, state.actorFilters.hiddenTechnologies, callbacks.onTechnologyHidden);
@@ -324,9 +324,9 @@ export function renderRail(
   }
 
   if (state.view === "chain") {
-    // Le sélecteur de chaîne. Une chaîne n'a de sens qu'en lecture
-    // fonctionnelle : c'est là que la plomberie est traversée, et la vue montre
-    // justement ce que cette traversée efface.
+    // The chain selector. A chain only makes sense in the functional reading:
+    // that is where the plumbing is crossed, and the view shows precisely what
+    // that crossing erases.
     const chains = availableChains(state.file.model, rankOfMilestone(state.file.model, state.shownMilestone ?? "") ?? null);
     const select = el("select", { class: "rail-select rail-chain" });
     for (const c of chains) {
@@ -363,9 +363,9 @@ export function renderRail(
     select.addEventListener("change", () => callbacks.onMatrixGrain(select.value as MatrixGrain));
     root.appendChild(select);
 
-    // L'ordre : c'est le levier de lecture le plus fort de la matrix, et il
-    // était inutilisé. L'alphabétique reste le défaut -- une seriation ne doit
-    // jamais s'imposer en silence.
+    // The order: this is the matrix's strongest reading lever, and it was
+    // unused. Alphabetical stays the default -- a seriation must never impose
+    // itself in silence.
     const order = el("select", { class: "rail-select rail-matrix-order" });
     for (const o of MATRIX_ORDERS) {
       const option = el("option", { value: o.id }, [o.label]);
@@ -396,9 +396,9 @@ export function renderRail(
     countersLabel.appendChild(document.createTextNode(" counters"));
     options.appendChild(countersLabel);
 
-    // Nommer le seul protocole fait une carte des TUYAUX ; nommer l'échange en
-    // fait une carte de ce qui CIRCULE. Les deux se valent selon la question
-    // qu'on pose au schéma, d'où le choix plutôt qu'un défaut imposé.
+    // Naming the protocol alone makes a map of PIPES; naming the exchange makes
+    // it a map of what TRAVELS. Both are worth the same depending on the
+    // question asked of the diagram, hence the choice rather than an imposed
     const labelField = el("label", { class: "rail-option-label" }, ["Label "]);
     const labelSelect = el("select", { class: "rail-select" });
     for (const [value, text] of EDGE_LABELS) {
@@ -410,8 +410,8 @@ export function renderRail(
     labelField.appendChild(labelSelect);
     options.appendChild(labelField);
 
-    // L'échelle du PNG, à côté de ce qu'elle sert : un schéma d'architecture
-    // est du trait fin, c'est le cas où une haute résolution paie encore.
+    // default. The PNG's scale, beside what it serves: an architecture diagram
+    // is thin lines, the case where high resolution still pays.
     const echelleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
     const scaleSelect = el("select", { class: "rail-select" });
     for (const factor of [1, 2, 4] as const) {
@@ -423,9 +423,9 @@ export function renderRail(
     echelleLabel.appendChild(scaleSelect);
     options.appendChild(echelleLabel);
 
-    // La criticité est saisie, contrôlée et exportée depuis toujours, et
-    // n'était jamais dessinée. C'est la donnée la plus décisionnelle du
-    // classeur.
+    // Criticality has been entered, checked and exported since day one, and was
+    // never drawn. It is the workbook's most decision-bearing field.
+    //
     const critLabel = el("label", { class: "rail-option-criticality" });
     const critInput = el("input", { type: "checkbox" });
     critInput.checked = state.options.weightByCriticality;
@@ -439,7 +439,7 @@ export function renderRail(
 
   renderRailFoot(root, callbacks);
 
-  // La légende n'est plus ici : elle est dessinée DANS le SVG, pour voyager
-  // avec le schéma exporté. La dupliquer dans le rail ne ferait que deux
-  // sources à tenir à jour.
+  // The legend is no longer here: it is drawn IN the SVG, so as to travel with
+  // the exported diagram. Duplicating it in the rail would only make two sources
+  // to keep up to date.
 }
