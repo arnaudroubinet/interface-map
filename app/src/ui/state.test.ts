@@ -74,20 +74,20 @@ describe("withGranulariteMatrice", () => {
   });
 });
 
-describe("withFichierCharge — classeur d'une version antérieure", () => {
+describe("withLoadedFile — a workbook of an earlier version", () => {
   const ancien = { ...model, schemaVersion: 0 };
 
-  it("ouvre sur l'écran de mise à niveau plutôt que sur une vue", () => {
+  it("opens on the upgrade screen rather than on a view", () => {
     const loaded = withLoadedFile(initialState(), {
       name: "vieux.xlsx", model: ancien, report, dateModification: null,
     });
     expect(loaded.view).toBe("upgrade");
   });
 
-  // Les anomalies d'un classeur qu'on ne sait pas lire entièrement ne sont pas
-  // fiables : la mise à niveau passe avant, sans quoi on ferait corriger des
-  // défauts qui n'en sont peut-être pas.
-  it("passe avant l'écran des contrôles, même en présence d'anomalies", () => {
+  // The anomalies of a workbook that cannot be read in full are not reliable:
+  // the upgrade comes first, failing which people would be made to fix defects
+  // that may not be defects at all.
+  it("comes before the checks screen, even when anomalies are present", () => {
     const atFault: IntegrityReport = {
       families: [{ id: "coherence", title: "Cohérence", description: "", anomalies: [{ message: "…" }] }],
       infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalWarnings: 0,
@@ -98,7 +98,7 @@ describe("withFichierCharge — classeur d'une version antérieure", () => {
     expect(loaded.view).toBe("upgrade");
   });
 
-  it("laisse un classeur à jour ouvrir normalement", () => {
+  it("lets an up-to-date workbook open normally", () => {
     const loaded = withLoadedFile(initialState(), {
       name: "a-jour.xlsx", model, report, dateModification: null,
     });
@@ -116,7 +116,7 @@ describe("withFichierCharge — palier d'ouverture", () => {
     ],
   };
 
-  it("ouvre sur le dernier palier livré, en comparant au précédent", () => {
+  it("opens on the last delivered milestone, comparing with the previous one", () => {
     const loaded = withLoadedFile(initialState(), {
       name: "c.xlsm", model: withMilestones, report, dateModification: null,
     });
@@ -124,7 +124,7 @@ describe("withFichierCharge — palier d'ouverture", () => {
     expect(loaded.comparedMilestone).toBe("v1");
   });
 
-  it("laisse les deux à null quand le classeur ne déclare aucun palier", () => {
+  it("leaves both null when the workbook declares no milestone", () => {
     const loaded = withLoadedFile(initialState(), {
       name: "c.xlsm", model, report, dateModification: null,
     });
@@ -133,24 +133,24 @@ describe("withFichierCharge — palier d'ouverture", () => {
   });
 });
 
-describe("mode de lecture", () => {
+describe("reading mode", () => {
   it("ouvre en architecture", () => {
     expect(initialState().mode).toBe("architecture");
   });
 
-  it("retient le mode choisi", () => {
+  it("keeps the mode chosen", () => {
     expect(withMode(initialState(), "functional").mode).toBe("functional");
   });
 
-  // « Par technologie » n'a pas d'objet sans technologie : y rester
-  // afficherait une vue vide sans rien expliquer. Le repli n'est plus le
-  // groupe à groupe, qui n'a pas davantage d'objet en fonctionnel.
-  it("quitte la vue par technologie en passant en fonctionnel", () => {
+  // "By technology" is moot with no technology: staying there would show an
+  // empty view and explain nothing. The fallback is no longer group to group,
+  // which is no less moot in the functional reading.
+  it("leaves the by-technology view when switching to the functional reading", () => {
     const s = withView(initialState(), "by-technology");
     expect(withMode(s, "functional").view).toBe("platform-detail");
   });
 
-  it("laisse la vue en place quand elle garde un sens", () => {
+  it("leaves the view in place when it still makes sense", () => {
     const s = withView(initialState(), "matrix");
     expect(withMode(s, "functional").view).toBe("matrix");
   });
@@ -165,26 +165,26 @@ describe("mode de lecture", () => {
     ],
   };
 
-  // Passer en fonctionnel sans corriger la sélection montre une seule boîte
-  // et aucun message : la boîte disparue du sélecteur reste pourtant visée.
-  it("efface la sélection d'acteur en passant en fonctionnel si elle visait un acteur technique", () => {
+  // Switching to the functional reading without fixing the selection shows a
+  // single box and no message: the box gone from the selector is still targeted.
+  it("clears the actor selection when switching to the functional reading if it targeted a technical actor", () => {
     const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
     const s = withActorSelection(loaded, "Bus");
     expect(withMode(s, "functional").actorSelection).toBeNull();
   });
 
-  it("garde la sélection quand elle visait déjà un acteur métier", () => {
+  it("keeps the selection when it already targeted a business actor", () => {
     const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null });
     const s = withActorSelection(loaded, "Tatooine");
     expect(withMode(s, "functional").actorSelection).toBe("Tatooine");
   });
 });
 
-// --- QA : changer de palier ne revalidait pas la sélection d'acteur. Le mode
-// le faisait déjà (§5.2) ; le palier, non. Un acteur retiré restait donc
-// sélectionné alors qu'il ne figure plus dans la lecture, et le schéma
-// n'affichait qu'une boîte fantôme, sans un mot pour l'expliquer.
-describe("withPalierAffiche — la sélection suit ce que le palier montre", () => {
+// --- QA: changing milestone did not revalidate the actor selection. The mode
+// already did (§5.2); the milestone did not. A retired actor therefore stayed
+// selected although it is no longer in the reading, and the diagram showed
+// nothing but a phantom box, with not a word to explain it.
+describe("withDisplayedMilestone — the selection follows what the milestone shows", () => {
   const actor = (name: string, retiredAt = "") => base.actor({ name, retiredAt });
   const withRoadmap: ParsedModel = {
     ...model,
@@ -197,59 +197,59 @@ describe("withPalierAffiche — la sélection suit ce que le palier montre", () 
       "Tatooine"
     );
 
-  it("lâche un acteur que le nouveau palier ne montre plus", () => {
+  it("drops an actor the new milestone no longer shows", () => {
     expect(withDisplayedMilestone(loaded(), "v2").actorSelection).toBeNull();
   });
 
-  it("garde un acteur que le nouveau palier montre encore", () => {
+  it("keeps an actor the new milestone still shows", () => {
     expect(withDisplayedMilestone(loaded(), "v1").actorSelection).toBe("Tatooine");
   });
 
-  it("garde la sélection quand on retire le filtre de palier", () => {
+  it("keeps the selection when the milestone filter is removed", () => {
     expect(withDisplayedMilestone(loaded(), null).actorSelection).toBe("Tatooine");
   });
 });
 
-// --- QA : un classeur d'un schéma PLUS RÉCENT que l'outil s'ouvrait
-// normalement -- la condition ne regardait que le retard. L'outil en dessinait
-// une image amputée de tout ce qu'il ne sait pas encore lire, sans le dire.
-describe("vueAuChargement — les deux sens du désaccord de schéma", () => {
+// --- QA: a workbook of a schema NEWER than the tool opened normally -- the
+// condition only looked at being behind. The tool drew an image of it
+// truncated of everything it cannot yet read, without saying so.
+describe("viewOnLoad — both directions of the schema mismatch", () => {
   const at = (schemaVersion: number) => ({
     name: "c.xlsx", model: { ...model, schemaVersion }, report, dateModification: null,
   });
 
-  it("bloque sur un classeur en retard", () => {
+  it("blocks on a workbook that is behind", () => {
     expect(viewOnLoad(at(SCHEMA_VERSION - 1))).toBe("upgrade");
   });
 
-  it("bloque aussi sur un classeur en avance", () => {
+  it("blocks on a workbook that is ahead too", () => {
     expect(viewOnLoad(at(SCHEMA_VERSION + 1))).toBe("upgrade");
   });
 
-  it("laisse passer un classeur à la bonne version", () => {
+  it("lets a workbook of the right version through", () => {
     expect(viewOnLoad(at(SCHEMA_VERSION))).not.toBe("upgrade");
   });
 });
 
-// --- QA : le groupe à groupe n'a pas de sens en fonctionnel -- on n'y présente
-// que la vue d'architecture. Le rail ne retirait pourtant que « par
-// technologie », et la vue restait offerte.
-describe("withMode — les vues qui n'ont pas de sens en fonctionnel", () => {
+// --- QA: group to group makes no sense in the functional reading -- only the
+// architecture view is presented there. Yet the rail removed only "by
+// technology", and the view stayed on offer.
+describe("withMode — the views that are moot in the functional reading", () => {
   const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null });
 
-  // « Groupe à groupe » a été ROUVERT en fonctionnel : « quelle direction
-  // alimente quelle direction » est précisément la question d'un comité de
-  // direction, et c'est la seule vue qui y réponde.
-  it("garde le groupe à groupe en passant en fonctionnel", () => {
+  // "Group to group" was REOPENED in the functional reading: "which division
+  // feeds which division" is precisely a board's question, and it is the only
+  // view that answers it.
+  it("keeps group to group when switching to the functional reading", () => {
     const state = withMode(withView(loaded(), "group-to-group"), "functional");
     expect(state.view).toBe("group-to-group");
   });
 
-  it("quitte aussi la vue par technologie", () => {
+  it("leaves the by-technology view as well", () => {
     expect(withMode(withView(loaded(), "by-technology"), "functional").view).not.toBe("by-technology");
   });
 
-  it("ne touche à rien en architecture", () => {
+  it("touches nothing in the architecture reading", () => {
     expect(withMode(withView(loaded(), "group-to-group"), "architecture").view).toBe("group-to-group");
   });
 });

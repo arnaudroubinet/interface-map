@@ -3,9 +3,9 @@ import * as base from "../testing/fixtures";
 import { availableChains, buildChainView } from "./chain";
 import type { ParsedModel } from "../parsing/model";
 
-// Boreal publie sur Kafka, l'ESB relaie, un consommateur métier reçoit. Trois
-// maillons, deux technologies, et trois NOMS différents : c'est exactement ce
-// que la lecture fonctionnelle efface et que la vue Chaîne est venue montrer.
+// Boreal publishes over Kafka, the ESB relays, a business consumer receives.
+// Three hops, two technologies, and three different NAMES: exactly what the
+// functional reading erases and what the Chain view came to show.
 function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   return base.template({
     groups: [base.group({ name: "G" })],
@@ -33,7 +33,7 @@ function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
 }
 
 describe("chainesDisponibles", () => {
-  it("rend un maillon par segment, dans l'ordre du parcours", () => {
+  it("returns one hop per segment, in walking order", () => {
     const [chain] = availableChains(threeHopEstate(), null);
     expect(chain.hops.map((m) => [m.provider, m.consumer])).toEqual([
       ["Boreal", "Kafka"],
@@ -42,20 +42,20 @@ describe("chainesDisponibles", () => {
     ]);
   });
 
-  // Le nom sous lequel l'échange circule CHANGE en route : c'est ce qu'on vient
-  // voir, et ce que le lien fonctionnel rabattu ne dit pas.
-  it("porte sur chaque maillon le nom et la technologie de CE segment", () => {
+  // The name the exchange travels under CHANGES on the way: that is what one
+  // comes to see, and what the folded functional link does not say.
+  it("carries on each hop the name and technology of THAT segment", () => {
     const [chain] = availableChains(threeHopEstate(), null);
     expect(chain.hops.map((m) => m.interfaceName)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
     expect(chain.hops.map((m) => m.technology)).toEqual(["Kafka", "Kafka", "HTTP"]);
   });
 
-  it("se nomme par ses deux bouts et l'échange reçu", () => {
+  it("is named by its two ends and the exchange received", () => {
     expect(availableChains(threeHopEstate(), null)[0].label).toBe("Boreal → Onderon : Policy feed");
   });
 
-  // Un lien direct est une chaîne d'UN maillon : pas un cas particulier.
-  it("rend un seul maillon pour un lien direct", () => {
+  // A direct link is a ONE-hop chain: not a special case.
+  it("returns a single hop for a direct link", () => {
     const direct = base.template({
       groups: [base.group({ name: "G" })],
       actorTypes: [base.actorType()],
@@ -68,19 +68,19 @@ describe("chainesDisponibles", () => {
     expect(availableChains(direct, null)[0].hops).toHaveLength(1);
   });
 
-  // L'atténuation se marque À L'ENDROIT où elle a lieu, pas globalement : c'est
-  // toute la valeur de la vue face au lien rabattu, qui ne dit que « quelque
-  // part sur le trajet ».
-  it("marque le maillon qui transforme, et lui seul", () => {
+  // The dimming is marked AT THE PLACE it happens, not globally: that is the
+  // whole value of the view against the folded link, which says only
+  // "somewhere along the way".
+  it("marks the hop that transforms, and it alone", () => {
     const estate = threeHopEstate();
     estate.consumptions[1].decision = "Transform";
     const [chain] = availableChains(estate, null);
     expect(chain.hops.map((m) => m.attenuated)).toEqual([false, true, false]);
   });
 
-  // Une chaîne coupée ne produit aucun lien fonctionnel : elle n'a donc pas de
-  // trajet à proposer, et le rapport d'intégrité la signale par ailleurs.
-  it("ne propose rien quand la chaîne est coupée", () => {
+  // A broken chain produces no functional link: it therefore has no route to
+  // offer, and the integrity report reports it separately.
+  it("offers nothing when the chain is broken", () => {
     const estate = threeHopEstate();
     estate.consumptions[0].republishedAs = "";
     expect(availableChains(estate, null)).toEqual([]);
@@ -88,21 +88,21 @@ describe("chainesDisponibles", () => {
 });
 
 describe("buildChainView", () => {
-  it("dessine un nœud par acteur traversé et un trait par maillon", () => {
+  it("draws one node per actor crossed and one line per hop", () => {
     const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.id)).toEqual(["Boreal", "Kafka", "ESB", "Onderon"]);
     expect(view.edges).toHaveLength(3);
   });
 
-  // Les deux bouts sont ce qu'on est venu voir ; ce qu'il y a entre eux est la
+  // The two ends are what one came to see; what lies between them is the
   // plomberie qu'on traverse.
-  it("met en avant les deux bouts et marque la plomberie du milieu", () => {
+  it("brings the two ends forward and marks the plumbing in between", () => {
     const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.kind)).toEqual(["focus-actor", "actor", "actor", "focus-actor"]);
     expect(view.nodes.map((n) => n.technical)).toEqual([undefined, true, true, undefined]);
   });
 
-  it("écrit sur chaque trait le nom porté à cet endroit", () => {
+  it("writes on each line the name carried at that point", () => {
     const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.edges.map((e) => e.label)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
   });

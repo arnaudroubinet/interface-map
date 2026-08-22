@@ -1,13 +1,13 @@
-// Ce fichier ne couvre que les collisions de displayName. Le reste de l'OOXML
-// écrit à la main -- noms définis, validations, ordre des balises -- est
-// vérifié à la balise près dans template-export.test.ts, qui inspecte le XML
-// réellement produit. Bonne couverture, rangée sous un autre nom.
+// This file covers nothing but displayName collisions. The rest of the
+// hand-written OOXML -- defined names, validations, tag order -- is verified
+// tag by tag in template-export.test.ts, which inspects the XML actually
+// produced. Good coverage, filed under another name.
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { applyOoxmlExtras, type TableToApply } from "./xlsx-tables";
 
-// Un classeur minimal, juste assez pour que poserLesTableaux trouve les
-// feuilles qu'on lui demande de compléter.
+// A minimal workbook, just enough for applyTheTables to find the sheets it is
+// asked to complete.
 function minimalWorkbook(sheets: readonly string[]): ArrayBuffer {
   const wb = XLSX.utils.book_new();
   for (const name of sheets) {
@@ -29,12 +29,12 @@ function displayNamesDesTables(paquet: ArrayBuffer): string[] {
   return names;
 }
 
-// nomDeTableau() assainit un nom de feuille en remplaçant tout caractère non
-// alphanumérique par « _ » : « FX_A B_HTTP » et « FX_A-B_HTTP » retombent
-// tous deux sur « TblFX_A_B_HTTP ». ECMA-376 §18.5.1.2 exige un displayName
-// unique dans le classeur ; Excel résout la collision en supprimant l'un des
-// deux tableaux (« Enregistrements supprimés ») et en proposant de réparer.
-describe("poserLesTableaux — collision de noms de tableau", () => {
+// tableName() sanitises a sheet name by replacing every non-alphanumeric
+// character with "_": "FX_A B_HTTP" and "FX_A-B_HTTP" both fall back to
+// "TblFX_A_B_HTTP". ECMA-376 §18.5.1.2 requires a unique displayName within
+// the workbook; Excel resolves the collision by deleting one of the two tables
+// ("Records removed") and offering to repair.
+describe("applyTheTables — table-name collision", () => {
   const sheets = ["FX_A B_HTTP", "FX_A-B_HTTP"];
   const tables: TableToApply[] = sheets.map((sheet) => ({
     sheet,
@@ -42,14 +42,14 @@ describe("poserLesTableaux — collision de noms de tableau", () => {
     rows: 1,
   }));
 
-  it("donne un displayName distinct à deux feuilles qui s'assainissent à l'identique", () => {
+  it("gives a distinct displayName to two sheets that sanitise identically", () => {
     const paquet = applyOoxmlExtras(minimalWorkbook(sheets), { tables });
     const names = displayNamesDesTables(paquet);
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(2);
   });
 
-  it("nomme les tableaux de façon stable d'une génération à l'autre", () => {
+  it("names the tables stably from one generation to the next", () => {
     const raw = minimalWorkbook(sheets);
     const premier = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));
     const second = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));

@@ -4,8 +4,8 @@ import { allBoards } from "./boards";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
-// Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
-// donc les champs qu'ils lisent doivent être remplis.
+// A filled-in estate: these files check what the exports CARRY, so the fields
+// they read must be filled in.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "Socle", description: "d", ...o });
 }
@@ -45,9 +45,9 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
 const titles = (m: ParsedModel, rank: number | null = null) =>
   allBoards(m, rank, "architecture").map((p) => p.title);
 
-// Bus relaie un flux d'Tatooine vers Naboo : Tatooine expose F1, Bus relaie
-// via F2 (relais: F1), Naboo consomme F2. En fonctionnel, la chaîne se
-// résout en un flux direct Tatooine → Naboo, Bus disparaît.
+// Bus relays a flow from Tatooine to Naboo: Tatooine publishes F1, Bus relays
+// via F2 (relay: F1), Naboo consumes F2. In the functional reading the chain
+// resolves to a direct Tatooine → Naboo flow, and Bus disappears.
 function modelWithTechnical(): ParsedModel {
   return model({
     actors: [actor({ name: "Tatooine" }), actor({ name: "Bus", actorType: "Middleware" }), actor({ name: "Naboo" })],
@@ -65,8 +65,8 @@ describe("toutesLesPlanches", () => {
     expect(titles(model()).slice(0, 3)).toEqual(["Group to group", "Platform detail", "Platform only"]);
   });
 
-  // Les vues à sélecteur en produisent autant qu'il y a de choix dans le
-  // sélecteur : c'est là tout ce que « tous les schémas » veut dire.
+  // The views with a selector produce as many as there are choices in the
+  // selector: that is all "every diagram" means.
   it("unfolds the selector views, one board per choice", () => {
     const all = titles(model());
     expect(all).toContain("HTTP (technology)");
@@ -74,22 +74,22 @@ describe("toutesLesPlanches", () => {
     expect(all).toContain("B (actor)");
   });
 
-  // Une technologie que personne n'emploie n'a pas de schéma : ce serait une
-  // planche vide, et le rapport la signale déjà comme type inutilisé.
+  // A technology nobody uses has no diagram: it would be an empty board, and
+  // the report already reports it as an unused type.
   it("leaves out a technology no interface uses", () => {
     expect(titles(model())).not.toContain("Kafka (technology)");
   });
 
-  // Un acteur qu'aucun flux ne touche non plus : sa planche ne montrerait que
-  // sa propre boîte.
+  // Nor has an actor no flow touches: its board would show nothing but its own
+  // box.
   it("leaves out an actor no flow reaches", () => {
     const m = model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "Seul" })] });
     expect(titles(m)).not.toContain("Seul (actor)");
   });
 
-  // Un acteur peut porter le nom d'un type de flux : deux onglets « HTTP »
-  // dans le fichier draw.io, et le lecteur ne sait plus lequel est la
-  // technologie et lequel est l'acteur.
+  // An actor may bear a flow type's name: two "HTTP" tabs in the draw.io file,
+  // and the reader no longer knows which is the technology and which the actor.
+  //
   it("tells the flow type board from the actor board of the same name", () => {
     const m = model({
       actors: [actor({ name: "HTTP" }), actor({ name: "B", group: "Partenaire" })],
@@ -97,8 +97,8 @@ describe("toutesLesPlanches", () => {
     });
     expect(titles(m)).toContain("HTTP (technology)");
     expect(titles(m)).toContain("HTTP (actor)");
-    // La planche nomme l'acteur qu'elle détaille : c'est ce que visent les
-    // liens, et le titre ne se laisse plus défaire pour le retrouver.
+    // The board names the actor it details: that is what the links target, and
+    // the title can no longer be taken apart to find it again.
     const boards = allBoards(m, null, "architecture");
     expect(boards.find((p) => p.title === "HTTP (actor)")!.actor).toBe("HTTP");
     expect(boards.find((p) => p.title === "HTTP (technology)")!.actor).toBeUndefined();
@@ -110,8 +110,8 @@ describe("toutesLesPlanches", () => {
     expect(board.edges.length).toBeGreaterThan(0);
   });
 
-  // Le palier affiché vaut pour toutes les planches : un export ne peut pas
-  // mélanger deux états de la plateforme.
+  // The displayed milestone applies to every board: an export cannot mix two
+  // states of the platform.
   it("reads every board at the same milestone", () => {
     const milestones = [
       { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
@@ -128,35 +128,35 @@ describe("toutesLesPlanches", () => {
   });
 });
 
-describe("planches selon le mode", () => {
-  it("n'inclut aucune planche par technologie en fonctionnel", () => {
+describe("boards by mode", () => {
+  it("includes no by-technology board in the functional reading", () => {
     const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("HTTP (technology)");
   });
 
-  it("n'inclut aucune planche pour un acteur technique", () => {
+  it("includes no board for a technical actor", () => {
     const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles).not.toContain("Bus (actor)");
   });
 
-  it("garde les trois vues fixes", () => {
+  it("keeps the three fixed views", () => {
     const titles = allBoards(modelWithTechnical(), null, "functional").map((p) => p.title);
     expect(titles.slice(0, 3)).toEqual(["Group to group", "Platform detail", "Platform only"]);
   });
 
-  // §5.2 : un acteur métier devenu isolé -- dont les échanges passaient tous
-  // par des chaînes coupées -- reste affiché, seul. Le fichier draw.io promet
-  // toutes les planches ; un onglet manquant romprait cette promesse.
-  it("porte sa propre planche pour un acteur métier devenu isolé", () => {
+  // §5.2: a business actor left isolated -- whose exchanges all went through
+  // broken chains -- stays displayed, alone. The draw.io file promises every
+  // board; a missing tab would break that promise.
+  it("carries its own board for a business actor left isolated", () => {
     const m = modelWithTechnical();
     m.actors.push(actor({ name: "Isolé", group: "Socle" }));
     const titles = allBoards(m, null, "functional").map((p) => p.title);
     expect(titles).toContain("Isolé (actor)");
   });
 
-  // Retiré au palier affiché, l'acteur isolé n'a plus de planche : il n'est
-  // plus sur la carte, pas même seul.
-  it("n'a pas de planche pour un acteur métier isolé retiré au palier affiché", () => {
+  // Retired at the displayed milestone, the isolated actor has no board left:
+  // it is no longer on the map, not even alone.
+  it("has no board for an isolated business actor retired at the displayed milestone", () => {
     const milestones = [
       { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
       { name: "v2", rank: 2, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },

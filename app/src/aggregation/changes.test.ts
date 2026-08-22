@@ -4,7 +4,7 @@ import { computeChanges, buildEcartsView } from "./changes";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
-// Tout est daté v1 dans ce fichier : c'est entre deux paliers qu'il compare.
+// Everything is dated v1 in this file: it is between two milestones that it compares.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "G1", introducedAt: "v1", ...o });
 }
@@ -71,8 +71,8 @@ describe("calculerEcarts", () => {
     expect(computeChanges(m, 1, 2, "architecture").consumptions.ajoutes).toEqual(["C → F"]);
   });
 
-  // Lire l'écart à l'envers doit donner l'inverse, sans quoi le sens de
-  // lecture des deux sélecteurs serait ambigu.
+  // Reading the change backwards must give the inverse, otherwise the two
+  // selectors' reading direction would be ambiguous.
   it("reads backwards as the mirror of forwards", () => {
     const m = model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C", introducedAt: "v2" })] });
     expect(computeChanges(m, 2, 1, "architecture").actors.retires).toEqual(["C"]);
@@ -80,8 +80,8 @@ describe("calculerEcarts", () => {
 });
 
 describe("buildEcartsView", () => {
-  // Le vrai apport du schéma : un lien qui existe des deux côtés mais dont le
-  // volume a changé. Le marquage binaire le laissait passer en silence.
+  // The diagram's real contribution: a link that exists on both sides but whose
+  // volume changed. The binary marking let it through in silence.
   it("labels a link whose volume dropped with the delta, not with its count", () => {
     const m = model({
       actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "C", group: "G2" })],
@@ -107,8 +107,8 @@ describe("buildEcartsView", () => {
     expect(edge.change).toBe("added");
   });
 
-  // Le schéma ne montre QUE l'écart : mêler les liens inchangés au reste
-  // noierait les quelques traits qui portent l'information.
+  // The diagram shows ONLY the change: mixing the unchanged links in with the
+  // rest would drown the few lines that carry information.
   it("drops an unchanged link entirely", () => {
     const m = model({
       actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
@@ -117,8 +117,8 @@ describe("buildEcartsView", () => {
     expect(buildEcartsView(m, 1, 2, "architecture").edges).toEqual([]);
   });
 
-  // La base est « plateforme détaillée » : on veut savoir QUEL composant a
-  // gagné ou perdu un flux, pas seulement quel groupe.
+  // The base is "platform detail": one wants to know WHICH component gained or
+  // lost a flow, not merely which group.
   it("names the platform components rather than collapsing them into their group", () => {
     const m = model({
       actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
@@ -126,14 +126,14 @@ describe("buildEcartsView", () => {
       consumptions: [consumption({ retiredAt: "v2" })],
     });
     const view = buildEcartsView(m, 1, 2, "architecture");
-    // A est dans le groupe Plateforme : il est nommé, pas replié en « G1 ».
+    // A is in the Platform group: it is named, not folded into "G1".
     expect(view.nodes.map((n) => n.id)).toContain("A");
     expect(view.nodes.map((n) => n.id)).not.toContain("G1");
   });
 
-  // La frontière est un nœud parent : élaguer ses enfants sans elle laisserait
-  // des nœuds pointant vers un conteneur absent.
-  it("never leaves a node pointing at a frontière it dropped", () => {
+  // The boundary is a parent node: pruning its children without it would leave
+  // nodes pointing at a container that is no longer there.
+  it("never leaves a node pointing at a boundary it dropped", () => {
     const m = model({
       actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
@@ -159,7 +159,7 @@ describe("buildEcartsView", () => {
         { name: "G2", perimeter: "External", sheet: "Groups", row: 0 },
         { name: "G3", perimeter: "External", sheet: "Groups", row: 0 },
       ],
-      // G3 échange avec G1 sans rien changer : il ne doit pas être dessiné.
+      // G3 exchanges with G1 without changing anything: it must not be drawn.
       interfaces: [iface({}), iface({ flowName: "F2", providerName: "C", expectedSheet: "FX_C_HTTP" })],
       consumptions: [
         consumption({ retiredAt: "v2" }),
@@ -168,7 +168,7 @@ describe("buildEcartsView", () => {
       fxSheetNames: ["FX_A_HTTP", "FX_C_HTTP"],
     });
     const view = buildEcartsView(m, 1, 2, "architecture");
-    // A est nommé (Plateforme), B replié sur G2 ; G3 n'a pas bougé, il sort.
+    // A is named (Platform), B folded onto G2; G3 did not move, so it drops out.
     expect(view.nodes.map((n) => n.id).sort()).toEqual(["A", "G2"]);
   });
 
@@ -193,8 +193,8 @@ describe("buildEcartsView", () => {
     expect(view.edges.every((e) => e.change === undefined)).toBe(true);
   });
 
-  // Sans les nœuds du palier de départ, un trait retiré n'aurait plus de boîte
-  // où aboutir et le schéma serait incohérent.
+  // Without the departure milestone's nodes, a removed line would have no box
+  // left to reach and the diagram would be inconsistent.
   it("keeps the nodes a removed edge needs", () => {
     const m = model({ consumptions: [consumption({ retiredAt: "v2" })] });
     const view = buildEcartsView(m, 1, 2, "architecture");
@@ -205,8 +205,8 @@ describe("buildEcartsView", () => {
   });
 });
 
-// Tatooine expose Transactions, Bus (Middleware, Technical) la relaie sous
-// trx.norm ; le segment vers Naboo n'apparaît qu'au palier v2.
+// Tatooine publishes Transactions, Bus (Middleware, Technical) relays it as
+// trx.norm; the segment towards Naboo appears only at milestone v2.
 function functionalEstate(): ParsedModel {
   return model({
     actors: [
@@ -231,9 +231,9 @@ function functionalEstate(): ParsedModel {
 }
 
 describe("calculerEcarts — mode fonctionnel", () => {
-  it("compare les liens fonctionnels quand le mode le demande", () => {
-    // Un lien qui n'existe qu'au second palier apparaît comme un ajout, la
-    // plomberie retirée.
+  it("compares the functional links when the mode asks for it", () => {
+    // A link that exists only at the second milestone shows up as an addition,
+    // with the plumbing removed.
     const changes = computeChanges(functionalEstate(), 1, 2, "functional");
     expect(changes.consumptions.ajoutes).toEqual(["Naboo → Transactions"]);
   });

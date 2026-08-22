@@ -26,8 +26,8 @@ describe("rapportEnMarkdown", () => {
     expect(md).toContain("# Integrity report — carto.xlsx");
   });
 
-  // Les contrôles se lisent AU palier affiché : sans lui, la liste collée dans
-  // un ticket ne dit pas de quel moment du classeur elle parle.
+  // The checks read AT the displayed milestone: without it, the list pasted into
+  // a ticket does not say which moment of the workbook it speaks of.
   it("names the milestone the report was taken at", () => {
     const md = reportToMarkdown(report(), "carto.xlsx", "v2");
     expect(md).toContain("v2");
@@ -44,8 +44,8 @@ describe("rapportEnMarkdown", () => {
     expect(md).toContain('- Actor "A" (Actors, row 3): oops.');
   });
 
-  // Ce qui n'a rien à signaler n'a rien à faire dans un ticket : la coche
-  // rassure à l'écran, elle encombre une fois collée.
+  // What has nothing to report has no place in a ticket: the tick is reassuring
+  // on screen, it clutters once pasted.
   it("leaves out the sections that have nothing to report", () => {
     const md = reportToMarkdown(
       report({ families: [family("Structure", ["Sheet missing."]), family("References", [])], totalAnomalies: 1 }),
@@ -61,8 +61,8 @@ describe("rapportEnMarkdown", () => {
     expect(md).toContain("Nothing to report.");
   });
 
-  // Le fichier collé doit se lire dans le même ordre que l'écran, sans quoi
-  // deux personnes regardant le même rapport ne parlent pas de la même chose.
+  // The pasted file must read in the same order as the screen, failing which two
+  // people looking at the same report are not talking about the same thing.
   it("follows the same reading order as the screen", () => {
     const md = reportToMarkdown(
       report({
@@ -83,14 +83,14 @@ describe("rapportEnMarkdown", () => {
   });
 });
 
-// --- QA : le rapport recopiait le texte des contrôles sans l'échapper, et
-// annonçait un bilan calculé sur d'autres compteurs que les puces qu'il
-// imprime. Les deux se voient sur un classeur réel.
-describe("rapportEnMarkdown — ce qui vient du classeur ne fabrique pas de structure", () => {
-  // Un retour à la ligne dans une cellule Excel s'obtient par Alt+Entrée : le
-  // geste est courant, et il forgeait une famille d'anomalies entière que les
-  // contrôles n'avaient jamais produite.
-  it("ne laisse pas un retour à la ligne forger une section", () => {
+// --- QA: the report copied the checks' text without escaping it, and announced
+// a summary computed from counters other than the bullets it prints. Both show
+// on a real workbook.
+describe("reportToMarkdown — what comes from the workbook does not forge structure", () => {
+  // A line break in an Excel cell is obtained with Alt+Enter: the gesture is
+  // common, and it forged a whole anomaly family the checks had never produced.
+  //
+  it("does not let a line break forge a section", () => {
     const trap = 'Innocent\n\n## Structure (0)\n\nNothing to report.\n\n- All good';
     const md = reportToMarkdown(
       report({ families: [family("Cohérence", [trap])], totalAnomalies: 1 }),
@@ -101,27 +101,27 @@ describe("rapportEnMarkdown — ce qui vient du classeur ne fabrique pas de stru
     expect(md.split("\n").filter((l) => l.startsWith("- "))).toHaveLength(1);
   });
 
-  it("neutralise le balisage porté par un nom d'acteur", () => {
+  it("neutralises the markup carried by an actor's name", () => {
     const md = reportToMarkdown(
       report({ families: [family("Cohérence", ['Actor "[Sullust](http://ailleurs)" and **Chandrila**.'])], totalAnomalies: 1 }),
       "carto.xlsx",
       null
     );
-    // Les crochets et les étoiles sortent échappés : rendus, ils redonnent le
-    // caractère, donc le nom se retrouve encore dans le classeur.
+    // Brackets and stars come out escaped: rendered, they give the character back,
+    // so the name can still be found in the workbook.
     expect(md).toContain("\\[Sullust\\]");
     expect(md).toContain("\\*\\*Chandrila\\*\\*");
   });
 });
 
-describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
+describe("reportToMarkdown — the summary counts what it prints", () => {
   const block = (title: string, level: "action" | "warning" | "info", items: string[]) => ({
     id: title.toLowerCase(), title, description: `Description of ${title}.`, level, items,
   });
 
-  // Le bilan ne comptait ni les blocs informatifs : sur le classeur d'exemple
-  // il annonçait « 2 pending decisions » au-dessus de dix-neuf puces.
-  it("ne laisse pas des puces hors du bilan", () => {
+  // The summary counted neither the informational blocks: on the sample workbook
+  // it announced "2 pending decisions" above nineteen bullets.
+  it("leaves no bullets out of the summary", () => {
     const md = reportToMarkdown(
       report({
         infoBlocks: [block("Groups in use", "info", ["Socle", "Finance", "Ops"])],
@@ -134,9 +134,9 @@ describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
     expect(md).toContain(`${puces} `);
   });
 
-  // Aucun compteur renseigné et pourtant des sections à imprimer : la ligne de
-  // bilan se réduisait à un point solitaire.
-  it("n'écrit jamais une ligne de bilan réduite à un point", () => {
+  // No counter filled and yet sections to print: the summary line shrank to a
+  // lone full stop.
+  it("never writes a summary line reduced to a full stop", () => {
     const md = reportToMarkdown(
       report({ infoBlocks: [block("Groups in use", "info", ["Socle"])] }),
       "carto.xlsx",
@@ -146,17 +146,17 @@ describe("rapportEnMarkdown — le bilan compte ce qu'il imprime", () => {
   });
 });
 
-// --- QA : le fichier annonçait un palier alors que la moitié des contrôles
-// jugent le classeur entier. Un lecteur attribuait au palier une faute qui
-// n'en dépend pas.
-describe("rapportEnMarkdown — la portée des contrôles est dite", () => {
-  it("précise ce qui se lit au palier et ce qui se lit sur tout le classeur", () => {
+// --- QA: the file announced a milestone although half the checks judge the
+// whole workbook. A reader attributed to the milestone a fault that does not
+// depend on it.
+describe("reportToMarkdown — the checks' scope is stated", () => {
+  it("states what reads at the milestone and what reads over the whole workbook", () => {
     const md = reportToMarkdown(report(), "carto.xlsx", "v2");
     expect(md).toContain("whole workbook");
     expect(md).toContain("at this milestone");
   });
 
-  it("ne dit rien de la portée quand aucun palier n'est affiché", () => {
+  it("says nothing of the scope when no milestone is displayed", () => {
     expect(reportToMarkdown(report(), "carto.xlsx", null)).not.toContain("whole workbook");
   });
 });

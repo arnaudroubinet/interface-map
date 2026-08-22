@@ -5,10 +5,10 @@ import type { AppState } from "./state";
 import * as base from "../testing/fixtures";
 import type { IntegrityReport } from "../integrity/checks";
 
-// Les règles de désactivation des boutons sont de la LOGIQUE, pas de la
-// plomberie : elles décident si un export est offert, et elles se trompaient
-// discrètement quand elles vivaient éparpillées dans quatre-vingts lignes de
-// boutons. Devenues une table, elles se vérifient sans monter le DOM.
+// The button-disabling rules are LOGIC, not plumbing: they decide whether an
+// export is offered, and they went quietly wrong when they lived scattered
+// through eighty lines of buttons. Now a table, they are verified without
+// mounting the DOM.
 
 const report: IntegrityReport = {
   families: [],
@@ -24,14 +24,14 @@ const loaded = (): AppState =>
 const active = (label: string, state: AppState, drawing = true) =>
   EXPORTS.find((e) => e.label === label)!.active(state, drawing);
 
-describe("EXPORTS — quand un format est offert", () => {
-  it("n'offre rien tant qu'aucun classeur n'est chargé", () => {
+describe("EXPORTS — when a format is offered", () => {
+  it("offers nothing while no workbook is loaded", () => {
     for (const format of EXPORTS) {
       expect(format.active(initialState(), true)).toBe(false);
     }
   });
 
-  it("offre les images sur un schéma, et seulement là", () => {
+  it("offers the images on a diagram, and only there", () => {
     const s = withView(loaded(), "platform-detail");
     expect(active("SVG", s)).toBe(true);
     expect(active("PNG", s)).toBe(true);
@@ -39,32 +39,32 @@ describe("EXPORTS — quand un format est offert", () => {
     expect(active("SVG", withView(s, "checks"))).toBe(false);
   });
 
-  // Un schéma pas encore rendu n'est pas exportable : le bouton attendrait un
-  // dessin qui n'existe pas.
-  it("n'offre pas une image tant que le dessin n'est pas prêt", () => {
+  // A diagram not yet rendered is not exportable: the button would wait on a
+  // drawing that does not exist.
+  it("does not offer an image while the drawing is not ready", () => {
     expect(active("SVG", withView(loaded(), "platform-detail"), false)).toBe(false);
   });
 
-  it("réserve Excel à la matrix et Markdown au rapport", () => {
+  it("reserves Excel for the matrix and Markdown for the report", () => {
     expect(active("Excel", withView(loaded(), "matrix"))).toBe(true);
     expect(active("Excel", withView(loaded(), "checks"))).toBe(false);
     expect(active("Markdown", withView(loaded(), "checks"))).toBe(true);
     expect(active("Markdown", withView(loaded(), "matrix"))).toBe(false);
   });
 
-  // Les trois qui emportent tout le classeur ne dépendent pas de la vue --
-  // mais les deux DSL C4 décrivent une architecture, pas une lecture métier.
-  // Les deux DSL sont ROUVERTS en fonctionnel : un système qui rend un service
-  // à un autre est le cas d'usage central d'un systemLandscape. Le fichier dit
-  // désormais quelle lecture il porte, ce qui était la vraie exigence.
-  it("offre les trois formats de modèle dans les deux lectures", () => {
+  // The three that carry away the whole workbook do not depend on the view --
+  // but the two C4 DSLs describe an architecture, not a business reading.
+  // Both DSLs are REOPENED in the functional reading: a system rendering a
+  // service to another is a systemLandscape's central use case. The file now
+  // says which reading it carries, which was the real requirement.
+  it("offers the three model formats in both readings", () => {
     const fonctionnel = withMode(withView(loaded(), "matrix"), "functional");
     expect(active("draw.io", fonctionnel)).toBe(true);
     expect(active("Structurizr", fonctionnel)).toBe(true);
     expect(active("LikeC4", fonctionnel)).toBe(true);
   });
 
-  it("n'offre aucun des trois sur l'écran de mise à niveau", () => {
+  it("offers none of the three on the upgrade screen", () => {
     const blocked = withView(loaded(), "upgrade");
     for (const label of ["draw.io", "Structurizr", "LikeC4"]) {
       expect(active(label, blocked)).toBe(false);
