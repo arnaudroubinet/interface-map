@@ -58,12 +58,20 @@ export interface TableToApply {
   // each sized to its own content, rather than a single table padded to the
   // height of the longest.
   startColumn?: number;
+  // The Power Query query that fills this table. Excel then wants a queryTable
+  // part beside it, and every column must name the field feeding it -- without
+  // which the refresh empties the table instead of filling it.
+  query?: string;
 }
 
 const NS_TABLE = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const TYPE_TABLE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
+const TYPE_CONNECTIONS =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml";
+const TYPE_QUERY_TABLE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml";
 
 function escapeXml(text: string): string {
   return text
@@ -110,20 +118,23 @@ function xmlDuTableau(
   name: string,
   ref: string,
   columns: readonly string[],
-  formules: Readonly<Record<string, string>> = {}
+  formules: Readonly<Record<string, string>> = {},
+  queryTableId?: number
 ): string {
   const cols = columns
     .map((c, i) => {
       const formule = formules[c];
-      const start = `<tableColumn id="${i + 1}" name="${escapeXml(c)}"`;
+      const field = queryTableId === undefined ? "" : ` queryTableFieldId="${i + 1}"`;
+      const start = `<tableColumn id="${i + 1}" name="${escapeXml(c)}"${field}`;
       return formule
         ? `${start}><calculatedColumnFormula>${escapeXml(formule)}</calculatedColumnFormula></tableColumn>`
         : `${start}/>`;
     })
     .join("");
+  const kind = queryTableId === undefined ? "" : ` tableType="queryTable"`;
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<table xmlns="${NS_TABLE}" id="${id}" name="${name}" displayName="${name}" ref="${ref}" totalsRowShown="0">` +
+    `<table xmlns="${NS_TABLE}" id="${id}" name="${name}" displayName="${name}" ref="${ref}"${kind} totalsRowShown="0">` +
     `<autoFilter ref="${ref}"/>` +
     `<tableColumns count="${columns.length}">${cols}</tableColumns>` +
     `<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>` +
@@ -131,12 +142,42 @@ function xmlDuTableau(
   );
 }
 
-function xmlDesRelations(idTable: number): string {
+function xmlDesRelations(idTable: number, queryTableId?: number): string {
+  const query =
+    queryTableId === undefined
+      ? ""
+      : `<Relationship Id="rId2" Type="${NS_REL}/queryTable" Target="../queryTables/queryTable${queryTableId}.xml"/>`;
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
     `<Relationship Id="rId1" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>` +
-    `</Relationships>`
+    `${query}</Relationships>`
+  );
+}
+
+function xmlDeLaConnexion(id: number, query: string): string {
+  return (
+    `<connection id="${id}" keepAlive="1" name="Query - ${escapeXml(query)}" ` +
+    `description="Connection to the ${escapeXml(query)} query in the workbook." ` +
+    `type="5" refreshedVersion="8" background="1" saveData="1">` +
+    `<dbPr connection="Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;` +
+    `Location=${escapeXml(query)};Extended Properties=&quot;&quot;" ` +
+    `command="SELECT * FROM [${escapeXml(query)}]"/></connection>`
+  );
+}
+
+function xmlDuQueryTable(id: number, connectionId: number, columns: readonly string[]): string {
+  const fields = columns
+    .map((c, i) => `<queryTableField id="${i + 1}" name="${escapeXml(c)}" tableColumnId="${i + 1}"/>`)
+    .join("");
+  return (
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+    `<queryTable xmlns="${NS_TABLE}" name="ExternalData_${id}" connectionId="${connectionId}" ` +
+    `autoFormatId="16" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" ` +
+    `applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="0">` +
+    `<queryTableRefresh nextId="${columns.length + 1}">` +
+    `<queryTableFields count="${columns.length}">${fields}</queryTableFields>` +
+    `</queryTableRefresh></queryTable>`
   );
 }
 
@@ -414,6 +455,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   const nomParTableau = new Map<TableToApply, string>();
   const usedNames = new Set<string>();
 
+  // Connection ids are allocated in the order the tables are met, so the same
+  // input always produces the same package.
+  const connections: string[] = [];
+  let idQueryTable = 0;
+
   for (const [sheetName, tablesOfSheet] of bySheet) {
     const index = names.indexOf(sheetName);
     if (index < 0) throw new Error(`sheet "${sheetName}" absente du workbook`);
@@ -465,11 +511,28 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       lastSheetRow = Math.max(lastSheetRow, lastRow);
       lastSheetColumnIndex = Math.max(lastSheetColumnIndex, lastColumnIndex);
 
+      let queryTableId: number | undefined;
+      if (table.query) {
+        idQueryTable += 1;
+        queryTableId = idQueryTable;
+        connections.push(xmlDeLaConnexion(idQueryTable, table.query));
+        writePart(
+          cfb,
+          `/xl/queryTables/queryTable${queryTableId}.xml`,
+          xmlDuQueryTable(queryTableId, queryTableId, table.columns)
+        );
+        contentTypes = contentTypes.replace(
+          "</Types>",
+          `<Override PartName="/xl/queryTables/queryTable${queryTableId}.xml" ContentType="${TYPE_QUERY_TABLE}"/></Types>`
+        );
+      }
+
       writePart(
         cfb,
         `/xl/tables/table${idTable}.xml`,
-        xmlDuTableau(idTable, name, ref, table.columns, table.formulaByColumn)
+        xmlDuTableau(idTable, name, ref, table.columns, table.formulaByColumn, queryTableId)
       );
+      writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, xmlDesRelations(idTable, queryTableId));
       relations.push(`<Relationship Id="rId${relations.length + 1}" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>`);
 
       contentTypes = contentTypes.replace(
@@ -602,6 +665,31 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
           "</Relationships>",
           `<Relationship Id="${freeRelationshipId(rels)}" Type="${NS_REL}/customXml" ` +
             `Target="../customXml/item1.xml"/></Relationships>`
+        )
+      );
+    }
+  }
+
+  if (connections.length > 0) {
+    writePart(
+      cfb,
+      "/xl/connections.xml",
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<connections xmlns="${NS_TABLE}">${connections.join("")}</connections>`
+    );
+    contentTypes = contentTypes.replace(
+      "</Types>",
+      `<Override PartName="/xl/connections.xml" ContentType="${TYPE_CONNECTIONS}"/></Types>`
+    );
+    const rels = readPart(cfb, "/xl/_rels/workbook.xml.rels");
+    if (rels) {
+      writePart(
+        cfb,
+        "/xl/_rels/workbook.xml.rels",
+        rels.replace(
+          "</Relationships>",
+          `<Relationship Id="${freeRelationshipId(rels)}" Type="${NS_REL}/connections" ` +
+            `Target="connections.xml"/></Relationships>`
         )
       );
     }

@@ -117,3 +117,64 @@ describe("referentials in the package", () => {
     expect(await readReferentialUrls(out)).toEqual(urls);
   });
 });
+
+describe("query tables", () => {
+  function minimal(): ArrayBuffer {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Name", "Group"], ["", ""]]), "RefActors");
+    return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  }
+
+  const extras = {
+    tables: [{ sheet: "RefActors", columns: ["Name", "Group"], rows: 0, query: "RefActors" }],
+    referentials: { actors: "https://ref/a.csv", technologies: "" },
+  };
+
+  it("declares one connection per query, pointing at the workbook's own mashup", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const connections = readPart(cfb, "/xl/connections.xml")!;
+    expect(connections).toContain('type="5"');
+    expect(connections).toContain("Provider=Microsoft.Mashup.OleDb.1");
+    expect(connections).toContain("Location=RefActors");
+    expect(connections).toContain("SELECT * FROM [RefActors]");
+    // Saved data is what makes the workbook readable with no network.
+    expect(connections).toContain('saveData="1"');
+  });
+
+  it("writes a query table naming every column of its table", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const queryTable = readPart(cfb, "/xl/queryTables/queryTable1.xml")!;
+    expect(queryTable).toContain('connectionId="1"');
+    expect(queryTable).toContain('<queryTableField id="1" name="Name" tableColumnId="1"/>');
+    expect(queryTable).toContain('<queryTableField id="2" name="Group" tableColumnId="2"/>');
+  });
+
+  it("marks the table as fed by a query and links each column to its field", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const table = readPart(cfb, "/xl/tables/table1.xml")!;
+    expect(table).toContain('tableType="queryTable"');
+    expect(table).toContain('queryTableFieldId="1"');
+    expect(table).toContain('queryTableFieldId="2"');
+    const rels = readPart(cfb, "/xl/tables/_rels/table1.xml.rels")!;
+    expect(rels).toContain("../queryTables/queryTable1.xml");
+  });
+
+  it("declares both new parts in the content types", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const types = readPart(cfb, "/[Content_Types].xml")!;
+    expect(types).toContain('PartName="/xl/connections.xml"');
+    expect(types).toContain('PartName="/xl/queryTables/queryTable1.xml"');
+  });
+
+  it("leaves an ordinary table alone", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Name"], ["Tatooine"]]), "Actors");
+    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    const cfb = XLSX.CFB.read(
+      new Uint8Array(applyOoxmlExtras(raw, { tables: [{ sheet: "Actors", columns: ["Name"], rows: 1 }] })),
+      { type: "array" }
+    );
+    expect(readPart(cfb, "/xl/tables/table1.xml")!).not.toContain("queryTable");
+    expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
+  });
+});
