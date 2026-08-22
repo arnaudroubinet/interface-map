@@ -28,11 +28,25 @@ function block(title: string, difference: Difference): HTMLElement {
   return section;
 }
 
-export function buildEcartsReport(changes: Changes, before: string, after: string): HTMLElement {
+// What the two compared sides ARE. The wording is not decoration: "between
+// milestone january.xlsx" would name a milestone axis that has nothing to do
+// with what is on screen, and on a comparison of two files it is the only thing
+// that tells the reader the milestone selector is not applied.
+export interface Comparison {
+  before: string;
+  after: string;
+  kind: "milestone" | "workbook";
+}
+
+function headerText(c: Comparison): string {
+  return c.kind === "milestone"
+    ? `What changes between milestone ${c.before} and milestone ${c.after}.`
+    : `What changes between ${c.before} and ${c.after}, each read whole.`;
+}
+
+export function buildEcartsReport(changes: Changes, comparison: Comparison): HTMLElement {
   const root = el("div", { class: "changes" });
-  root.appendChild(
-    el("p", { class: "changes-header" }, [`What changes between milestone ${before} and milestone ${after}.`])
-  );
+  root.appendChild(el("p", { class: "changes-header" }, [headerText(comparison)]));
   root.appendChild(block("Actors", changes.actors));
   root.appendChild(block("Interfaces", changes.interfaces));
   root.appendChild(block("Consumptions", changes.consumptions));
@@ -40,10 +54,10 @@ export function buildEcartsReport(changes: Changes, before: string, after: strin
 }
 
 // The diagram titles itself: it says what it shows on its own thanks to the
-// signed balances, but nothing would otherwise say WHICH milestones it
-// compares, nor at what scale it is drawn.
-export function buildChangesDiagramTitle(before: string, after: string): HTMLElement {
+// signed balances, but nothing would otherwise say WHICH two sides it compares,
+// nor at what scale it is drawn.
+export function buildChangesDiagramTitle(c: Comparison): HTMLElement {
   return el("h2", { class: "changes-diagram-title" }, [
-    `What moves between ${before} and ${after} — platform detail`,
+    `What moves between ${c.before} and ${c.after} — platform detail`,
   ]);
 }

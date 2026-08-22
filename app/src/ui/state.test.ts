@@ -10,6 +10,7 @@ import {
   withMatrixGrain,
   withMode,
   withDisplayedMilestone,
+  withComparedFile,
   viewOnLoad,
 } from "./state";
 import { SCHEMA_VERSION } from "../parsing/build-model";
@@ -251,5 +252,38 @@ describe("withMode — the views that are moot in the functional reading", () =>
 
   it("touches nothing in the architecture reading", () => {
     expect(withMode(withView(loaded(), "group-to-group"), "architecture").view).toBe("group-to-group");
+  });
+});
+
+// --- A6: the Changes view can measure against another WORKBOOK, not only
+// against another milestone of the one loaded.
+describe("withComparedFile — comparing two workbooks", () => {
+  const loaded = (name: string) => ({
+    name,
+    model: base.template(),
+    report: { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 },
+    dateModification: null,
+  });
+
+  it("holds no compared workbook until one is chosen", () => {
+    expect(initialState().comparedFile).toBeNull();
+  });
+
+  it("keeps the workbook chosen to measure against", () => {
+    const state = withComparedFile(withLoadedFile(initialState(), loaded("june.xlsx")), loaded("january.xlsx"));
+    expect(state.comparedFile?.name).toBe("january.xlsx");
+  });
+
+  it("puts the view back on the milestone axis when the comparison is dropped", () => {
+    const chosen = withComparedFile(withLoadedFile(initialState(), loaded("june.xlsx")), loaded("january.xlsx"));
+    expect(withComparedFile(chosen, null).comparedFile).toBeNull();
+  });
+
+  // The comparison was chosen against the workbook being replaced. Keeping it
+  // would have the view assert a comparison nobody asked for, over a file that
+  // has just changed under it -- and re-picking is one click.
+  it("drops the comparison when another workbook is loaded", () => {
+    const chosen = withComparedFile(withLoadedFile(initialState(), loaded("june.xlsx")), loaded("january.xlsx"));
+    expect(withLoadedFile(chosen, loaded("march.xlsx")).comparedFile).toBeNull();
   });
 });

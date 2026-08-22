@@ -115,6 +115,14 @@ export interface AppState {
   // The two milestones the Changes view compares. The second is the one being
   // looked at; the first is the reference the change is measured from.
   comparedMilestone: string | null;
+  // The workbook the Changes view measures against, when the comparison is
+  // between two FILES rather than two milestones of one -- "what changed since
+  // January's version of the referential". `null` is the ordinary case.
+  //
+  // It takes precedence over comparedMilestone when it is set: two workbooks
+  // have no reason to share a milestone name, so both sides are then read
+  // whole, and the report says so.
+  comparedFile: LoadedFile | null;
   options: AppOptions;
   actorFilters: ActorViewFilters;
   technologyFilters: TechnologyViewFilters;
@@ -136,6 +144,7 @@ export function initialState(): AppState {
     mode: "architecture",
     shownMilestone: null,
     comparedMilestone: null,
+    comparedFile: null,
     options: { counters: true, edgeLabelMode: "technology", pngScale: 2, weightByCriticality: false },
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     technologyFilters: { masquerExternes: false, hiddenActors: [] },
@@ -180,6 +189,10 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
     mode: "architecture",
     shownMilestone: current?.name ?? null,
     comparedMilestone: previous?.name ?? null,
+    // A comparison was chosen against the workbook being replaced. Keeping it
+    // would have the Changes view assert a comparison nobody asked for, over a
+    // file that has just changed under it.
+    comparedFile: null,
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     technologyFilters: { masquerExternes: false, hiddenActors: [] },
     matrixFilters: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
@@ -211,6 +224,12 @@ export function withDisplayedMilestone(state: AppState, milestone: string | null
 
 export function withComparedMilestone(state: AppState, milestone: string | null): AppState {
   return { ...state, comparedMilestone: milestone };
+}
+
+// The workbook the Changes view measures against. `null` puts the view back on
+// the milestone axis of the file that is loaded.
+export function withComparedFile(state: AppState, file: LoadedFile | null): AppState {
+  return { ...state, comparedFile: file };
 }
 
 export function withView(state: AppState, view: View): AppState {

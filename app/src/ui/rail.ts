@@ -17,7 +17,7 @@ const EDGE_LABELS: [EdgeLabelMode, string][] = [
   ["both", "both"],
 ];
 import type { Reading } from "../aggregation/reading";
-import type { AppState, View } from "./state";
+import type { AppState, View, LoadedFile } from "./state";
 import { VIEWS_MOOT_IN_FUNCTIONAL, VIEW_LABEL } from "./state";
 
 // The rail's order, and nothing else: the labels come from VIEW_LABEL, which
@@ -73,6 +73,7 @@ export interface RailCallbacks {
   onWeightByCriticality: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
   onComparedMilestone: (milestone: string) => void;
+  onComparedFile: (file: File | null) => void;
   onCounterOption: (value: boolean) => void;
   onEdgeLabel: (value: EdgeLabelMode) => void;
   onMatrixOrder: (value: MatrixOrder) => void;
@@ -168,6 +169,36 @@ function filterBlock(
     row.appendChild(document.createTextNode(` ${value}`));
     block.appendChild(row);
   }
+  return block;
+}
+
+// The workbook the Changes view measures against. It lives beside the milestone
+// selector because that is the other thing the view compares against -- and it
+// takes its place: when two files are compared, both sides are read whole, and
+// a "Compared to" milestone deciding nothing would be worse than none at all.
+function compareWithBlock(chosen: LoadedFile | null, onChoose: (file: File | null) => void): HTMLElement {
+  const block = el("label", { class: "rail-milestone rail-compare" });
+  block.appendChild(el("span", { class: "rail-milestone-title" }, ["Compare with a workbook"]));
+
+  if (chosen) {
+    const row = el("div", { class: "rail-compare-chosen" });
+    row.appendChild(el("span", { class: "rail-compare-name" }, [chosen.name]));
+    const drop = el("button", { class: "rail-compare-drop", type: "button", "aria-label": `Stop comparing with ${chosen.name}` }, ["×"]);
+    drop.addEventListener("click", () => onChoose(null));
+    row.appendChild(drop);
+    block.appendChild(row);
+    return block;
+  }
+
+  // Drag and drop drops the MAIN workbook: a second target on the same page
+  // would make the two gestures indistinguishable, and the wrong one replaces
+  // what is on screen.
+  const field = el("input", { class: "rail-compare-file", type: "file", accept: ".xlsx,.xlsm" });
+  field.addEventListener("change", () => {
+    const file = field.files?.[0];
+    if (file) onChoose(file);
+  });
+  block.appendChild(field);
   return block;
 }
 
@@ -300,11 +331,19 @@ export function renderRail(
   // tool, not to the current view. Absent when the workbook declares no
   // milestone -- offering an empty axis would teach nothing.
   const milestones = state.file.model.milestones;
-  if (milestones.length > 0 && !blocked) {
+  if (!blocked && (milestones.length > 0 || state.view === "changes")) {
     const block = el("div", { class: "rail-milestones" });
-    block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onDisplayedMilestone));
+    if (milestones.length > 0) {
+      block.appendChild(milestoneSelect("Milestone", milestones, state.shownMilestone, callbacks.onDisplayedMilestone));
+      if (state.view === "changes" && state.comparedFile === null) {
+        block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onComparedMilestone));
+      }
+    }
+    // Comparing two files needs no milestone axis at all: a workbook that
+    // declares none can still be measured against another, and that is often
+    // exactly the workbook one wants to compare.
     if (state.view === "changes") {
-      block.appendChild(milestoneSelect("Compared to", milestones, state.comparedMilestone, callbacks.onComparedMilestone));
+      block.appendChild(compareWithBlock(state.comparedFile, callbacks.onComparedFile));
     }
     root.appendChild(block);
   }

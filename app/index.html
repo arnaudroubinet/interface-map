@@ -104,6 +104,22 @@
   }
   /* Un champ de recherche à la place d'une liste déroulante de N acteurs : au
      delà d'une vingtaine, une liste ne se parcourt plus. */
+  /* Le classeur comparé prend la place du sélecteur « Compared to » : les deux
+     répondent à la même question, et on n'en pose qu'une à la fois. */
+  .rail-compare-chosen {
+    display: flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); border-radius: 4px; padding: 5px 6px;
+  }
+  .rail-compare-name {
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-size: 13px;
+  }
+  .rail-compare-drop {
+    border: none; background: none; color: var(--ink-muted); cursor: pointer;
+    font-size: 15px; line-height: 1; padding: 0 4px; flex-shrink: 0;
+  }
+  .rail-compare-drop:hover { color: var(--critical); }
+  .rail-compare-file { width: 100%; font-size: 12px; }
   .rail-search-block { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
   .rail-search {
     width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;

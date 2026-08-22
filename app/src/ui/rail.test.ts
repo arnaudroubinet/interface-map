@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
-import { initialState, withLoadedFile, withMode, withView, withActorSelection, type AppState } from "./state";
+import { initialState, withLoadedFile, withMode, withView, withActorSelection, withComparedFile, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";
@@ -89,6 +89,7 @@ const callbacks: RailCallbacks = {
   onWeightByCriticality: noop,
   onDisplayedMilestone: noop,
   onComparedMilestone: noop,
+  onComparedFile: noop,
   onCounterOption: noop,
   onEdgeLabel: noop,
   onMatrixOrder: noop,
@@ -319,5 +320,75 @@ describe("renderRail — the by-actor search field", () => {
     const suggestion = [...root.querySelectorAll(".rail-suggestion")].find((e) => e.textContent === "Bus");
     (suggestion as HTMLButtonElement).click();
     expect(chosen).toBe("Bus");
+  });
+});
+
+// --- A6: the Changes view can measure against another WORKBOOK. The control
+// lives beside the milestone selector, because that is the other thing the view
+// compares against.
+describe("renderRail — comparing with a second workbook", () => {
+  function changesView(state: AppState = initialState()): HTMLElement {
+    const loaded = withLoadedFile(state, { name: "june.xlsx", model, report, dateModification: null });
+    const s = withView(loaded, "changes");
+    const root = document.createElement("div");
+    renderRail(root, s, flows(s), [], callbacks);
+    return root;
+  }
+
+  it("offers a file field to pick the workbook to measure against", () => {
+    const field = changesView().querySelector("input.rail-compare-file") as HTMLInputElement;
+    expect(field).not.toBeNull();
+    expect(field.accept).toContain(".xlsx");
+  });
+
+  it("names the chosen workbook and offers to drop it", () => {
+    const loaded = withLoadedFile(initialState(), { name: "june.xlsx", model, report, dateModification: null });
+    const s = withComparedFile(withView(loaded, "changes"), {
+      name: "january.xlsx",
+      model,
+      report,
+      dateModification: null,
+    });
+    const root = document.createElement("div");
+    renderRail(root, s, flows(s), [], callbacks);
+    expect(root.querySelector(".rail-compare-name")?.textContent).toBe("january.xlsx");
+    expect(root.querySelector(".rail-compare-drop")).not.toBeNull();
+  });
+
+  // A milestone selector that decides nothing is worse than an absent one: when
+  // two workbooks are compared, both sides are read whole and "Compared to"
+  // would sit there doing nothing at all.
+  it("hides the compared-milestone selector while a workbook is being compared", () => {
+    const withMilestones = { name: "june.xlsx", model: { ...model, milestones: [base.milestone({ name: "v1" }), base.milestone({ name: "v2", rank: 2 })] }, report, dateModification: null };
+    const loaded = withView(withLoadedFile(initialState(), withMilestones), "changes");
+    const labels = (s: AppState) => {
+      const root = document.createElement("div");
+      renderRail(root, s, flows(s), [], callbacks);
+      return [...root.querySelectorAll(".rail-milestones label")].map((l) => l.textContent ?? "");
+    };
+    expect(labels(loaded).join(" ")).toContain("Compared to");
+    expect(labels(withComparedFile(loaded, withMilestones)).join(" ")).not.toContain("Compared to");
+  });
+
+  it("announces the file the reader picked", () => {
+    let picked: File | null | undefined;
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, dateModification: null }), "changes");
+    const root = document.createElement("div");
+    renderRail(root, loaded, flows(loaded), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
+    const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
+    const file = new File([""], "january.xlsx");
+    Object.defineProperty(field, "files", { value: [file] });
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(picked).toBe(file);
+  });
+
+  it("announces nothing chosen when the comparison is dropped", () => {
+    let picked: File | null | undefined = undefined;
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, dateModification: null }), "changes");
+    const s = withComparedFile(loaded, { name: "january.xlsx", model, report, dateModification: null });
+    const root = document.createElement("div");
+    renderRail(root, s, flows(s), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
+    (root.querySelector(".rail-compare-drop") as HTMLButtonElement).click();
+    expect(picked).toBeNull();
   });
 });

@@ -200,7 +200,7 @@ describe("Changes view — a single milestone declared", () => {
     buttonByLabel(root, "Changes").click();
 
     const message = root.querySelector(".no-flow");
-    expect(message?.textContent).toBe("This workbook declares only one milestone; comparing needs two.");
+    expect(message?.textContent).toBe("This workbook declares only one milestone; comparing needs two — or another workbook.");
   });
 });
 
@@ -281,5 +281,61 @@ describe("Chain view — switching chains redraws", () => {
     });
     expect(second).toContain("Amont2");
     expect(second).not.toContain("Amont1");
+  });
+});
+
+// --- A6: an exported SVG travels alone, so its title block is the only thing
+// that says what it shows. When two WORKBOOKS are compared, both sides are read
+// whole -- announcing "milestone v2" there would be a plain falsehood, in the
+// one place the reader has nothing else to check it against.
+describe("Changes view — comparing two workbooks", () => {
+  const base = (milestones: string[][]): WorkbookData => ({
+    flowTypes: [["HTTP", "consumer → provider", ""]],
+    actorTypes: [],
+    milestones,
+    groups: [["Core", "Platform"], ["Out", "External"]],
+    actors: [
+      ["Tatooine", "Core", "Application", "", "", "", "V1", ""],
+      ["Naboo", "Out", "Application", "", "", "", "V1", ""],
+    ],
+    interfaces: [["F", "1.0", "Tatooine", "HTTP", "", "", "", "", "No", "", "V1", ""]],
+    fx: [{ name: "FX_Tatooine_HTTP", rows: [["F", "1.0", "Naboo", "", "", "Keep", "", "V1", ""]] }],
+  });
+
+  it("names both workbooks and claims no milestone", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+
+    const drop = (data: WorkbookData, name: string) => {
+      const file = { name, arrayBuffer: async () => writeTemplate(data) } as unknown as File;
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
+      root.dispatchEvent(event);
+    };
+
+    drop(base([["V1", "1", "", "Delivered", "", ""], ["V2", "2", "", "Delivered", "", ""]]), "june.xlsx");
+    await vi.waitFor(() => {
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+    });
+
+    buttonByLabel(root, "Changes").click();
+
+    // The second workbook has one interface fewer: something must move, or the
+    // diagram is never drawn and the test would pass on an empty page.
+    const january = { ...base([["V1", "1", "", "Delivered", "", ""]]), interfaces: [], fx: [] };
+    const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
+    Object.defineProperty(field, "files", {
+      value: [{ name: "january.xlsx", arrayBuffer: async () => writeTemplate(january) } as unknown as File],
+    });
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await vi.waitFor(() => {
+      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
+    });
+
+    const title = root.querySelector("svg title")?.textContent ?? "";
+    expect(title).toContain("january.xlsx");
+    expect(title).toContain("june.xlsx");
+    expect(title).not.toContain("milestone");
   });
 });

@@ -54,6 +54,7 @@ import { openMigration } from "./upgrade-dialog";
 import {
   initialState,
   withLoadedFile,
+  withComparedFile,
   withView,
   withMode,
   withOptions,
@@ -146,58 +147,84 @@ export function mountApp(root: HTMLElement): void {
     render();
   }
 
+  // Read a workbook into a LoadedFile, or say why it cannot be read. Both the
+  // main drop target and the "compare with" field go through here: the same
+  // file must be refused for the same reason and in the same words, whichever
+  // of the two it was handed to.
+  async function readWorkbook(file: File): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
+    if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
+      return { ok: false, message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
+    }
+
+    let parsed;
+    try {
+      parsed = parseWorkbook(await file.arrayBuffer());
+    } catch {
+      return { ok: false, message: "Workbook unreadable or corrupted." };
+    }
+
+    const built = buildModel(parsed);
+    if (!built.ok) return { ok: false, message: built.errors.map((e) => e.message).join(" ") };
+
+    // A workbook from a newer version is not read at all: guessing the shape
+    // of a format one does not know would produce wrong diagrams, which is
+    // worse than showing nothing.
+    if (built.model.schemaVersion > SCHEMA_VERSION) {
+      return {
+        ok: false,
+        message: `This workbook follows model v${built.model.schemaVersion}, produced by a newer version of the tool. Update the tool to open it.`,
+      };
+    }
+
+    return {
+      ok: true,
+      loaded: {
+        name: file.name,
+        model: built.model,
+        report: runIntegrityChecks(built.model),
+        dateModification: parsed.savedAt,
+      },
+    };
+  }
+
+  // The workbook the Changes view measures against. It is read exactly like the
+  // main one -- same refusals, same words -- but it never replaces what is on
+  // screen: it is a second term, not a new subject.
+  async function handleComparedFile(file: File | null): Promise<void> {
+    if (file === null) {
+      setState(withComparedFile(state, null));
+      return;
+    }
+    try {
+      const read = await readWorkbook(file);
+      if (!read.ok) {
+        setState(withMessageBandeau(state, read.message));
+        return;
+      }
+      setState(withComparedFile(withMessageBandeau(state, null), read.loaded));
+    } catch (err) {
+      console.error(err);
+      setState(withMessageBandeau(state, "Workbook unreadable or corrupted."));
+    }
+  }
+
   async function handleFile(file: File): Promise<void> {
     try {
-      const okName = /\.(xlsx|xlsm)$/i.test(file.name);
-      if (!okName) {
-        setState(withMessageBandeau(state, "That is not an Excel workbook. Drop an .xlsx or .xlsm file."));
-        return;
-      }
-
-      let parsed;
-      try {
-        parsed = parseWorkbook(await file.arrayBuffer());
-      } catch {
-        setState(withMessageBandeau(state, "Workbook unreadable or corrupted."));
-        return;
-      }
-
-      const built = buildModel(parsed);
-      if (!built.ok) {
-        setState(withMessageBandeau(state, built.errors.map((e) => e.message).join(" ")));
-        return;
-      }
-
-      // A workbook from a newer version is not read at all: guessing the shape
-      // of a format one does not know would produce wrong diagrams, which is
-      // worse than showing nothing.
-      if (built.model.schemaVersion > SCHEMA_VERSION) {
-        setState(
-          withMessageBandeau(
-            state,
-            `This workbook follows model v${built.model.schemaVersion}, produced by a newer version of the tool. Update the tool to open it.`
-          )
-        );
+      const read = await readWorkbook(file);
+      if (!read.ok) {
+        setState(withMessageBandeau(state, read.message));
         return;
       }
 
       // One estate's positions mean nothing on another.
       placements.clear();
 
-      const report = runIntegrityChecks(built.model);
       // The report carried by withLoadedFile is not yet set on the current
       // milestone (recomputeReport replaces it right afterwards): the landing
       // view must therefore be decided again on the final report, otherwise an
       // anomaly that exists only at a retired milestone opens on a checks screen
       // showing (0) everywhere.
-      let loaded = recomputeReport(
-        withLoadedFile(state, {
-          name: file.name,
-          model: built.model,
-          report,
-          dateModification: parsed.savedAt,
-        })
-      );
+      let loaded = recomputeReport(withLoadedFile(state, read.loaded));
       if (loaded.file) loaded = withView(loaded, viewOnLoad(loaded.file));
       setState(loaded);
     } catch (err) {
@@ -322,21 +349,54 @@ export function mountApp(root: HTMLElement): void {
     } else if (state.view === "changes") {
       // The two milestones compared; with no axis declared, there is nothing to compare.
       const comparedRank = state.comparedMilestone === null ? null : rankOfMilestone(model, state.comparedMilestone) ?? null;
-      if (rank === null || comparedRank === null) {
+      const compared = state.comparedFile;
+      if (compared) {
+        // Two workbooks: both sides read WHOLE. Their milestone names have no
+        // reason to match, and picking one on either side would state an
+        // equivalence nobody entered -- the report says so in its first line.
+        const comparison = { before: compared.name, after: file.name, kind: "workbook" as const };
+        const before = { model: compared.model, rank: null };
+        const after = { model, rank: null };
+        renderArea.appendChild(buildEcartsReport(computeChanges(before, after, state.mode), comparison));
+
+        const generation = ++renderGeneration;
+        const changesView = buildEcartsView(before, after, state.mode);
+        if (changesView.edges.length > 0) {
+          const colours = coloursOfModel(model);
+          renderArea.appendChild(buildChangesDiagramTitle(comparison));
+          // An exported SVG travels alone: its title block is the only thing
+          // that says what it shows. Both sides are read whole here, so the
+          // displayed milestone has nothing to do with this drawing --
+          // announcing it would be a plain falsehood, in the one place the
+          // reader has nothing else to check it against.
+          const context = {
+            ...diagramContext(state, file, changesView),
+            title: `Changes: ${compared.name} → ${file.name}`,
+            milestone: null,
+          };
+          computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
+            if (generation !== renderGeneration) return;
+            renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", context));
+            renderBanner(banner, state, true, exportHandlers);
+          });
+        }
+      } else if (rank === null || comparedRank === null) {
         // One milestone is not "no milestone": comparing asks for two bounds, but
         // the workbook is not silent about its time axis for all that -- lending it
         // that absence would be a false cause.
+        // Since A6 the milestone axis is no longer the only way to measure a
+        // change: saying "there is nothing to measure" while a second workbook
+        // would answer the question would be telling half the truth.
         const text =
           model.milestones.length === 0
-            ? "This workbook declares no milestones, so there is no change to measure."
-            : "This workbook declares only one milestone; comparing needs two.";
+            ? "This workbook declares no milestones. Compare it with another workbook to see what changed."
+            : "This workbook declares only one milestone; comparing needs two — or another workbook.";
         renderArea.appendChild(el("p", { class: "no-flow" }, [text]));
       } else {
         renderArea.appendChild(
           buildEcartsReport(
             computeChanges({ model, rank: comparedRank }, { model, rank }, state.mode),
-            state.comparedMilestone!,
-            state.shownMilestone!
+            { before: state.comparedMilestone!, after: state.shownMilestone!, kind: "milestone" }
           )
         );
         // The diagram comes after the listing: one first reads what changed, then
@@ -346,7 +406,9 @@ export function mountApp(root: HTMLElement): void {
         const changesView = buildEcartsView({ model, rank: comparedRank }, { model, rank }, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
-          renderArea.appendChild(buildChangesDiagramTitle(state.comparedMilestone!, state.shownMilestone!));
+          renderArea.appendChild(
+            buildChangesDiagramTitle({ before: state.comparedMilestone!, after: state.shownMilestone!, kind: "milestone" })
+          );
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
             renderArea.appendChild(
@@ -532,6 +594,7 @@ export function mountApp(root: HTMLElement): void {
       onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),
       onDisplayedMilestone: (milestone) => setState(recomputeReport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
       onComparedMilestone: (milestone) => setState(withComparedMilestone(withMessageBandeau(state, null), milestone)),
+      onComparedFile: (chosen) => void handleComparedFile(chosen),
       onCounterOption: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
       onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
       onDownloadTemplate: downloadTemplateHandler,
