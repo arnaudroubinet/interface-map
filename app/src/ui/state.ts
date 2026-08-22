@@ -1,7 +1,7 @@
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 import type { GranulariteMatrice } from "../aggregation/views";
-import type { Mode } from "../aggregation/core";
+import type { Mode, LibelléArête } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { palierCourant, rangDuPalier } from "../aggregation/paliers";
 import { acteursDuMode } from "../aggregation/fonctionnel";
@@ -53,6 +53,10 @@ export interface FichierCharge {
 
 export interface AppOptions {
   compteurs: boolean;
+  // Ce que l'étiquette d'un trait NOMME : le tuyau, ce qui y circule, ou les
+  // deux. Le défaut reste le tuyau -- c'est le comportement historique, et il
+  // tient dans la largeur d'une boîte.
+  libelléArête: LibelléArête;
 }
 
 // Ce que l'utilisateur a décoché dans la vue par acteur. Remis à zéro dès qu'on
@@ -104,7 +108,7 @@ export function initialState(): AppState {
     mode: "architecture",
     palierAffiche: null,
     palierCompare: null,
-    options: { compteurs: true },
+    options: { compteurs: true, libelléArête: "technology" },
     filtresActeur: { technosMasquees: [], acteursMasques: [] },
     filtresTechnologie: { masquerExternes: false, acteursMasques: [] },
     filtresMatrice: { masquerExternes: false, acteursMasques: [], granularite: "acteur" },

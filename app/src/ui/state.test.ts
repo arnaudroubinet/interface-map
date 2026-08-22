@@ -24,7 +24,7 @@ describe("initialState", () => {
     const state = initialState();
     expect(state.fichier).toBeNull();
     expect(state.vue).toBe("groupe-a-groupe");
-    expect(state.options).toEqual({ compteurs: true });
+    expect(state.options).toEqual({ compteurs: true, libelléArête: "technology" });
   });
 });
 

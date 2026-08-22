@@ -366,6 +366,7 @@ export function mountApp(root: HTMLElement): void {
         view = state.selectionTechnologie
           ? buildByTechnologyView(model, lecture.flux, state.selectionTechnologie, {
               compteurs: options.compteurs,
+              libelléArête: options.libelléArête,
               masquerExternes: state.filtresTechnologie.masquerExternes,
               acteursMasques: state.filtresTechnologie.acteursMasques,
             })
@@ -410,6 +411,7 @@ export function mountApp(root: HTMLElement): void {
       onPalierAffiche: (palier) => setState(recalculerRapport(withPalierAffiche(withMessageBandeau(state, null), palier))),
       onPalierCompare: (palier) => setState(withPalierCompare(withMessageBandeau(state, null), palier)),
       onOptionCompteurs: (value) => setState(withOptions(withMessageBandeau(state, null), { compteurs: value })),
+      onLibelléArête: (value) => setState(withOptions(withMessageBandeau(state, null), { libelléArête: value })),
       onTelechargerModele: telechargerModeleHandler,
       onTelechargerExemple: telechargerExempleHandler,
       onMigrationLegacy: migrationLegacyHandler,

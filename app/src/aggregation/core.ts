@@ -83,12 +83,34 @@ const ECHANGES_NOMMES = 2;
 // traits d'une même paire fusionnent -- le compteur restait seul. Or « 2 »
 // n'apprend ni ce qui circule ni pourquoi : ce sont les échanges eux-mêmes qui
 // portent le sens dès lors que le medium a disparu.
-export function libelleCellule(technologie: string, count: number, noms: readonly string[] = []): string {
-  if (technologie) return count > 1 ? `${technologie} ×${count}` : technologie;
-  if (noms.length === 0) return String(count);
+//
+// Ce que le trait NOMME est un choix de lecture : le tuyau (« Kafka ×2 »), ce
+// qui y circule (« Policy events 1.0, Claims 2.0 »), ou les deux. Nommer le
+// seul protocole faisait une carte des tuyaux là où on attend une carte des
+// échanges.
+export type LibelléArête = "technology" | "exchanges" | "both";
+
+function échangesNommés(noms: readonly string[]): string {
   const nommés = noms.slice(0, ECHANGES_NOMMES).join(", ");
   const reste = noms.length - ECHANGES_NOMMES;
   return reste > 0 ? `${nommés} +${reste}` : nommés;
+}
+
+export function libelleCellule(
+  technologie: string,
+  count: number,
+  noms: readonly string[] = [],
+  quoi: LibelléArête = "technology"
+): string {
+  const tuyau = technologie ? (count > 1 ? `${technologie} ×${count}` : technologie) : "";
+  // Sans technologie -- le cas du mode fonctionnel, qui la vide pour que les
+  // traits d'une même paire fusionnent -- « technology » retomberait sur un
+  // compteur seul. Or « 2 » n'apprend ni ce qui circule ni pourquoi.
+  if (quoi === "technology" && tuyau) return tuyau;
+  if (noms.length === 0) return tuyau || String(count);
+  const échanges = échangesNommés(noms);
+  if (quoi === "both" && tuyau) return `${échanges} — ${tuyau}`;
+  return échanges;
 }
 
 function isATransformer(decision: string): boolean {
@@ -354,12 +376,13 @@ export type Mode = "architecture" | "fonctionnel";
 // des flux déjà résolus au bon (rang, mode) n'a plus besoin de la redemander.
 export interface AggregationOptions {
   compteurs: boolean;
+  libelléArête?: LibelléArête;
 }
 
 export function aggregateEdges(
   flows: FlowInstance[],
   nodeKey: NodeKeyFn,
-  options: { compteurs: boolean },
+  options: AggregationOptions,
   maskLoops: boolean
 ): GraphEdge[] {
   return groupFlows(flows, nodeKey, maskLoops).map((g) => ({
@@ -367,7 +390,12 @@ export function aggregateEdges(
     to: g.to,
     technologie: g.technologie,
     count: g.count,
-    label: options.compteurs ? libelleCellule(g.technologie, g.count, g.noms) : g.technologie,
+    // Sans compteur on ne nomme que le tuyau, sauf si l'utilisateur a demandé
+    // autre chose : « counters » décide du ×N, pas de ce qui est nommé.
+    label:
+      options.compteurs || (options.libelléArête ?? "technology") !== "technology"
+        ? libelleCellule(g.technologie, g.count, g.noms, options.libelléArête ?? "technology")
+        : g.technologie,
     atténué: g.atténué,
     tire: g.tire,
     noms: g.noms,

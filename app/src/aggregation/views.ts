@@ -139,8 +139,7 @@ export function buildPlatformOnlyView(model: ParsedModel, lecture: Lecture, opti
   return { nodes: [...nodes, ...isolés], edges };
 }
 
-export interface OptionsVueTechnologie {
-  compteurs: boolean;
+export interface OptionsVueTechnologie extends AggregationOptions {
   masquerExternes?: boolean;
   acteursMasques?: readonly string[];
 }
@@ -240,6 +239,10 @@ export function buildByActorView(model: ParsedModel, flux: FlowInstance[], acteu
     // construit ses arêtes elle-même plutôt que par groupFlows, et elle avait
     // gardé l'ancienne convention : elle inversait le trait sur un flux tiré.
     // Un même fichier draw.io racontait donc deux architectures selon l'onglet.
+    //
+    // Cette vue nomme DÉJÀ l'échange plutôt que le tuyau : un trait y porte un
+    // seul flux, donc la technologie n'a rien à agréger et se lit en
+    // sous-ligne. Le réglage « Label » ne la concerne pas.
     const from = flow.exposant;
     const to = flow.consommateur;
     nodeIds.add(from);

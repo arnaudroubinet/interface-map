@@ -86,6 +86,7 @@ const callbacks: RailCallbacks = {
   onPalierAffiche: noop,
   onPalierCompare: noop,
   onOptionCompteurs: noop,
+  onLibelléArête: noop,
   onTechnoMasquee: noop,
   onActeurMasque: noop,
   onMasquerExternes: noop,
@@ -216,5 +217,28 @@ describe("le sélecteur « By actor » suit le palier affiché", () => {
     renderRail(root, state, lecture(parc, 2, "architecture"), [], callbacks);
     const offerts = [...root.querySelectorAll("select.rail-selecteur option")].map((o) => o.getAttribute("value"));
     expect(offerts).not.toContain("Aaa");
+  });
+});
+
+// --- §2.3 : l'étiquette nommait le protocole et jamais ce qui circule. Le
+// choix se pose au rail, à côté du compteur -- qui décide du ×N, pas de ce
+// qui est nommé.
+describe("renderRail — ce que nomme l'étiquette d'un trait", () => {
+  const chargé = () => withFichierCharge(initialState(), { nom: "c.xlsx", model: modelAvecFlux, report, dateModification: null });
+  const rendu = (s: AppState) => {
+    const root = document.createElement("div");
+    renderRail(root, s, flux(s), [], callbacks);
+    return root;
+  };
+
+  it("propose les trois lectures de l'étiquette", () => {
+    const options = [...rendu(chargé()).querySelectorAll(".rail-option-libelle option")].map((o) => o.getAttribute("value"));
+    expect(options).toEqual(["technology", "exchanges", "both"]);
+  });
+
+  it("montre celle qui est retenue", () => {
+    const s = { ...chargé(), options: { compteurs: true, libelléArête: "exchanges" as const } };
+    const select = rendu(s).querySelector(".rail-option-libelle select") as HTMLSelectElement;
+    expect(select.value).toBe("exchanges");
   });
 });

@@ -1,7 +1,14 @@
 import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
-import type { Mode } from "../aggregation/core";
+import type { Mode, LibelléArête } from "../aggregation/core";
+
+// L'ordre de lecture va du plus court au plus complet.
+const LIBELLES_ARETE: [LibelléArête, string][] = [
+  ["technology", "technology"],
+  ["exchanges", "what flows"],
+  ["both", "both"],
+];
 import type { Lecture } from "../aggregation/fonctionnel";
 import type { AppState, Vue } from "./state";
 import { VUES_SANS_OBJET_EN_FONCTIONNEL, LIBELLE_VUE } from "./state";
@@ -39,6 +46,7 @@ export interface RailCallbacks {
   onPalierAffiche: (palier: string) => void;
   onPalierCompare: (palier: string) => void;
   onOptionCompteurs: (value: boolean) => void;
+  onLibelléArête: (value: LibelléArête) => void;
   onTechnoMasquee: (techno: string, masquée: boolean) => void;
   onActeurMasque: (acteur: string, masqué: boolean) => void;
   onMasquerExternes: (value: boolean) => void;
@@ -300,6 +308,20 @@ export function renderRail(
     compteursLabel.appendChild(compteursInput);
     compteursLabel.appendChild(document.createTextNode(" counters"));
     options.appendChild(compteursLabel);
+
+    // Nommer le seul protocole fait une carte des TUYAUX ; nommer l'échange en
+    // fait une carte de ce qui CIRCULE. Les deux se valent selon la question
+    // qu'on pose au schéma, d'où le choix plutôt qu'un défaut imposé.
+    const libelléLabel = el("label", { class: "rail-option-libelle" }, ["Label "]);
+    const libelléSelect = el("select", { class: "rail-selecteur" });
+    for (const [valeur, texte] of LIBELLES_ARETE) {
+      const option = el("option", { value: valeur }, [texte]);
+      if (valeur === state.options.libelléArête) option.selected = true;
+      libelléSelect.appendChild(option);
+    }
+    libelléSelect.addEventListener("change", () => callbacks.onLibelléArête(libelléSelect.value as LibelléArête));
+    libelléLabel.appendChild(libelléSelect);
+    options.appendChild(libelléLabel);
 
     root.appendChild(options);
   }

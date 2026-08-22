@@ -370,3 +370,47 @@ describe("directedEndpoints — le tracé suit la donnée, la pointe dit l'initi
     expect(groupFlows(buildFlowInstances(parc("exposant-consommateur")), identityNodeKey, true)[0].tire).toBe(false);
   });
 });
+
+// --- Une carte des TUYAUX ou une carte des ÉCHANGES : l'étiquette ne disait
+// que le protocole, et le nom de ce qui circule n'apparaissait nulle part.
+describe("libelleCellule — ce qui s'écrit sur le trait", () => {
+  const noms = ["Policy events 1.0", "Claims 2.0"];
+
+  it("nomme la technologie seule par défaut", () => {
+    expect(libelleCellule("Kafka", 2, noms)).toBe("Kafka ×2");
+    expect(libelleCellule("Kafka", 2, noms, "technology")).toBe("Kafka ×2");
+  });
+
+  it("nomme les échanges quand on le demande", () => {
+    expect(libelleCellule("Kafka", 2, noms, "exchanges")).toBe("Policy events 1.0, Claims 2.0");
+  });
+
+  // Le compteur reste avec le tuyau : sur un trait qui fusionne cinq flux
+  // dont deux sont nommés, « ×5 » est la seule chose qui dise combien il en
+  // reste.
+  it("nomme les deux, l'échange en tête", () => {
+    expect(libelleCellule("Kafka", 2, noms, "both")).toBe("Policy events 1.0, Claims 2.0 — Kafka ×2");
+  });
+
+  // Au-delà de deux noms l'étiquette mangerait le dessin : le reste se compte,
+  // et se lit dans l'infobulle du trait.
+  it("s'arrête à deux noms et compte le reste", () => {
+    expect(libelleCellule("Kafka", 5, [...noms, "A", "B", "C"], "exchanges")).toBe("Policy events 1.0, Claims 2.0 +3");
+  });
+
+  // La lecture fonctionnelle vide la technologie : « technology » ne peut pas
+  // laisser une étiquette réduite à un compteur, qui n'apprend rien.
+  it("retombe sur les échanges quand aucune technologie n'est nommée", () => {
+    expect(libelleCellule("", 1, ["Policy events 1.0"])).toBe("Policy events 1.0");
+  });
+
+  // Rien à nommer du tout : le compteur est alors la seule information vraie.
+  it("garde le compteur quand il n'y a ni technologie ni nom", () => {
+    expect(libelleCellule("", 3, [], "exchanges")).toBe("3");
+  });
+
+  // « both » sans technologie ne doit pas produire un tiret orphelin.
+  it("n'écrit pas de tiret quand il n'y a pas de technologie à joindre", () => {
+    expect(libelleCellule("", 2, noms, "both")).toBe("Policy events 1.0, Claims 2.0");
+  });
+});
