@@ -8,7 +8,7 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, san
 // A grid, not a graph: one axis, one row per subject. Going through the layout
 // engine would cost dearly and give a worse result -- it has nothing to place
 // here, everything is determined by the milestone's rank.
-const MARGE = 24;
+const MARGIN = 24;
 const LABEL_WIDTH = 300;
 const MILESTONE_WIDTH = 150;
 const LINE_HEIGHT = 26;
@@ -40,11 +40,11 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   const minRank = ranks.length ? Math.min(...ranks) : 0;
   // One more column on the right: that is where "still there" is drawn.
   const columns = ranks.length ? Math.max(...ranks) - minRank + 2 : 1;
-  const x = (rank: number) => MARGE + LABEL_WIDTH + (rank - minRank) * MILESTONE_WIDTH;
+  const x = (rank: number) => MARGIN + LABEL_WIDTH + (rank - minRank) * MILESTONE_WIDTH;
 
-  const topOfLines = MARGE + (context ? TITLE_BLOCK_HEIGHT : 0) + HEADER_HEIGHT;
-  const width = MARGE * 2 + LABEL_WIDTH + columns * MILESTONE_WIDTH;
-  const height = topOfLines + timeline.segments.length * LINE_HEIGHT + MARGE;
+  const topOfLines = MARGIN + (context ? TITLE_BLOCK_HEIGHT : 0) + HEADER_HEIGHT;
+  const width = MARGIN * 2 + LABEL_WIDTH + columns * MILESTONE_WIDTH;
+  const height = topOfLines + timeline.segments.length * LINE_HEIGHT + MARGIN;
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
@@ -55,7 +55,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   fill.setAttribute("fill", PAPER);
   svg.appendChild(fill);
 
-  if (context) svg.appendChild(buildTitleBlock(context, MARGE, MARGE));
+  if (context) svg.appendChild(buildTitleBlock(context, MARGIN, MARGIN));
 
   // The axis: one tick per milestone, with its name and its date. The displayed
   // milestone carries a solid vertical -- that is the "you are here".
@@ -65,7 +65,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
     line.setAttribute("x1", String(px));
     line.setAttribute("y1", String(topOfLines - 22));
     line.setAttribute("x2", String(px));
-    line.setAttribute("y2", String(height - MARGE));
+    line.setAttribute("y2", String(height - MARGIN));
     line.setAttribute("stroke", milestone.name === shownMilestone ? "#0E7DAD" : "#dde1e7");
     line.setAttribute("stroke-width", milestone.name === shownMilestone ? "2" : "1");
     svg.appendChild(line);
@@ -78,7 +78,7 @@ export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null
   const style = styleOfNode({ kind: "actor", external: false });
   timeline.segments.forEach((s, i) => {
     const y = topOfLines + i * LINE_HEIGHT;
-    svg.appendChild(text(MARGE, y + 14, s.label, 12, INK));
+    svg.appendChild(text(MARGIN, y + 14, s.label, 12, INK));
 
     const left = x(s.start);
     const right = x(s.end);

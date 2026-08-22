@@ -87,13 +87,13 @@ describe("buildModel — happy path", () => {
   // lieu de le marquer invalide et de le jeter à l'écriture, ce qui emportait
   // les consommations de l'onglet sans un mot.
   it("keeps a reconstructed FX_ name within what Excel accepts, however long the flow type", () => {
-    const longType: RawSheet = sheet("FlowTypes", [
+    const longTypeName: RawSheet = sheet("FlowTypes", [
       { "Flow type": "Un type de flux vraiment beaucoup trop long", "Direction": "consumer → provider", Description: "" },
     ]);
-    const longInterfaces: RawSheet = sheet("Interfaces", [
+    const longInterfaceName: RawSheet = sheet("Interfaces", [
       { "Flow name": "X", "Provider": "Tatooine", "Flow type": "Un type de flux vraiment beaucoup trop long", Description: "", "Contract link": "", "Contract reference": "", Comments: "", "To confirm": "" },
     ]);
-    const result = buildModel(wb([actorsOk, longType, longInterfaces]));
+    const result = buildModel(wb([actorsOk, longTypeName, longInterfaceName]));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const expected = result.model.interfaces[0].expectedSheet;

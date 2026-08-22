@@ -20,12 +20,12 @@ function row(report: MigrationReport): string[] {
       `${report.actorsCreated.length} component${report.actorsCreated.length > 1 ? "s" : ""} inferred from the flows, with no group or type: ${report.actorsCreated.join(", ")}`
     );
   }
-  if (report.typesInconnus.length > 0) {
+  if (report.unknownTypes.length > 0) {
     // Le code sait seulement que ces types ne figurent pas au référentiel : il
     // ne sait pas POURQUOI, ni ce qu'il faudrait en faire. Le dire autrement
     // reviendrait à généraliser un cas particulier.
     points.push(
-      `flow types missing from the current repository, to be reclassified: ${report.typesInconnus.join(", ")}. ` +
+      `flow types missing from the current repository, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
         "Their direction being unknown, the arrow was drawn as a call from the consumer to the provider."
     );
   }

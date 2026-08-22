@@ -62,7 +62,7 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
     const b = points[i + 1];
     const length = Math.hypot(b.x - a.x, b.y - a.y);
     if (length < 1e-9) continue;
-    const jeu = BREAK_PLAY / length;
+    const play = BREAK_PLAY / length;
 
     // Cuts on this segment, ordered, merged when they touch.
     //
@@ -76,8 +76,8 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
     for (const r of obstacles) {
       const t = rectCrossing(a, b, r);
       if (!t) continue;
-      const start = Math.max(0, t[0] - jeu);
-      const end = Math.min(ceiling, t[1] + jeu);
+      const start = Math.max(0, t[0] - play);
+      const end = Math.min(ceiling, t[1] + play);
       if (end > start) cuts.push([start, end]);
     }
     cuts.sort((x, y) => x[0] - y[0]);
@@ -103,7 +103,7 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
 
 // Corner radius. A raw orthogonal polyline renders angular; a few pixels of
 // rounding are enough to soften the whole board.
-export const RAYON_ANGLE = 6;
+export const CORNER_RADIUS = 6;
 
 // An SVG path following an orthogonal polyline, with rounded corners.
 //
@@ -112,7 +112,7 @@ export const RAYON_ANGLE = 6;
 // produce an aberrant control point. Two cases are ruled out explicitly --
 // three collinear points (no corner to round, and the control point would
 // land on the vertex) and zero-length segments.
-export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
+export function roundedPath(points: Point[], radius = CORNER_RADIUS): string {
   if (points.length === 0) return "";
   if (points.length < 3) return "M " + points.map((p) => `${p.x},${p.y}`).join(" L ");
 
@@ -141,7 +141,7 @@ export function cheminArrondi(points: Point[], radius = RAYON_ANGLE): string {
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
 
-export function pointDansRect(p: Point, r: Rect): boolean {
+export function pointInRect(p: Point, r: Rect): boolean {
   return p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1;
 }
 
@@ -158,14 +158,14 @@ export function segmentsCross(a: Point, b: Point, c: Point, d: Point): boolean {
 }
 
 export function segmentIntersectsRect(a: Point, b: Point, r: Rect): boolean {
-  if (pointDansRect(a, r) || pointDansRect(b, r)) return true;
-  const coins: [Point, Point][] = [
+  if (pointInRect(a, r) || pointInRect(b, r)) return true;
+  const corners: [Point, Point][] = [
     [{ x: r.x0, y: r.y0 }, { x: r.x1, y: r.y0 }],
     [{ x: r.x1, y: r.y0 }, { x: r.x1, y: r.y1 }],
     [{ x: r.x1, y: r.y1 }, { x: r.x0, y: r.y1 }],
     [{ x: r.x0, y: r.y1 }, { x: r.x0, y: r.y0 }],
   ];
-  return coins.some(([c, d]) => segmentsCross(a, b, c, d));
+  return corners.some(([c, d]) => segmentsCross(a, b, c, d));
 }
 
 // The marker-end anchors at the path's final point and is drawn over it, but

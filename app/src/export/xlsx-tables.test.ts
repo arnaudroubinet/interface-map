@@ -50,9 +50,9 @@ describe("poserLesTableaux — collision de noms de tableau", () => {
   });
 
   it("nomme les tableaux de façon stable d'une génération à l'autre", () => {
-    const brut = minimalWorkbook(sheets);
-    const premier = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
-    const second = displayNamesDesTables(applyOoxmlExtras(brut, { tables }));
+    const raw = minimalWorkbook(sheets);
+    const premier = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));
+    const second = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));
     expect(second).toEqual(premier);
   });
 });

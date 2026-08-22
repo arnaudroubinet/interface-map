@@ -88,14 +88,14 @@ export interface ActorViewFilters {
 
 // Idem pour la vue par technologie : masquer d'un bloc tout ce qui est hors
 // plateforme, et/ou décocher acteur par acteur.
-export interface FiltresVueTechnologie {
+export interface TechnologyViewFilters {
   masquerExternes: boolean;
   hiddenActors: string[];
 }
 
 // La matrix se filtre comme la vue par technologie, plus l'échelle de lecture
 // : acteur par acteur, replié sur les groupes, ou plateforme détaillée.
-export interface MatrixViewFilters extends FiltresVueTechnologie {
+export interface MatrixViewFilters extends TechnologyViewFilters {
   grain: MatrixGrain;
   // L'ordre des lignes et des colonnes. Alphabétique par défaut : une
   // seriation ne doit jamais être le défaut silencieux -- la revue de
@@ -117,7 +117,7 @@ export interface AppState {
   comparedMilestone: string | null;
   options: AppOptions;
   actorFilters: ActorViewFilters;
-  technologyFilters: FiltresVueTechnologie;
+  technologyFilters: TechnologyViewFilters;
   matrixFilters: MatrixViewFilters;
   actorSelection: string | null;
   technologySelection: string | null;
@@ -304,7 +304,7 @@ export function withMatrixGrain(state: AppState, grain: MatrixGrain): AppState {
 
 // L'ordre ne touche pas aux filtres : changer d'ordre ne cache ni ne révèle
 // personne, contrairement à un changement de granularité.
-export function withOrdreMatrice(state: AppState, order: MatrixOrder): AppState {
+export function withMatrixOrder(state: AppState, order: MatrixOrder): AppState {
   return { ...state, matrixFilters: { ...state.matrixFilters, order } };
 }
 

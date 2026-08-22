@@ -80,8 +80,8 @@ function readSchemaVersion(sheets: RawSheet[]): number {
   if (!sheet) return 0;
   const header = findHeader(sheet.headers, SCHEMA_VERSION_COLUMN);
   if (!header) return 0;
-  const brut = (sheet.rows[0]?.values[header] ?? "").toString().trim();
-  const value = Number.parseInt(brut, 10);
+  const raw = (sheet.rows[0]?.values[header] ?? "").toString().trim();
+  const value = Number.parseInt(raw, 10);
   return Number.isFinite(value) && value >= 0 ? value : 0;
 }
 
@@ -110,7 +110,7 @@ function rowHasContent(row: Record<string, string>, headerMap: Map<string, strin
 // Les deux normalisations acceptent encore l'écriture de la v2 : un classeur
 // v2 doit se lire correctement pour se convertir, et ces deux valeurs sont
 // interprétées dès la lecture, pas au moment de la conversion.
-function normSens(raw: string): "provider-to-consumer" | "consumer-to-provider" {
+function normDirection(raw: string): "provider-to-consumer" | "consumer-to-provider" {
   const v = normalizeText(raw);
   const toConsumer = v.startsWith(normalizeText("provider")) || v.startsWith(normalizeText("exposant"));
   return toConsumer ? "provider-to-consumer" : "consumer-to-provider";
@@ -232,14 +232,14 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
   if (groupsSheet && findHeader(groupsSheet.headers, "Group")) {
     groupsSheetMissing = false;
     noteMissingColumns("Groups", groupsSheet.headers, GROUP_COLUMNS.filter((c) => c !== "Group"));
-    const headerMapGroupes = buildHeaderMap(groupsSheet.headers, GROUP_COLUMNS);
+    const headerMapGroups = buildHeaderMap(groupsSheet.headers, GROUP_COLUMNS);
     groups = groupsSheet.rows
-      .filter(({ values: r }) => rowHasContent(r, headerMapGroupes, GROUP_COLUMNS))
+      .filter(({ values: r }) => rowHasContent(r, headerMapGroups, GROUP_COLUMNS))
       .map(({ row, values: r }) => ({
         sheet: groupsSheet.name,
         row,
-        name: get(r, headerMapGroupes, "Group"),
-        perimeter: get(r, headerMapGroupes, "Perimeter"),
+        name: get(r, headerMapGroups, "Group"),
+        perimeter: get(r, headerMapGroups, "Perimeter"),
       }))
       .filter((g) => g.name !== "");
   }
@@ -273,7 +273,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       sheet: flowTypesSheet.name,
       row,
       type: get(r, headerMapFlowTypes, "Flow type"),
-      direction: normSens(get(r, headerMapFlowTypes, "Direction")),
+      direction: normDirection(get(r, headerMapFlowTypes, "Direction")),
       rawDirection: get(r, headerMapFlowTypes, "Direction"),
       colour: colourHeader ? (r[colourHeader] ?? "").toString().trim() : "",
       description: get(r, headerMapFlowTypes, "Description"),

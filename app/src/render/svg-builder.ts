@@ -1,7 +1,7 @@
 import { ICONS, DEFAULT_ICON } from "./icons";
 import type { LayoutResult, LayoutEdge, LayoutNode } from "../layout/graph-layout";
 import {
-  lignesDescription,
+  descriptionLines,
   truncatedName,
   nodeTextHeight,
   NAME_LINE_HEIGHT,
@@ -15,11 +15,11 @@ import {
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
 import {
-  cheminArrondi,
+  roundedPath,
   breakTheLine,
   setBackForTheHead,
   segmentIntersectsRect,
-  RAYON_ANGLE,
+  CORNER_RADIUS,
   type Point,
   type Rect,
 } from "./geometry";
@@ -28,8 +28,8 @@ import { legendEntries, type LegendEntry, type LegendSample } from "./legend";
 import { buildTitleBlock, descriptionAccessible, titleBlockText, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./title-block";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-// La même pile que la page (index.html) : les constantes de largeur des
-// étiquettes sont calibrées dessus, un export en serif les met en défaut.
+// The same stack as the page (index.html): the label-width constants are
+// calibrated on it, and an export in serif puts them at fault.
 const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
 function el<K extends keyof SVGElementTagNameMap>(tag: K): SVGElementTagNameMap[K] {
@@ -60,31 +60,31 @@ function rect(x: number, y: number, w: number, h: number, fill: string, stroke: 
 interface RenderEdge {
   criticality?: string;
   points: { x: number; y: number }[];
-  // Centre de la pastille, placé par le moteur de layout.
+  // The chip's centre, placed by the layout engine.
   labelCentreOf?: { x: number; y: number };
-  // Extrémités conservées : la contrainte d'obstacles s'applique APRÈS la
-  // fusion, donc sur ces arêtes-là, et doit savoir quels nœuds sont
-  // légitimement accostés. Un tronc de fusion n'a pas de nœud d'origine.
+  // Endpoints kept: the obstacle constraint applies AFTER the merge, hence to
+  // those edges, and it must know which nodes are legitimately approached. A
+  // merge trunk has no origin node.
   from?: string;
   to?: string;
   technology: string;
   count: number;
-  // La pointe se pose au DÉPART du trait : le consommateur interroge le
-  // fournisseur, mais la donnée descend toujours dans l'autre sens.
+  // The arrowhead sits at the line's START: the consumer queries the provider,
+  // but the data always travels the other way.
   pulled?: boolean;
-  // Les échanges que ce trait rassemble, pour l'infobulle.
+  // The exchanges this line gathers, for the tooltip.
   names?: string[];
   attenuated: boolean;
   change?: "added" | "removed";
   label?: string;
   arrow: boolean;
-  // Le tronc d'un groupe fusionné part d'un point de confluence, pas d'un
-  // vrai nœud -- pas de point de départ à marquer dans ce cas.
+  // A merged group's trunk starts from a confluence point, not from a real
+  // node -- so there is no start point to mark in that case.
   isTrunk?: boolean;
 }
 
-// Jeu conservé entre la pointe de la flèche et la boîte visée : la flèche
-// pointe le nœud, elle ne s'y superpose pas.
+// The play kept between the arrowhead and the target box: the arrow points at
+// the node, it does not overlap it.
 const ARROW_GAP = 4;
 
 
@@ -92,24 +92,24 @@ const ARROW_GAP = 4;
 
 
 
-// Distance, avant le nœud cible, à laquelle les flux de même (cible, techno,
-// atténuation) se rejoignent en un tronc commun -- eux gardent leur tracé et
-// leur nom jusque là, seul le tronc porte la pointe de flèche. Doit rester
-// supérieure à TIGE_MAX, sinon la confluence tomberait à l'intérieur de la
-// tige d'entrée qu'elle remplace.
+// The distance, before the target node, at which flows sharing (target, tech,
+// dimming) join into a common trunk -- they keep their own path and name up to
+// there, and only the trunk carries the arrowhead. Must stay greater than
+// TIGE_MAX, otherwise the confluence would fall inside the entry stem it
+// replaces.
 const DISTANCE_CONFLUENCE = 34;
 
-// Nombre de flux distincts touchant chaque nœud (source ou cible confondues)
-// -- sert à décider de quel côté un libellé risque le plus de se retrouver
-// dans un attroupement, pour le placer plutôt de l'autre côté.
+// The number of distinct flows touching each node (source and target alike) --
+// used to decide on which side a label is most likely to land in a crowd, so
+// as to place it on the other one instead.
 
 function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
   const groups = new Map<string, LayoutEdge[]>();
   for (const edge of edges) {
-    // L'atténuation fait partie de la clé : un flux à transformer ne se
-    // fusionne jamais avec un flux actif, même même cible/techno.
-    // Un trait tiré ne se fusionne pas : la confluence se pose à la CIBLE, là où
-    // sa pointe n'est justement pas. On le distingue donc par sa propre clé.
+    // The dimming is part of the key: a flow to be transformed never merges
+    // with an active flow, even at the same target/tech.
+    // A pulled line does not merge: the confluence sits at the TARGET, which is
+    // precisely where its arrowhead is not. So it gets a key of its own.
     const key = JSON.stringify([edge.to, edge.technology, edge.attenuated, edge.pulled === true]);
     const group = groups.get(key) ?? [];
     group.push(edge);
@@ -118,34 +118,34 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
 
   const result: RenderEdge[] = [];
 
-  // Un flux dessiné tel quel, avec sa propre pointe.
+  // A flow drawn as it is, with its own arrowhead.
   const alone = (edge: LayoutEdge) => {
       result.push({ points: edge.points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
   };
 
   for (const group of groups.values()) {
-    // Un trait tiré ne se fusionne pas : la confluence se pose à la CIBLE, là
-    // où sa pointe n'est justement pas. Chacun se dessine donc pour lui-même --
-    // et TOUS, sans quoi le groupe perdrait tout sauf son premier.
+    // A pulled line does not merge: the confluence sits at the TARGET, which is
+    // precisely where its arrowhead is not. Each therefore draws for itself --
+    // and ALL of them, failing which the group would lose all but its first.
     if (group[0].pulled === true) {
       for (const edge of group) alone(edge);
       continue;
     }
     if (group.length < 2) {
       const edge = group[0];
-      // Pas de fusion, mais l'un des deux bouts peut quand même être un nœud
-      // très fréquenté (ex. un hub qui a aussi des flux sortants) : on place
-      // le libellé plutôt du côté le moins encombré.
+      // No merge, but one of the two ends may still be a very busy node (e.g. a
+      // hub that also has outgoing flows): the label is placed on whichever side
+      // is the less crowded.
       result.push({ points: edge.points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: true });
       continue;
     }
 
-    // Les branches partagent le même port d'entrée, donc normalement la même
-    // approche finale, et la confluence se pose dans son prolongement. Mais
-    // dès qu'un conteneur entre en jeu, le moteur peut les faire arriver par
-    // des segments différents : remplacer alors leur extrémité par une
-    // confluence commune fabriquerait un raccourci qui coupe à travers les
-    // boîtes. On ne fusionne que lorsque l'approche est effectivement commune.
+    // The branches share the same entry port, hence normally the same final
+    // approach, and the confluence sits along its extension. But as soon as a
+    // container comes into play, the engine may bring them in on different
+    // segments: replacing their endpoint with a common confluence would then
+    // manufacture a shortcut cutting straight through the boxes. Merging only
+    // happens where the approach really is common.
     const reference = group[0].points;
     const target = reference[reference.length - 1];
     const before = reference[reference.length - 2];
@@ -159,9 +159,9 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
       continue;
     }
     const length = Math.hypot(target.x - before.x, target.y - before.y) || 1;
-    // Jamais au-delà de la moitié du dernier segment : sinon la confluence
-    // passerait derrière le coude précédent et la branche repartirait en
-    // arrière juste avant le tronc.
+    // Never beyond half of the last segment: otherwise the confluence would
+    // pass behind the previous corner and the branch would head backwards just
+    // before the trunk.
     const setback = Math.min(DISTANCE_CONFLUENCE, length / 2);
     const confluence = {
       x: target.x - ((target.x - before.x) / length) * setback,
@@ -169,13 +169,13 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
     };
 
     for (const edge of group) {
-      // On remplace le seul point d'arrivée par la confluence, qui est située
-      // sur ce même dernier segment : la branche reste donc orthogonale. Tous
-      // les points de routage produits par le moteur sont conservés.
+      // Only the arrival point is replaced by the confluence, which sits on that
+      // same last segment: the branch therefore stays orthogonal. Every routing
+      // point the engine produced is kept.
       const points = [...edge.points.slice(0, -1), confluence];
-      // Toutes les branches convergent vers la même confluence encombrée :
-      // le libellé se place près de sa propre source, là où les branches sont
-      // encore écartées les unes des autres (à leurs ports de sortie).
+      // Every branch converges on the same crowded confluence: the label is
+      // placed near its own source, where the branches are still spread apart
+      // from one another (at their exit ports).
       result.push({ points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
     }
 
@@ -186,8 +186,8 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
       count: group.reduce((s, e) => s + e.count, 0),
       names: [...new Set(group.flatMap((e) => e.names ?? []))],
       attenuated: group[0].attenuated,
-      // Le tronc porte la criticité la plus forte de ses branches : il tombe
-      // avec la plus vitale d'entre elles.
+      // The trunk carries the strongest criticality of its branches: it falls
+      // with the most vital of them.
       criticality: group.map((e) => e.criticality).find(Boolean),
       arrow: true,
       isTrunk: true,
@@ -196,18 +196,18 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
   return result;
 }
 
-// La pointe doit TENIR dans le segment qui la porte. ELK sort d'une boîte par
-// un stub perpendiculaire à la face -- parfois 5 px -- puis tourne : une pointe
-// de 12 px y dépassait le coude et se plantait sur le segment suivant, de
-// côté, comme si le trait arrivait par le flanc de la flèche. Sur le classeur
-// d'exemple, 14 arêtes sur 24 étaient dans ce cas.
+// The arrowhead must FIT within the segment carrying it. ELK leaves a box by a
+// stub perpendicular to the face -- sometimes 5 px -- then turns: a 12 px head
+// overran the corner there and planted itself sideways on the next segment, as
+// if the line arrived through the arrow's flank. On the sample workbook, 14
+// edges out of 24 were in that state.
 //
-// On la rétrécit par paliers plutôt que continûment : une taille par arête
-// ferait autant de définitions de marqueur que d'arêtes.
+// It is shrunk in steps rather than continuously: one size per edge would mean
+// as many marker definitions as there are edges.
 const HEAD_SIZES = [12, 8, 5, 3] as const;
 
-// L'écart avant contact suit la pointe : gardé à 4 px sous une pointe de 3, il
-// mangerait plus que la pointe elle-même.
+// The gap before contact follows the head: kept at 4 px under a 3 px head, it
+// would eat more than the head itself.
 function arrowGapFor(size: number): number {
   return Math.min(ARROW_GAP, size / 3);
 }
@@ -216,27 +216,27 @@ function headSizeFor(approachLength: number): number {
   return HEAD_SIZES.find((t) => approachLength >= t + arrowGapFor(t)) ?? HEAD_SIZES[HEAD_SIZES.length - 1];
 }
 
-// La longueur DROITE réellement disponible au bout du trait pour y poser la
-// pointe. Deux retranchements, et oublier le second était l'erreur : le
-// segment brut d'ELK perd de la longueur dans l'arrondi du coude qui le
-// précède -- jusqu'à RAYON_ANGLE, ou la moitié du segment s'il est court.
+// The STRAIGHT length actually available at the line's end for setting the
+// head. Two deductions, and forgetting the second one was the mistake: ELK's
+// raw segment loses length to the rounding of the corner preceding it -- up to
+// RAYON_ANGLE, or half the segment if it is short.
 function approachLengthOf(edge: RenderEdge): number {
   const p = edge.points;
   const [a, b] = edge.pulled ? [p[0], p[1]] : [p[p.length - 1], p[p.length - 2]];
   if (!a || !b) return 0;
-  const brute = Math.hypot(b.x - a.x, b.y - a.y);
-  return brute - Math.min(RAYON_ANGLE, brute / 2);
+  const raw = Math.hypot(b.x - a.x, b.y - a.y);
+  return raw - Math.min(CORNER_RADIUS, raw / 2);
 }
 
 function arrowMarkerId(colour: string, hollow = false, size = HEAD_SIZE): string {
   return `${hollow ? "arrow-hollow" : "arrow"}-${size}-${colour.replace(/[^a-zA-Z0-9]/g, "")}`;
 }
 
-// Le moteur place les libellés lui-même, en leur réservant de la place le long
-// du tracé (elk.edgeLabels.placement). Le placement maison qui vivait ici --
-// milieu du plus long segment, puis dégagement des boîtes, puis écartement
-// mutuel -- finissait par éloigner la pastille de sa propre flèche, au point
-// qu'on ne savait plus laquelle allait avec laquelle.
+// The engine places the labels itself, reserving room for them along the path
+// (elk.edgeLabels.placement). The hand-rolled placement that used to live here
+// -- middle of the longest segment, then clearing the boxes, then mutual
+// spreading -- ended up taking the chip away from its own arrow, to the point
+// where one could no longer tell which went with which.
 function placeLabels(edges: RenderEdge[]): Map<RenderEdge, Point> {
   const placements = new Map<RenderEdge, Point>();
   for (const e of edges) {
@@ -245,15 +245,15 @@ function placeLabels(edges: RenderEdge[]): Map<RenderEdge, Point> {
   return placements;
 }
 
-// Le texte occupe le blanc laissé par le trait ; il n'a donc plus besoin d'une
-// pastille pour se détacher du sien. Un liseré blanc le protège en revanche des
-// AUTRES traits qui passeraient derrière -- « paint-order: stroke » peint ce
-// liseré sous les lettres, ce qui évite de les épaissir.
-// Le rappel de couleur passe par un DISQUE, pas par l'encre du texte : les
-// huit teintes de la palette échouent toutes à 4,5:1 comme texte, et écrire en
-// couleur rendait le schéma illisible en niveaux de gris. C'est exactement ce
-// que la matrix fait déjà. Une couleur d'écart, elle, reste l'encre : là, la
-// teinte EST le message, et les deux passent le seuil (5,05 et 4,80).
+// The text occupies the white left by the line; it therefore no longer needs a
+// chip to stand out against its own. A white halo does protect it from the
+// OTHER lines passing behind -- "paint-order: stroke" paints that halo under
+// the letters, which avoids thickening them.
+// The colour reminder goes through a DISC, not the text's ink: all eight hues
+// of the palette fail 4.5:1 as text, and writing in colour made the diagram
+// illegible in greyscale. This is exactly what the matrix already does. A
+// change colour, for its part, stays the ink: there the hue IS the message,
+// and both pass the threshold (5.05 and 4.80).
 function buildEdgeLabel(
   cx: number,
   cy: number,
@@ -298,31 +298,31 @@ function buildEdgeLabel(
   }
 
   apply(text, textY, "11", colourChip ? INK : colour, true);
-  // 8,5 px en gris pâle : le plus petit texte du schéma était aussi le moins
-  // contrasté. 10 px et un ardoise franc (10,16:1 contre 4,74:1).
+  // 8.5 px in pale grey: the diagram's smallest text was also its least
+  // contrasted. Now 10 px and a frank slate (10.16:1 against 4.74:1).
   if (subText) apply(subText, textY + 11, "10", SECONDARY_GREY, false);
   return g;
 }
 
 
 
-// Un trait qui apparaît ou disparaît entre deux paliers porte sa propre
-// couleur : la technologie n'est plus l'information principale, le changement
-// l'est. Ailleurs, rien ne change.
-// Les couleurs elles-mêmes vivent dans styles-noeud.ts : écrites en clair, pas
-// en variables CSS -- celles-ci ne sont définies que dans la page de l'appli.
-// Hors d'elle -- un .svg ouvert seul, un PNG rastérisé -- le trait se résolvait
-// à « none » et le schéma Écarts sortait SANS AUCUN TRAIT.
+// A line that appears or disappears between two milestones carries its own
+// colour: the technology is no longer the main information, the change is.
+// Everywhere else, nothing changes.
+// The colours themselves live in node-styles.ts: written literally, not as CSS
+// variables -- those are defined only in the app's own page. Outside it -- an
+// .svg opened on its own, a rasterised PNG -- the stroke resolved to "none"
+// and the Changes diagram came out WITH NO LINES AT ALL.
 
 function edgeColour(edge: RenderEdge, colorFor: (tech: string) => string): string {
   return edge.change ? CHANGE_COLOUR[edge.change] : colorFor(edge.technology);
 }
 
-// La graisse du trait est la variable de Bertin faite pour l'ORDRE. Elle est
-// volontairement uniforme ailleurs -- faire varier l'épaisseur avec le NOMBRE
-// de flux agrégés écrasait visuellement les voisins, et le volume se lit dans
-// le « ×N ». Ce raisonnement valait pour un volume ; il ne vaut pas pour un
-// ordre, et la criticité en est un.
+// Line weight is the Bertin variable made for ORDER. It is deliberately
+// uniform elsewhere -- varying the width with the NUMBER of aggregated flows
+// visually crushed the neighbours, and the volume reads in the "×N". That
+// reasoning held for a volume; it does not hold for an order, and criticality
+// is one.
 const WIDTH_BY_CRITICALITY: Record<string, number> = {
   "1 - critical": 3.5,
   "2 - important": 2,
@@ -343,10 +343,10 @@ function buildEdgeElement(
   const g = el("g");
   const colour = edgeColour(edge, colorFor);
 
-  // Le nom de l'échange se lit ici, au hover, dans le navigateur comme dans
-  // un .svg ouvert seul. La condition « au moins deux noms » en privait toute
-  // arête simple, c'est-à-dire la quasi-totalité d'entre elles : sur le
-  // classeur d'exemple, 23 arêtes sur 24 étaient muettes.
+  // The exchange's name reads here, on hover, in the browser as in an .svg
+  // opened on its own. The "at least two names" condition deprived every simple
+  // edge of it, that is, very nearly all of them: on the sample workbook, 23
+  // edges out of 24 were mute.
   if (edge.names && edge.names.length > 0) {
     const tooltip = el("title");
     tooltip.textContent = edge.names.join("\n");
@@ -361,14 +361,14 @@ function buildEdgeElement(
 
   pieces.forEach((piece, i) => {
     const path = el("path");
-    path.setAttribute("d", cheminArrondi(piece));
+    path.setAttribute("d", roundedPath(piece));
     path.setAttribute("fill", "none");
     path.setAttribute("stroke", colour);
     path.setAttribute("stroke-width", String(strokeWidthOf(edge, byCriticality)));
-    // La pointe ne va que sur le morceau qui aborde celui qu'elle désigne : le
-    // dernier quand le fournisseur pousse, le premier quand le consommateur
-    // appelle. Le marqueur s'oriente seul (auto-start-reverse), une seule
-    // définition sert les deux.
+    // The head only goes on the piece approaching what it designates: the last
+    // one when the provider pushes, the first when the consumer calls. The
+    // marker orients itself (auto-start-reverse), so one definition serves
+    // both.
     if (edge.arrow) {
       if (edge.pulled && i === 0) path.setAttribute("marker-start", `url(#${arrowMarkerId(colour, true, headSize)})`);
       if (!edge.pulled && i === pieces.length - 1) path.setAttribute("marker-end", `url(#${arrowMarkerId(colour, false, headSize)})`);
@@ -377,18 +377,18 @@ function buildEdgeElement(
       path.setAttribute("stroke-dasharray", "6 4");
       path.setAttribute("opacity", "0.5");
     }
-    // Un retrait n'était que ROUGE, un ajout que vert : à l'impression, les
-    // deux devenaient le même gris. Le tiret long dit « ce trait s'en va »
-    // sans dépendre de la couleur.
+    // A removal was only RED, an addition only green: in print, the two became
+    // the same grey. The long dash says "this line is leaving" without
+    // depending on colour.
     if (edge.change === "removed") path.setAttribute("stroke-dasharray", "10 5");
     g.appendChild(path);
   });
 
 
 
-  // Point de départ : marque explicitement le nœud d'origine, à l'image de
-  // la pointe qui marque l'arrivée -- un tronc de fusion part d'un point de
-  // confluence, pas d'un vrai nœud, donc n'en porte pas.
+  // Start point: explicitly marks the origin node, mirroring the arrowhead
+  // that marks the arrival -- a merge trunk starts from a confluence point,
+  // not from a real node, so it carries none.
 
   return g;
 }
@@ -406,9 +406,9 @@ function buildIcon(name: string, x: number, y: number, size: number, colour: str
   g.setAttribute("stroke-width", "2");
   g.setAttribute("stroke-linecap", "round");
   g.setAttribute("stroke-linejoin", "round");
-  // Un nom inconnu retombe sur le jeton neutre plutôt que de ne rien dessiner :
-  // une boîte sans icône se lirait comme un oubli, pas comme une erreur de
-  // saisie -- que les contrôles d'intégrité signalent par ailleurs.
+  // An unknown name falls back to the neutral token rather than drawing nothing:
+  // a box with no icon would read as an oversight, not as a data-entry error --
+  // which the integrity checks report separately.
   for (const element of ICONS[name] ?? ICONS[DEFAULT_ICON]) {
     const e = el(element.tag);
     for (const [attr, val] of Object.entries(element.attrs)) e.setAttribute(attr, val);
@@ -417,8 +417,8 @@ function buildIcon(name: string, x: number, y: number, size: number, colour: str
   return g;
 }
 
-// Chip arrondi (style C4 « type » / « externe ») : fond teinté à faible
-// opacité, texte de la même couleur que la bordure du nœud.
+// Rounded chip (C4 "type" / "external" style): tinted fill at low opacity,
+// text in the same colour as the node's border.
 function buildChip(x: number, y: number, contenu: string, colour: string): { element: SVGGElement; width: number } {
   const width = contenu.length * 5.3 + 14;
   const height = 15;
@@ -444,10 +444,10 @@ function buildChip(x: number, y: number, contenu: string, colour: string): { ele
   return { element: g, width };
 }
 
-// Frontière au sens C4 : un cadre en pointillés autour des composants du
-// produit, son libellé en haut à gauche. Elle n'a ni fond ni icône -- c'est un
-// contour, pas une boîte, et elle se dessine avant tout le reste pour rester
-// dessous.
+// A boundary in the C4 sense: a dashed frame around the product's components,
+// its label at the top left. It has neither fill nor icon -- it is an outline,
+// not a box, and it is drawn before everything else so as to stay underneath.
+//
 function buildBoundaryElement(node: LayoutNode): SVGGElement {
   const g = el("g");
   const x = node.x - node.width / 2;
@@ -478,9 +478,9 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const style = styleOfNode(node);
   const isExternal = !!node.external;
 
-  // Un groupe replié se dessine en PILE : deux boîtes décalées derrière la
-  // sienne. Le lecteur voit d'un coup d'œil que ce nœud en contient plusieurs,
-  // là où seul le sous-titre « 4 actors » le disait.
+  // A folded group is drawn as a STACK: two offset boxes behind its own. The
+  // reader sees at a glance that this node holds several, where only the "4
+  // actors" subtitle used to say so.
   if (node.aggregate && node.aggregate > 1) {
     const pile = el("g");
     pile.setAttribute("class", "fx-stack");
@@ -493,10 +493,10 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     g.appendChild(pile);
   }
 
-  // Un acteur TECHNIQUE porte un coin coupé, comme un composant. C'est la
-  // convention qu'ArchiMate a déjà tranchée (§3.9) : la forme redit ce que la
-  // couleur dit, et la couleur seule ne dit rien en noir et blanc ni pour un
-  // daltonien (WCAG 1.4.1, technique G111).
+  // A TECHNICAL actor carries a cut corner, like a component. That is the
+  // convention ArchiMate already settled (§3.9): the shape restates what the
+  // colour says, and colour alone says nothing in black and white or for a
+  // colour-blind reader (WCAG 1.4.1, technique G111).
   const COUPE = 14;
   let box: SVGElement;
   if (node.technical) {
@@ -517,22 +517,22 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     r.setAttribute("rx", "10"); // arcSize=10 dans le gabarit draw.io
     box = r;
   }
-  // Le trait discontinu redit « externe » par la forme : la couleur seule ne
-  // suffit pas en noir et blanc ni pour un daltonien.
+  // The dashed stroke restates "external" through shape: colour alone is not
+  // enough in black and white or for a colour-blind reader.
   if (isExternal) box.setAttribute("stroke-dasharray", "8 5");
   g.appendChild(box);
 
   const blanc = "#ffffff";
-  // Blanc, pas gris. #cccccc tombait à 1,81:1 ; une demi-teinte ne suffit pas
-  // non plus -- #e8eef2 ne donne que 3,94:1. La hiérarchie visuelle est déjà
-  // portée par la taille (16 px gras, 12 px, 11 px), la couleur n'a pas à la
-  // porter en plus.
+  // White, not grey. #cccccc fell to 1.81:1; a half-tone is not enough either --
+  // #e8eef2 gives only 3.94:1. The visual hierarchy is already carried by size
+  // (16 px bold, 12 px, 11 px); colour has no business carrying it as well.
+  //
   const descGrey = "#ffffff";
   const cx = node.x;
 
-  // Bloc de texte centré dans la boîte : nom en 16 gras, [Type] en dessous,
-  // ligne vide, puis description en 11 gris clair -- la maquette draw.io.
-  const rows = lignesDescription(node.description);
+  // A text block centred in the box: name at 16 bold, [Type] below it, a blank
+  // line, then the description at 11 in light grey -- the draw.io mock-up.
+  const rows = descriptionLines(node.description);
   let cursor = node.y - nodeTextHeight(node) / 2;
 
   const iconSize = 16;
@@ -549,9 +549,9 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   nameText.setAttribute("fill", blanc);
   nameText.textContent = shownName;
   g.appendChild(nameText);
-  // Tronqué, le nom reste lisible au hover de la boîte entière -- dans le
-  // navigateur comme dans un .svg ouvert seul. Posé sur le groupe et non sur
-  // l'élément texte : là, il s'ajouterait au textContent du nom.
+  // Truncated, the name stays readable on hover over the whole box -- in the
+  // browser as in an .svg opened on its own. Set on the group rather than on
+  // the text element: there it would add itself to the name's textContent.
   if (shownName !== node.label) {
     const tooltip = el("title");
     tooltip.textContent = node.label;
@@ -587,31 +587,31 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   return g;
 }
 
-// Dard adouci, dans la même boîte englobante (0..10, pointe en (10,5)) que
-// le marker "c4-arrow" de c4hero (src/components/canvas/Canvas.tsx) dont on
-// part. refX="0" ancre le marker par sa BASE, pas sa pointe : c'est
-// pointsAvantPointe (buildEdgeElement) qui raccourcit le trait jusqu'à cette
-// base, et le marker seul parcourt les TAILLE_POINTE derniers unités jusqu'au
-// vrai point de contact -- sinon un trait épais dépasse visuellement du dos
-// concave, plus étroit que le dos plat du triangle d'origine.
+// Softened dart, in the same bounding box (0..10, tip at (10,5)) as c4hero's
+// "c4-arrow" marker (src/components/canvas/Canvas.tsx) that this starts from.
+// refX="0" anchors the marker by its BASE, not its tip: it is
+// pointsBeforeHead (buildEdgeElement) that shortens the line back to that
+// base, and the marker alone covers the last HEAD_SIZE units to the true point
+// of contact -- otherwise a thick line visually overruns the concave back,
+// narrower than the flat back of the original triangle.
 //
-// markerUnits="userSpaceOnUse" : par défaut un marker se mesure en multiples
-// de stroke-width, donc la pointe d'un tronc fusionné épais (stroke-width
-// jusqu'à 6) faisait 48px de large -- elle écrasait le nœud visé, mangeait
-// l'écart avant contact et recouvrait les pointes voisines. Taille fixe : la
-// force d'un flux se lit à l'épaisseur du trait, pas à la taille de sa pointe.
+// markerUnits="userSpaceOnUse": by default a marker is measured in multiples
+// of stroke-width, so the head of a thick merged trunk (stroke-width up to 6)
+// was 48px wide -- it crushed the target node, ate the gap before contact and
+// covered the neighbouring heads. Fixed size: a flow's strength reads in the
+// line's thickness, not in the size of its head.
 const HEAD_SIZE = 12;
 
-// Deux pointes, et c'est ELLES qui disent qui appelle : un DARD PLEIN quand le
-// fournisseur pousse, un V OUVERT quand le consommateur tire. La position de
-// la pointe ne suffisait pas -- il aurait fallu savoir quel bout du trait était
-// le fournisseur, ce que le dessin ne dit pas.
+// Two heads, and THEY are what says who calls: a SOLID DART when the provider
+// pushes, an OPEN V when the consumer pulls. The head's position was not
+// enough -- one would have had to know which end of the line was the provider,
+// which the drawing does not say.
 //
-// Deux silhouettes, pas seulement deux remplissages : un dard évidé et un dard
-// plein se confondent à petite taille et à l'impression. C'est le couple
-// qu'UML emploie sur ses messages -- triangle plein pour un appel synchrone, V
-// ouvert pour un message asynchrone -- et les deux DSL cibles savent l'écrire
-// (normal / vee en LikeC4).
+// Two silhouettes, not merely two fills: a hollowed dart and a solid dart blur
+// together at small size and in print. This is the pair UML uses on its
+// messages -- solid triangle for a synchronous call, open V for an
+// asynchronous message -- and both target DSLs can write it (normal / vee in
+// LikeC4).
 function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, size = HEAD_SIZE): void {
   const marker = el("marker");
   marker.setAttribute("id", arrowMarkerId(colour, hollow, size));
@@ -622,12 +622,12 @@ function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, si
   marker.setAttribute("markerWidth", String(size));
   marker.setAttribute("markerHeight", String(size));
   marker.setAttribute("orient", "auto-start-reverse");
-  // Même boîte englobante dans les deux cas (0..10, pointe en (10,5)) : le
-  // recul du trait avant contact ne dépend donc pas de la forme.
+  // The same bounding box in both cases (0..10, tip at (10,5)): the line's
+  // setback before contact therefore does not depend on the shape.
   const arrowPath = el("path");
   if (hollow) {
-    // Le V : deux traits ouverts, aucun remplissage, aucune base. Rien à voir
-    // avec la silhouette du dard, même de loin.
+    // The V: two open strokes, no fill, no base. Nothing like the dart's
+    // silhouette, even from afar.
     arrowPath.setAttribute("d", "M 0.5,0 L 10,5 L 0.5,10");
     arrowPath.setAttribute("fill", "none");
     arrowPath.setAttribute("stroke", colour);
@@ -635,8 +635,8 @@ function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, si
     arrowPath.setAttribute("stroke-linecap", "round");
     arrowPath.setAttribute("stroke-linejoin", "round");
   } else {
-    // Dard adouci : côtés légèrement convexes vers la pointe, dos légèrement
-    // concave plutôt que les trois arêtes droites d'un triangle brut.
+    // Softened dart: sides slightly convex towards the tip, back slightly
+    // concave rather than the three straight edges of a raw triangle.
     arrowPath.setAttribute("d", "M 0,0 Q 6,1 10,5 Q 6,9 0,10 Q 2.5,5 0,0 Z");
     arrowPath.setAttribute("fill", colour);
   }
@@ -644,19 +644,19 @@ function addArrowMarker(defs: SVGDefsElement, colour: string, hollow = false, si
   defs.appendChild(marker);
 }
 
-// Marge autour du contenu réel du diagramme (traits, pastilles de libellé,
-// pointes de flèche). Les dimensions que rend le moteur de layout ne
-// couvrent que les nœuds et leur tracé brut -- une fois les flux répartis en
-// enveloppe (jusque sur les faces haut/bas) et détournés, le dessin peut
-// largement déborder de ce cadre-là.
+// The margin around the diagram's real content (lines, label chips,
+// arrowheads). The dimensions the layout engine returns cover only the nodes
+// and their raw routing -- once the flows are spread around the envelope (as
+// far as the top/bottom faces) and diverted, the drawing can spill well beyond
+// that frame.
 const FRAME_MARGIN = 24;
 
-// Le gris de tout ce qui est secondaire. Pas un gris pâle : #6b7480 tenait
-// 4,74:1 sur blanc, à la limite du seuil et inconfortable en petit corps.
+// The grey of everything secondary. Not a pale grey: #6b7480 held 4.74:1 on
+// white, right at the threshold and uncomfortable at small sizes.
 const SECONDARY_GREY = "#39424f";
 
 const DISC_RADIUS = 3.5;
-// Le disque plus son écart au texte : la place que taillePastille doit réserver.
+// The disc plus its gap to the text: the room chipSize must reserve.
 const DISC_WIDTH = DISC_RADIUS * 2 + 4;
 
 const TITLE_ID = "fx-titre";
@@ -678,19 +678,19 @@ function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Ren
     expand(n.x + n.width / 2, n.y + n.height / 2);
   }
   for (const e of edges) {
-    // Le tracé suit exactement ses points de passage (polyligne orthogonale,
-    // arrondis compris puisqu'ils restent dans le coude) : plus de débordement
-    // à anticiper comme avec une spline.
+    // The path follows its waypoints exactly (orthogonal polyline, roundings
+    // included since they stay within the corner): no overflow to anticipate
+    // any more, as there was with a spline.
     for (const p of e.points) expand(p.x, p.y);
     if (e.arrow) {
-      // La pointe s'étale autour de l'extrémité du tracé, dans une direction
-      // qui dépend de l'orientation du trait : on réserve son gabarit entier.
+      // The head spreads around the path's endpoint, in a direction that depends
+      // on the line's orientation: its whole footprint is reserved.
       const bout = e.points[e.points.length - 1];
       expand(bout.x - HEAD_SIZE, bout.y - HEAD_SIZE);
       expand(bout.x + HEAD_SIZE, bout.y + HEAD_SIZE);
     }
-    // La pastille d'un libellé déborde largement de son seul point d'ancrage
-    // (ex. "Fichier + ETL (dépôt)") -- compter sa vraie largeur, pas juste ce point.
+    // A label's chip spills well beyond its anchor point alone
+    // (e.g. "File + ETL (repository)") -- count its real width, not just that point.
     const pos = labels.get(e);
     if (pos) {
       const size = chipSize(e.label, e.technology);
@@ -703,21 +703,21 @@ function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Ren
   return { x0: x0 - FRAME_MARGIN, y0: y0 - FRAME_MARGIN, x1: x1 + FRAME_MARGIN, y1: y1 + FRAME_MARGIN };
 }
 
-// --- Légende ---------------------------------------------------------------
+// --- Legend ----------------------------------------------------------------
 //
-// Elle est DANS le SVG, pas dans l'interface : le code couleur doit voyager
-// avec le schéma. Tant qu'elle vivait dans le rail, chaque export vers Word ou
-// PowerPoint partait sans elle, et il fallait l'expliquer à chaque diffusion.
-// La légende porte désormais la NOTATION en plus du code couleur : une
-// douzaine d'entrées là où il y en avait cinq. À 10 px elle était le plus
-// petit texte de la planche, celui qu'on lit en dernier alors qu'il explique
-// tout le reste.
+// It lives IN the SVG, not in the interface: the colour code must travel with
+// the diagram. As long as it lived in the rail, every export to Word or
+// PowerPoint left without it, and it had to be explained at every circulation.
+// The legend now carries the NOTATION as well as the colour code: a dozen
+// entries where there were five. At 10 px it was the board's smallest text,
+// the one read last even though it explains everything else.
+//
 const LEGEND_TEXT_SIZE = 12;
 const LEGEND_LINE = 19;
 const LEGEND_PAD = 12;
 const LEGEND_SAMPLE = 26;
-// Largeur moyenne d'un caractère à cette taille, dans la pile de polices du
-// schéma. Sous-estimée, le texte déborde du cadre.
+// The average character width at this size, in the diagram's font stack.
+// Underestimated, the text spills out of the frame.
 const LEGEND_CHAR_WIDTH = 6.7;
 
 function widthOfLegend(inputs: string[]): number {
@@ -734,9 +734,9 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
 
   const line = (e: Extract<LegendSample, { shape: "line" }>): SVGElement => {
     const l = el("line");
-    // La pointe DÉBORDE du bout du trait, de TAILLE_POINTE. Sans ce
-    // raccourcissement elle empiétait sur le texte de l'entrée -- une légende
-    // qui se chevauche elle-même.
+    // The head OVERRUNS the line's end, by HEAD_SIZE. Without this shortening
+    // it encroached on the entry's text -- a legend overlapping itself.
+    //
     const margin = e.head ? HEAD_SIZE : 0;
     l.setAttribute("x1", String(x + LEGEND_PAD + (e.head === "start" ? margin : 0)));
     l.setAttribute("y1", String(row));
@@ -750,9 +750,9 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
     return l;
   };
 
-  // L'échantillon MONTRE la forme qu'il annonce : une boîte ordinaire sous
-  // « cut corner » serait une entrée de légende aussi muette que le signe
-  // qu'elle prétend expliquer.
+  // The sample SHOWS the shape it announces: an ordinary box under "cut
+  // corner" would be a legend entry as mute as the sign it claims to explain.
+  //
   const box = (e: Extract<LegendSample, { shape: "box" }>): SVGElement => {
     const x0 = x + LEGEND_PAD;
     const y0 = row - 5;
@@ -799,26 +799,26 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
 export function buildGraphSvg(
   layout: LayoutResult,
   colorFor: (tech: string) => string,
-  // Ce que le schéma dit de lui-même. `null` pour les appels qui n'ont rien à
-  // en dire -- un test de rendu, un fragment -- plutôt qu'un cartouche vide.
+  // What the diagram says about itself. `null` for the calls that have nothing
+  // to say -- a rendering test, a fragment -- rather than an empty title block.
   context: DiagramContext | null = null,
   options?: { weightByCriticality?: boolean }
 ): SVGSVGElement {
-  // Les tracés viennent d'ELK : ports répartis sur le côté imposé et routage
-  // orthogonal évitant les boîtes par construction. Il ne reste qu'à fusionner
-  // les flux de même technologie vers une même cible.
+  // The routes come from ELK: ports spread over the imposed side and orthogonal
+  // routing avoiding the boxes by construction. All that is left is merging the
+  // flows of the same technology towards the same target.
   const renderEdges = mergeByTechnologyToTarget(layout.edges);
   const labels = placeLabels(renderEdges);
 
   const bounds = computeBounds(layout.nodes, renderEdges, labels);
 
-  // La légende occupe un coin réservé sous le dessin : on l'ajoute aux bornes
-  // plutôt que de la poser par-dessus le schéma.
-  // On n'énumère que ce qui sert : un trait marqué d'un écart ne porte plus la
-  // couleur de sa technologie, celle-ci n'a donc rien à faire dans la légende.
-  // Et une technologie vide n'en est pas une -- le mode fonctionnel vide
-  // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
-  // qu'un code couleur introuvable sur le dessin.
+  // The legend occupies a reserved corner under the drawing: it is added to the
+  // bounds rather than laid over the diagram.
+  // Only what serves is listed: a line marked as a change no longer carries its
+  // technology's colour, which therefore has no business in the legend. And an
+  // empty technology is not one -- functional mode empties `technology` on all
+  // its edges, and an unnamed entry would announce nothing but a colour code
+  // nowhere to be found on the drawing.
   const inputs = legendEntries(renderEdges, layout.nodes, colorFor, options?.weightByCriticality === true);
   const legendWidth = inputs.length ? widthOfLegend(inputs.map((e) => e.text)) : 0;
   const legendHeight = inputs.length ? LEGEND_PAD * 2 + inputs.length * LEGEND_LINE : 0;
@@ -828,8 +828,8 @@ export function buildGraphSvg(
     bounds.x0 = Math.min(bounds.x0, bounds.x1 - legendWidth);
   }
 
-  // Le cartouche occupe une bande réservée au-dessus du dessin, comme la
-  // légende occupe la sienne au-dessous.
+  // The title block occupies a reserved band above the drawing, as the legend
+  // occupies its own below.
   if (context) bounds.y0 -= FRAME_MARGIN + TITLE_BLOCK_HEIGHT;
 
   const width = bounds.x1 - bounds.x0;
@@ -837,23 +837,23 @@ export function buildGraphSvg(
 
   const svg = el("svg");
   svg.setAttribute("xmlns", SVG_NS);
-  // Le fichier nomme sa police : hérité de la page, il retombait en serif dès
-  // qu'on l'ouvrait seul, alors que les largeurs d'étiquettes sont calibrées
-  // pour cette pile-là.
+  // The file names its font: inherited from the page, it fell back to serif as
+  // soon as it was opened on its own, whereas the label widths are calibrated
+  // for that stack.
   svg.setAttribute("font-family", FONT);
-  // Le viewBox pilote le CADRAGE (zoom, panoramique) ; width et height fixent
-  // la taille d'affichage, qui reste celle du dessin. Étirer le SVG à la
-  // largeur de la fenêtre a été essayé : tout tenait à l'écran, et plus rien
-  // n'était lisible -- 0,5x d'échelle, donc une légende à 5 px.
+  // The viewBox drives the FRAMING (zoom, pan); width and height set the display
+  // size, which stays that of the drawing. Stretching the SVG to the window's
+  // width was tried: everything fitted on screen, and nothing was legible any
+  // more -- 0.5× scale, hence a 5 px legend.
   svg.setAttribute("viewBox", `${bounds.x0} ${bounds.y0} ${width} ${height}`);
   svg.setAttribute("width", String(width));
   svg.setAttribute("height", String(height));
 
-  // Le patron d'accessibilité n°11 de l'étude Deque, le plus fiable des douze
-  // testés sur l'ensemble navigateurs x lecteurs d'écran. Deux exigences :
-  // <title> et <desc> doivent être ENFANTS DIRECTS de <svg> -- SVG-AAM ne
-  // remonte pas plus profond -- et aria-labelledby prime sur <title> seul,
-  // notoirement peu fiable en NVDA + Firefox.
+  // Accessibility pattern no. 11 from the Deque study, the most reliable of the
+  // twelve tested across browsers × screen readers. Two requirements: <title>
+  // and <desc> must be DIRECT CHILDREN of <svg> -- SVG-AAM does not walk deeper
+  // -- and aria-labelledby takes precedence over <title> alone, notoriously
+  // unreliable in NVDA + Firefox.
   if (context) {
     svg.setAttribute("role", "img");
     svg.setAttribute("aria-labelledby", `${TITLE_ID} ${DESC_ID}`);
@@ -868,7 +868,7 @@ export function buildGraphSvg(
   }
 
   const defs = el("defs");
-  // Une définition par (couleur, forme, taille) réellement employée.
+  // One definition per (colour, shape, size) actually used.
   const marqueurs = new Map<string, { colour: string; hollow: boolean; size: number }>();
   const declare = (colour: string, hollow: boolean, size: number) =>
     marqueurs.set(arrowMarkerId(colour, hollow, size), { colour, hollow, size });
@@ -876,10 +876,10 @@ export function buildGraphSvg(
     if (!e.arrow) continue;
     declare(edgeColour(e, colorFor), e.pulled === true, headSizeFor(approachLengthOf(e)));
   }
-  // La légende dessine ses propres échantillons fléchés : leur marqueur doit
-  // exister dans <defs>, sans quoi l'entrée sort sans pointe -- c'est-à-dire
-  // qu'elle explique une notation en ne la montrant pas. Son échantillon est
-  // assez long pour la taille pleine.
+  // The legend draws its own arrowed samples: their marker must exist in <defs>,
+  // failing which the entry comes out headless -- that is, it explains a
+  // notation by not showing it. Its sample is long enough for the full size.
+  //
   for (const e of inputs) {
     if (e.sample.shape !== "line" || !e.sample.head) continue;
     declare(e.sample.colour, e.sample.head === "start", HEAD_SIZE);
@@ -892,7 +892,7 @@ export function buildGraphSvg(
 
   if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + FRAME_MARGIN, bounds.y0 + FRAME_MARGIN));
 
-  // Rectangle occupé par chaque libellé : c'est là que son trait s'interrompt.
+  // The rectangle each label occupies: that is where its line breaks.
   const labelRect = (e: RenderEdge): Rect | null => {
     const centreOf = labels.get(e);
     if (!centreOf || !e.label) return null;
@@ -907,8 +907,8 @@ export function buildGraphSvg(
   }
   svg.appendChild(edgeLayer);
 
-  // Les frontières passent sous les arêtes : ce sont des repères de fond, pas
-  // des objets à survoler.
+  // Boundaries go under the edges: they are background scenery, not objects to
+  // hover over.
   const boundaryLayer = el("g");
   boundaryLayer.setAttribute("class", "fx-frontieres");
   for (const node of layout.nodes.filter((n) => n.kind === "boundary")) {
@@ -923,10 +923,10 @@ export function buildGraphSvg(
   }
   svg.appendChild(nodeLayer);
 
-  // Ordre de dessin : frontières, arêtes, boîtes, puis libellés. Les libellés
-  // passent en dernier pour qu'aucun trait ni aucune boîte ne les recouvre --
-  // tant qu'ils vivaient dans le groupe de leur arête, une boîte posée après
-  // pouvait les masquer.
+  // Drawing order: boundaries, edges, boxes, then labels. The labels come last
+  // so that no line and no box covers them -- as long as they lived in their
+  // edge's group, a box laid down afterwards could hide them.
+  //
   const labelLayer = el("g");
   labelLayer.setAttribute("class", "fx-labels");
   for (const edge of renderEdges) {

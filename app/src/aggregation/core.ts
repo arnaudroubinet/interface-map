@@ -253,7 +253,7 @@ export function findInterfaceForConsumption(lookup: InterfaceLookup, c: Consumpt
 // declaring no milestone behaves exactly as before.
 export function buildFlowInstances(model: ParsedModel, rank: number | null = null): FlowInstance[] {
   const actors = actorByName(model);
-  const sensParType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.direction]));
+  const directionByType = new Map(model.flowTypes.map((t) => [t.type.trim(), t.direction]));
   const lookup = buildInterfaceLookup(model);
   const flows: FlowInstance[] = [];
 
@@ -261,7 +261,7 @@ export function buildFlowInstances(model: ParsedModel, rank: number | null = nul
     const iface = findInterfaceForConsumption(lookup, consumption);
     if (!iface) continue;
 
-    const direction = sensParType.get(iface.flowType.trim());
+    const direction = directionByType.get(iface.flowType.trim());
     if (!direction) continue;
 
     const publisherActor = actors.get(iface.providerName.trim());

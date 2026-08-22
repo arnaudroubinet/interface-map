@@ -6,10 +6,10 @@ import { describe, it, expect } from "vitest";
 // La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à
 // dépendre du rail pour être écrite, elle doit seulement rester d'accord avec
 // lui. C'est au test de tenir les deux bouts.
-import { VUES } from "../ui/rail";
+import { VIEWS } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "./icons";
-import { buildAide, vuesDocumentees, exportsDocumentes } from "./help";
+import { buildAide, documentedViews, exportsDocumentes } from "./help";
 import { buildRoadmapSvg } from "./roadmap";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
@@ -255,7 +255,7 @@ describe("buildIntegrityReport — actions", () => {
 // est pire que pas de documentation, puisqu'elle affirme.
 describe("buildAide", () => {
   it("documente chaque vue du rail, et rien de plus", () => {
-    expect(vuesDocumentees().sort()).toEqual(VUES.map((v) => v.label).sort());
+    expect(documentedViews().sort()).toEqual(VIEWS.map((v) => v.label).sort());
   });
 
   // Le même dispositif que pour les vues : un huitième export ne peut pas
@@ -381,8 +381,8 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
     const table = buildMatrixTable(estate(), () => "#111");
     const endOfLine = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
     expect(endOfLine).toEqual(["3", "1"]);
-    const pied = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
-    expect(pied.slice(0, 2)).toEqual(["1", "3"]);
+    const foot = [...table.querySelectorAll("tfoot td")].map((td) => td.textContent);
+    expect(foot.slice(0, 2)).toEqual(["1", "3"]);
   });
 });
 

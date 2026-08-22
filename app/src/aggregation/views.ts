@@ -127,15 +127,15 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Reading, op
   const detailsFor = (id: NodeId) => (platformIds.has(id) ? actorDetails(model, id) : groupDetails(model, id, reading.actors));
   const nodes = nodesFromEdges(edges, (id) => id, kindFor, detailsFor);
   const isolated = isolatedNodes(reading.actors, key, new Set(nodes.map((n) => n.id)), kindFor, detailsFor);
-  const nodesTotal = [...nodes, ...isolated];
+  const allNodes = [...nodes, ...isolated];
 
   // The platform's components go inside the boundary; everything else orbits
   // around it. Without at least two components, a frame adds nothing.
-  const dedans = nodesTotal.filter((n) => platformIds.has(n.id));
-  if (dedans.length < 2) return { nodes: nodesTotal, edges };
+  const dedans = allNodes.filter((n) => platformIds.has(n.id));
+  if (dedans.length < 2) return { nodes: allNodes, edges };
   for (const n of dedans) n.parent = ID_FRONTIERE;
   return {
-    nodes: [{ id: ID_FRONTIERE, label: "Platform", kind: "boundary" }, ...nodesTotal],
+    nodes: [{ id: ID_FRONTIERE, label: "Platform", kind: "boundary" }, ...allNodes],
     edges,
   };
 }
@@ -395,12 +395,12 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: M
 
   const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
-  const lignesMap = new Map<string, MatrixRow>();
+  const rowsMap = new Map<string, MatrixRow>();
   for (const g of groups) {
-    let row = lignesMap.get(g.from);
+    let row = rowsMap.get(g.from);
     if (!row) {
       row = { actor: g.from, cells: new Map() };
-      lignesMap.set(g.from, row);
+      rowsMap.set(g.from, row);
     }
     const cell: MatrixCell = { technology: g.technology, count: g.count, attenuated: g.attenuated, names: g.names };
     const existing = row.cells.get(g.to);
@@ -414,8 +414,8 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: M
   if (options.mode === "functional") {
     for (const actor of reading.actors) {
       const id = key(actor.name);
-      if (!id || lignesMap.has(id) || isHidden(id)) continue;
-      lignesMap.set(id, { actor: id, cells: new Map() });
+      if (!id || rowsMap.has(id) || isHidden(id)) continue;
+      rowsMap.set(id, { actor: id, cells: new Map() });
     }
   }
 
@@ -431,15 +431,15 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: M
     ajouterVoisin(g.from, g.to);
     ajouterVoisin(g.to, g.from);
   }
-  const ctxOrdre: OrderContext = {
+  const orderCtx: OrderContext = {
     groupOf: (id) => model.actors.find((a) => a.name.trim() === id)?.group.trim() ?? id,
     degree: (id) => neighbourhood.get(id)?.size ?? 0,
     neighbours: (id) => [...(neighbourhood.get(id) ?? [])],
   };
   const order = options.order ?? "alphabetical";
-  const columns = orderBy([...new Set(groups.map((g) => g.to))], order, ctxOrdre);
+  const columns = orderBy([...new Set(groups.map((g) => g.to))], order, orderCtx);
 
-  const rows = orderBy([...lignesMap.keys()], order, ctxOrdre).map((id) => lignesMap.get(id)!);
+  const rows = orderBy([...rowsMap.keys()], order, orderCtx).map((id) => rowsMap.get(id)!);
   for (const row of rows) {
     for (const cells of row.cells.values()) {
       cells.sort((a, b) => byName(a.technology, b.technology));

@@ -364,9 +364,9 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // Une valeur qui n'en est pas une retombe silencieusement sur la palette --
   // le classeur aurait donc l'air de décider une teinte qu'il ne décide pas.
   for (const t of model.flowTypes) {
-    const brut = t.colour.trim();
-    if (brut === "" || HEX_COLOUR.test(brut)) continue;
-    anomalies.push(anomaly(`${nameFlowType(t)}: colour "${brut}" is not a hex code such as #2a78d6.`, t));
+    const raw = t.colour.trim();
+    if (raw === "" || HEX_COLOUR.test(raw)) continue;
+    anomalies.push(anomaly(`${nameFlowType(t)}: colour "${raw}" is not a hex code such as #2a78d6.`, t));
   }
 
   // Deux technologies de la même couleur donnent deux traits indiscernables,
@@ -374,13 +374,13 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // voisines d'un référentiel se comparent mal à l'œil.
   const byColour = new Map<string, FlowType>();
   for (const t of model.flowTypes) {
-    const brut = t.colour.trim();
-    if (!HEX_COLOUR.test(brut)) continue;
-    const key = brut.replace("#", "").toLowerCase();
+    const raw = t.colour.trim();
+    if (!HEX_COLOUR.test(raw)) continue;
+    const key = raw.replace("#", "").toLowerCase();
     const already = byColour.get(key);
     if (already) {
       anomalies.push(
-        anomaly(`${nameFlowType(t)}: colour "${brut}" is already carried by "${already.type}" — the two would be drawn alike.`, t)
+        anomaly(`${nameFlowType(t)}: colour "${raw}" is already carried by "${already.type}" — the two would be drawn alike.`, t)
       );
     } else {
       byColour.set(key, t);
@@ -760,8 +760,8 @@ function checkCompleteness(model: ParsedModel): AnomalyFamily {
 
   // Tant qu'aucun type ne déclare de nature, l'équipe n'a pas adopté la
   // distinction et l'outil n'en parle pas -- même règle que pour les paliers.
-  const natureAdoptee = model.actorTypes.some((t) => t.nature.trim() !== "");
-  if (natureAdoptee) {
+  const adoptedNature = model.actorTypes.some((t) => t.nature.trim() !== "");
+  if (adoptedNature) {
     for (const t of model.actorTypes) {
       if (!t.nature.trim()) anomalies.push(anomaly(`${nameActorType(t)}: nature not filled in.`, t));
     }
@@ -894,7 +894,7 @@ function atteignables(start: string, arcs: Map<string, Set<string>>): Set<string
 //
 // On ne liste que ceux qui entraînent quelqu'un : nommer les autres avec un
 // zéro allongerait la liste sans rien y ajouter.
-function rayonDImpact(model: ParsedModel): InfoBlock {
+function blastRadius(model: ParsedModel): InfoBlock {
   const arcs = dependencies(model);
   const versLAval = new Map<string, Set<string>>();
   for (const [de, vers] of arcs) {
@@ -1122,7 +1122,7 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     unusedFlowTypes(atMilestone),
     // Une couleur ne dépend d'aucun palier : le classeur entier.
     unreadableColours(model),
-    rayonDImpact(atMilestone),
+    blastRadius(atMilestone),
     usedGroups(atMilestone),
   ];
   const totalAnomalies = families.reduce((sum, f) => sum + f.anomalies.length, 0);

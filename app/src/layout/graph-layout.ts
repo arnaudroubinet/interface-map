@@ -74,7 +74,7 @@ export function truncatedName(label: string): string {
 
 // Découpe la description en lignes tenant dans la largeur utile, sans couper
 // un mot. Au-delà du nombre de lignes admis, la dernière est tronquée.
-export function lignesDescription(text: string | undefined): string[] {
+export function descriptionLines(text: string | undefined): string[] {
   if (!text) return [];
   const parCaractere = Math.max(1, Math.floor(USABLE_WIDTH / DESC_CHAR_WIDTH));
   const rows: string[] = [];
@@ -135,7 +135,7 @@ export function chipSize(label: string | undefined, technology: string): { width
 }
 
 export function nodeTextHeight(node: GraphNode): number {
-  const rows = lignesDescription(node.description).length;
+  const rows = descriptionLines(node.description).length;
   return (
     NAME_LINE_HEIGHT +
     (node.subtitle ? TYPE_LINE_HEIGHT : 0) +
@@ -199,7 +199,7 @@ function elkFactory() {
 
 const elk = elkFactory();
 
-const MARGE = 20;
+const MARGIN = 20;
 
 // « layered » est l'implémentation moderne du schéma de Sugiyama : rangs,
 // minimisation des croisements, puis routage. randomSeed fixe garantit que le
@@ -237,7 +237,7 @@ const OPTIONS: Record<string, string> = {
   // concentre en un point. On contraint donc la taille du nœud par ses ports :
   // la boîte grandit en hauteur autant qu'il faut pour les répartir, sans
   // jamais descendre sous le gabarit C4 (MINIMUM_SIZE).
-  "elk.padding": `[top=${MARGE},left=${MARGE},bottom=${MARGE},right=${MARGE}]`,
+  "elk.padding": `[top=${MARGIN},left=${MARGIN},bottom=${MARGIN},right=${MARGIN}]`,
 };
 
 // Ce qui a été mesuré pour resserrer la planche -- son rapport de forme atteint
@@ -347,7 +347,7 @@ function centreOf(n: ElkNode): { x: number; y: number } {
   return { x: (n.x ?? 0) + n.width / 2, y: (n.y ?? 0) + n.height / 2 };
 }
 
-function pointsDeLArete(
+function edgePoints(
   arete: AreteElk | undefined,
   start: LayoutNode,
   arrival: LayoutNode,
@@ -671,7 +671,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const tag = arete?.labels?.[0];
     return {
       ...edge,
-      points: pointsDeLArete(arete, start, arrival, offset),
+      points: edgePoints(arete, start, arrival, offset),
       labelCentreOf:
         tag && tag.x !== undefined && tag.y !== undefined
           ? {

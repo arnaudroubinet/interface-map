@@ -155,8 +155,8 @@ function nameForExcel(formule: string): string {
 // plage doit dépasser le nombre d'interfaces écrites, sans quoi les listes
 // dépendantes cessent de voir les derniers flux sans rien dire. Le plancher
 // laisse de quoi saisir dans un classeur neuf.
-const MARGE_LIGNES_LISTES = 1000;
-const lastListRow = (nbInterfaces: number) => nbInterfaces + MARGE_LIGNES_LISTES;
+const LIST_ROWS_MARGIN = 1000;
+const lastListRow = (nbInterfaces: number) => nbInterfaces + LIST_ROWS_MARGIN;
 
 // Emplacement des deux tables d'appoint dans l'onglet Listes : après les
 // colonnes de vocabulaire, séparées d'elles et l'une de l'autre par une colonne
@@ -641,8 +641,8 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
     CreatedDate: writtenOn,
     ModifiedDate: writtenOn,
   };
-  const brut = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  const completed = applyOoxmlExtras(brut, {
+  const raw = XLSX.write(workbook, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  const completed = applyOoxmlExtras(raw, {
     tables: tablesOfTemplate(data),
     lists: listsOfTemplate(),
     validations: validationsOfTemplate(data),

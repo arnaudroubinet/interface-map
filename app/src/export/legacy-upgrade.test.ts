@@ -70,10 +70,10 @@ describe("migration depuis le format d'origine", () => {
   // Un type hors référentiel n'a pas de sens connu : on ne l'invente pas, on
   // retombe sur l'appel, et on le signale.
   it("signale un type absent du référentiel, quel qu'il soit", () => {
-    const { typesInconnus, data } = migrateLegacyWorkbook(
+    const { unknownTypes, data } = migrateLegacyWorkbook(
       legacyWorkbook([link({ "Type de flux": "AS2" }), link({ "Type de flux": "Fichier + ESB", "Nom du flux": "B" })])
     );
-    expect(typesInconnus.sort()).toEqual(["AS2", "Fichier + ESB"]);
+    expect(unknownTypes.sort()).toEqual(["AS2", "Fichier + ESB"]);
     expect(data.interfaces[0][iPublisher]).toBe("Appelé");
   });
 

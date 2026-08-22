@@ -146,7 +146,7 @@ export function buildAide(): HTMLElement {
 // What the page documents, so that nothing new is added to the rail without a
 // line here. Documentation that falls behind is worse than no documentation:
 // it asserts.
-export function vuesDocumentees(): string[] {
+export function documentedViews(): string[] {
   return termesDe("The views");
 }
 

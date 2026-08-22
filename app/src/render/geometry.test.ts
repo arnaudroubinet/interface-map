@@ -10,7 +10,7 @@ import { breakTheLine } from "./geometry";
 // la flèche s'arrêtait à son étiquette au lieu de la boîte visée -- 51 px trop
 // tôt, sur 2 des 18 traits de la vue « plateforme détaillée ».
 describe("interrompreLeTrace", () => {
-  const dernierPoint = (pieces: { x: number; y: number }[][]) => {
+  const lastPoint = (pieces: { x: number; y: number }[][]) => {
     const dernier = pieces[pieces.length - 1];
     return dernier[dernier.length - 1];
   };
@@ -20,13 +20,13 @@ describe("interrompreLeTrace", () => {
     const labelOnArrival = { x0: 150, y0: -10, x1: 210, y1: 10 };
     const pieces = breakTheLine(trace, [labelOnArrival]);
     expect(pieces.length).toBeGreaterThan(0);
-    expect(dernierPoint(pieces).x).toBeCloseTo(200, 5);
+    expect(lastPoint(pieces).x).toBeCloseTo(200, 5);
   });
 
   it("coupe toujours au milieu quand le libellé est au milieu", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
     const pieces = breakTheLine(trace, [{ x0: 90, y0: -10, x1: 110, y1: 10 }]);
     expect(pieces).toHaveLength(2);
-    expect(dernierPoint(pieces).x).toBeCloseTo(200, 5);
+    expect(lastPoint(pieces).x).toBeCloseTo(200, 5);
   });
 });

@@ -25,7 +25,7 @@ vi.mock("../export/xlsx-export", () => ({
 }));
 const renderedPng = { ok: true as boolean, scale: 0 };
 vi.mock("../export/png-export", () => ({
-  exportPng: async (_svg: unknown, _fond: unknown, scale: number) => {
+  exportPng: async (_svg: unknown, _fill: unknown, scale: number) => {
     renderedPng.scale = scale;
     return renderedPng.ok ? { ok: true, blob: new Blob() } : { ok: false, error: "No PNG here." };
   },

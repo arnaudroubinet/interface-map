@@ -35,11 +35,11 @@ export const HEXA = /^#?([0-9a-f]{6})$/i;
 // rapport d'intégrité l'annonce désormais.
 export const LINE_THRESHOLD = 3;
 
-function declaredColourOf(brut: string): string | undefined {
-  const m = HEXA.exec(brut.trim());
+function declaredColourOf(raw: string): string | undefined {
+  const m = HEXA.exec(raw.trim());
   if (!m) return undefined;
-  const brute = `#${m[1].toLowerCase()}`;
-  return contrastRatio(brute, "#ffffff") >= LINE_THRESHOLD ? brute : darkenTo(brute, LINE_THRESHOLD);
+  const colour = `#${m[1].toLowerCase()}`;
+  return contrastRatio(colour, "#ffffff") >= LINE_THRESHOLD ? colour : darkenTo(colour, LINE_THRESHOLD);
 }
 
 export function coloursOfModel(model: {

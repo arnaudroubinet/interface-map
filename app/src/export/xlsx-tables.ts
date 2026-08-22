@@ -283,33 +283,33 @@ const ROLES: StyleRole[] = ["title", "section", "body", "aside", "header"];
 // couper les phrases à la main dans le code -- ce que faisait l'onglet
 // d'explication, et qui se défait dès qu'on élargit la colonne.
 function xfForRole(role: StyleRole, fontId: number, fillId: number | null): string {
-  const retour = role === "body" || role === "section" ? ' applyAlignment="1"' : "";
+  const result = role === "body" || role === "section" ? ' applyAlignment="1"' : "";
   const alignment =
     role === "body" || role === "section" ? '<alignment vertical="top" wrapText="1"/>' : "";
   const fill = fillId === null ? "" : ` fillId="${fillId}" applyFill="1"`;
-  return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${retour}>${alignment}</xf>`;
+  return `<xf numFmtId="0" fontId="${fontId}" borderId="0" xfId="0" applyFont="1"${fill}${result}>${alignment}</xf>`;
 }
 
 // Ajoute nos styles à ceux de SheetJS et rend l'index de chacun.
 function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
   const count = (tag: string) => Number(new RegExp(`<${tag} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
   const nbPolices = count("fonts");
-  const nbFonds = count("fills");
+  const fillCount = count("fills");
   const nbXf = count("cellXfs");
 
   let nextFont = nbPolices;
-  let nextFill = nbFonds;
+  let nextFill = fillCount;
   const fontOf: Record<string, number> = {};
   const fillOf: Record<string, number> = {};
   const policesXml: string[] = [];
-  const fondsXml: string[] = [];
+  const fillsXml: string[] = [];
   for (const role of ROLES) {
     fontOf[role] = nextFont++;
     policesXml.push(ADDED_FONTS[role]);
     const fill = ADDED_FILLS[role];
     if (fill) {
       fillOf[role] = nextFill++;
-      fondsXml.push(fill);
+      fillsXml.push(fill);
     }
   }
 
@@ -323,8 +323,8 @@ function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, n
   const xml = styles
     .replace(`<fonts count="${nbPolices}">`, `<fonts count="${nbPolices + policesXml.length}">`)
     .replace("</fonts>", `${policesXml.join("")}</fonts>`)
-    .replace(`<fills count="${nbFonds}">`, `<fills count="${nbFonds + fondsXml.length}">`)
-    .replace("</fills>", `${fondsXml.join("")}</fills>`)
+    .replace(`<fills count="${fillCount}">`, `<fills count="${fillCount + fillsXml.length}">`)
+    .replace("</fills>", `${fillsXml.join("")}</fills>`)
     .replace(`<cellXfs count="${nbXf}">`, `<cellXfs count="${nbXf + xfsXml.length}">`)
     .replace("</cellXfs>", `${xfsXml.join("")}</cellXfs>`);
   return { xml, index };

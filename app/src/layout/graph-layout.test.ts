@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { restrictLayout, computeLayout, lignesDescription, truncatedName, NODE_WIDTH } from "./graph-layout";
+import { restrictLayout, computeLayout, descriptionLines, truncatedName, NODE_WIDTH } from "./graph-layout";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
 import type { LayoutResult } from "./graph-layout";
 
@@ -126,7 +126,7 @@ describe("ce qui tient dans une boîte", () => {
   it("plafonne la description à trois lignes, la dernière abrégée", () => {
     const long = "un texte assez long pour occuper plusieurs lignes dans une boîte étroite "
       + "et déborder largement de ce que la maquette prévoit pour une description";
-    const rows = lignesDescription(long);
+    const rows = descriptionLines(long);
     expect(rows.length).toBeLessThanOrEqual(3);
     expect(rows[rows.length - 1]).toMatch(/…$/);
   });

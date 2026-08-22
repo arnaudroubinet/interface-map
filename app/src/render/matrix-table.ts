@@ -21,10 +21,10 @@ export function buildMatrixTable(
 
   const thead = document.createElement("thead");
   const headRow = document.createElement("tr");
-  const coin = document.createElement("th");
-  coin.className = "matrix-corner";
-  coin.textContent = "From ↓ / To →";
-  headRow.appendChild(coin);
+  const corner = document.createElement("th");
+  corner.className = "matrix-corner";
+  corner.textContent = "From ↓ / To →";
+  headRow.appendChild(corner);
   for (const actor of matrix.columns) {
     const th = document.createElement("th");
     // `scope` tells a screen reader which cells this header titles. Without it,
@@ -99,22 +99,22 @@ export function buildMatrixTable(
   }
   table.appendChild(tbody);
 
-  const pied = document.createElement("tfoot");
-  const trPied = document.createElement("tr");
-  const coinPied = document.createElement("th");
-  coinPied.setAttribute("scope", "row");
-  coinPied.className = "matrix-total";
-  coinPied.textContent = "Total in";
-  trPied.appendChild(coinPied);
+  const foot = document.createElement("tfoot");
+  const footRow = document.createElement("tr");
+  const footCorner = document.createElement("th");
+  footCorner.setAttribute("scope", "row");
+  footCorner.className = "matrix-total";
+  footCorner.textContent = "Total in";
+  footRow.appendChild(footCorner);
   for (const column of matrix.columns) {
     const td = document.createElement("td");
     td.className = "matrix-total";
     td.textContent = String(matrix.columnTotals.get(column) ?? 0);
-    trPied.appendChild(td);
+    footRow.appendChild(td);
   }
-  trPied.appendChild(document.createElement("td"));
-  pied.appendChild(trPied);
-  table.appendChild(pied);
+  footRow.appendChild(document.createElement("td"));
+  foot.appendChild(footRow);
+  table.appendChild(foot);
 
   return table;
 }

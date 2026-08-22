@@ -657,7 +657,7 @@ describe("modèle de classeur — tous les onglets de saisie sont des tableaux",
 // refuserait -- mais le moyen a changé : on assainit le nom au lieu d'écarter
 // l'onglet, ce qui emportait ses consommations sans un mot.
 describe("modèle de classeur — onglet FX_ au nom impossible", () => {
-  const nomTropLong = `FX_${"A".repeat(30)}_HTTP`; // 38 caractères
+  const overlongName = `FX_${"A".repeat(30)}_HTTP`; // 38 caractères
 
   const data: WorkbookData = {
     flowTypes: [],
@@ -667,12 +667,12 @@ describe("modèle de classeur — onglet FX_ au nom impossible", () => {
     actors: [],
     interfaces: [],
     fx: [
-      { name: nomTropLong, rows: [] },
+      { name: overlongName, rows: [] },
       { name: "FX_Takodana_HTTP", rows: [] },
     ],
   };
 
-  const sanitised = nomTropLong.slice(0, 31);
+  const sanitised = overlongName.slice(0, 31);
 
   it("n'échoue pas quand un onglet FX_ dépasse 31 caractères", () => {
     expect(() => writeTemplate(data)).not.toThrow();
@@ -766,7 +766,7 @@ describe("modèle de classeur — tableaux des référentiels dimensionnés sur 
 // listes dépendantes cessent de voir les flux -- sans que rien ne le dise.
 describe("modèle de classeur — grands classeurs", () => {
   const NB = 1200;
-  const grand: WorkbookData = {
+  const big: WorkbookData = {
     flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], fx: [],
     interfaces: Array.from({ length: NB }, (_, i) => [
       `Flux ${i}`, "1.0", "Tatooine", "HTTP", "", "", "", "No", "", "", "",
@@ -774,14 +774,14 @@ describe("modèle de classeur — grands classeurs", () => {
   };
 
   it("étend les validations au-delà de la millième ligne", () => {
-    const xml = sheetXml("Interfaces", writeTemplate(grand));
+    const xml = sheetXml("Interfaces", writeTemplate(big));
     const sqrefs = [...xml.matchAll(/sqref="[A-Z]+2:[A-Z]+(\d+)"/g)].map((m) => Number(m[1]));
     expect(sqrefs.length).toBeGreaterThan(0);
     expect(Math.min(...sqrefs)).toBeGreaterThan(NB);
   });
 
   it("étend les tables d'appoint au-delà de la millième ligne", () => {
-    const xml = sheetXml("Lists", writeTemplate(grand));
+    const xml = sheetXml("Lists", writeTemplate(big));
     const dimension = xml.match(/<dimension ref="A1:[A-Z]+(\d+)"/);
     expect(Number(dimension![1])).toBeGreaterThan(NB);
   });

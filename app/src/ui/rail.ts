@@ -35,7 +35,7 @@ const VIEW_ORDER: View[] = [
   "help",
 ];
 
-export const VUES: { id: View; label: string }[] = VIEW_ORDER.map((id) => ({ id, label: VIEW_LABEL[id] }));
+export const VIEWS: { id: View; label: string }[] = VIEW_ORDER.map((id) => ({ id, label: VIEW_LABEL[id] }));
 
 // Les trois échelles de lecture de la matrix, avec le titre du bloc de cases
 // qui les accompagne : ce qu'on décoche, ce sont les lignes réellement dessinées.
@@ -171,7 +171,7 @@ function filterBlock(
 
 // Pied de rail : de quoi partir. Il s'affiche même sans classeur chargé --
 // c'est précisément là qu'on cherche un modèle ou un exemple.
-export function renderPiedDeRail(
+export function renderRailFoot(
   root: HTMLElement,
   callbacks: Pick<RailCallbacks, "onDownloadTemplate" | "onDownloadSample" | "onMigrationLegacy">
 ): void {
@@ -206,7 +206,7 @@ export function renderRail(
   const flows = reading.flows;
   clear(root);
   if (!state.file) {
-    renderPiedDeRail(root, callbacks);
+    renderRailFoot(root, callbacks);
     return;
   }
 
@@ -217,7 +217,7 @@ export function renderRail(
   renderMode(root, state, callbacks.onMode);
 
   const nav = el("nav", { class: "rail-views" });
-  const views = state.mode === "functional" ? VUES.filter((v) => !VIEWS_MOOT_IN_FUNCTIONAL.includes(v.id)) : VUES;
+  const views = state.mode === "functional" ? VIEWS.filter((v) => !VIEWS_MOOT_IN_FUNCTIONAL.includes(v.id)) : VIEWS;
   for (const v of views) {
     const button = el("button", { class: "rail-view-item" }, [v.label]);
     if (blocked) button.disabled = true;
@@ -437,7 +437,7 @@ export function renderRail(
     root.appendChild(options);
   }
 
-  renderPiedDeRail(root, callbacks);
+  renderRailFoot(root, callbacks);
 
   // La légende n'est plus ici : elle est dessinée DANS le SVG, pour voyager
   // avec le schéma exporté. La dupliquer dans le rail ne ferait que deux

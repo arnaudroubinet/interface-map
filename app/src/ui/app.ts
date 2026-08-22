@@ -49,7 +49,7 @@ import { buildAide } from "../render/help";
 import { upgrade } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
-import { renderRail, renderPiedDeRail } from "./rail";
+import { renderRail, renderRailFoot } from "./rail";
 import { openMigration } from "./upgrade-dialog";
 import {
   initialState,
@@ -69,7 +69,7 @@ import {
   withMasquerExternesMatrice,
   withActorHiddenInMatrix,
   withMatrixGrain,
-  withOrdreMatrice,
+  withMatrixOrder,
   withDisplayedMilestone,
   withComparedMilestone,
   withMessageBandeau,
@@ -255,7 +255,7 @@ export function mountApp(root: HTMLElement): void {
   function render(): void {
     if (!state.file) {
       clear(rail);
-      renderPiedDeRail(rail, {
+      renderRailFoot(rail, {
         onDownloadTemplate: downloadTemplateHandler,
         onDownloadSample: downloadSampleHandler,
         onMigrationLegacy: migrationLegacyHandler,
@@ -264,9 +264,9 @@ export function mountApp(root: HTMLElement): void {
       // La page d'aide se lit AVANT d'avoir un classeur : c'est justement là
       // qu'on se demande ce que l'outil attend.
       if (state.view === "help") {
-        const retour = el("button", { class: "export-button" }, ["Back"]);
-        retour.addEventListener("click", () => setState(withView(state, "group-to-group")));
-        renderArea.appendChild(el("div", { class: "help-standalone" }, [retour, buildAide()]));
+        const result = el("button", { class: "export-button" }, ["Back"]);
+        result.addEventListener("click", () => setState(withView(state, "group-to-group")));
+        renderArea.appendChild(el("div", { class: "help-standalone" }, [result, buildAide()]));
       } else {
         renderArea.appendChild(
           buildDropTarget(downloadSampleHandler, () => setState(withView(state, "help")))
@@ -480,7 +480,7 @@ export function mountApp(root: HTMLElement): void {
         // le schéma qui arrive en retard ne doit pas s'afficher par-dessus.
         const generation = ++renderGeneration;
         const colours = coloursOfModel(model);
-        const vueDuCalcul = view;
+        const viewForComputation = view;
         // On place l'UNION de tous les paliers, une seule fois, et chaque
         // palier n'en montre que son sous-ensemble : une boîte présente aux
         // deux paliers ne bouge alors pas d'un pixel. La clé de mémoire ne
@@ -490,14 +490,14 @@ export function mountApp(root: HTMLElement): void {
           state.view, state.mode, state.actorSelection, state.technologySelection, state.chainSelection,
           state.actorFilters, state.technologyFilters, options,
         ]);
-        const vueUnion = buildView(unionReading(model, state.mode));
-        const placement = placements.get(layoutKey) ?? computeLayout(vueUnion.nodes, vueUnion.edges);
+        const unionView = buildView(unionReading(model, state.mode));
+        const placement = placements.get(layoutKey) ?? computeLayout(unionView.nodes, unionView.edges);
         placements.set(layoutKey, placement);
         placement
           .then((union) => {
             if (generation !== renderGeneration) return;
-            const positioned = restrictLayout(union, vueDuCalcul);
-            const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, vueDuCalcul), {
+            const positioned = restrictLayout(union, viewForComputation);
+            const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), {
               weightByCriticality: state.options.weightByCriticality,
             });
             renderArea.appendChild(svg);
@@ -541,7 +541,7 @@ export function mountApp(root: HTMLElement): void {
       onActorHiddenInMatrix: (actor, hidden) =>
         setState(withActorHiddenInMatrix(withMessageBandeau(state, null), actor, hidden)),
       onPngScale: (value) => setState(withOptions(withMessageBandeau(state, null), { pngScale: value })),
-      onMatrixOrder: (value) => setState(withOrdreMatrice(withMessageBandeau(state, null), value)),
+      onMatrixOrder: (value) => setState(withMatrixOrder(withMessageBandeau(state, null), value)),
       onMatrixGrain: (grain) => setState(withMatrixGrain(withMessageBandeau(state, null), grain)),
     });
   }

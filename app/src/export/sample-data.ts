@@ -25,7 +25,7 @@ const ACTOR_TYPES = [
   ["Infrastructure", "server", "Technical"],
 ];
 
-const GROUPES = [
+const GROUPS = [
   ["Core", "Platform"],
   ["Sales network", "External"],
   ["Health partners", "External"],
@@ -206,7 +206,7 @@ export const SAMPLE_DATA: WorkbookData = {
   flowTypes: [],
   actorTypes: ACTOR_TYPES,
   milestones: MILESTONES,
-  groups: GROUPES,
+  groups: GROUPS,
   actors: ACTORS,
   interfaces: INTERFACES,
   fx: FX,

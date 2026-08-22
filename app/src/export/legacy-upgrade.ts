@@ -42,7 +42,7 @@ function currentDecision(value: string): string {
 export interface MigrationReport {
   data: WorkbookData;
   actorsCreated: string[];
-  typesInconnus: string[];
+  unknownTypes: string[];
 }
 
 function sheet(wb: XLSX.WorkBook, name: string): Record<string, string>[] {
@@ -67,7 +67,7 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
   const usedTypes = [...new Set(links.map((l) => text(l["Type de flux"])).filter(Boolean))].sort((a, b) =>
     a.localeCompare(b, "fr")
   );
-  const typesInconnus = usedTypes.filter((t) => !knownDirection(t));
+  const unknownTypes = usedTypes.filter((t) => !knownDirection(t));
 
   // Les composants déclarés, puis ceux que seuls les flux citent. Dans les
   // fichiers réels, l'onglet Composants n'est pas tenu à jour : on ne perd pas
@@ -189,6 +189,6 @@ export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date =
         .map(([name, rows]) => ({ name, rows })),
     },
     actorsCreated,
-    typesInconnus,
+    unknownTypes,
   };
 }
