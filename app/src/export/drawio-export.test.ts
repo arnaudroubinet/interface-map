@@ -25,8 +25,8 @@ const colour = () => "#336699";
 
 const board = (l: LayoutResult, title = "v") => [{ title, layout: l }];
 
-// Le libellé d'une boîte est du HTML rangé dans un attribut XML : c'est en
-// relisant le fichier comme draw.io le relit qu'on voit ce qu'il affichera.
+// A box's label is HTML filed inside an XML attribute: it is by rereading the
+// file the way draw.io does that one sees what it will show.
 function box(xml: string, id: string): Element {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   return doc.querySelector(`UserObject[id="${id}"]`)!;
@@ -47,9 +47,9 @@ function geometry(xml: string, id: string): Rect {
   return { x: number("x"), y: number("y"), width: number("width"), height: number("height") };
 }
 
-// Ce que draw.io dessinera dans la PAGE : la géométrie d'un enfant se lit dans
-// le repère de son cadre, il faut donc remonter la chaîne des parents pour
-// retrouver le rectangle que l'œil verra.
+// What draw.io will draw on the PAGE: a child's geometry reads in its frame's
+// coordinates, so the chain of parents must be walked back up to recover the
+// rectangle the eye will see.
 function absoluteRect(xml: string, id: string): Rect {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   const rect = geometry(xml, id);
@@ -69,8 +69,8 @@ const sameRect = (a: Rect, b: Rect) =>
   ["x", "y", "width", "height"].every((c) => Math.abs(a[c as keyof Rect] - b[c as keyof Rect]) < 1e-6);
 
 describe("construireDrawio", () => {
-  // Un fichier que l'analyseur refuse, draw.io le refuse aussi : ce contrôle
-  // passe avant tout ce que le fichier peut bien contenir.
+  // A file the parser refuses, draw.io refuses too: this check comes before
+  // anything the file might contain.
   it("produces XML a parser accepts", () => {
     const l = layout();
     l.nodes[0].label = "A & <B>";
@@ -86,11 +86,11 @@ describe("construireDrawio", () => {
     expect(xml).toContain("<mxGraphModel");
   });
 
-  // Le placement est déjà calculé pour l'écran : le refaire dans draw.io
-  // donnerait une autre planche que celle qu'on vient de regarder.
+  // The layout is already computed for the screen: redoing it in draw.io would
+  // give a board other than the one just looked at.
   it("keeps the geometry the diagram was laid out with", () => {
     const xml = buildDrawio(board(layout()), colour);
-    // Le placement donne le CENTRE de B en (400, 0) ; draw.io lit un coin
+    // The layout gives B's CENTRE at (400, 0); draw.io reads a corner
     // haut-gauche, soit (400 - 240/2, 0 - 120/2).
     expect(geometry(xml, "p0_B")).toEqual({ x: 280, y: -60, width: 240, height: 120 });
   });
@@ -109,13 +109,13 @@ describe("construireDrawio", () => {
     expect(xml).toMatch(/target="[^"]*B"/);
   });
 
-  // Le nom traverse deux couches : l'attribut XML, puis le HTML que draw.io en
-  // tire. Un seul échappement et « <B> » y deviendrait une balise.
+  // The name crosses two layers: the XML attribute, then the HTML draw.io pulls
+  // out of it. With only one escaping, "<B>" would become a tag there.
   it("keeps a name that looks like markup readable as text", () => {
     const l = layout();
     l.nodes[0].label = "A & <B>";
-    // Ce que draw.io lit dans l'attribut est du HTML : le nom y est encore
-    // échappé une fois, et s'affichera donc tel qu'il a été saisi.
+    // What draw.io reads in the attribute is HTML: the name is still escaped once
+    // there, and will therefore display as it was typed in.
     expect(valueOf(buildDrawio(board(l), colour), "p0_A")).toContain("A &amp; &lt;B&gt;");
   });
 
@@ -136,8 +136,8 @@ describe("construireDrawio", () => {
     ]);
   });
 
-  // Deux planches citent presque toujours le même acteur. Des identifiants
-  // partagés et draw.io rattacherait les traits de l'une aux boîtes de l'autre.
+  // Two boards almost always name the same actor. Shared identifiers and draw.io
+  // would attach one's lines to the other's boxes.
   it("keeps the cells of one board out of the next", () => {
     const xml = buildDrawio(
       [
@@ -153,17 +153,17 @@ describe("construireDrawio", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  // Ce que la boîte ne peut pas montrer, draw.io sait le garder à côté : une
-  // infobulle au hover, et les colonnes du classeur dans « Modifier les
-  // données ».
+  // What the box cannot show, draw.io can keep alongside: a tooltip on hover, and
+  // the workbook's columns under "Edit Data".
+  //
   it("carries what the box cannot show as shape data", () => {
     const b = box(buildDrawio(board(layout()), colour), "p0_A");
     expect(b.getAttribute("tooltip")).toBe("Un texte");
     expect(b.getAttribute("type")).toBe("Application");
   });
 
-  // Soixante onglets ne se parcourent pas à la main : cliquer un acteur doit
-  // ouvrir la planche qui le détaille.
+  // Sixty tabs are not browsed by hand: clicking an actor must open the board
+  // that details it.
   it("links a box to the board that details it", () => {
     const xml = buildDrawio(
       [
@@ -173,13 +173,13 @@ describe("construireDrawio", () => {
       colour
     );
     expect(box(xml, "p0_B").getAttribute("link")).toBe("data:page/id,page_1");
-    // Sur sa propre planche, la boîte ne renvoie pas vers elle-même.
+    // On its own board, the box does not link back to itself.
     expect(box(xml, "p1_B").getAttribute("link")).toBeNull();
   });
 
-  // Un type de flux et un acteur peuvent porter le même nom : le lien vise la
-  // planche qui déclare l'acteur, quel que soit l'ordre des onglets -- s'en
-  // remettre à l'ordre d'insertion, c'est n'avoir raison que par hasard.
+  // A flow type and an actor may bear the same name: the link targets the board
+  // that declares the actor, whatever the tab order -- relying on insertion
+  // order is being right only by accident.
   it("links a box to the actor board, never to the flow type tab of the same name", () => {
     const xml = buildDrawio(
       [
@@ -191,10 +191,10 @@ describe("construireDrawio", () => {
     expect(box(xml, "p1_B").getAttribute("link")).toBe("data:page/id,page_0");
   });
 
-  // La frontière de plateforme est un cadre qui contient ses boîtes : draw.io
-  // place un enfant relativement au COIN HAUT-GAUCHE de son parent, pas dans
-  // la page. Un écart de centre à centre ne serait un décalage juste que si le
-  // cadre et la boîte avaient la même taille -- ils ne l'ont jamais.
+  // The platform boundary is a frame containing its boxes: draw.io places a
+  // child relative to its parent's TOP-LEFT CORNER, not in the page. A
+  // centre-to-centre offset would be a correct shift only if the frame and the
+  // box had the same size -- they never do.
   it("places a boxed child relative to the frame that holds it", () => {
     const l = layout({
       nodes: [
@@ -204,21 +204,21 @@ describe("construireDrawio", () => {
       edges: [],
     });
     const xml = buildDrawio(board(l), colour);
-    // Coin du cadre : (100 - 250, 50 - 150) = (-150, -100). Coin de A :
-    // (130 - 120, 90 - 60) = (10, 30). D'où le relatif (160, 130).
+    // The frame's corner: (100 - 250, 50 - 150) = (-150, -100). A's corner:
+    // (130 - 120, 90 - 60) = (10, 30). Hence the relative (160, 130).
     const g = geometry(xml, "p0_A");
     expect(g).toEqual({ x: 160, y: 130, width: 240, height: 120 });
-    // A tient tout entier dans F sur l'écran : ses coordonnées relatives sont
-    // donc positives et sa boîte reste dans l'étendue du cadre.
+    // A fits entirely inside F on screen: its relative coordinates are therefore
+    // positive and its box stays within the frame's extent.
     expect(g.x).toBeGreaterThanOrEqual(0);
     expect(g.y).toBeGreaterThanOrEqual(0);
     expect(g.x + g.width).toBeLessThanOrEqual(500);
     expect(g.y + g.height).toBeLessThanOrEqual(300);
   });
 
-  // Deux moteurs dessinent le même placement : l'écran (SVG) et le fichier
-  // draw.io. Ils ont divergé une fois d'une demi-boîte sans que rien ne le
-  // dise ; ce contrôle les tient sur le même rectangle, dans le même repère.
+  // Two engines draw the same layout: the screen (SVG) and the draw.io file.
+  // They once drifted apart by half a box with nothing to say so; this check
+  // holds them to the same rectangle, in the same frame.
   it("declares the same rectangles the SVG paints", async () => {
     const nodes: GraphNode[] = [
       { id: "F", label: "Platform", kind: "boundary" },
@@ -253,10 +253,10 @@ describe("construireDrawio", () => {
   });
 });
 
-// --- Le tracé suit la donnée, la pointe dit l'initiative : draw.io doit
-// raconter la même chose que le schéma à l'écran, sans quoi le fichier ouvert
-// dans l'outil de dessin contredirait celui d'où il sort.
-describe("export draw.io — un trait tiré", () => {
+// --- The line follows the data, the head says the initiative: draw.io must
+// tell the same thing as the diagram on screen, failing which the file opened
+// in the drawing tool would contradict the one it came from.
+describe("draw.io export — a pulled line", () => {
   const xml = async (pulled: boolean) => {
     const nodes: GraphNode[] = [
       { id: "A", label: "A", kind: "actor" },
@@ -267,24 +267,24 @@ describe("export draw.io — un trait tiré", () => {
     return buildDrawio([{ title: "T", layout }], () => "#2a78d6");
   };
 
-  it("retourne la pointe sans retourner le trait", async () => {
+  it("turns the head round without turning the line round", async () => {
     const doc = await xml(true);
     expect(doc).toContain("startArrow=block");
     expect(doc).toContain("endArrow=none");
-    // le trait part toujours du fournisseur
+    // the line always starts from the provider
     expect(doc).toMatch(/source="[^"]*A"[^>]*target="[^"]*B"/);
   });
 
-  it("laisse la pointe à l'arrivée quand le fournisseur pousse", async () => {
+  it("leaves the head at the arrival when the provider pushes", async () => {
     const doc = await xml(false);
     expect(doc).toContain("endArrow=block");
     expect(doc).not.toContain("startArrow=block");
   });
 });
 
-// --- §2.14 : 23 pages sans légende ni titre, dans le format justement destiné
-// à circuler.
-describe("construireDrawio — chaque page se décrit", () => {
+// --- §2.14: 23 pages with neither legend nor title, in the very format meant
+// to circulate.
+describe("buildDrawio — each page describes itself", () => {
   const board = (): PlacedBoard => ({
     title: "Platform detail",
     context: {
@@ -301,11 +301,11 @@ describe("construireDrawio — chaque page se décrit", () => {
     },
   });
 
-  it("pose le titre de la planche sur la page", () => {
+  it("sets the board's title on the page", () => {
     expect(buildDrawio([board()], () => "#111")).toContain("Platform detail — architecture reading, milestone v2");
   });
 
-  it("reprend la MÊME légende que le SVG, entrée pour entrée", () => {
+  it("takes up the SAME legend as the SVG, entry for entry", () => {
     const p = board();
     const xml = buildDrawio([p], () => "#111");
     for (const e of legendEntries(p.layout.edges, p.layout.nodes, () => "#111")) {
@@ -313,16 +313,16 @@ describe("construireDrawio — chaque page se décrit", () => {
     }
   });
 
-  // La légende ne doit pas se poser SUR le dessin : c'est un bloc à côté,
-  // comme dans le SVG.
-  it("pose la légende sous la boîte englobante des nœuds", () => {
+  // The legend must not sit ON the drawing: it is a block alongside, as in the
+  // SVG.
+  it("sets the legend below the nodes' bounding box", () => {
     const xml = buildDrawio([board()], () => "#111");
     const y = Number(/id="p0_legende_0"[\s\S]*?y="(-?\d+)"/.exec(xml)![1]);
     expect(y).toBeGreaterThan(80);
   });
 
-  // Sans contexte, pas de cartouche inventé : le titre de la planche suffit.
-  it("se contente du titre de la planche quand aucun contexte n'est fourni", () => {
+  // With no context, no invented title block: the board's title is enough.
+  it("makes do with the board's title when no context is supplied", () => {
     const sans = { ...board(), context: undefined };
     const xml = buildDrawio([sans], () => "#111");
     expect(xml).toContain("Platform detail");

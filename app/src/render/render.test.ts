@@ -1,11 +1,11 @@
-// Le fichier de tests du dossier render/ dans son entier -- matrix-table,
-// integrity-report, aide, icones. La colocation dit « un test à côté de son
-// module » ; ici c'est un test pour six modules, et l'absence d'un
-// matrix-table.test.ts ne veut donc pas dire qu'il n'est pas couvert.
+// The render/ folder's test file in its entirety -- matrix-table,
+// integrity-report, help, icons. Colocation says "one test beside its module";
+// here it is one test for six modules, and the absence of a
+// matrix-table.test.ts therefore does not mean it is uncovered.
 import { describe, it, expect } from "vitest";
-// La comparaison vit ici, et non dans aide.ts : la page d'aide n'a pas à
-// dépendre du rail pour être écrite, elle doit seulement rester d'accord avec
-// lui. C'est au test de tenir les deux bouts.
+// The comparison lives here, not in help.ts: the help page has no business
+// depending on the rail to be written, it must only stay in agreement with it.
+// It is the test's job to hold both ends.
 import { VIEWS } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "./icons";
@@ -28,7 +28,7 @@ describe("buildMatrixTable", () => {
 
     expect(table.tagName.toLowerCase()).toBe("table");
     expect(table.querySelectorAll("tbody tr")).toHaveLength(1);
-    // Coin, une colonne, et la marge des totaux.
+    // Corner, one column, and the totals margin.
     expect(table.querySelectorAll("thead th")).toHaveLength(3);
     expect(table.textContent).toContain("HTTP ×2");
   });
@@ -44,12 +44,12 @@ describe("buildMatrixTable", () => {
     expect(table.querySelector("[data-dimmed='true']")).not.toBeNull();
   });
 
-  // Lignes et colonnes n'ont plus le même ordre depuis qu'elles sont élaguées
-  // chacune de son côté : une case « soi à soi » n'est plus sur une diagonale,
-  // et la griser ne produisait qu'un bloc gris flottant au milieu du tableau.
-  // Le fond des cases vient du thème, jamais du tableau : sur un thème sombre,
-  // un fond posé ici rendait la donnée illisible. Les cases de TOTAUX portent
-  // une classe, mais aucune couleur en propre.
+  // Rows and columns no longer share an order since they are pruned each on
+  // their own side: a "self to self" cell is no longer on a diagonal, and greying
+  // it produced nothing but a grey block floating in the middle of the table.
+  // The cells' background comes from the theme, never from the table: on a dark
+  // theme, a background set here made the data illegible. The TOTAL cells carry a
+  // class, but no colour of their own.
   it("marks no cell with a background of its own", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["A", "B"],
@@ -65,9 +65,9 @@ describe("buildMatrixTable", () => {
     expect([...table.querySelectorAll("td")].every((td) => td.style.backgroundColor === "")).toBe(true);
   });
 
-  // En mode fonctionnel la technologie est vidée (§4.5) ; la cellule ne doit
-  // pas afficher un « ×3 » précédé d'un vide.
-  it("montre le seul compteur quand la cellule n'a pas de technologie", () => {
+  // In functional mode the technology is emptied (§4.5); the cell must not show
+  // a "×3" preceded by a blank.
+  it("shows the counter alone when the cell has no technology", () => {
     const matrix: MatrixResult = base.matrix({
       columns: ["A"],
       rows: [{ actor: "B", cells: new Map([["A", [{ technology: "", count: 2, attenuated: false, names: [] }]]]) }],
@@ -103,7 +103,7 @@ describe("buildIntegrityReport", () => {
   });
 });
 
-describe("buildIntegrityReport — état visuel des sections", () => {
+describe("buildIntegrityReport — the sections' visual state", () => {
   const report: IntegrityReport = {
     families: [
       { id: "structure", title: "Structure", description: "…", anomalies: [] },
@@ -123,12 +123,12 @@ describe("buildIntegrityReport — état visuel des sections", () => {
     const sound = byTitle(el, "Structure");
     const onAlert = byTitle(el, "Cohérence");
 
-    // Section saine : repliée, marquée « ok ».
+    // A sound section: collapsed, marked "ok".
     expect(sound.open).toBe(false);
     expect(sound.classList.contains("section-ok")).toBe(true);
     expect(sound.querySelector("summary")!.textContent).toContain("Structure (0)");
 
-    // Section en alerte : dépliée d'office, marquée « alerte ».
+    // A section on alert: unfolded by default, marked "alert".
     expect(onAlert.open).toBe(true);
     expect(onAlert.classList.contains("section-alert")).toBe(true);
     expect(onAlert.querySelector("summary")!.textContent).toContain("Cohérence (1)");
@@ -170,10 +170,10 @@ describe("buildIntegrityReport — avertissements", () => {
     expect(avert.classList.contains("section-warning")).toBe(true);
     expect(info.classList.contains("section-info")).toBe(true);
 
-    // Chacun est visible d'office : un avertissement ne se cache pas.
+    // Each is visible by default: a warning does not hide.
     expect([error.open, avert.open, info.open]).toEqual([true, true, true]);
 
-    // Les trois icônes diffèrent par leur forme, pas seulement par leur couleur.
+    // The three icons differ by their shape, not only by their colour.
     const traces = (d: Element) => d.querySelectorAll("summary svg path").length;
     expect(traces(error)).toBe(3); // octogone + croix
     expect(traces(avert)).toBe(3); // triangle + barre + point
@@ -184,7 +184,7 @@ describe("buildIntegrityReport — avertissements", () => {
   });
 });
 
-describe("buildIntegrityReport — ordre de lecture", () => {
+describe("buildIntegrityReport — reading order", () => {
   it("sorts sections by what they demand: errors, then warnings, then information, then the clean ones", () => {
     const report: IntegrityReport = {
       families: [
@@ -209,10 +209,10 @@ describe("buildIntegrityReport — ordre de lecture", () => {
   });
 });
 
-describe("catalogue d'icônes", () => {
-  // Ajouter une icône sans son aperçu laisserait une case vide dans le classeur,
-  // sans rien pour le signaler.
-  it("donne un aperçu à chaque icône du catalogue, et rien de plus", () => {
+describe("the icon catalogue", () => {
+  // Adding an icon without its preview would leave an empty cell in the workbook,
+  // with nothing to report it.
+  it("gives every catalogue icon a preview, and nothing more", () => {
     expect(Object.keys(ICON_PREVIEWS).sort()).toEqual(AVAILABLE_ICONS);
   });
 });
@@ -222,8 +222,8 @@ describe("buildIntegrityReport — actions", () => {
     id, title: id, description: "d", items: ["x"], level,
   });
 
-  // Une action n'est pas un défaut du fichier : elle attend une décision, et
-  // se distingue de l'alerte par sa forme autant que par sa couleur.
+  // An action is not a defect in the file: it awaits a decision, and tells itself
+  // apart from the alert by its shape as much as by its colour.
   it("gives an action its own icon and class, distinct from a warning", () => {
     const html = buildIntegrityReport({
       families: [],
@@ -237,8 +237,8 @@ describe("buildIntegrityReport — actions", () => {
     expect(action.querySelector("svg")!.innerHTML).not.toBe(warning.querySelector("svg")!.innerHTML);
   });
 
-  // Ordre de lecture : ce qu'il faut corriger, puis ce qu'il faut décider, puis
-  // ce qu'il faut compléter, puis ce qu'il suffit de lire.
+  // Reading order: what must be fixed, then what must be decided, then what must
+  // be completed, then what need only be read.
   it("sorts errors, then actions, then warnings, then information", () => {
     const html = buildIntegrityReport({
       families: [{ id: "structure", title: "Structure", description: "d", anomalies: [{ message: "m" }] }],
@@ -250,80 +250,80 @@ describe("buildIntegrityReport — actions", () => {
   });
 });
 
-// --- La page d'aide se compare au rail : une vue ajoutée sans une ligne de
-// documentation ferait échouer ce test. Une documentation qui prend du retard
-// est pire que pas de documentation, puisqu'elle affirme.
+// --- The help page is compared with the rail: a view added without a line of
+// documentation would fail this test. Documentation that falls behind is worse
+// than no documentation, since it asserts.
 describe("buildAide", () => {
-  it("documente chaque vue du rail, et rien de plus", () => {
+  it("documents every rail view, and nothing more", () => {
     expect(documentedViews().sort()).toEqual(VIEWS.map((v) => v.label).sort());
   });
 
-  // Le même dispositif que pour les vues : un huitième export ne peut pas
-  // arriver sans sa ligne d'explication. C'est la meilleure couture du projet,
-  // et elle ne servait qu'à moitié.
-  it("documente chaque export proposé, et rien de plus", () => {
+  // The same device as for the views: an eighth export cannot arrive without its
+  // line of explanation. It is the project's best seam, and it was only serving
+  // half its purpose.
+  it("documents every export offered, and nothing more", () => {
     expect(exportsDocumentes().sort()).toEqual(EXPORTS.map((e) => e.label).sort());
   });
 
-  it("explique les deux lectures et les deux colonnes qui les portent", () => {
+  it("explains both readings and the two columns that carry them", () => {
     const text = buildAide().textContent ?? "";
     for (const expected of ["ARCHITECTURE", "BUSINESS", "Nature", "Republished as"]) {
       expect(text).toContain(expected);
     }
   });
 
-  it("dit que le classeur n'est jamais modifié ni envoyé", () => {
+  it("says the workbook is never modified nor sent anywhere", () => {
     const text = buildAide().textContent ?? "";
     expect(text).toContain("never writes");
     expect(text).toContain("nothing leaves this browser");
   });
 
-  it("prévient de la confusion entre Remove et le retrait", () => {
+  it("warns of the confusion between Remove and retirement", () => {
     expect(buildAide().textContent ?? "").toContain("deprecation warning");
   });
 });
 
-// --- QA : en lecture fonctionnelle la technologie est vide, et la fonction de
-// couleur retombait sur son repli « #000 » -- écrit en dur dans le style de
-// chaque cellule. Sur le thème sombre, cela donnait du noir sur noir : la
-// matrix fonctionnelle était illisible. Sans technologie il n'y a pas de
-// couleur à porter, et la cellule doit hériter de celle du thème.
-describe("buildMatrixTable — couleur des cellules", () => {
+// --- QA: in the functional reading the technology is empty, and the colour
+// function fell back on its "#000" default -- hard-coded into every cell's
+// style. On the dark theme that gave black on black: the functional matrix was
+// illegible. With no technology there is no colour to carry, and the cell must
+// inherit the theme's.
+describe("buildMatrixTable — the cells' colour", () => {
   const matrix = (technology: string): MatrixResult => base.matrix({
     columns: ["A"],
     rows: [{ actor: "B", cells: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
   });
 
-  it("n'impose aucune couleur quand il n'y a pas de technologie", () => {
+  it("imposes no colour when there is no technology", () => {
     const span = buildMatrixTable(matrix(""), () => "#000").querySelector(".matrix-tech") as HTMLElement;
     expect(span.style.color).toBe("");
   });
 
-  // L'intention n'a pas changé -- la couleur de la technologie reste montrée --
-  // mais elle a quitté le texte pour la pastille.
-  it("montre toujours la couleur de la technologie, sur sa pastille", () => {
+  // The intent has not changed -- the technology's colour is still shown -- but
+  // it has left the text for the chip.
+  it("still shows the technology's colour, on its chip", () => {
     const table = buildMatrixTable(matrix("HTTP"), () => "#2a78d6");
     const pastille = table.querySelector(".matrix-dot") as HTMLElement;
     expect(pastille.style.backgroundColor).not.toBe("");
   });
 });
 
-// --- La couleur d'une technologie viendra du référentiel externe, en
-// hexadécimal libre. Mesuré sur cinq couleurs d'entreprise typiques : toutes
-// excellentes sur blanc (4,3 à 9,2:1), quatre sous le seuil de 3:1 sur fond
-// sombre. Or dans la matrix la couleur ÉTAIT la couleur du texte : une charte
-// réglée pour l'impression rendait donc la donnée illisible.
+// --- A technology's colour will come from the external referential, in free
+// hexadecimal. Measured on five typical corporate colours: all excellent on
+// white (4.3 to 9.2:1), four below the 3:1 threshold on a dark background. Yet
+// in the matrix the colour WAS the text's colour: a palette tuned for print
+// therefore made the data illegible.
 //
-// La couleur passe donc sur une pastille, et le libellé prend l'encre du
-// thème. N'importe quel hexadécimal devient lisible, et la couleur reste le
-// rappel qu'elle a toujours été.
-describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
+// So the colour moves onto a chip, and the label takes the theme's ink. Any
+// hexadecimal becomes legible, and the colour stays the reminder it always was.
+//
+describe("buildMatrixTable — the colour no longer carries the text", () => {
   const matrix = (technology: string): MatrixResult => base.matrix({
     columns: ["A"],
     rows: [{ actor: "B", cells: new Map([["A", [{ technology, count: 1, attenuated: false, names: ["F"] }]]]) }],
   });
 
-  it("pose la couleur sur une pastille, jamais sur le libellé", () => {
+  it("sets the colour on a chip, never on the label", () => {
     const table = buildMatrixTable(matrix("HTTP"), () => "#7a2e3b");
     const pastille = table.querySelector(".matrix-dot") as HTMLElement;
     const label = table.querySelector(".matrix-tech") as HTMLElement;
@@ -331,12 +331,12 @@ describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
     expect(label.style.color).toBe("");
   });
 
-  it("n'affiche aucune pastille quand il n'y a pas de technologie", () => {
+  it("shows no chip when there is no technology", () => {
     const table = buildMatrixTable(matrix(""), () => "#000");
     expect(table.querySelector(".matrix-dot")).toBeNull();
   });
 
-  it("garde le libellé lisible dans les deux cas", () => {
+  it("keeps the label legible in both cases", () => {
     for (const tech of ["HTTP", ""]) {
       const table = buildMatrixTable(matrix(tech), () => "#7a2e3b");
       expect(table.textContent).toContain("F");
@@ -344,9 +344,9 @@ describe("buildMatrixTable — la couleur ne porte plus le texte", () => {
   });
 });
 
-// --- §2.10 : 143 cases, aucun total, aucun titre, et rien qui dise à un
-// lecteur d'écran de quelle case un en-tête est le titre.
-describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
+// --- §2.10: 143 cells, no total, no title, and nothing to tell a screen reader
+// which cells a header titles.
+describe("buildMatrixTable — the margins and the table's semantics", () => {
   const estate = () =>
     base.matrix({
       columns: ["A", "B"],
@@ -356,28 +356,28 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
       ],
     });
 
-  it("porte le titre du tableau dans un caption", () => {
+  it("carries the table's title in a caption", () => {
     const table = buildMatrixTable(estate(), () => "#111", "Matrix — architecture reading, milestone v2");
     expect(table.querySelector("caption")?.textContent).toContain("milestone v2");
   });
 
-  it("n'invente pas de caption quand aucun titre n'est fourni", () => {
+  it("invents no caption when no title is supplied", () => {
     expect(buildMatrixTable(estate(), () => "#111").querySelector("caption")).toBeNull();
   });
 
-  // Sans `scope`, une matrix de 143 cases se lit comme 143 nombres sans
+  // Without `scope`, a 143-cell matrix reads as 143 numbers with no
   // adresse.
-  it("dit de quelle case chaque en-tête est le titre", () => {
+  it("says which cells each header titles", () => {
     const table = buildMatrixTable(estate(), () => "#111");
-    // Le coin n'est le titre de rien : il annonce le sens de lecture des deux
-    // axes, et lui donner une portée le rattacherait à l'un des deux.
+    // The corner titles nothing: it announces both axes' reading direction, and
+    // giving it a scope would tie it to one of the two.
     const enTetes = [...table.querySelectorAll("thead th")].filter((th) => !th.classList.contains("matrix-corner"));
     expect(enTetes.length).toBeGreaterThan(0);
     expect(enTetes.every((th) => th.getAttribute("scope") === "col")).toBe(true);
     expect([...table.querySelectorAll("tbody th")].every((th) => th.getAttribute("scope") === "row")).toBe(true);
   });
 
-  it("compte les flux sortants en bout de ligne et les entrants en pied de colonne", () => {
+  it("counts the outgoing flows at the row's end and the incoming ones at the column's foot", () => {
     const table = buildMatrixTable(estate(), () => "#111");
     const endOfLine = [...table.querySelectorAll("tbody tr")].map((tr) => tr.lastElementChild?.textContent);
     expect(endOfLine).toEqual(["3", "1"]);
@@ -386,26 +386,26 @@ describe("buildMatrixTable — les marges et la sémantique du tableau", () => {
   });
 });
 
-// --- §2.15 : les deux lectures existent, sont justes, et n'empruntaient pas
-// le vocabulaire que leurs lecteurs possèdent déjà.
-describe("buildAide — le vocabulaire des deux lectures", () => {
+// --- §2.15: both readings exist, are correct, and did not borrow the
+// vocabulary their readers already have.
+describe("buildHelp — the two readings' vocabulary", () => {
   const text = () => buildAide().textContent ?? "";
 
-  it("rattache les deux lectures aux viewpoints ArchiMate", () => {
+  it("ties both readings to the ArchiMate viewpoints", () => {
     expect(text()).toContain("Application Cooperation");
     expect(text()).toContain("Application Usage");
   });
 
-  // Le point d'honnêteté : rabattre une chaîne est une dérivation que la
-  // norme dit pouvoir être fausse, et l'outil l'affirmait sans le dire.
-  it("dit ce qu'un lien rabattu affirme, et ce qu'il n'affirme pas", () => {
+  // The point of honesty: folding a chain is a derivation the standard says can
+  // be wrong, and the tool asserted it without saying so.
+  it("says what a folded link asserts, and what it does not", () => {
     expect(text()).toContain("derivation rule 10");
     expect(text()).toContain("it says the information travels, not that it arrives unchanged");
   });
 });
 
-// --- §A4 : l'axe des paliers était une liste déroulante, on ne voyait jamais
-// le temps. La frise le montre d'un coup.
+// --- §A4: the milestone axis was a drop-down, and time was never seen. The
+// roadmap shows it at a glance.
 describe("buildFriseSvg", () => {
   const timeline = {
     milestones: [
@@ -418,35 +418,35 @@ describe("buildFriseSvg", () => {
     ],
   };
 
-  it("dessine une barre par segment et une graduation par palier", () => {
+  it("draws one bar per segment and one tick per milestone", () => {
     const svg = buildRoadmapSvg(timeline, null, null);
     expect(svg.querySelectorAll("rect")).toHaveLength(3); // le fond, plus deux barres
     expect(svg.querySelectorAll("line")).toHaveLength(2);
   });
 
-  it("nomme chaque palier et chaque ligne", () => {
+  it("names every milestone and every row", () => {
     const texts = [...buildRoadmapSvg(timeline, null, null).querySelectorAll("text")].map((t) => t.textContent);
     expect(texts).toContain("v1");
     expect(texts).toContain("Member lookup 1.0");
     expect(texts.some((t) => t?.includes("2026-06-01"))).toBe(true);
   });
 
-  // Une pointe, pas un bord franc : un bord dirait que la ligne s'arrête là,
-  // alors qu'elle n'a simplement pas de fin connue.
-  it("termine par une pointe la ligne qui n'a pas de retrait", () => {
+  // A point, not a clean edge: an edge would say the row stops there, when it
+  // simply has no known end.
+  it("ends the row with no retirement with a point", () => {
     expect(buildRoadmapSvg(timeline, null, null).querySelectorAll(".fx-roadmap-open")).toHaveLength(1);
   });
 
-  // Le « vous êtes ici » : le palier affiché se distingue des autres.
-  it("marque le palier affiché d'une verticale plus forte", () => {
+  // The "you are here": the displayed milestone stands out from the others.
+  it("marks the displayed milestone with a stronger vertical", () => {
     const svg = buildRoadmapSvg(timeline, "v2", null);
     const widths = [...svg.querySelectorAll("line")].map((l) => l.getAttribute("stroke-width"));
     expect(new Set(widths).size).toBe(2);
   });
 
-  // Une barre plus longue à droite qu'à gauche : sans ça, deux versions qui se
-  // succèdent se dessineraient au même endroit.
-  it("place chaque barre à l'abscisse de son palier", () => {
+  // A bar longer on the right than on the left: without that, two versions
+  // following one another would be drawn in the same place.
+  it("places each bar at its milestone's abscissa", () => {
     const svg = buildRoadmapSvg(timeline, null, null);
     const [, un, two] = [...svg.querySelectorAll("rect")];
     expect(Number(two.getAttribute("x"))).toBeGreaterThan(Number(un.getAttribute("x")));

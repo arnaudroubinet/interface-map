@@ -4,8 +4,8 @@ import { modelToStructurizr } from "./c4-dsl";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
-// Un parc renseigné : ces fichiers vérifient ce que les exports TRANSPORTENT,
-// donc les champs qu'ils lisent doivent être remplis.
+// A filled-in estate: these files check what the exports CARRY, so the fields
+// they read must be filled in.
 function actor(o: Partial<Actor> = {}): Actor {
   return base.actor({ group: "Socle", description: "d", ...o });
 }
@@ -55,24 +55,24 @@ describe("modeleEnStructurizr", () => {
     expect(dsl).toContain('tags "Application"');
   });
 
-  // Le groupe est la seule frontière que le classeur déclare : la perdre
-  // rendrait la planche illisible, tous les acteurs à plat.
+  // The group is the only boundary the workbook declares: losing it would make
+  // the board illegible, every actor flat.
   it("puts the actors inside the group they belong to", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx");
     expect(dsl).toMatch(/group "Socle" \{[^}]*a = softwareSystem/s);
   });
 
-  // La relation va du fournisseur au consommateur, exactement comme sur les
-  // schémas : un export qui l'inverserait raconterait autre chose que ce que
-  // l'utilisateur a sous les yeux. L'intention du test n'a pas changé ; ce qui
-  // a changé, c'est que la règle est désormais la même des deux côtés.
+  // The relationship goes from provider to consumer, exactly as on the diagrams:
+  // an export reversing it would tell something other than what the user has in
+  // front of them. The test's intent has not changed; what changed is that the
+  // rule is now the same on both sides.
   it("draws the relationship the way the diagrams do", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx");
     expect(dsl).toContain('a -> b "F" "HTTP"');
   });
 
-  // Le sens déclaré par le type de flux ne retourne plus la relation : il dit
-  // seulement qui prend l'initiative, et cela s'écrit en étiquette.
+  // The direction the flow type declares no longer turns the relationship round:
+  // it says only who takes the initiative, and that is written as a tag.
   it("keeps the same direction whichever way the flow type reads", () => {
     const m = model({
       flowTypes: [
@@ -84,19 +84,19 @@ describe("modeleEnStructurizr", () => {
     expect(dsl).not.toContain('"Pulled"');
   });
 
-  // Ce que l'échange transporte est justement ce qu'une relation C4 décrit. Le
-  // libellé de la relation porte déjà l'identité du flux -- nom et version,
-  // comme sur les schémas -- et Structurizr n'a pas d'autre emplacement de
-  // texte sur un lien : la description se range en propriété plutôt que perdue.
+  // What the exchange carries is precisely what a C4 relationship describes. The
+  // relationship's label already carries the flow's identity -- name and version,
+  // as on the diagrams -- and Structurizr has no other text slot on a link: the
+  // description is filed as a property rather than lost.
   it("carries the interface description on the relationship", () => {
     const m = model({ interfaces: [iface({ description: "What the exchange carries" })] });
     expect(modelToStructurizr(m, null, "carto.xlsx")).toContain('"Description" "What the exchange carries"');
   });
 
-  // Les deux colonnes de commentaires -- celle de l'interface, celle de la
-  // consommation -- disent des choses différentes : l'une porte sur le contrat,
-  // l'autre sur l'usage qu'un consommateur en fait. Les fondre en une seule
-  // propriété perdrait de qui vient quoi.
+  // The two comment columns -- the interface's and the consumption's -- say
+  // different things: one is about the contract, the other about the use a
+  // consumer makes of it. Merging them into a single property would lose which
+  // came from whom.
   it("carries both comment columns on the relationship", () => {
     const m = model({
       interfaces: [iface({ comments: "Scope under review" })],
@@ -107,20 +107,20 @@ describe("modeleEnStructurizr", () => {
     expect(dsl).toContain('"Consumption comments" "Migrating next quarter"');
   });
 
-  // Un flux à confirmer est un flux dont on n'est pas sûr : l'export le dit,
-  // sinon le fichier produit affirme plus que le classeur. Une interface
-  // confirmée n'a rien à en dire, elle ne porte donc pas la propriété.
+  // A flow to be confirmed is a flow one is not sure about: the export says so,
+  // otherwise the produced file asserts more than the workbook. A confirmed
+  // interface has nothing to say about it, so it does not carry the property.
   it("flags an interface still to be confirmed, and only that one", () => {
     const m = model({ interfaces: [iface({ toConfirm: true })] });
     expect(modelToStructurizr(m, null, "carto.xlsx")).toContain('"To confirm" "Yes"');
     expect(modelToStructurizr(model(), null, "carto.xlsx")).not.toContain('"To confirm"');
   });
 
-  // Un acteur qui consomme l'interface qu'il expose lui-même : la relation
-  // partirait d'un élément vers lui-même, ce qui ne dit rien dans un modèle C4
-  // et que les vues agrégées masquent déjà (§4.3). Structurizr l'accepte, mais
-  // LikeC4 refuse le fichier entier -- « Invalid parent-child relationship » --
-  // et les deux exports doivent décrire le même modèle.
+  // An actor consuming the interface it publishes itself: the relationship would
+  // go from an element to itself, which says nothing in a C4 model and which the
+  // aggregated views already hide (§4.3). Structurizr accepts it, but LikeC4
+  // refuses the whole file -- "Invalid parent-child relationship" -- and both
+  // exports must describe the same model.
   it("leaves out an actor consuming the interface it exposes itself", () => {
     const m = model({ actors: [actor({ name: "A" })], consumptions: [consumption({ consumerName: "A" })] });
     const dsl = modelToStructurizr(m, null, "carto.xlsx");
@@ -132,8 +132,8 @@ describe("modeleEnStructurizr", () => {
     expect(modelToStructurizr(m, null, "carto.xlsx")).toContain('"F 1.0"');
   });
 
-  // Un acteur retiré au palier affiché n'est plus là : l'export dit l'état de
-  // la plateforme à ce palier, pas l'histoire du classeur.
+  // An actor retired at the displayed milestone is no longer there: the export
+  // says the platform's state at that milestone, not the workbook's history.
   it("exports the platform as it stands at the milestone on show", () => {
     const milestones = [
       { name: "v1", rank: 1, label: "", status: "Delivered", date: "", description: "", sheet: "Milestones", row: 0 },
@@ -152,8 +152,8 @@ describe("modeleEnStructurizr", () => {
     expect(modelToStructurizr(m, 2, "carto.xlsx")).not.toContain('b = softwareSystem "B"');
   });
 
-  // Structurizr ne sait pas échapper un guillemet : le laisser passer casserait
-  // le fichier entier plutôt que la seule ligne fautive.
+  // Structurizr cannot escape a quote: letting one through would break the whole
+  // file rather than the offending line alone.
   it("keeps a quoted name from breaking the file", () => {
     const m = model({ actors: [actor({ name: 'Le "gros" système' })], interfaces: [], consumptions: [] });
     const dsl = modelToStructurizr(m, null, "carto.xlsx");
@@ -167,17 +167,17 @@ describe("modeleEnStructurizr", () => {
     expect(dsl).toContain("autolayout lr");
   });
 
-  // Une vue par schema : ce que l'outil sait dessiner, l'outil C4 doit savoir
-  // le retrouver sans avoir a le redemander au classeur.
+  // One view per diagram: what the tool can draw, the C4 tool must be able to
+  // find again without asking the workbook for it.
   it("declares a context view for each actor", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx");
     expect(dsl).toContain('systemContext a "actor-a"');
     expect(dsl).toContain('systemContext b "actor-b"');
   });
 
-  // La vue par technologie se lit sur les traits, pas sur les boites : chaque
-  // lien porte donc sa technologie en etiquette, faute de quoi rien ne permet
-  // de la retrouver.
+  // The by-technology view reads on the lines, not on the boxes: every link
+  // therefore carries its technology as a tag, failing which there is no way to
+  // find it again.
   it("tags each relationship with its technology, and gives it a view", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx");
     expect(dsl).toContain('tags "HTTP"');
@@ -190,8 +190,8 @@ describe("modeleEnStructurizr", () => {
     expect(dsl).toContain('include "element.tag==Platform"');
   });
 
-  // Une technologie declaree mais que personne n'emploie n'a pas de schema
-  // dans l'outil : elle n'en a pas davantage ici.
+  // A technology declared but used by nobody has no diagram in the tool: it has
+  // none here either.
   it("leaves out a technology no interface uses", () => {
     const m = model({
       flowTypes: [
@@ -203,14 +203,14 @@ describe("modeleEnStructurizr", () => {
   });
 });
 
-// --- La règle des schémas vaut pour le modèle C4 : la relation va du
-// fournisseur au consommateur, comme la donnée. Elle suivait auparavant le sens
-// de l'APPEL, si bien qu'un flux HTTP sortait à l'envers de nos images -- le
-// même parc racontait deux histoires selon qu'on le lisait ici ou là.
+// --- The diagrams' rule holds for the C4 model: the relationship goes from
+// provider to consumer, like the data. It used to follow the CALL's direction,
+// so that an HTTP flow came out the wrong way round from our images -- the same
+// estate told two stories depending on where it was read.
 //
-// L'initiative n'est pas perdue : une relation C4 n'a qu'un sens, elle passe
-// donc en étiquette.
-describe("modeleEnStructurizr — sens de la relation", () => {
+// The initiative is not lost: a C4 relationship has only one direction, so it
+// goes into a tag.
+describe("modelToStructurizr — the relationship's direction", () => {
   const estate = (direction: "provider-to-consumer" | "consumer-to-provider") =>
     model({
       actors: [actor({ name: "Fournisseur" }), actor({ name: "Appelant" })],
@@ -219,13 +219,13 @@ describe("modeleEnStructurizr — sens de la relation", () => {
       consumptions: [consumption({ consumerName: "Appelant" })],
     });
 
-  // Les identifiants sont fabriqués par identifiants() : on les résout depuis
-  // les lignes de déclaration plutôt que d'en supposer la forme.
+  // The identifiers are made by identifiers(): they are resolved from the
+  // declaration lines rather than their shape being assumed.
   const identifiantDe = (dsl: string, name: string) =>
     dsl.split("\n").find((l) => l.includes(`"${name}"`) && l.includes(" = "))!.trim().split(" = ")[0];
   const relation = (dsl: string) => dsl.split("\n").find((l) => l.includes(" -> "))!.trim();
 
-  it("va du fournisseur au consommateur, même quand le consommateur appelle", () => {
+  it("goes from provider to consumer, even when the consumer calls", () => {
     for (const direction of ["provider-to-consumer", "consumer-to-provider"] as const) {
       const dsl = modelToStructurizr(estate(direction), null, "c.xlsx");
       const [de, vers] = relation(dsl).split(" -> ");
@@ -234,30 +234,30 @@ describe("modeleEnStructurizr — sens de la relation", () => {
     }
   });
 
-  it("étiquette la relation que le consommateur initie", () => {
+  it("tags the relationship the consumer initiates", () => {
     expect(modelToStructurizr(estate("consumer-to-provider"), null, "c.xlsx")).toContain('"Pulled"');
     expect(modelToStructurizr(estate("provider-to-consumer"), null, "c.xlsx")).not.toContain('"Pulled"');
   });
 });
 
-// --- QA : le périmètre était comparé par égalité stricte ici, et à la
-// normalisation près dans les schémas. Un groupe saisi « platform » était donc
-// une plateforme à l'écran et n'en était plus une dans le fichier C4 : la vue
-// dédiée disparaissait sans un mot.
-describe("modeleEnStructurizr — périmètre écrit autrement", () => {
+// --- QA: the perimeter was compared by strict equality here, and up to
+// normalisation in the diagrams. A group entered as "platform" was therefore a
+// platform on screen and was no longer one in the C4 file: the dedicated view
+// vanished without a word.
+describe("modelToStructurizr — a perimeter spelled differently", () => {
   const estate = (perimeter: string) =>
     model({ groups: [{ name: "Socle", perimeter, sheet: "Groups", row: 0 }] });
 
-  it("reconnaît la plateforme quelle que soit la casse", () => {
+  it("recognises the platform whatever the case", () => {
     for (const v of ["Platform", "platform", "PLATFORM"]) {
       expect(modelToStructurizr(estate(v), null, "c.xlsx")).toContain('"platform-only"');
     }
   });
 
-  // Déclarer la vue ne suffit pas : elle filtre sur « element.tag==Platform »,
-  // et l'étiquette recopiait l'écriture du classeur. La vue existait donc, et
+  // Declaring the view is not enough: it filters on "element.tag==Platform", and
+  // the tag copied the workbook's spelling. The view therefore existed, and
   // sortait vide.
-  it("étiquette les acteurs dans l'écriture que la vue filtre", () => {
+  it("tags the actors in the spelling the view filters on", () => {
     for (const v of ["platform", "PLATFORM"]) {
       const dsl = modelToStructurizr(estate(v), null, "c.xlsx");
       expect(dsl).toContain('"Platform"');
@@ -265,49 +265,49 @@ describe("modeleEnStructurizr — périmètre écrit autrement", () => {
     }
   });
 
-  it("ne fabrique pas la vue quand aucun groupe n'est plateforme", () => {
+  it("does not build the view when no group is a platform", () => {
     expect(modelToStructurizr(estate("External"), null, "c.xlsx")).not.toContain('"platform-only"');
   });
 });
 
-// --- §2.12 : 21 vues sans titre. Ouvert dans Structurizr, le fichier
-// présentait une liste de clés techniques -- « tech-rest-esb » -- que
-// personne ne peut lire.
-describe("modeleEnStructurizr — les vues portent un titre", () => {
-  it("écrit `title` DANS le bloc de la vue, pas en second argument", () => {
+// --- §2.12: 21 views with no title. Opened in Structurizr, the file presented
+// a list of technical keys -- "tech-rest-esb" -- that nobody can read.
+//
+describe("modelToStructurizr — the views carry a title", () => {
+  it("writes `title` INSIDE the view's block, not as a second argument", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx", "v2");
     expect(dsl).toMatch(/systemLandscape "landscape" \{\s*\n\s*title "System landscape — milestone v2"/);
   });
 
-  it("titre chaque vue de technologie du nom de la technologie", () => {
+  it("titles each technology view with the technology's name", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).toContain('title "HTTP flows"');
   });
 
-  // Sans palier affiché, pas de mention : « milestone null » serait pire que
+  // With no milestone displayed, no mention: "milestone null" would be worse than
   // rien.
-  it("ne mentionne le palier que lorsqu'il y en a un", () => {
+  it("mentions the milestone only when there is one", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).not.toContain("milestone");
   });
 });
 
-describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
-  it("style la plateforme, et pas seulement l'externe", () => {
+describe("modelToStructurizr — the notation makes it into the file", () => {
+  it("styles the platform, and not only the external side", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).toMatch(/element "Platform" \{\s*\n\s*background/);
   });
 
-  // Sans style, l'étiquette « Pulled » ne changeait rien dans l'outil cible :
-  // notre convention de pointe y était invisible.
-  // Le terrain par défaut est TIRÉ (HTTP, « consumer → provider »).
-  it("donne un style au tag Pulled quand un flux est tiré", () => {
+  // With no style, the "Pulled" tag changed nothing in the target tool: our
+  // arrowhead convention was invisible there.
+  // The default ground is PULLED (HTTP, "consumer → provider").
+  it("gives the Pulled tag a style when a flow is pulled", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).toMatch(/relationship "Pulled" \{\s*\n\s*style dashed/);
   });
 
-  it("ne style pas Pulled quand aucun flux ne l'est", () => {
+  it("does not style Pulled when no flow is", () => {
     const pushed = model({ flowTypes: [base.flowType({ type: "HTTP", direction: "provider-to-consumer" })] });
     expect(modelToStructurizr(pushed, null, "carto.xlsx")).not.toContain('relationship "Pulled"');
   });
 
-  it("donne une forme aux types d'acteur qu'il reconnaît, et laisse les autres en boîte", () => {
+  it("gives a shape to the actor types it recognises, and leaves the others as boxes", () => {
     const estate = model({
       actorTypes: [
         { type: "Queue", icon: "", nature: "", sheet: "ActorTypes", row: 0 },
@@ -319,23 +319,23 @@ describe("modeleEnStructurizr — la notation passe dans le fichier", () => {
     expect(dsl).not.toContain('element "Chose"');
   });
 
-  it("déclare les identifiants hiérarchiques en tête du modèle", () => {
+  it("declares the hierarchical identifiers at the head of the model", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).toContain("!identifiers hierarchical");
   });
 });
 
-// --- Les deux DSL étaient fermés en lecture fonctionnelle, au motif qu'un
-// schéma fonctionnel n'est pas une architecture C4. Un système qui rend un
-// service à un autre est pourtant le cas d'usage central d'un systemLandscape.
-// Ce qu'on s'interdit, c'est un fichier qui raconte autre chose que l'écran.
-describe("modeleEnStructurizr — la lecture fonctionnelle", () => {
-  it("annonce la lecture dans le nom et la description du workspace", () => {
+// --- Both DSLs were closed in the functional reading, on the grounds that a
+// functional diagram is not a C4 architecture. Yet a system rendering a service
+// to another is a systemLandscape's central use case. What is forbidden is a
+// file that tells something other than the screen.
+describe("modelToStructurizr — the functional reading", () => {
+  it("announces the reading in the workspace's name and description", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx", null, "functional");
     expect(dsl).toContain("(functional reading)");
     expect(dsl).toContain("chains folded, media removed");
   });
 
-  it("ne l'annonce pas en lecture d'architecture", () => {
+  it("does not announce it in the architecture reading", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).not.toContain("functional reading");
   });
 });
