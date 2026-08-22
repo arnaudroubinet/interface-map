@@ -15,12 +15,10 @@ import {
 } from "../layout/graph-layout";
 import { normalizeText } from "../shared/text";
 import { cheminArrondi, interrompreLeTrace, reculerPourLaPointe, segmentIntersecteRect, type Point, type Rect } from "./geometrie";
+import { PAPIER, ENCRE, ÉPAISSEUR_TRAIT, COULEUR_ECART, styleDuNoeud } from "./styles-noeud";
+import { entreesDeLegende, type EntreeLegende, type ÉchantillonLegende } from "./legende";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
-// Fixe, indépendant du thème de l'appli : un export doit rester lisible
-// ouvert seul, hors de toute page qui l'habillerait en clair/sombre (§8).
-const PAPIER = "#ffffff";
-const ENCRE = "#14181f";
 // La même pile que la page (index.html) : les constantes de largeur des
 // étiquettes sont calibrées dessus, un export en serif les met en défaut.
 const POLICE = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
@@ -42,11 +40,6 @@ function rect(x: number, y: number, w: number, h: number, fill: string, stroke: 
   return r;
 }
 
-// Épaisseur uniforme pour tous les traits. Faire varier l'épaisseur avec le
-// nombre de flux agrégés produisait un effet de gras sur les troncs fusionnés,
-// qui écrasait visuellement leurs voisins ; le volume se lit dans le « ×N » du
-// libellé, pas dans la graisse du trait.
-const ÉPAISSEUR_TRAIT = 2;
 
 
 
@@ -250,15 +243,10 @@ function construireLibelléArête(
 // Un trait qui apparaît ou disparaît entre deux paliers porte sa propre
 // couleur : la technologie n'est plus l'information principale, le changement
 // l'est. Ailleurs, rien ne change.
-// Écrites en clair, pas en variables CSS : celles-ci ne sont définies que dans
-// la page de l'appli. Hors d'elle -- un .svg ouvert seul, un PNG rastérisé --
-// le trait se résolvait à « none » et le schéma Écarts sortait SANS AUCUN
-// TRAIT, flèches noires et pastille de légende vide. C'est aussi ce que dit
-// PAPIER/ENCRE plus haut : un export ne suit pas le thème de qui l'affiche.
-const COULEUR_ECART: Record<"ajout" | "retrait", string> = {
-  ajout: "#1a7f43",
-  retrait: "#d03b3b",
-};
+// Les couleurs elles-mêmes vivent dans styles-noeud.ts : écrites en clair, pas
+// en variables CSS -- celles-ci ne sont définies que dans la page de l'appli.
+// Hors d'elle -- un .svg ouvert seul, un PNG rastérisé -- le trait se résolvait
+// à « none » et le schéma Écarts sortait SANS AUCUN TRAIT.
 
 function couleurArête(edge: RenderEdge, colorFor: (tech: string) => string): string {
   return edge.ecart ? COULEUR_ECART[edge.ecart] : colorFor(edge.technologie);
@@ -317,34 +305,6 @@ function buildEdgeElement(edge: RenderEdge, colorFor: (tech: string) => string, 
   return g;
 }
 
-// Palette par kind, dans l'esprit C4 (Structurizr) : gris-bleu neutre pour
-// un système de contexte, bleu soutenu pour ce qui est mis en avant
-// (plateforme, acteur sélectionné), fond clair + texte sombre sinon.
-interface StyleNoeud {
-  fond: string;
-  bord: string;
-  texteClair: boolean;
-  épaisseurBord: number;
-}
-
-// La couleur code le PÉRIMÈTRE, pas la technologie : bleu plein pour ce qui
-// appartient à la plateforme, gris pour ce qui lui est extérieur. C'est le
-// levier de lisibilité le plus fort quand une plateforme centrale est entourée
-// de systèmes tiers -- la technologie, elle, est déjà portée par la couleur
-// des traits et par la légende.
-function styleDuNoeud(node: LayoutNode): StyleNoeud {
-  // Couleurs relevées dans la source du gabarit C4 de draw.io (Sidebar-C4.js).
-  if (node.kind === "acteur-selectionne") {
-    return { fond: "#083F75", bord: "#06315C", texteClair: true, épaisseurBord: 2 };
-  }
-  if (node.externe) {
-    return { fond: "#8C8496", bord: "#736782", texteClair: true, épaisseurBord: 1 };
-  }
-  if (node.kind === "plateforme") {
-    return { fond: "#23A2D9", bord: "#0E7DAD", texteClair: true, épaisseurBord: 1 };
-  }
-  return { fond: "#1061B0", bord: "#0D5091", texteClair: true, épaisseurBord: 1 };
-}
 
 
 
@@ -595,77 +555,43 @@ function largeurLegende(entrées: string[]): number {
   return LEGENDE_PAD * 2 + LEGENDE_ECHANTILLON + 8 + texte;
 }
 
-// Ce que la légende annonce doit être ce que le dessin utilise. Sur un schéma
-// d'écart, aucun trait ne porte de couleur de technologie -- ils sont tous
-// verts ou rouges -- et énumérer les technologies annoncerait un code couleur
-// qu'on ne trouve nulle part.
-const LIBELLE_ECART: Record<"ajout" | "retrait", string> = {
-  ajout: "+n : flows added",
-  retrait: "−n : flows removed",
-};
-
-function construireLegende(
-  ecarts: readonly ("ajout" | "retrait")[],
-  technologies: string[],
-  colorFor: (tech: string) => string,
-  périmètres: boolean,
-  x: number,
-  y: number,
-  largeur: number,
-  hauteur: number
-): SVGGElement {
+function construireLegende(entrées: readonly EntreeLegende[], x: number, y: number, largeur: number, hauteur: number): SVGGElement {
   const g = el("g");
   g.setAttribute("class", "fx-legende");
-
-  const cadre = rect(x, y, largeur, hauteur, PAPIER, "#c8cdd5", 1);
-  g.appendChild(cadre);
+  g.appendChild(rect(x, y, largeur, hauteur, PAPIER, "#c8cdd5", 1));
 
   let ligne = y + LEGENDE_PAD + LEGENDE_LIGNE / 2;
-  const poser = (échantillon: SVGElement, texte: string) => {
-    g.appendChild(échantillon);
+
+  const trait = (é: Extract<ÉchantillonLegende, { forme: "trait" }>): SVGLineElement => {
+    const l = el("line");
+    l.setAttribute("x1", String(x + LEGENDE_PAD));
+    l.setAttribute("y1", String(ligne));
+    l.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON));
+    l.setAttribute("y2", String(ligne));
+    l.setAttribute("stroke", é.couleur);
+    l.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
+    if (é.pointillé) l.setAttribute("stroke-dasharray", "6 4");
+    if (é.pointe === "fin") l.setAttribute("marker-end", `url(#${idMarqueurFlèche(é.couleur)})`);
+    if (é.pointe === "debut") l.setAttribute("marker-start", `url(#${idMarqueurFlèche(é.couleur)})`);
+    return l;
+  };
+
+  const boite = (é: Extract<ÉchantillonLegende, { forme: "boite" }>): SVGRectElement => {
+    const r = rect(x + LEGENDE_PAD, ligne - 5, LEGENDE_ECHANTILLON, 10, é.fond, é.bord, 1);
+    if (é.pointillé) r.setAttribute("stroke-dasharray", "3 2");
+    return r;
+  };
+
+  for (const entrée of entrées) {
+    g.appendChild(entrée.échantillon.forme === "trait" ? trait(entrée.échantillon) : boite(entrée.échantillon));
     const t = el("text");
     t.setAttribute("x", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON + 8));
     t.setAttribute("y", String(ligne + 3.5));
     t.setAttribute("font-size", "10");
     t.setAttribute("fill", ENCRE);
-    t.textContent = texte;
+    t.textContent = entrée.texte;
     g.appendChild(t);
     ligne += LEGENDE_LIGNE;
-  };
-
-  const traitDeLegende = (couleur: string): SVGLineElement => {
-    const trait = el("line");
-    trait.setAttribute("x1", String(x + LEGENDE_PAD));
-    trait.setAttribute("y1", String(ligne));
-    trait.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON));
-    trait.setAttribute("y2", String(ligne));
-    trait.setAttribute("stroke", couleur);
-    trait.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
-    return trait;
-  };
-
-  for (const ecart of ecarts) {
-    poser(traitDeLegende(COULEUR_ECART[ecart]), LIBELLE_ECART[ecart]);
-  }
-
-  for (const tech of technologies) {
-    const trait = el("line");
-    trait.setAttribute("x1", String(x + LEGENDE_PAD));
-    trait.setAttribute("y1", String(ligne));
-    trait.setAttribute("x2", String(x + LEGENDE_PAD + LEGENDE_ECHANTILLON));
-    trait.setAttribute("y2", String(ligne));
-    trait.setAttribute("stroke", colorFor(tech));
-    trait.setAttribute("stroke-width", String(ÉPAISSEUR_TRAIT));
-    poser(trait, tech);
-  }
-
-  if (périmètres) {
-    for (const [libellé, externe] of [["Platform", false], ["External", true]] as [string, boolean][]) {
-      const style = styleDuNoeud({ externe } as LayoutNode);
-      const carré = rect(x + LEGENDE_PAD, ligne - 5, LEGENDE_ECHANTILLON, 10, style.fond, style.bord, 1);
-      if (externe) carré.setAttribute("stroke-dasharray", "3 2");
-      poser(carré, libellé);
-    }
   }
 
   return g;
@@ -687,14 +613,8 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
   // Et une technologie vide n'en est pas une -- le mode fonctionnel vide
   // `technologie` sur toutes ses arêtes, une entrée sans nom n'annoncerait
   // qu'un code couleur introuvable sur le dessin.
-  const ecarts = (["ajout", "retrait"] as const).filter((e) => renderEdges.some((r) => r.ecart === e));
-  const technologies = [...new Set(renderEdges.filter((e) => !e.ecart && e.technologie !== "").map((e) => e.technologie))].sort(
-    (a, b) => a.localeCompare(b, "fr")
-  );
-  const dessinables = layout.nodes.filter((n) => n.kind !== "frontiere");
-  const périmètres = dessinables.some((n) => n.externe) && dessinables.some((n) => !n.externe);
-  const entrées = [...ecarts.map((e) => LIBELLE_ECART[e]), ...technologies, ...(périmètres ? ["Platform", "External"] : [])];
-  const légendeL = entrées.length ? largeurLegende(entrées) : 0;
+  const entrées = entreesDeLegende(renderEdges, layout.nodes, colorFor);
+  const légendeL = entrées.length ? largeurLegende(entrées.map((e) => e.texte)) : 0;
   const légendeH = entrées.length ? LEGENDE_PAD * 2 + entrées.length * LEGENDE_LIGNE : 0;
 
   if (entrées.length) {
@@ -768,18 +688,7 @@ export function buildGraphSvg(layout: LayoutResult, colorFor: (tech: string) => 
   svg.appendChild(coucheLibellés);
 
   if (entrées.length) {
-    svg.appendChild(
-      construireLegende(
-        ecarts,
-        technologies,
-        colorFor,
-        périmètres,
-        bornes.x1 - légendeL,
-        bornes.y1 - légendeH,
-        légendeL,
-        légendeH
-      )
-    );
+    svg.appendChild(construireLegende(entrées, bornes.x1 - légendeL, bornes.y1 - légendeH, légendeL, légendeH));
   }
 
   return svg;
