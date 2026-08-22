@@ -9,6 +9,7 @@ import type { RoadmapSubject } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
 import { normalizeText } from "../shared/text";
 import type { Actor } from "../parsing/model";
+import type { ReferentialUrls } from "../export/datamashup";
 
 // The reading order goes from the shortest to the most complete.
 const EDGE_LABELS: [EdgeLabelMode, string][] = [
@@ -88,6 +89,8 @@ export interface RailCallbacks {
   onDownloadTemplate: () => void;
   onDownloadSample: () => void;
   onMigrationLegacy: () => void;
+  onReferentials: (urls: ReferentialUrls) => void;
+  onDownloadWithReferentials: () => void;
 }
 
 // A milestone is picked from a list, never typed: its label and its status are
@@ -244,6 +247,48 @@ function actorSearch(actors: readonly Actor[], selected: string | null, onPick: 
   return block;
 }
 
+// Where this workbook's two referentials are published. The URL is a property
+// of the FILE, not of the tool: it travels with it, so two cartographies can
+// point at two different referentials -- which a central pivot file would have
+// made impossible.
+function referentialBlock(
+  current: ReferentialUrls,
+  onChange: (urls: ReferentialUrls) => void,
+  onDownload: () => void
+): HTMLElement {
+  const block = el("div", { class: "rail-referential" });
+  block.appendChild(el("h3", { class: "rail-referential-title" }, ["External referential"]));
+
+  const field = (label: string, value: string, key: keyof ReferentialUrls): HTMLElement => {
+    const wrapper = el("label", { class: "rail-referential-field" }, [label]);
+    const input = el("input", {
+      type: "url",
+      class: "rail-referential-url",
+      placeholder: "https://…/referential.csv",
+    });
+    input.value = value;
+    input.addEventListener("change", () => onChange({ ...current, [key]: input.value.trim() }));
+    wrapper.appendChild(input);
+    return wrapper;
+  };
+
+  block.appendChild(field("Actors", current.actors, "actors"));
+  block.appendChild(field("Technologies", current.technologies, "technologies"));
+
+  const button = el("button", { class: "rail-referential-download", type: "button" }, [
+    "Download the workbook with these URLs",
+  ]);
+  button.addEventListener("click", onDownload);
+  block.appendChild(button);
+
+  // The tool writes the query; it never fetches. Saying so here spares the
+  // question "why does nothing happen when I type a URL".
+  block.appendChild(
+    el("p", { class: "rail-note" }, ["The tool writes the query. Excel does the loading, on refresh."])
+  );
+  return block;
+}
+
 // The rail's foot: something to start from. It shows even with no workbook
 // loaded -- that is precisely when one looks for a template or a sample.
 export function renderRailFoot(
@@ -346,6 +391,17 @@ export function renderRail(
       block.appendChild(compareWithBlock(state.comparedFile, callbacks.onComparedFile));
     }
     root.appendChild(block);
+  }
+
+  // The URLs are shown wherever one is, not only on one view: they belong to
+  // the file that is open, and the question "where does this workbook get its
+  // actors from" is asked from any view. Not on the upgrade screen, though:
+  // there the file is stale, and the only rewrite that makes sense is the one
+  // that screen offers -- which carries the URLs itself.
+  if (!blocked) {
+    root.appendChild(
+      referentialBlock(state.file.referentials, callbacks.onReferentials, callbacks.onDownloadWithReferentials)
+    );
   }
 
   if (state.view === "by-actor") {

@@ -1,13 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
 import { mountApp } from "./app";
 import { writeTemplate, type WorkbookData } from "../export/template-export";
+import { readReferentialUrls } from "../export/datamashup";
+import { SCHEMA_VERSION } from "../parsing/build-model";
+import * as XLSX from "xlsx";
 
 vi.mock("../export/download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/download")>();
-  return { ...actual, downloadText: vi.fn() };
+  return { ...actual, downloadText: vi.fn(), downloadWorkbook: vi.fn() };
 });
 
-import { downloadText } from "../export/download";
+import { downloadText, downloadWorkbook } from "../export/download";
 
 const data: WorkbookData = {
   flowTypes: [["HTTP", "consumer → provider", ""]],
@@ -337,5 +340,59 @@ describe("Changes view — comparing two workbooks", () => {
     expect(title).toContain("january.xlsx");
     expect(title).toContain("june.xlsx");
     expect(title).not.toContain("milestone");
+  });
+});
+
+
+// The referential URLs are NOT in any sheet: they live in the binary Power
+// Query stream. Every rebuild of the workbook -- and the upgrade is one --
+// therefore has to put them back from the file that was loaded, failing which
+// bringing a workbook up to the current model would silently erase its
+// queries. This test is that guard: it is the upgrade button, not the
+// referential block, that is clicked here.
+describe("Upgrade — the referential queries survive the rewrite", () => {
+  const REFERENTIALS = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+
+  // A workbook of the current format, with its schema number lowered: that is
+  // what a workbook produced by an older version of the tool looks like, and
+  // writeTemplate can only stamp the current one.
+  function staleWorkbook(): ArrayBuffer {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate({ ...data, referentials: REFERENTIALS })), {
+      type: "array",
+    });
+    const version = (cfb as { FullPaths: string[] }).FullPaths.find((path) => {
+      if (!/worksheets\/sheet\d+\.xml$/.test(path)) return false;
+      const part = XLSX.CFB.find(cfb, path);
+      return part !== null && new TextDecoder().decode(new Uint8Array(part.content as never)).includes(">Model version<");
+    });
+    if (!version) throw new Error("no sheet carries the model version");
+    const xml = new TextDecoder()
+      .decode(new Uint8Array(XLSX.CFB.find(cfb, version)!.content as never))
+      .replace(`<c r="A2"><v>${SCHEMA_VERSION}</v></c>`, `<c r="A2"><v>${SCHEMA_VERSION - 1}</v></c>`);
+    XLSX.CFB.utils.cfb_add(cfb, version, [...new TextEncoder().encode(xml)]);
+    return XLSX.CFB.write(cfb, { fileType: "zip", type: "array" }) as unknown as ArrayBuffer;
+  }
+
+  it("carries the loaded workbook's URLs into the upgraded file", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    const root = document.createElement("div");
+    mountApp(root);
+
+    const bytes = staleWorkbook();
+    expect(await readReferentialUrls(bytes)).toEqual(REFERENTIALS);
+
+    const file = { name: "stale.xlsx", arrayBuffer: async () => bytes } as unknown as File;
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
+    root.dispatchEvent(event);
+
+    await vi.waitFor(() => {
+      buttonByLabel(root, "Download the upgraded workbook");
+    });
+    buttonByLabel(root, "Download the upgraded workbook").click();
+
+    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+    const written = vi.mocked(downloadWorkbook).mock.calls[0][0];
+    expect(await readReferentialUrls(written)).toEqual(REFERENTIALS);
   });
 });

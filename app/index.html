@@ -120,6 +120,23 @@
   }
   .rail-compare-drop:hover { color: var(--critical); }
   .rail-compare-file { width: 100%; font-size: 12px; }
+  /* The rail is a flex column: without flex-shrink, this block is crushed to
+     zero height as soon as the ones above it are tall. */
+  .rail-referential { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
+  .rail-referential-title { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+  .rail-referential-field { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
+  .rail-referential-url {
+    width: 100%; box-sizing: border-box; padding: 4px 6px; font-size: 12px;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--surface); color: var(--ink);
+  }
+  .rail-referential-download {
+    padding: 6px 8px; font-size: 12px; cursor: pointer;
+    border: 1px solid var(--line); border-radius: 4px;
+    background: var(--surface); color: var(--ink-muted); text-align: left;
+  }
+  .rail-referential-download:hover { color: var(--ink); border-color: var(--accent); }
+  .rail-note { margin: 0; font-size: 11px; opacity: 0.75; }
   .rail-search-block { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
   .rail-search {
     width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;

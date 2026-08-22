@@ -1,4 +1,5 @@
 import type { ParsedModel } from "../parsing/model";
+import type { ReferentialUrls } from "../export/datamashup";
 import type { IntegrityReport } from "../integrity/checks";
 import type { MatrixGrain } from "../aggregation/views";
 import type { MatrixOrder } from "../aggregation/seriation";
@@ -56,6 +57,10 @@ export interface LoadedFile {
   model: ParsedModel;
   report: IntegrityReport;
   dateModification: Date | null;
+  // The two referential URLs the file already carries. They live in the Power
+  // Query definition, inside the workbook, so they travel with it: two
+  // cartographies can point at two different referentials.
+  referentials: ReferentialUrls;
 }
 
 export interface AppOptions {
@@ -230,6 +235,13 @@ export function withComparedMilestone(state: AppState, milestone: string | null)
 // the milestone axis of the file that is loaded.
 export function withComparedFile(state: AppState, file: LoadedFile | null): AppState {
   return { ...state, comparedFile: file };
+}
+
+// The URLs are a property of the FILE, so they are edited on the file, not in
+// the options: they leave with it and come back with it.
+export function withReferentials(state: AppState, referentials: ReferentialUrls): AppState {
+  if (!state.file) return state;
+  return { ...state, file: { ...state.file, referentials } };
 }
 
 export function withView(state: AppState, view: View): AppState {

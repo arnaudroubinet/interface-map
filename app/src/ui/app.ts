@@ -34,7 +34,8 @@ import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { downloadTemplateXlsx } from "../export/template-export";
+import { downloadTemplateXlsx, type WorkbookData } from "../export/template-export";
+import { readReferentialUrls } from "../export/datamashup";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
@@ -46,7 +47,7 @@ import { modelToLikeC4 } from "../export/likec4-dsl";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildAide } from "../render/help";
-import { upgrade } from "../export/schema-upgrade";
+import { upgrade, dataFromModel } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
 import { renderRail, renderRailFoot } from "./rail";
@@ -55,6 +56,7 @@ import {
   initialState,
   withLoadedFile,
   withComparedFile,
+  withReferentials,
   withView,
   withMode,
   withOptions,
@@ -156,9 +158,12 @@ export function mountApp(root: HTMLElement): void {
       return { ok: false, message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
     }
 
+    // The bytes are kept: the referential URLs are not in any sheet but in the
+    // binary Power Query stream, so only the file itself can be asked for them.
+    const bytes = await file.arrayBuffer();
     let parsed;
     try {
-      parsed = parseWorkbook(await file.arrayBuffer());
+      parsed = parseWorkbook(bytes);
     } catch {
       return { ok: false, message: "Workbook unreadable or corrupted." };
     }
@@ -183,6 +188,7 @@ export function mountApp(root: HTMLElement): void {
         model: built.model,
         report: runIntegrityChecks(built.model),
         dateModification: parsed.savedAt,
+        referentials: await readReferentialUrls(bytes),
       },
     };
   }
@@ -272,6 +278,22 @@ export function mountApp(root: HTMLElement): void {
     downloadTemplateXlsx("carto-interfaces-exemple.xlsx", SAMPLE_DATA);
   }
 
+  // Every rewrite of a LOADED workbook goes through here. dataFromModel() and
+  // upgrade() rebuild the sheets, and the sheets are precisely where the URLs
+  // are NOT: they live in the binary Power Query stream. Whoever rewrites the
+  // file must therefore put them back, failing which any schema change would
+  // wipe the queries -- which the specification forbids.
+  function downloadLoaded(file: LoadedFile, filename: string, data: WorkbookData): void {
+    downloadTemplateXlsx(filename, { ...data, referentials: file.referentials });
+  }
+
+  // The workbook, rewritten with the URLs now on screen. The tool never goes
+  // to the network: it writes the query, Excel does the loading.
+  function downloadWithReferentials(): void {
+    if (!state.file) return;
+    downloadLoaded(state.file, state.file.name, dataFromModel(state.file.model));
+  }
+
   // The seven exports live in their own module: they depend only on the state,
   // on a way to replace it, on the diagram on screen and on the displayed
   // matrix. They are built once, with lazy reads -- a handler wired on the first
@@ -343,7 +365,7 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(
         buildUpgradeScreen(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
-          downloadTemplateXlsx(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
+          downloadLoaded(file, `${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
         })
       );
     } else if (state.view === "changes") {
@@ -600,6 +622,8 @@ export function mountApp(root: HTMLElement): void {
       onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: migrationLegacyHandler,
+      onReferentials: (urls) => setState(withReferentials(withMessageBandeau(state, null), urls)),
+      onDownloadWithReferentials: downloadWithReferentials,
       onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
       onActorHidden: (actor, hidden) => setState(withActorHidden(withMessageBandeau(state, null), actor, hidden)),
       onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
