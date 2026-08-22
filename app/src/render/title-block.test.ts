@@ -13,56 +13,56 @@ const ctx = (o: Partial<DiagramContext> = {}): DiagramContext => ({
   ...o,
 });
 
-describe("libelléCartouche", () => {
-  it("dit la vue, la lecture et le palier sur la première ligne", () => {
+describe("titleBlockText", () => {
+  it("states the view, the reading and the milestone on the first line", () => {
     expect(titleBlockText(ctx()).title).toBe("Platform detail — architecture reading, milestone v2");
   });
 
-  // Un classeur sans palier ne doit pas afficher « milestone null ».
-  it("tait le palier quand le classeur n'en déclare aucun", () => {
+  // A workbook with no milestone must not display "milestone null".
+  it("says nothing of the milestone when the workbook declares none", () => {
     expect(titleBlockText(ctx({ milestone: null })).title).toBe("Platform detail — architecture reading");
   });
 
-  it("dit la source, les comptes et la date sur la seconde ligne", () => {
+  it("states the source, the counts and the date on the second line", () => {
     expect(titleBlockText(ctx()).subtitle).toBe("carto.xlsx · 12 components, 24 flows · 2026-08-22");
   });
 
-  // Le singulier compte : « 1 components » signale un texte fabriqué à la main.
-  it("accorde le singulier", () => {
+  // The singular matters: "1 components" betrays hand-built text.
+  it("agrees in the singular", () => {
     expect(titleBlockText(ctx({ components: 1, flows: 1 })).subtitle).toContain("1 component, 1 flow");
   });
 });
 
 describe("descriptionAccessible", () => {
-  // Ce que lit un lecteur d'écran : les comptes ET la convention de lecture,
-  // qu'aucun texte du schéma ne porte par ailleurs.
-  it("énonce les comptes puis la convention de lecture", () => {
+  // What a screen reader reads: the counts AND the reading convention, which no
+  // text of the diagram carries otherwise.
+  it("states the counts then the reading convention", () => {
     const d = descriptionAccessible(ctx());
     expect(d).toContain("12 components, 24 flows, 5 technologies");
     expect(d).toContain("Line = data, provider to consumer");
     expect(d).toContain("Arrowhead = who calls");
   });
 
-  // « 1 technologys » est le genre de faute qu'un pluriel naïf produit.
-  it("accorde le pluriel irrégulier de technology", () => {
+  // "1 technologys" is the kind of mistake a naive plural produces.
+  it("agrees with technology's irregular plural", () => {
     expect(descriptionAccessible(ctx({ technologies: 1 }))).toContain("1 technology.");
   });
 });
 
-// --- QA : la frise compte des lignes et des paliers, pas des boîtes et des
-// traits. Son cartouche annonçait « 0 component, 0 flow » sur dix-sept lignes.
-describe("libelléCartouche — ce que la planche compte", () => {
-  it("laisse une planche dire ce qu'elle compte, quand les boîtes n'ont pas de sens", () => {
+// --- QA: the roadmap counts rows and milestones, not boxes and lines. Its
+// title block announced "0 component, 0 flow" over seventeen rows.
+describe("titleBlockText — what the board counts", () => {
+  it("lets a board say what it counts, when boxes make no sense", () => {
     const c = { ...ctx(), components: 0, flows: 0, detail: "17 interfaces, 3 milestones" };
     expect(titleBlockText(c).subtitle).toContain("17 interfaces, 3 milestones");
     expect(titleBlockText(c).subtitle).not.toContain("0 component");
   });
 
-  it("garde les comptes ordinaires quand rien ne les remplace", () => {
+  it("keeps the ordinary counts when nothing replaces them", () => {
     expect(titleBlockText(ctx()).subtitle).toContain("12 components, 24 flows");
   });
 
-  it("reprend le même détail dans la description accessible", () => {
+  it("carries the same detail into the accessible description", () => {
     expect(descriptionAccessible({ ...ctx(), detail: "17 interfaces, 3 milestones" })).toContain("17 interfaces");
   });
 });

@@ -5,8 +5,8 @@ import type { LayoutResult } from "../layout/graph-layout";
 
 describe("serializeSvg", () => {
   it("paints the background over the whole viewBox, including a negative origin", () => {
-    // Un coude qui remonte au-dessus de 0 force un viewBox à minY négatif,
-    // comme dans "sizes the viewBox from the actual path" (svg-builder.test.ts).
+    // A corner rising above 0 forces a viewBox with a negative minY, as in
+    // "sizes the viewBox from the actual path" (svg-builder.test.ts).
     const layout: LayoutResult = {
       nodes: [
         { id: "A", label: "A", kind: "group", x: 40, y: 0, width: 80, height: 40 },
@@ -36,8 +36,8 @@ describe("serializeSvg", () => {
     expect(vbY).toBeLessThan(0); // condition du bug : origine négative
 
     const source = serializeSvg(svg, "#ffffff");
-    // Le clone porte deux fois xmlns (bug indépendant, pas testé ici) : un
-    // parseur XML strict le rejette, on relit donc en HTML, plus tolérant.
+    // The clone carries xmlns twice (an independent bug, not tested here): a
+    // strict XML parser rejects it, so it is reread as HTML, which is more lenient.
     const clone = new DOMParser().parseFromString(source, "text/html").querySelector("svg")!;
     const background = clone.querySelector("rect")!;
 

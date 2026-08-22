@@ -14,35 +14,35 @@ const context = (
 describe("ordonner", () => {
   const ctx = context({ A: "Core", B: "Partners", C: "Core" }, { A: 3, B: 1, C: 2 });
 
-  it("trie par nom en alphabétique", () => {
+  it("sorts by name in alphabetical order", () => {
     expect(orderBy(["C", "A", "B"], "alphabetical", ctx)).toEqual(["A", "B", "C"]);
   });
 
-  // Regrouper fait apparaître les blocs intra-groupe et inter-groupes, que
-  // l'ordre alphabétique disperse.
-  it("regroupe par groupe puis par nom", () => {
+  // Grouping brings out the intra-group and inter-group blocks that the
+  // alphabetical order scatters.
+  it("groups by group then by name", () => {
     expect(orderBy(["B", "C", "A"], "group", ctx)).toEqual(["A", "C", "B"]);
   });
 
-  it("place les moyeux en tête par degré décroissant", () => {
+  it("puts the hubs first, by decreasing degree", () => {
     expect(orderBy(["B", "C", "A"], "degree", ctx)).toEqual(["A", "C", "B"]);
   });
 
-  // À degré égal, le nom départage : sans quoi l'ordre dépendrait de celui
-  // d'entrée, et deux exports du même classeur différeraient.
-  it("départage par le nom à degré égal", () => {
+  // At equal degree the name breaks the tie: otherwise the order would depend on
+  // the input order, and two exports of the same workbook would differ.
+  it("breaks the tie by name at equal degree", () => {
     const equal = context({}, { X: 2, Y: 2, Z: 2 });
     expect(orderBy(["Z", "X", "Y"], "degree", equal)).toEqual(["X", "Y", "Z"]);
   });
 });
 
 describe("ordonner — seriation RCM", () => {
-  // Deux amas qui ne se touchent pas : RCM doit les rendre contigus, sans quoi
-  // la matrix ne montre aucun bloc.
+  // Two clusters that do not touch: RCM must make them contiguous, failing which
+  // the matrix shows no block at all.
   const edges = { A: ["B", "C"], B: ["A", "C"], C: ["A", "B"], X: ["Y", "Z"], Y: ["X", "Z"], Z: ["X", "Y"] };
   const ctx = context({}, {}, edges);
 
-  it("rend contigus les sommets d'un même amas", () => {
+  it("makes the vertices of one cluster contiguous", () => {
     const order = orderBy(["A", "X", "B", "Y", "C", "Z"], "blocks", ctx);
     const pos = new Map(order.map((id, i) => [id, i]));
     for (const amas of [["A", "B", "C"], ["X", "Y", "Z"]]) {
@@ -51,21 +51,21 @@ describe("ordonner — seriation RCM", () => {
     }
   });
 
-  it("rend tous les sommets, une fois chacun", () => {
+  it("returns every vertex, once each", () => {
     const ids = ["A", "B", "C", "X", "Y", "Z"];
     expect([...orderBy(ids, "blocks", ctx)].sort()).toEqual([...ids].sort());
   });
 
-  // Un sommet isolé n'a pas de voisin : il ne doit ni disparaître ni faire
-  // boucler le parcours.
-  it("place les sommets isolés sans les perdre", () => {
+  // An isolated vertex has no neighbour: it must neither disappear nor make the
+  // walk loop.
+  it("places the isolated vertices without losing them", () => {
     const alone = context({}, {}, { ...edges, Solo: [] });
     expect(orderBy(["A", "Solo", "B"], "blocks", alone)).toContain("Solo");
   });
 
-  // Déterminisme : deux exécutions doivent donner le même tableau, sinon
-  // l'export Excel et l'écran divergent.
-  it("est déterministe", () => {
+  // Determinism: two runs must give the same array, otherwise the Excel export
+  // and the screen drift apart.
+  it("is deterministic", () => {
     const ids = ["A", "B", "C", "X", "Y", "Z"];
     expect(orderBy(ids, "blocks", ctx)).toEqual(orderBy([...ids].reverse(), "blocks", ctx));
   });

@@ -65,9 +65,9 @@ describe("parseWorkbook", () => {
   });
 });
 
-describe("parseWorkbook — numéro de ligne", () => {
-  // Le rapport cite l'emplacement pour qu'on aille corriger ; l'indice du
-  // tableau ne suffit pas, puisqu'une ligne vide intercalée le décale.
+describe("parseWorkbook — row number", () => {
+  // The report quotes the location so it can be gone to and fixed; the array
+  // index will not do, since one blank row in between shifts it.
   it("carries the Excel row number of each row", () => {
     const wb = XLSX.utils.book_new();
     const sheet = XLSX.utils.aoa_to_sheet([
@@ -91,7 +91,7 @@ describe("parseWorkbook — numéro de ligne", () => {
     ]);
     XLSX.utils.book_append_sheet(wb, sheet, "Actors");
     const result = parseWorkbook(XLSX.write(wb, { type: "array", bookType: "xlsx" }));
-    // La ligne vide est écartée, mais Mygeeto reste en ligne 4 du classeur.
+    // The blank row is dropped, but Mygeeto is still on row 4 of the workbook.
     expect(result.sheets[0].rows.map((r) => r.values.Name)).toEqual(["Tatooine", "Mygeeto"]);
     expect(result.sheets[0].rows.map((r) => r.row)).toEqual([2, 4]);
   });

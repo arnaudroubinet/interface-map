@@ -15,13 +15,13 @@ function drop(zone: HTMLElement, file: File): void {
   zone.dispatchEvent(event);
 }
 
-// Un classeur tronqué ne se laisse pas lire du tout : la cause réelle est
-// « fichier illisible », pas « feuille Flux absente », que le classeur ait ou
-// non jamais eu de feuille Flux. Le même fichier déposé sur la cible
-// principale (app.ts) produit "Workbook unreadable or corrupted." — c'est ce
-// message, et pas un autre, que la fenêtre de migration doit reprendre.
+// A truncated workbook cannot be read at all: the real cause is "unreadable
+// file", not "missing Flux sheet", whether or not the workbook ever had a Flux
+// sheet. The same file dropped on the main target (app.ts) produces "Workbook
+// unreadable or corrupted." — that message, and no other, is the one the
+// migration dialog must take up.
 describe("ouvrirMigration — classeur corrompu", () => {
-  it("annonce, en anglais, que le classeur est illisible plutôt qu'une feuille Flux absente", async () => {
+  it("announces, in English, that the workbook is unreadable rather than a missing Flux sheet", async () => {
     document.body.innerHTML = "";
     openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
@@ -40,10 +40,10 @@ describe("ouvrirMigration — classeur corrompu", () => {
   });
 });
 
-// Le bouton qui relance une conversion doit être lisible par l'utilisateur
-// anglophone au même titre que le reste de l'écran de succès.
-describe("ouvrirMigration — bouton de relance", () => {
-  it("porte un libellé en anglais", async () => {
+// The button that starts another conversion must be readable to an
+// English-speaking user just like the rest of the success screen.
+describe("openMigration — the try-again button", () => {
+  it("carries an English label", async () => {
     document.body.innerHTML = "";
     openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;

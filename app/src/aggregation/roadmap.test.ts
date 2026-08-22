@@ -25,33 +25,33 @@ function estate(overrides: Partial<ParsedModel> = {}): ParsedModel {
 }
 
 describe("construireFrise", () => {
-  it("rend un segment par ligne, borné par ses paliers", () => {
+  it("returns one bar per row, bounded by its milestones", () => {
     const f = buildRoadmap(estate(), "interfaces");
     expect(f.segments.find((s) => s.label === "Member lookup 1.0")).toMatchObject({ start: 1, end: 3 });
   });
 
-  // Une ligne sans palier de retrait court jusqu'au bout : il faut le DESSINER
-  // comme tel, l'arrêter au dernier palier connu dirait qu'elle y meurt.
-  it("marque comme ouverte à droite une ligne sans palier de retrait", () => {
+  // A row with no retirement milestone runs to the end: that must be DRAWN as
+  // such; stopping it at the last known milestone would say it dies there.
+  it("marks a row with no retirement milestone as open on the right", () => {
     const f = buildRoadmap(estate(), "interfaces");
     expect(f.segments.find((s) => s.label === "Member lookup 2.0")?.openRight).toBe(true);
     expect(f.segments.find((s) => s.label === "Member lookup 1.0")?.openRight).toBe(false);
   });
 
-  // Symétriquement : une ligne sans palier d'arrivée vient d'avant l'axe.
-  it("marque comme ouverte à gauche une ligne sans palier d'arrivée", () => {
+  // Symmetrically: a row with no arrival milestone comes from before the axis.
+  it("marks a row with no arrival milestone as open on the left", () => {
     const m = estate();
     m.interfaces[0].introducedAt = "";
     expect(buildRoadmap(m, "interfaces").segments[0].openLeft).toBe(true);
   });
 
-  // Le recouvrement de deux versions est exactement ce qu'on vient voir.
-  it("laisse voir deux versions qui coexistent", () => {
+  // The overlap of two versions is exactly what one comes to see.
+  it("lets two coexisting versions be seen", () => {
     const [un, two] = buildRoadmap(estate(), "interfaces").segments;
     expect(Math.max(un.start, two.start)).toBeLessThan(Math.min(un.end, two.end));
   });
 
-  it("range les lignes par rattachement puis par arrivée", () => {
+  it("files the rows by grouping then by arrival", () => {
     const m = estate();
     m.interfaces.push(
       base.iface({ flowName: "Autre", providerName: "Zeffo", expectedSheet: "FX_A_HTTP", introducedAt: "v1" })
@@ -63,13 +63,13 @@ describe("construireFrise", () => {
     ]);
   });
 
-  it("rend aussi la frise des acteurs", () => {
+  it("also returns the actors' roadmap", () => {
     expect(buildRoadmap(estate(), "actors").segments.map((s) => s.label)).toEqual(["A"]);
   });
 
-  // Un classeur sans palier n'a pas d'axe : la frise est vide plutôt que
+  // A workbook with no milestone has no axis: the roadmap is empty rather than
   // fausse.
-  it("ne rend rien quand le classeur ne déclare aucun palier", () => {
+  it("returns nothing when the workbook declares no milestone", () => {
     expect(buildRoadmap(estate({ milestones: [] }), "interfaces").segments).toEqual([]);
   });
 });

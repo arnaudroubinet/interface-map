@@ -12,21 +12,21 @@ describe("buildExportFilename", () => {
     expect(buildExportFilename("Par acteur", "Tatooine Système", null, "png")).toBe("carto-par-acteur-tatooine-systeme.png");
   });
 
-  // Le nom de fichier dit à quel palier le schéma a été pris : deux exports
-  // du même schéma à deux paliers ne doivent pas porter le même nom.
+  // The file name says at which milestone the diagram was taken: two exports of
+  // the same diagram at two milestones must not carry the same name.
   it("appends the palier the diagram was taken at", () => {
     expect(buildExportFilename("Groupe à groupe", null, "v2", "svg")).toBe("carto-groupe-a-groupe-v2.svg");
   });
 });
 
 describe("buildExportFilename — mode", () => {
-  it("nomme le mode fonctionnel", () => {
+  it("names the functional mode", () => {
     expect(buildExportFilename("Group to group", null, "v2", "drawio", "functional")).toBe(
       "carto-functional-group-to-group-v2.drawio"
     );
   });
 
-  // Les noms d'aujourd'hui ne bougent pas : l'architecture reste muette.
+  // Today's names do not move: architecture stays silent.
   it("laisse l'architecture muette", () => {
     expect(buildExportFilename("Group to group", null, "v2", "drawio", "architecture")).toBe(
       "carto-group-to-group-v2.drawio"
@@ -68,9 +68,9 @@ describe("buildExportFilename — rapport", () => {
   });
 });
 
-describe("buildExportFilename — vue Écarts", () => {
-  // Deux comparaisons différentes ne doivent pas se télécharger sous le même
-  // nom : le fichier porte les deux paliers, celui de départ et celui d'arrivée.
+describe("buildExportFilename — Changes view", () => {
+  // Two different comparisons must not download under the same name: the file
+  // carries both milestones, the departure and the arrival.
   it("names both paliers of the comparison", () => {
     expect(buildExportFilename("Écarts", "v1", "v3", "svg")).toBe("carto-ecarts-v1-v3.svg");
   });

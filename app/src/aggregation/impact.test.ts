@@ -3,8 +3,8 @@ import * as base from "../testing/fixtures";
 import { radius } from "./impact";
 import type { FlowInstance } from "./core";
 
-// A fournit B, B fournit C, D fournit A. Le sens de la DÉPENDANCE va donc de
-// B vers A : B a besoin de A.
+// A supplies B, B supplies C, D supplies A. The DEPENDENCY therefore runs from
+// B to A: B needs A.
 const link = (provider: string, consumer: string): FlowInstance =>
   ({ provider, consumer, interfaceName: "F", version: "", flowType: "HTTP", direction: "provider-to-consumer",
      attenuated: false, iface: base.iface(), consumption: base.consumption() }) as FlowInstance;
@@ -12,42 +12,42 @@ const link = (provider: string, consumer: string): FlowInstance =>
 const estate = [link("A", "B"), link("B", "C"), link("D", "A")];
 
 describe("rayon", () => {
-  it("compte le départ à zéro saut", () => {
+  it("counts the starting point at zero hops", () => {
     expect(radius(estate, "A", "downstream").get("A")).toBe(0);
   });
 
-  // « Si A tombe, qui est touché ? » B en dépend, et C dépend de B.
-  it("suit l'aval transitivement, en comptant les sauts", () => {
+  // "If A falls, who is affected?" B depends on it, and C depends on B.
+  it("follows downstream transitively, counting the hops", () => {
     expect([...radius(estate, "A", "downstream").entries()].sort()).toEqual([["A", 0], ["B", 1], ["C", 2]]);
   });
 
-  // « De quoi A dépend-il ? » De D, et de rien d'autre.
-  it("suit l'amont dans l'autre sens", () => {
+  // "What does A depend on?" On D, and on nothing else.
+  it("follows upstream the other way", () => {
     expect([...radius(estate, "A", "upstream").entries()].sort()).toEqual([["A", 0], ["D", 1]]);
   });
 
-  it("ne garde que les voisins immédiats en direct, des deux côtés", () => {
+  it("keeps only the immediate neighbours at direct range, on both sides", () => {
     expect([...radius(estate, "A", "direct").keys()].sort()).toEqual(["A", "B", "D"]);
   });
 
-  // Un cycle ne doit pas boucler : le classeur d'exemple en contient un, à
-  // quatre composants, signalé par les contrôles.
-  it("termine sur un cycle", () => {
+  // A cycle must not loop forever: the sample workbook holds one, with four
+  // components, reported by the checks.
+  it("terminates on a cycle", () => {
     const loop = [link("A", "B"), link("B", "A")];
     expect(radius(loop, "A", "downstream").get("B")).toBe(1);
   });
 
-  // La distance doit être la PLUS COURTE : un parcours en profondeur donnerait
-  // 2 sauts là où il y en a 1, dès qu'un chemin long arrive avant le court.
-  it("rend la distance la plus courte quand deux chemins mènent au même", () => {
+  // The distance must be the SHORTEST: a depth-first walk would give 2 hops
+  // where there is 1, as soon as a long path arrives before the short one.
+  it("returns the shortest distance when two paths lead to the same node", () => {
     const diamond = [link("A", "B"), link("A", "C"), link("B", "D"), link("C", "D"), link("D", "E")];
     const r = radius(diamond, "A", "downstream");
     expect(r.get("D")).toBe(2);
     expect(r.get("E")).toBe(3);
   });
 
-  // Un acteur qui ne touche rien n'a que lui-même dans son rayon.
-  it("rend le seul départ pour un acteur isolé", () => {
+  // An actor touching nothing has only itself within its radius.
+  it("returns the starting point alone for an isolated actor", () => {
     expect([...radius(estate, "Isolé", "downstream").keys()]).toEqual(["Isolé"]);
   });
 });

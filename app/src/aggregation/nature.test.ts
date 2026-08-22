@@ -16,35 +16,35 @@ function model(actors: Actor[], actorTypes: ActorType[]): ParsedModel {
   return base.template({ actors, actorTypes });
 }
 
-describe("nature des acteurs", () => {
-  it("reconnaît un acteur dont le type est déclaré technique", () => {
+describe("actors' nature", () => {
+  it("recognises an actor whose type is declared technical", () => {
     const m = model([actor("Bus", "Middleware")], [type("Middleware", "Technical")]);
     expect(isTechnicalActor(m, "Bus")).toBe(true);
   });
 
-  it("tient pour métier un type déclaré Business", () => {
+  it("treats a type declared Business as business", () => {
     const m = model([actor("Tatooine", "Application")], [type("Application", "Business")]);
     expect(isTechnicalActor(m, "Tatooine")).toBe(false);
   });
 
-  // Masquer sur une colonne vide reviendrait à cacher de la donnée sans le
-  // dire : le défaut penche du côté qui montre tout.
-  it("tient pour métier un type dont la nature n'est pas renseignée", () => {
+  // Hiding on an empty column would amount to hiding data without saying so:
+  // the default leans towards the side that shows everything.
+  it("treats a type whose nature is not filled in as business", () => {
     const m = model([actor("Tatooine", "Application")], [type("Application", "")]);
     expect(isTechnicalActor(m, "Tatooine")).toBe(false);
   });
 
-  it("tient pour métier un acteur dont le type n'est pas déclaré", () => {
+  it("treats an actor whose type is not declared as business", () => {
     const m = model([actor("Inconnu", "Fantôme")], [type("Application", "Technical")]);
     expect(isTechnicalActor(m, "Inconnu")).toBe(false);
   });
 
-  it("reconnaît la nature aux accents et à la casse près", () => {
+  it("recognises the nature up to accents and case", () => {
     const m = model([actor("Bus", "middleware")], [type("Middleware", "TECHNICAL")]);
     expect(isTechnicalActor(m, "Bus")).toBe(true);
   });
 
-  it("rend les seuls acteurs métier", () => {
+  it("returns only the business actors", () => {
     const m = model(
       [actor("Tatooine", "Application"), actor("Bus", "Middleware")],
       [type("Application", "Business"), type("Middleware", "Technical")]

@@ -1,21 +1,21 @@
 import { describe, it, expect } from "vitest";
 import { breakTheLine } from "./geometry";
 
-// La géométrie se vérifie sur des nombres, sans monter un SVG : c'est
-// justement ce que sa sortie du constructeur SVG rend possible.
+// The geometry is verified on numbers, without mounting an SVG: that is
+// precisely what its move out of the SVG builder makes possible.
 
-// --- QA : la pointe se pose sur le DERNIER morceau visible du tracé. Quand le
-// libellé recouvrait l'arrivée, la coupure allait jusqu'au bout du segment, le
-// reste était jeté, et le dernier morceau devenait celui d'AVANT le libellé :
-// la flèche s'arrêtait à son étiquette au lieu de la boîte visée -- 51 px trop
-// tôt, sur 2 des 18 traits de la vue « plateforme détaillée ».
+// --- QA: the head sits on the LAST visible piece of the path. When the label
+// covered the arrival, the cut ran to the segment's end, the remainder was
+// thrown away, and the last piece became the one BEFORE the label: the arrow
+// stopped at its label instead of the box it aimed at -- 51 px too early, on 2
+// of the 18 lines of the "platform detail" view.
 describe("interrompreLeTrace", () => {
   const lastPoint = (pieces: { x: number; y: number }[][]) => {
     const dernier = pieces[pieces.length - 1];
     return dernier[dernier.length - 1];
   };
 
-  it("garde un reste après un libellé qui recouvre l'arrivée", () => {
+  it("keeps a remainder after a label that covers the arrival", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
     const labelOnArrival = { x0: 150, y0: -10, x1: 210, y1: 10 };
     const pieces = breakTheLine(trace, [labelOnArrival]);
@@ -23,7 +23,7 @@ describe("interrompreLeTrace", () => {
     expect(lastPoint(pieces).x).toBeCloseTo(200, 5);
   });
 
-  it("coupe toujours au milieu quand le libellé est au milieu", () => {
+  it("still cuts in the middle when the label is in the middle", () => {
     const trace = [{ x: 0, y: 0 }, { x: 200, y: 0 }];
     const pieces = breakTheLine(trace, [{ x0: 90, y0: -10, x1: 110, y1: 10 }]);
     expect(pieces).toHaveLength(2);
