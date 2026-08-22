@@ -19,10 +19,10 @@ export interface Difference {
 }
 
 function difference(avant: Set<string>, after: Set<string>): Difference {
-  const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
+  const byName = (a: string, b: string) => a.localeCompare(b, "fr");
   return {
-    ajoutes: [...after].filter((x) => !avant.has(x)).sort(parNom),
-    retires: [...avant].filter((x) => !after.has(x)).sort(parNom),
+    ajoutes: [...after].filter((x) => !avant.has(x)).sort(byName),
+    retires: [...avant].filter((x) => !after.has(x)).sort(byName),
   };
 }
 

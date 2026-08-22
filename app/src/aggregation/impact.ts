@@ -1,76 +1,81 @@
 import type { FlowInstance } from "./core";
 
-// Le rayon d'impact : « si X tombe, qui est touché ? », et sa réciproque
-// « de quoi X dépend-il ? ». Le graphe de dépendances existait déjà dans les
-// contrôles d'intégrité, où il ne servait qu'à détecter les cycles.
+// The blast radius: "if X goes down, who is hit?", and its converse "what does
+// X depend on?". The dependency graph already existed in the integrity checks,
+// where it only ever served to detect cycles.
 //
-// C'est du degree-of-interest au sens de Furnas (« Generalized fisheye views »,
-// CHI '86) : on part d'un point d'intérêt et on étend, plutôt que de tout
-// afficher d'abord. Van Ham & Perer (IEEE TVCG 15(6), 2009) montrent que c'est
-// la stratégie qui tient sur les grands graphes, là où l'« overview first » de
-// Shneiderman ne tient pas.
-export type Voisinage = "direct" | "upstream" | "downstream";
+// This is degree-of-interest in Furnas's sense ("Generalized fisheye views",
+// CHI '86): start from a point of interest and widen, rather than showing
+// everything first. Van Ham & Perer (IEEE TVCG 15(6), 2009) show it is the
+// strategy that holds on large graphs, where Shneiderman's "overview first"
+// does not.
+export type Neighbourhood = "direct" | "upstream" | "downstream";
 
-// Le sens des arcs : du CONSOMMATEUR vers le FOURNISSEUR, c'est-à-dire le sens
-// de la dépendance -- pas celui de la donnée. Un consommateur dépend de son
-// fournisseur ; si le fournisseur tombe, c'est le consommateur qui souffre.
+// The direction of the arcs: from CONSUMER to PROVIDER, that is, the direction
+// of the dependency -- not that of the data. A consumer depends on its
+// provider; if the provider goes down, it is the consumer that suffers.
 function arcs(flows: readonly FlowInstance[]): Map<string, Set<string>> {
   const m = new Map<string, Set<string>>();
   for (const f of flows) {
-    const de = f.consumer.trim();
-    const vers = f.provider.trim();
-    if (!de || !vers || de === vers) continue;
-    if (!m.has(de)) m.set(de, new Set());
-    m.get(de)!.add(vers);
+    const from = f.consumer.trim();
+    const to = f.provider.trim();
+    if (!from || !to || from === to) continue;
+    if (!m.has(from)) m.set(from, new Set());
+    m.get(from)!.add(to);
   }
   return m;
 }
 
-function inverser(m: Map<string, Set<string>>): Map<string, Set<string>> {
+function reversed(m: Map<string, Set<string>>): Map<string, Set<string>> {
   const inverse = new Map<string, Set<string>>();
-  for (const [de, vers] of m) {
-    for (const v of vers) {
-      if (!inverse.has(v)) inverse.set(v, new Set());
-      inverse.get(v)!.add(de);
+  for (const [from, targets] of m) {
+    for (const t of targets) {
+      if (!inverse.has(t)) inverse.set(t, new Set());
+      inverse.get(t)!.add(from);
     }
   }
   return inverse;
 }
 
-// L'acteur vers sa distance en sauts. Le départ est à zéro : il fait partie de
-// son propre rayon, sans quoi la vue perdrait ce qu'elle est venue montrer.
+// Each actor mapped to its distance in hops. The starting point is at zero: it
+// belongs to its own radius, without which the view would lose what it came to
+// show.
 //
-// Un parcours en LARGEUR, pas en profondeur : c'est la distance qui nous
-// intéresse, et un parcours en profondeur la fausserait sur un graphe qui
-// boucle -- le classeur d'exemple en contient un, à quatre composants.
-export function radius(flows: readonly FlowInstance[], depart: string, direction: Voisinage): Map<string, number> {
-  const depuis = depart.trim();
-  const dependances = arcs(flows);
-  const distances = new Map<string, number>([[depuis, 0]]);
+// A BREADTH-first walk, not depth-first: the distance is the point, and a
+// depth-first walk would get it wrong on a graph that loops -- the sample
+// workbook holds one, across four components.
+export function radius(
+  flows: readonly FlowInstance[],
+  from: string,
+  direction: Neighbourhood
+): Map<string, number> {
+  const start = from.trim();
+  const dependencies = arcs(flows);
+  const distances = new Map<string, number>([[start, 0]]);
 
   if (direction === "direct") {
-    // Les deux côtés à un saut : ce que la vue par acteur montrait déjà.
-    for (const v of dependances.get(depuis) ?? []) distances.set(v, 1);
-    for (const v of inverser(dependances).get(depuis) ?? []) distances.set(v, 1);
+    // Both sides at one hop: what the by-actor board already showed.
+    for (const v of dependencies.get(start) ?? []) distances.set(v, 1);
+    for (const v of reversed(dependencies).get(start) ?? []) distances.set(v, 1);
     return distances;
   }
 
-  // « amont » : ce dont le départ dépend, transitivement. « aval » : ce qui
-  // dépend de lui -- ceux que sa chute touche.
-  const suivants = direction === "upstream" ? dependances : inverser(dependances);
-  let front = [depuis];
+  // "upstream": what the starting point depends on, transitively. "downstream":
+  // what depends on it -- those its fall would touch.
+  const next = direction === "upstream" ? dependencies : reversed(dependencies);
+  let front = [start];
   let hop = 0;
   while (front.length > 0) {
     hop += 1;
-    const prochain: string[] = [];
-    for (const courant of front) {
-      for (const v of suivants.get(courant) ?? []) {
+    const following: string[] = [];
+    for (const current of front) {
+      for (const v of next.get(current) ?? []) {
         if (distances.has(v)) continue;
         distances.set(v, hop);
-        prochain.push(v);
+        following.push(v);
       }
     }
-    front = prochain;
+    front = following;
   }
   return distances;
 }

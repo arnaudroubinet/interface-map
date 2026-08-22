@@ -1,7 +1,7 @@
 import type { Actor, InterfaceCatalogue, ParsedModel, Consumption, Validity } from "../parsing/model";
 import { lifespanOf, isLiveAt } from "./milestones";
 import { normalizeText } from "../shared/text";
-import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE, VOCABULAIRE_CRITICITE } from "./vocabularies";
+import { PERIMETER_PLATFORM, PERIMETER_EXTERNAL, VOCABULARY_CRITICALITY } from "./vocabularies";
 
 export type NodeId = string;
 export type NodeKind = "group" | "platform" | "actor" | "focus-actor" | "boundary";
@@ -150,11 +150,11 @@ function perimetreDuGroupe(model: ParsedModel, group: string): string {
 }
 
 export function groupIsPlatform(model: ParsedModel, group: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETRE_PLATEFORME);
+  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETER_PLATFORM);
 }
 
 export function groupIsExternal(model: ParsedModel, group: string): boolean {
-  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETRE_EXTERNE);
+  return normalizeText(perimetreDuGroupe(model, group)) === normalizeText(PERIMETER_EXTERNAL);
 }
 
 export function actorIsPlatform(model: ParsedModel, actor: Actor): boolean {
@@ -362,8 +362,8 @@ export interface EdgeGroup {
 // L'ordre du vocabulaire, du plus critique au moins. On le lit dans la liste
 // elle-même plutôt que d'en tenir une seconde : les deux divergeraient.
 function rangDeCriticite(value: string): number {
-  const i = VOCABULAIRE_CRITICITE.findIndex((v) => normalizeText(v) === normalizeText(value));
-  return i < 0 ? VOCABULAIRE_CRITICITE.length : i;
+  const i = VOCABULARY_CRITICALITY.findIndex((v) => normalizeText(v) === normalizeText(value));
+  return i < 0 ? VOCABULARY_CRITICALITY.length : i;
 }
 
 function laPlusForte(a: string | undefined, b: string): string | undefined {

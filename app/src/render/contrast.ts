@@ -30,8 +30,8 @@ export function ratioDeContraste(a: string, b: string): number {
 export function assombrirJusquA(hex: string, target: number, sur = "#ffffff"): string {
   let [r, v, b] = composantes(hex);
   for (let i = 0; i < 200; i += 1) {
-    const courant = `#${[r, v, b].map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
-    if (ratioDeContraste(courant, sur) >= target) return courant;
+    const current = `#${[r, v, b].map((c) => Math.round(c).toString(16).padStart(2, "0")).join("")}`;
+    if (ratioDeContraste(current, sur) >= target) return current;
     [r, v, b] = [r * 0.98, v * 0.98, b * 0.98];
   }
   return "#000000";

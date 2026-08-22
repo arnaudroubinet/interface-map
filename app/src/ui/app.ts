@@ -22,9 +22,9 @@ import { buildGraphSvg } from "../render/svg-builder";
 import { titleBlockText, type ContexteSchema } from "../render/title-block";
 import { brancherZoom } from "../render/zoom";
 import { conseilDEchelle } from "./scale";
-import { chainesDisponibles, buildChainView } from "../aggregation/chain";
+import { availableChains, buildChainView } from "../aggregation/chain";
 import { buildRoadmap } from "../aggregation/roadmap";
-import { buildFriseSvg } from "../render/roadmap";
+import { buildRoadmapSvg } from "../render/roadmap";
 import type { Lecture } from "../aggregation/reading";
 import { lectureUnion } from "../aggregation/reading";
 import type { ViewResult } from "../aggregation/views";
@@ -364,7 +364,7 @@ export function mountApp(root: HTMLElement): void {
       if (timeline.segments.length === 0) {
         zoneRendu.appendChild(el("p", { class: "no-flow" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
       } else {
-        const svg = buildFriseSvg(timeline, state.shownMilestone, {
+        const svg = buildRoadmapSvg(timeline, state.shownMilestone, {
           ...contexteDuSchema(state, fichier, { nodes: [], edges: [] }),
           detail: `${timeline.segments.length} ${state.sujetFrise === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
         });
@@ -404,7 +404,7 @@ export function mountApp(root: HTMLElement): void {
       } else if (state.view === "platform-only") {
         view = buildPlatformOnlyView(model, reading, options);
       } else if (state.view === "chain") {
-        const chains = chainesDisponibles(model, rank);
+        const chains = availableChains(model, rank);
         const retenue = chains.find((c) => c.id === state.selectionChaine);
         if (!retenue && chains.length > 0) {
           chaineParDefaut = chains[0].id;

@@ -31,17 +31,17 @@ export const RESTE_AVANT_CIBLE = 14;
 export function traverseeDuRect(a: Point, b: Point, r: Rect): [number, number] | null {
   let t0 = 0;
   let t1 = 1;
-  for (const [depart, arrivee, min, max] of [
+  for (const [from, arrivee, min, max] of [
     [a.x, b.x, r.x0, r.x1],
     [a.y, b.y, r.y0, r.y1],
   ] as [number, number, number, number][]) {
-    const d = arrivee - depart;
+    const d = arrivee - from;
     if (Math.abs(d) < 1e-9) {
-      if (depart < min || depart > max) return null;
+      if (from < min || from > max) return null;
       continue;
     }
-    const u0 = (min - depart) / d;
-    const u1 = (max - depart) / d;
+    const u0 = (min - from) / d;
+    const u1 = (max - from) / d;
     t0 = Math.max(t0, Math.min(u0, u1));
     t1 = Math.min(t1, Math.max(u0, u1));
     if (t0 > t1) return null;
@@ -55,7 +55,7 @@ export const surSegment = (a: Point, b: Point, t: number): Point => ({ x: a.x + 
 // rectangle, plus un jeu de part et d'autre.
 export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][] {
   const morceaux: Point[][] = [];
-  let courant: Point[] = [points[0]];
+  let current: Point[] = [points[0]];
 
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
@@ -89,15 +89,15 @@ export function interrompreLeTrace(points: Point[], obstacles: Rect[]): Point[][
     }
 
     for (const [start, end] of merged) {
-      if (start > 0) courant.push(surSegment(a, b, start));
-      if (courant.length > 1) morceaux.push(courant);
-      courant = end < 1 ? [surSegment(a, b, end)] : [];
+      if (start > 0) current.push(surSegment(a, b, start));
+      if (current.length > 1) morceaux.push(current);
+      current = end < 1 ? [surSegment(a, b, end)] : [];
     }
-    if (courant.length === 0) courant = [b];
-    else courant.push(b);
+    if (current.length === 0) current = [b];
+    else current.push(b);
   }
 
-  if (courant.length > 1) morceaux.push(courant);
+  if (current.length > 1) morceaux.push(current);
   return morceaux;
 }
 

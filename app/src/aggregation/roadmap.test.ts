@@ -34,15 +34,15 @@ describe("construireFrise", () => {
   // comme tel, l'arrêter au dernier palier connu dirait qu'elle y meurt.
   it("marque comme ouverte à droite une ligne sans palier de retrait", () => {
     const f = buildRoadmap(estate(), "interfaces");
-    expect(f.segments.find((s) => s.label === "Member lookup 2.0")?.ouvertADroite).toBe(true);
-    expect(f.segments.find((s) => s.label === "Member lookup 1.0")?.ouvertADroite).toBe(false);
+    expect(f.segments.find((s) => s.label === "Member lookup 2.0")?.openRight).toBe(true);
+    expect(f.segments.find((s) => s.label === "Member lookup 1.0")?.openRight).toBe(false);
   });
 
   // Symétriquement : une ligne sans palier d'arrivée vient d'avant l'axe.
   it("marque comme ouverte à gauche une ligne sans palier d'arrivée", () => {
     const m = estate();
     m.interfaces[0].introducedAt = "";
-    expect(buildRoadmap(m, "interfaces").segments[0].ouvertAGauche).toBe(true);
+    expect(buildRoadmap(m, "interfaces").segments[0].openLeft).toBe(true);
   });
 
   // Le recouvrement de deux versions est exactement ce qu'on vient voir.

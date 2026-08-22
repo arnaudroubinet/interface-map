@@ -6,7 +6,7 @@ import {
   type FlowInstance,
   type Mode,
 } from "../aggregation/core";
-import { PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE } from "../aggregation/vocabularies";
+import { PERIMETER_PLATFORM, PERIMETER_EXTERNAL } from "../aggregation/vocabularies";
 import { liveActors } from "../aggregation/milestones";
 import { flowsForReading } from "../aggregation/reading";
 import { identifiants } from "./identifiers";
@@ -284,8 +284,8 @@ function views(
 // « platform » posait l'étiquette « platform » -- la vue sortait vide sans un
 // mot. Le prédicat, lui, normalise déjà des deux côtés.
 function perimeter(model: ParsedModel, group: string): string {
-  if (groupIsPlatform(model, group)) return PERIMETRE_PLATEFORME;
-  if (groupIsExternal(model, group)) return PERIMETRE_EXTERNE;
+  if (groupIsPlatform(model, group)) return PERIMETER_PLATFORM;
+  if (groupIsExternal(model, group)) return PERIMETER_EXTERNAL;
   return "";
 }
 

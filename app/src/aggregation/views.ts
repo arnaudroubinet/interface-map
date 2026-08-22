@@ -22,8 +22,8 @@ import {
 } from "./core";
 import type { Lecture } from "./reading";
 import { isTechnicalActor } from "./nature";
-import { radius, type Voisinage } from "./impact";
-import { orderBy, type ContexteOrdre, type OrdreMatrice } from "./seriation";
+import { radius, type Neighbourhood } from "./impact";
+import { orderBy, type OrderContext, type MatrixOrder } from "./seriation";
 
 // L'opacité d'un nœud selon sa distance au point d'intérêt.
 function attenuationDeDistance(hop: number): number | undefined {
@@ -91,14 +91,14 @@ const ID_FRONTIERE = "__frontiere__";
 // que celle qui a construit les arêtes de la vue, pour que l'acteur
 // réapparaisse à la même échelle (son groupe, ou lui-même) que le reste.
 function nodesIsoles(
-  candidats: Actor[],
+  candidates: Actor[],
   nodeKey: NodeKeyFn,
   présents: ReadonlySet<NodeId>,
   kindFor: (id: NodeId) => NodeKind,
   detailsFor: (id: NodeId) => { subtitle?: string; description?: string; external?: boolean }
 ): GraphNode[] {
   const ids = new Set<NodeId>();
-  for (const actor of candidats) {
+  for (const actor of candidates) {
     const id = nodeKey(actor.name);
     // Sentinel « pas de nœud » (§7.4) : un acteur sans groupe n'a rien à
     // rejoindre dans une vue repliée sur les groupes.
@@ -221,8 +221,8 @@ export function optionsFiltreActeur(allFlows: FlowInstance[], actorName: string)
     const autre = flow.provider.trim() === actorName.trim() ? flow.consumer : flow.provider;
     if (autre.trim() !== actorName.trim()) actors.add(autre);
   }
-  const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
-  return { technologies: [...technologies].sort(parNom), actors: [...actors].sort(parNom) };
+  const byName = (a: string, b: string) => a.localeCompare(b, "fr");
+  return { technologies: [...technologies].sort(byName), actors: [...actors].sort(byName) };
 }
 
 function flowsTouchingActor(flows: FlowInstance[], actorName: string) {
@@ -236,7 +236,7 @@ export interface OptionsVueActeur {
   hiddenActors?: readonly string[];
   // Jusqu'où porte le regard : les voisins immédiats, ce dont l'acteur dépend,
   // ou ce qui dépend de lui -- c'est-à-dire ce que sa chute toucherait.
-  neighbourhood?: Voisinage;
+  neighbourhood?: Neighbourhood;
 }
 
 export function buildByActorView(model: ParsedModel, allFlows: FlowInstance[], actorName: string, options: OptionsVueActeur): ViewResult {
@@ -336,7 +336,7 @@ export type GranulariteMatrice = "actor" | "group" | "platform";
 export interface OptionsVueMatrice {
   mode: Mode;
   granularite?: GranulariteMatrice;
-  order?: OrdreMatrice;
+  order?: MatrixOrder;
   masquerExternes?: boolean;
   hiddenActors?: readonly string[];
 }
@@ -395,7 +395,7 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
   const flows = reading.flows.filter((f) => !isHidden(key(f.provider)) && !isHidden(key(f.consumer)));
   const groups = groupFlows(flows, key, false);
 
-  const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
+  const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
   const lignesMap = new Map<string, MatrixRow>();
   for (const g of groups) {
@@ -433,8 +433,8 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
     ajouterVoisin(g.from, g.to);
     ajouterVoisin(g.to, g.from);
   }
-  const ctxOrdre: ContexteOrdre = {
-    groupeDe: (id) => model.actors.find((a) => a.name.trim() === id)?.group.trim() ?? id,
+  const ctxOrdre: OrderContext = {
+    groupOf: (id) => model.actors.find((a) => a.name.trim() === id)?.group.trim() ?? id,
     degree: (id) => neighbourhood.get(id)?.size ?? 0,
     neighbours: (id) => [...(neighbourhood.get(id) ?? [])],
   };
@@ -444,7 +444,7 @@ export function buildMatrixView(model: ParsedModel, reading: Lecture, options: O
   const rows = orderBy([...lignesMap.keys()], order, ctxOrdre).map((id) => lignesMap.get(id)!);
   for (const row of rows) {
     for (const cellules of row.cellules.values()) {
-      cellules.sort((a, b) => parNom(a.technology, b.technology));
+      cellules.sort((a, b) => byName(a.technology, b.technology));
     }
   }
 

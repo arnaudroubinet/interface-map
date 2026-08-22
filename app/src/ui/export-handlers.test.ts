@@ -47,14 +47,14 @@ const template = base.template({
 });
 
 function contexte(state: AppState, svg: SVGSVGElement | null = document.createElementNS("http://www.w3.org/2000/svg", "svg")) {
-  let courant = state;
+  let current = state;
   const ctx: ContexteExport = {
-    legacyState: () => courant,
-    setState: (s) => void (courant = s),
+    legacyState: () => current,
+    setState: (s) => void (current = s),
     svgCourant: () => svg,
     matriceCourante: () => base.matrix({ columns: ["B"], rows: [] }),
   };
-  return { ctx, handlers: handlersExport(ctx), state: () => courant };
+  return { ctx, handlers: handlersExport(ctx), state: () => current };
 }
 
 const loaded = () =>

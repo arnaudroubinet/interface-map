@@ -10,7 +10,7 @@ import { VUES } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icons";
 import { buildAide, vuesDocumentees, exportsDocumentes } from "./help";
-import { buildFriseSvg } from "./roadmap";
+import { buildRoadmapSvg } from "./roadmap";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
 import type { MatrixResult } from "../aggregation/views";
@@ -413,19 +413,19 @@ describe("buildFriseSvg", () => {
       { name: "v2", rank: 2, label: "Partners", status: "Delivered", date: "2026-06-01", description: "", sheet: "Milestones", row: 3 },
     ],
     segments: [
-      { label: "Member lookup 1.0", grouping: "A", start: 1, end: 2, ouvertADroite: false, ouvertAGauche: false },
-      { label: "Member lookup 2.0", grouping: "A", start: 2, end: 3, ouvertADroite: true, ouvertAGauche: false },
+      { label: "Member lookup 1.0", grouping: "A", start: 1, end: 2, openRight: false, openLeft: false },
+      { label: "Member lookup 2.0", grouping: "A", start: 2, end: 3, openRight: true, openLeft: false },
     ],
   };
 
   it("dessine une barre par segment et une graduation par palier", () => {
-    const svg = buildFriseSvg(timeline, null, null);
+    const svg = buildRoadmapSvg(timeline, null, null);
     expect(svg.querySelectorAll("rect")).toHaveLength(3); // le fond, plus deux barres
     expect(svg.querySelectorAll("line")).toHaveLength(2);
   });
 
   it("nomme chaque palier et chaque ligne", () => {
-    const texts = [...buildFriseSvg(timeline, null, null).querySelectorAll("text")].map((t) => t.textContent);
+    const texts = [...buildRoadmapSvg(timeline, null, null).querySelectorAll("text")].map((t) => t.textContent);
     expect(texts).toContain("v1");
     expect(texts).toContain("Member lookup 1.0");
     expect(texts.some((t) => t?.includes("2026-06-01"))).toBe(true);
@@ -434,12 +434,12 @@ describe("buildFriseSvg", () => {
   // Une pointe, pas un bord franc : un bord dirait que la ligne s'arrête là,
   // alors qu'elle n'a simplement pas de fin connue.
   it("termine par une pointe la ligne qui n'a pas de retrait", () => {
-    expect(buildFriseSvg(timeline, null, null).querySelectorAll(".fx-roadmap-open")).toHaveLength(1);
+    expect(buildRoadmapSvg(timeline, null, null).querySelectorAll(".fx-roadmap-open")).toHaveLength(1);
   });
 
   // Le « vous êtes ici » : le palier affiché se distingue des autres.
   it("marque le palier affiché d'une verticale plus forte", () => {
-    const svg = buildFriseSvg(timeline, "v2", null);
+    const svg = buildRoadmapSvg(timeline, "v2", null);
     const widths = [...svg.querySelectorAll("line")].map((l) => l.getAttribute("stroke-width"));
     expect(new Set(widths).size).toBe(2);
   });
@@ -447,7 +447,7 @@ describe("buildFriseSvg", () => {
   // Une barre plus longue à droite qu'à gauche : sans ça, deux versions qui se
   // succèdent se dessineraient au même endroit.
   it("place chaque barre à l'abscisse de son palier", () => {
-    const svg = buildFriseSvg(timeline, null, null);
+    const svg = buildRoadmapSvg(timeline, null, null);
     const [, un, deux] = [...svg.querySelectorAll("rect")];
     expect(Number(deux.getAttribute("x"))).toBeGreaterThan(Number(un.getAttribute("x")));
   });

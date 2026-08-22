@@ -362,11 +362,11 @@ export function mettreANiveau(model: ParsedModel, dateMigration: Date = new Date
   }
 
   const contexte: ContexteMiseANiveau = { dateMigration };
-  let courant = model;
+  let current = model;
   for (const step of ETAPES_MISE_A_NIVEAU) {
     if (step.de < model.schemaVersion) continue;
     if (step.vers > VERSION_MODELE) break;
-    courant = step.appliquer(courant, contexte);
+    current = step.appliquer(current, contexte);
   }
-  return donneesDepuisModele(courant);
+  return donneesDepuisModele(current);
 }

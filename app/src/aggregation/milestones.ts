@@ -1,72 +1,73 @@
 import type { Actor, ParsedModel, Milestone, Validity } from "../parsing/model";
 import { normalizeText } from "../shared/text";
 
-// L'axe du temps de la plateforme. À ne jamais confondre avec la version d'un
-// contrat d'interface ni avec le numéro de schéma du classeur.
+// The platform's time axis. Never to be confused with an interface contract's
+// version, nor with the workbook's schema number.
 
-// L'intervalle de vie d'une ligne, en rangs. Les bornes vides deviennent les
-// infinis : « depuis toujours » et « toujours là ». C'est ce qui laisse un
-// classeur qui ne déclare aucun palier se comporter exactement comme avant.
-export interface Intervalle {
+// A row's lifespan, in ranks. Empty bounds become the infinities: "always been
+// there" and "still there". That is what lets a workbook declaring no
+// milestone behave exactly as it did before.
+export interface Interval {
   start: number;
   end: number;
 }
 
-export const TOUJOURS: Intervalle = { start: -Infinity, end: Infinity };
+export const ALWAYS: Interval = { start: -Infinity, end: Infinity };
 
 export function rankOfMilestone(model: ParsedModel, name: string): number | undefined {
   const sought = normalizeText(name);
   if (!sought) return undefined;
-  return model.milestones.find((p) => normalizeText(p.name) === sought)?.rank;
+  return model.milestones.find((m) => normalizeText(m.name) === sought)?.rank;
 }
 
-// Un palier cité mais inconnu est traité comme absent plutôt que résolu au
-// hasard : un contrôle le réclame, et la borne reste ouverte de ce côté.
+// A milestone that is quoted but unknown is treated as absent rather than
+// resolved at random: a check asks for it, and the bound stays open on that
+// side.
 //
-// Rien n'est hérité d'un objet à l'autre : une borne d'arrivée absente est un
-// manque de saisie, signalé comme tel (§7.4). On ne devine pas à la place de
-// celui qui tient le fichier.
-export function lifespanOf(model: ParsedModel, validite: Validity): Intervalle {
-  const start = rankOfMilestone(model, validite.introducedAt);
-  const end = rankOfMilestone(model, validite.retiredAt);
+// Nothing is inherited from one object to another: a missing arrival bound is
+// an unfilled cell, reported as such (§7.4). We do not guess on behalf of
+// whoever keeps the file.
+export function lifespanOf(model: ParsedModel, validity: Validity): Interval {
+  const start = rankOfMilestone(model, validity.introducedAt);
+  const end = rankOfMilestone(model, validity.retiredAt);
   return { start: start ?? -Infinity, end: end ?? Infinity };
 }
 
-// Le palier affiché par défaut : le livré de rang le plus haut. Sans aucun
-// livré, le palier de rang le plus haut tout court -- mieux vaut montrer un
-// état connu que rien du tout, et un contrôle signale l'absence.
+// The milestone shown by default: the delivered one of highest rank. With none
+// delivered, simply the highest rank -- better to show a known state than
+// nothing at all, and a check reports the absence.
 export function currentMilestone(model: ParsedModel): Milestone | undefined {
-  const delivered = model.milestones.filter((p) => normalizeText(p.status) === normalizeText("Delivered"));
-  const candidats = delivered.length > 0 ? delivered : model.milestones;
-  return candidats.reduce<Milestone | undefined>(
-    (meilleur, p) => (!meilleur || p.rank > meilleur.rank ? p : meilleur),
+  const delivered = model.milestones.filter((m) => normalizeText(m.status) === normalizeText("Delivered"));
+  const candidates = delivered.length > 0 ? delivered : model.milestones;
+  return candidates.reduce<Milestone | undefined>(
+    (best, m) => (!best || m.rank > best.rank ? m : best),
     undefined
   );
 }
 
-// Une ligne est vivante à un rang si son intervalle le contient. Le retrait
-// est exclu : une ligne retirée AU palier P n'y est déjà plus, c'est le sens
-// courant de « retiré en v3 ».
+// A row is live at a rank if its interval contains it. Retirement is EXCLUSIVE:
+// a row retired AT milestone P is already gone at P, which is what "retired in
+// v3" ordinarily means.
 //
-// Le palier porte la date, pas la ligne : « v3 » est un jalon, sa date se lit
-// dans l'onglet Paliers. Une ligne n'a donc jamais de date, seulement un
-// palier d'arrivée et un palier de retrait.
-export function isLiveAt(interval: Intervalle, rank: number): boolean {
+// The milestone carries the date, not the row: "v3" is a marker, and its date
+// is read on the Milestones sheet. A row therefore never has a date, only an
+// arrival milestone and a retirement milestone.
+export function isLiveAt(interval: Interval, rank: number): boolean {
   return interval.start <= rank && rank < interval.end;
 }
 
-// Les acteurs que le palier retient. Les deux exports C4 en portaient chacun
-// leur copie : deux lignes, une seule règle, et c'est la règle des paliers --
-// elle appartient donc ici, avec estVivant et intervalleDeVie.
+// The actors the milestone keeps. Both C4 exports each carried their own copy:
+// two lines, one rule, and it is the milestone rule -- so it belongs here,
+// next to isLiveAt and lifespanOf.
 export function liveActors(model: ParsedModel, rank: number | null): Actor[] {
   if (rank === null || model.milestones.length === 0) return model.actors;
   return model.actors.filter((a) => isLiveAt(lifespanOf(model, a), rank));
 }
 
-// Deux intervalles se rencontrent s'il existe un rang où les deux lignes sont
-// vivantes ensemble. Le retrait restant exclu, la borne haute ne compte pas :
-// [v1, v2[ et [v2, ...[ ne se rencontrent jamais -- c'est exactement ce que
-// décrit une migration datée, et ce n'est donc pas une incohérence.
-export function seRencontrent(a: Intervalle, b: Intervalle): boolean {
+// Two intervals meet if there is a rank where both rows are live together.
+// Retirement being exclusive, the upper bound does not count: [v1, v2[ and
+// [v2, ...[ never meet -- which is exactly what a dated migration describes,
+// and therefore not an inconsistency.
+export function intervalsMeet(a: Interval, b: Interval): boolean {
   return Math.max(a.start, b.start) < Math.min(a.end, b.end);
 }

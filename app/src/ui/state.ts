@@ -1,9 +1,9 @@
 import type { ParsedModel } from "../parsing/model";
 import type { IntegrityReport } from "../integrity/checks";
 import type { GranulariteMatrice } from "../aggregation/views";
-import type { OrdreMatrice } from "../aggregation/seriation";
-import type { Voisinage } from "../aggregation/impact";
-import type { SujetDeFrise } from "../aggregation/roadmap";
+import type { MatrixOrder } from "../aggregation/seriation";
+import type { Neighbourhood } from "../aggregation/impact";
+import type { RoadmapSubject } from "../aggregation/roadmap";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { currentMilestone, rankOfMilestone } from "../aggregation/milestones";
@@ -83,7 +83,7 @@ export interface FiltresVueActeur {
   hiddenActors: string[];
   // Jusqu'où la planche porte : les voisins immédiats, l'amont, ou l'aval --
   // « si cet acteur tombe, qui est touché ? ».
-  neighbourhood: Voisinage;
+  neighbourhood: Neighbourhood;
 }
 
 // Idem pour la vue par technologie : masquer d'un bloc tout ce qui est hors
@@ -101,7 +101,7 @@ export interface FiltresVueMatrice extends FiltresVueTechnologie {
   // seriation ne doit jamais être le défaut silencieux -- la revue de
   // référence prévient que RCM produit volontiers une bande diagonale qui
   // n'apprend rien, et il faut pouvoir y revenir d'un clic.
-  order: OrdreMatrice;
+  order: MatrixOrder;
 }
 
 export interface AppState {
@@ -125,7 +125,7 @@ export interface AppState {
   // fonctionnelle, où la plomberie est justement ce qu'on traverse.
   selectionChaine: string | null;
   // Ce que la frise met en ligne : les acteurs ou les interfaces.
-  sujetFrise: SujetDeFrise;
+  sujetFrise: RoadmapSubject;
   messageBandeau: string | null;
 }
 
@@ -168,9 +168,9 @@ export function vueAuChargement(fichier: FichierCharge): Vue {
 export function withFichierCharge(state: AppState, fichier: FichierCharge): AppState {
   // On ouvre sur le dernier palier livré, et on compare par défaut au
   // précédent : c'est l'écart qu'on vient de franchir, celui dont on parle.
-  const courant = currentMilestone(fichier.model);
+  const current = currentMilestone(fichier.model);
   const previous = [...fichier.model.milestones]
-    .filter((p) => courant !== undefined && p.rank < courant.rank)
+    .filter((p) => current !== undefined && p.rank < current.rank)
     .sort((a, b) => b.rank - a.rank)[0];
 
   return {
@@ -178,7 +178,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     fichier,
     view: vueAuChargement(fichier),
     mode: "architecture",
-    shownMilestone: courant?.name ?? null,
+    shownMilestone: current?.name ?? null,
     comparedMilestone: previous?.name ?? null,
     filtresActeur: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     filtresTechnologie: { masquerExternes: false, hiddenActors: [] },
@@ -266,11 +266,11 @@ export function withActeurMasque(state: AppState, actor: string, hidden: boolean
 
 // Le voisinage ne touche pas aux masquages : élargir le regard ne révèle ni ne
 // cache personne de plus que ce que le rayon apporte.
-export function withSujetFrise(state: AppState, subject: SujetDeFrise): AppState {
+export function withSujetFrise(state: AppState, subject: RoadmapSubject): AppState {
   return { ...state, sujetFrise: subject };
 }
 
-export function withVoisinage(state: AppState, neighbourhood: Voisinage): AppState {
+export function withVoisinage(state: AppState, neighbourhood: Neighbourhood): AppState {
   return { ...state, filtresActeur: { ...state.filtresActeur, neighbourhood } };
 }
 
@@ -304,7 +304,7 @@ export function withGranulariteMatrice(state: AppState, granularite: Granularite
 
 // L'ordre ne touche pas aux filtres : changer d'ordre ne cache ni ne révèle
 // personne, contrairement à un changement de granularité.
-export function withOrdreMatrice(state: AppState, order: OrdreMatrice): AppState {
+export function withOrdreMatrice(state: AppState, order: MatrixOrder): AppState {
   return { ...state, filtresMatrice: { ...state.filtresMatrice, order } };
 }
 

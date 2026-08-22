@@ -42,14 +42,14 @@ function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): F
   return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
 }
 
-const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
+const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
 export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mode = "architecture"): string {
   // La lecture que le fichier porte. Il DOIT le dire : livrer un fichier qui
   // raconte autre chose que l'écran est ce qu'on s'interdit partout ailleurs.
   const fonctionnel = mode === "functional";
   const actors = liveActors(model, rank);
-  const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(parNom);
+  const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
   // Groupes et acteurs partagent l'espace des identifiants : un groupe et un
   // acteur du même nom se marcheraient dessus.
   const ids = identifiants([...groups, ...actors.map((a) => a.name.trim())]);
@@ -64,7 +64,7 @@ export function modeleEnLikeC4(model: ParsedModel, rank: number | null, mode: Mo
   const flows = exportableFlows(model, rank, mode);
   // Les étiquettes de technologie servent aux vues par technologie. LikeC4 veut
   // des identifiants, là où le classeur écrit « REST + ESB ».
-  const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort(parNom);
+  const technos = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
   const tags = identifiants(technos);
   const colours = couleursDuModele(model);
 
@@ -226,7 +226,7 @@ function views(
   // inexprimables : un groupe cité SANS son `.*` est une boîte, avec son `.*`
   // il est ouvert. C'est exactement l'opposition « groupe à groupe » et
   // « plateforme détaillée ».
-  const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(parNom);
+  const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
   if (groups.length > 1) {
     rows.push(
       ...view("group_to_group", "Group to group", groups.map((g) => ids.get(g)!).join(", "))

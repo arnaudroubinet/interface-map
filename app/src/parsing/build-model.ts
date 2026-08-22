@@ -121,7 +121,7 @@ function normOui(raw: string): boolean {
   return v === normalizeText("yes") || v === normalizeText("oui");
 }
 
-function validite(row: Record<string, string>, headerMap: Map<string, string>): Validity {
+function validity(row: Record<string, string>, headerMap: Map<string, string>): Validity {
   return {
     introducedAt: get(row, headerMap, "Introduced at"),
     retiredAt: get(row, headerMap, "Retired at"),
@@ -154,7 +154,7 @@ export const SEPARATEUR_FEUILLE_FX = "_";
 // fois coupés : un contrôle d'intégrité le signale plutôt que de les fondre.
 export function sanitiseTabName(name: string): string {
   const sansInterdits = CARACTERES_INTERDITS_ONGLET.reduce(
-    (courant, interdit) => courant.split(interdit).join(REMPLACEMENT_ONGLET),
+    (current, interdit) => current.split(interdit).join(REMPLACEMENT_ONGLET),
     name
   );
   return sansInterdits.slice(0, LONGUEUR_MAX_ONGLET);
@@ -218,7 +218,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       owner: get(r, headerMapActeurs, "Owner"),
       description: get(r, headerMapActeurs, "Description"),
       comments: get(r, headerMapActeurs, "Comments"),
-      ...validite(r, headerMapActeurs),
+      ...validity(r, headerMapActeurs),
     }))
     .filter((a) => a.name !== "");
 
@@ -335,7 +335,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
           const header = findHeader(feuilleInterfaces.headers, COLONNE_HERITEE_RELAIS);
           return header ? (r[header] ?? "").toString().trim() : "";
         })(),
-        ...validite(r, headerMapInterfaces),
+        ...validity(r, headerMapInterfaces),
       };
     })
     .filter((i) => i.flowName !== "");
@@ -369,7 +369,7 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
         republishedAs: get(r, headerMapFx, COLONNE_REPUBLICATION),
         comments: get(r, headerMapFx, "Comments"),
         sheet: sheet.name,
-        ...validite(r, headerMapFx),
+        ...validity(r, headerMapFx),
       });
     }
   }

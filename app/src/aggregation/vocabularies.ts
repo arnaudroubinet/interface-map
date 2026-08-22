@@ -1,26 +1,25 @@
-import { NATURE_METIER, NATURE_TECHNIQUE } from "./nature";
+import { NATURE_BUSINESS, NATURE_TECHNICAL } from "./nature";
 
-// Vocabulaires fermés du domaine. Les mêmes valeurs alimentent les listes
-// déroulantes du classeur (export/template-export.ts) et les contrôles
-// d'intégrité qui les valident (integrity/checks.ts) : ni l'un ni l'autre
-// n'en est le propriétaire, donc elles vivent ici plutôt que d'être
-// déclarées deux fois et de pouvoir diverger.
+// The domain's closed vocabularies. The same values feed the workbook's
+// drop-down lists (export/template-export.ts) and the integrity checks that
+// validate them (integrity/checks.ts): neither of the two owns them, so they
+// live here rather than being declared twice and left free to diverge.
 
-export const VOCABULAIRE_DIRECTION = ["provider → consumer", "consumer → provider"];
+export const VOCABULARY_DIRECTION = ["provider → consumer", "consumer → provider"];
 
-// « Remove » est un jugement comme les autres -- cette consommation n'a plus
-// lieu d'être -- et non une date de départ : celle-là se déclare par un
-// palier de retrait, et les deux peuvent coexister.
-export const VOCABULAIRE_DECISION = ["Keep", "Investigate", "Transform", "Remove"];
+// "Remove" is a judgement like the others -- this consumption has no reason to
+// exist any more -- and not a leaving date: that one is declared by a
+// retirement milestone, and the two can coexist.
+export const VOCABULARY_DECISION = ["Keep", "Investigate", "Transform", "Remove"];
 
-export const VOCABULAIRE_CRITICITE = ["1 - Critical", "2 - Important", "3 - Standard"];
+export const VOCABULARY_CRITICALITY = ["1 - Critical", "2 - Important", "3 - Standard"];
 
-export const VOCABULAIRE_NATURE = [NATURE_METIER, NATURE_TECHNIQUE];
+export const VOCABULARY_NATURE = [NATURE_BUSINESS, NATURE_TECHNICAL];
 
-// Le périmètre décide de tout le dessin : ce qui entre dans la frontière, ce
-// qui reste dehors. Il vivait en dur à trois endroits -- la liste déroulante du
-// classeur, les deux prédicats des schémas, les exports C4 -- et les deux
-// derniers ne comparaient pas de la même façon.
-export const PERIMETRE_PLATEFORME = "Platform";
-export const PERIMETRE_EXTERNE = "External";
-export const VOCABULAIRE_PERIMETRE = [PERIMETRE_PLATEFORME, PERIMETRE_EXTERNE];
+// The perimeter decides the whole drawing: what goes inside the boundary and
+// what stays out. It used to be hard-coded in three places -- the workbook's
+// drop-down, the two diagram predicates, the C4 exports -- and the last two
+// did not compare it the same way.
+export const PERIMETER_PLATFORM = "Platform";
+export const PERIMETER_EXTERNAL = "External";
+export const VOCABULARY_PERIMETER = [PERIMETER_PLATFORM, PERIMETER_EXTERNAL];

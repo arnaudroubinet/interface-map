@@ -278,9 +278,9 @@ describe("modèle de classeur", () => {
     // Les listes dépendantes des onglets FX_ calculent leur plage : ce sont des
     // formules, pas des noms. La règle ne vaut donc que pour les secondes.
     const defined = new Set(listesDuModele().map((l) => l.name));
-    const parNom = validationsDuModele().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
-    expect(parNom.length).toBeGreaterThan(0);
-    for (const validation of parNom) {
+    const byName = validationsDuModele().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
+    expect(byName.length).toBeGreaterThan(0);
+    for (const validation of byName) {
       expect(defined).toContain(validation.formule!);
     }
   });

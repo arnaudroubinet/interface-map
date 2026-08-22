@@ -1,9 +1,9 @@
 import {
-  VOCABULAIRE_CRITICITE,
-  VOCABULAIRE_DECISION,
-  VOCABULAIRE_DIRECTION,
-  VOCABULAIRE_NATURE,
-  VOCABULAIRE_PERIMETRE,
+  VOCABULARY_CRITICALITY,
+  VOCABULARY_DECISION,
+  VOCABULARY_DIRECTION,
+  VOCABULARY_NATURE,
+  VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
 
@@ -23,12 +23,12 @@ import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
 // l'onglet TypesActeur, qui fait foi. Les avoir aux deux endroits aurait laissé
 // deux vérités concurrentes sur la même question.
 export const LISTES: Record<string, string[]> = {
-  Perimeter: VOCABULAIRE_PERIMETRE,
-  Direction: VOCABULAIRE_DIRECTION,
-  Decision: VOCABULAIRE_DECISION,
-  Criticality: VOCABULAIRE_CRITICITE,
+  Perimeter: VOCABULARY_PERIMETER,
+  Direction: VOCABULARY_DIRECTION,
+  Decision: VOCABULARY_DECISION,
+  Criticality: VOCABULARY_CRITICALITY,
   Confirmation: ["Yes", "No"],
-  Nature: VOCABULAIRE_NATURE,
+  Nature: VOCABULARY_NATURE,
   // Les noms d'icône acceptés, pour que la colonne Icône de TypesActeur se
   // remplisse par recopie plutôt que de mémoire, avec un aperçu en regard.
   Icon: ICONES_DISPONIBLES,

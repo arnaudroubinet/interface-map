@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { chainesDisponibles, buildChainView } from "./chain";
+import { availableChains, buildChainView } from "./chain";
 import type { ParsedModel } from "../parsing/model";
 
 // Boreal publie sur Kafka, l'ESB relaie, un consommateur métier reçoit. Trois
@@ -34,7 +34,7 @@ function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
 
 describe("chainesDisponibles", () => {
   it("rend un maillon par segment, dans l'ordre du parcours", () => {
-    const [chain] = chainesDisponibles(threeHopEstate(), null);
+    const [chain] = availableChains(threeHopEstate(), null);
     expect(chain.hops.map((m) => [m.provider, m.consumer])).toEqual([
       ["Boreal", "Kafka"],
       ["Kafka", "ESB"],
@@ -45,13 +45,13 @@ describe("chainesDisponibles", () => {
   // Le nom sous lequel l'échange circule CHANGE en route : c'est ce qu'on vient
   // voir, et ce que le lien fonctionnel rabattu ne dit pas.
   it("porte sur chaque maillon le nom et la technologie de CE segment", () => {
-    const [chain] = chainesDisponibles(threeHopEstate(), null);
+    const [chain] = availableChains(threeHopEstate(), null);
     expect(chain.hops.map((m) => m.interfaceName)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
     expect(chain.hops.map((m) => m.technology)).toEqual(["Kafka", "Kafka", "HTTP"]);
   });
 
   it("se nomme par ses deux bouts et l'échange reçu", () => {
-    expect(chainesDisponibles(threeHopEstate(), null)[0].label).toBe("Boreal → Onderon : Policy feed");
+    expect(availableChains(threeHopEstate(), null)[0].label).toBe("Boreal → Onderon : Policy feed");
   });
 
   // Un lien direct est une chaîne d'UN maillon : pas un cas particulier.
@@ -65,7 +65,7 @@ describe("chainesDisponibles", () => {
       interfaces: [base.iface({ flowName: "F", providerName: "A", expectedSheet: "FX_A_HTTP" })],
       consumptions: [base.conso({ flowName: "F", consumerName: "B", sheet: "FX_A_HTTP" })],
     });
-    expect(chainesDisponibles(direct, null)[0].hops).toHaveLength(1);
+    expect(availableChains(direct, null)[0].hops).toHaveLength(1);
   });
 
   // L'atténuation se marque À L'ENDROIT où elle a lieu, pas globalement : c'est
@@ -74,7 +74,7 @@ describe("chainesDisponibles", () => {
   it("marque le maillon qui transforme, et lui seul", () => {
     const estate = threeHopEstate();
     estate.consumptions[1].decision = "Transform";
-    const [chain] = chainesDisponibles(estate, null);
+    const [chain] = availableChains(estate, null);
     expect(chain.hops.map((m) => m.attenuated)).toEqual([false, true, false]);
   });
 
@@ -83,13 +83,13 @@ describe("chainesDisponibles", () => {
   it("ne propose rien quand la chaîne est coupée", () => {
     const estate = threeHopEstate();
     estate.consumptions[0].republishedAs = "";
-    expect(chainesDisponibles(estate, null)).toEqual([]);
+    expect(availableChains(estate, null)).toEqual([]);
   });
 });
 
 describe("buildChainView", () => {
   it("dessine un nœud par acteur traversé et un trait par maillon", () => {
-    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
+    const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.id)).toEqual(["Boreal", "Kafka", "ESB", "Onderon"]);
     expect(view.edges).toHaveLength(3);
   });
@@ -97,13 +97,13 @@ describe("buildChainView", () => {
   // Les deux bouts sont ce qu'on est venu voir ; ce qu'il y a entre eux est la
   // plomberie qu'on traverse.
   it("met en avant les deux bouts et marque la plomberie du milieu", () => {
-    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
+    const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.nodes.map((n) => n.kind)).toEqual(["focus-actor", "actor", "actor", "focus-actor"]);
     expect(view.nodes.map((n) => n.technique)).toEqual([undefined, true, true, undefined]);
   });
 
   it("écrit sur chaque trait le nom porté à cet endroit", () => {
-    const view = buildChainView(threeHopEstate(), chainesDisponibles(threeHopEstate(), null)[0]);
+    const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);
     expect(view.edges.map((e) => e.label)).toEqual(["Policy events", "Policy stream", "Policy feed"]);
   });
 });

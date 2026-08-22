@@ -1,12 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { orderBy, type ContexteOrdre } from "./seriation";
+import { orderBy, type OrderContext } from "./seriation";
 
 const contexte = (
   groups: Record<string, string>,
   degres: Record<string, number>,
   edges: Record<string, string[]> = {}
-): ContexteOrdre => ({
-  groupeDe: (id) => groups[id] ?? "",
+): OrderContext => ({
+  groupOf: (id) => groups[id] ?? "",
   degree: (id) => degres[id] ?? (edges[id]?.length ?? 0),
   neighbours: (id) => edges[id] ?? [],
 });

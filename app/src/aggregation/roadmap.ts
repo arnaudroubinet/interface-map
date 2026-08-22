@@ -2,50 +2,50 @@ import type { ParsedModel, Milestone, Validity } from "../parsing/model";
 import { interfaceLabel } from "./core";
 import { lifespanOf } from "./milestones";
 
-// L'axe des paliers était une liste déroulante : on ne voyait jamais le temps.
-// La frise le montre d'un coup -- une ligne par sujet, un segment de son
-// arrivée à son retrait. C'est un diagramme d'obsolescence, et tout ce qu'il
-// faut est déjà dans le classeur.
-export type SujetDeFrise = "actors" | "interfaces";
+// The milestone axis was a drop-down, so the time was never visible. The
+// roadmap shows it at once -- one row per subject, a bar from its arrival to
+// its retirement. It is an obsolescence chart, and everything it needs is
+// already in the workbook.
+export type RoadmapSubject = "actors" | "interfaces";
 
-export interface SegmentFrise {
+export interface RoadmapBar {
   label: string;
-  // Le groupe ou le fournisseur, selon le sujet : de quoi ranger les lignes
-  // autrement que par ordre alphabétique.
+  // The group or the provider, depending on the subject: enough to arrange the
+  // rows by something other than alphabetical order.
   grouping: string;
-  // En RANGS de palier, pas en dates : c'est le rang qui ordonne l'axe.
+  // In milestone RANKS, not dates: it is the rank that orders the axis.
   start: number;
   end: number;
-  // Une ligne sans palier de retrait court jusqu'au bout. Il faut le DESSINER
-  // comme tel -- l'arrêter au dernier palier connu dirait qu'elle y meurt.
-  ouvertADroite: boolean;
-  ouvertAGauche: boolean;
+  // A row with no retirement milestone runs to the end. That has to be DRAWN
+  // as such -- stopping it at the last known milestone would say it dies there.
+  openRight: boolean;
+  openLeft: boolean;
 }
 
-export interface Frise {
+export interface Roadmap {
   milestones: Milestone[];
-  segments: SegmentFrise[];
+  segments: RoadmapBar[];
 }
 
 function segment(
   label: string,
   grouping: string,
-  validite: Validity,
+  validity: Validity,
   model: ParsedModel,
   bounds: { min: number; max: number }
-): SegmentFrise {
-  const interval = lifespanOf(model, validite);
+): RoadmapBar {
+  const interval = lifespanOf(model, validity);
   return {
     label,
     grouping,
     start: Number.isFinite(interval.start) ? interval.start : bounds.min,
     end: Number.isFinite(interval.end) ? interval.end : bounds.max + 1,
-    ouvertADroite: !Number.isFinite(interval.end),
-    ouvertAGauche: !Number.isFinite(interval.start),
+    openRight: !Number.isFinite(interval.end),
+    openLeft: !Number.isFinite(interval.start),
   };
 }
 
-export function buildRoadmap(model: ParsedModel, what: SujetDeFrise): Frise {
+export function buildRoadmap(model: ParsedModel, what: RoadmapSubject): Roadmap {
   const milestones = [...model.milestones].sort((a, b) => a.rank - b.rank);
   if (milestones.length === 0) return { milestones, segments: [] };
   const bounds = { min: milestones[0].rank, max: milestones[milestones.length - 1].rank };
@@ -57,9 +57,9 @@ export function buildRoadmap(model: ParsedModel, what: SujetDeFrise): Frise {
           segment(interfaceLabel(i.flowName, i.version), i.providerName.trim(), i, model, bounds)
         );
 
-  // Rangé par rattachement puis par arrivée : les lignes d'un même fournisseur
-  // se lisent ensemble, et une migration datée -- deux versions qui se
-  // succèdent -- se lit comme un escalier plutôt qu'en cherchant ses marches.
+  // Arranged by grouping then by arrival: rows from the same provider read
+  // together, and a dated migration -- two versions following one another --
+  // reads as a staircase rather than as steps to be hunted for.
   return {
     milestones,
     segments: segments.sort(

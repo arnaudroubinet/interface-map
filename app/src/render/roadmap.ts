@@ -1,4 +1,4 @@
-import type { Frise } from "../aggregation/roadmap";
+import type { Roadmap } from "../aggregation/roadmap";
 import { ENCRE, PAPIER, styleDuNoeud } from "./node-styles";
 import { buildTitleBlock, HAUTEUR_CARTOUCHE, type ContexteSchema } from "./title-block";
 
@@ -30,7 +30,7 @@ function text(x: number, y: number, content: string, size: number, colour: strin
   return t;
 }
 
-export function buildFriseSvg(timeline: Frise, shownMilestone: string | null, contexte: ContexteSchema | null): SVGSVGElement {
+export function buildRoadmapSvg(timeline: Roadmap, shownMilestone: string | null, contexte: ContexteSchema | null): SVGSVGElement {
   const svg = el("svg");
   svg.setAttribute("xmlns", SVG_NS);
   svg.setAttribute("font-family", POLICE);
@@ -93,7 +93,7 @@ export function buildFriseSvg(timeline: Frise, shownMilestone: string | null, co
 
     // Ouvert à droite : une pointe, pas un bord franc. Un bord franc dirait
     // que la ligne s'arrête là, alors qu'elle n'a simplement pas de fin connue.
-    if (s.ouvertADroite) {
+    if (s.openRight) {
       const head = el("path");
       head.setAttribute("d", `M${droite} ${y + 4} L${droite + 10} ${y + 11} L${droite} ${y + 18} Z`);
       head.setAttribute("fill", style.fill);

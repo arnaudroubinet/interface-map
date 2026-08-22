@@ -1,29 +1,29 @@
 import type { ParsedModel, Actor } from "../parsing/model";
 import { normalizeText } from "../shared/text";
 
-export const NATURE_METIER = "Business";
-export const NATURE_TECHNIQUE = "Technical";
+export const NATURE_BUSINESS = "Business";
+export const NATURE_TECHNICAL = "Technical";
 
-// Un acteur est technique quand SON TYPE le déclare. Le type tranche pour tous
-// ses acteurs, comme le périmètre du groupe tranche pour tous ses membres :
-// six lignes à tenir plutôt que cinquante, donc six occasions de se contredire
-// plutôt que cinquante.
+// An actor is technical when ITS TYPE says so. The type decides for all its
+// actors, just as the group's perimeter decides for all its members: six lines
+// to keep straight rather than fifty, hence six chances to contradict oneself
+// rather than fifty.
 //
-// Tout le reste est métier : nature vide, type inconnu, type absent. Le défaut
-// penche du côté qui MONTRE -- masquer sur une colonne non remplie cacherait
-// de la donnée sans que personne l'ait demandé.
-export function isTechnicalActor(model: ParsedModel, nomActeur: string): boolean {
-  // Le nom d'acteur se compare au .trim() près, PAS via normalizeText : c'est
-  // un identifiant que le classeur fait toujours saisir par liste déroulante
-  // (§3.3), donc deux graphies qui ne diffèrent que par la casse ou les
-  // accents désignent deux acteurs distincts, pas une faute de frappe -- à la
-  // différence du type et de la nature, qui viennent d'un vocabulaire fermé
-  // où une variante EST une faute de frappe. Convention reprise partout dans
-  // aggregation/ (core.ts, views.ts, changes.ts, planches.ts...).
-  const actor = model.actors.find((a) => a.name.trim() === nomActeur.trim());
+// Everything else is business: empty nature, unknown type, missing type. The
+// default leans towards SHOWING -- hiding on the strength of an unfilled
+// column would drop data without anyone having asked.
+export function isTechnicalActor(model: ParsedModel, actorName: string): boolean {
+  // The actor name is compared on .trim() alone, NOT through normalizeText:
+  // it is an identifier the workbook always has entered from a drop-down
+  // (§3.3), so two spellings differing only in case or accents name two
+  // distinct actors rather than one typo -- unlike the type and the nature,
+  // which come from a closed vocabulary where a variant IS a typo. The same
+  // convention holds throughout aggregation/ (core.ts, views.ts, changes.ts,
+  // boards.ts...).
+  const actor = model.actors.find((a) => a.name.trim() === actorName.trim());
   if (!actor) return false;
   const type = model.actorTypes.find((t) => normalizeText(t.type) === normalizeText(actor.actorType));
-  return type !== undefined && normalizeText(type.nature) === normalizeText(NATURE_TECHNIQUE);
+  return type !== undefined && normalizeText(type.nature) === normalizeText(NATURE_TECHNICAL);
 }
 
 export function businessActors(model: ParsedModel): Actor[] {

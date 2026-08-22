@@ -23,11 +23,11 @@ import {
 } from "../parsing/build-model";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "../render/icons";
 import {
-  VOCABULAIRE_DIRECTION,
-  VOCABULAIRE_DECISION,
-  VOCABULAIRE_CRITICITE,
-  VOCABULAIRE_NATURE,
-  VOCABULAIRE_PERIMETRE,
+  VOCABULARY_DIRECTION,
+  VOCABULARY_DECISION,
+  VOCABULARY_CRITICALITY,
+  VOCABULARY_NATURE,
+  VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
 import {
   applyOoxmlExtras,
@@ -184,7 +184,7 @@ function colonnesDAppoint() {
 // dépendantes d'un onglet au nom long resteraient vides.
 function formuleAssainirOnglet(expression: string): string {
   const sanitised = CARACTERES_INTERDITS_ONGLET.reduce(
-    (courant, interdit) => `SUBSTITUTE(${courant},"${interdit}","${REMPLACEMENT_ONGLET}")`,
+    (current, interdit) => `SUBSTITUTE(${current},"${interdit}","${REMPLACEMENT_ONGLET}")`,
     expression
   );
   return `LEFT(${sanitised},${LONGUEUR_MAX_ONGLET})`;

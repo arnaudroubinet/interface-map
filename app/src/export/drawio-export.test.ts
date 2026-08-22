@@ -53,12 +53,12 @@ function geometrie(xml: string, id: string): Rect {
 function rectAbsolu(xml: string, id: string): Rect {
   const doc = new DOMParser().parseFromString(xml, "application/xml");
   const rect = geometrie(xml, id);
-  let courant = doc.querySelector(`UserObject[id="${id}"]`);
-  while (courant) {
-    const parentId = courant.querySelector("mxCell")!.getAttribute("parent")!;
-    courant = doc.querySelector(`UserObject[id="${parentId}"]`);
-    if (!courant) break;
-    const g = courant.querySelector("mxGeometry")!;
+  let current = doc.querySelector(`UserObject[id="${id}"]`);
+  while (current) {
+    const parentId = current.querySelector("mxCell")!.getAttribute("parent")!;
+    current = doc.querySelector(`UserObject[id="${parentId}"]`);
+    if (!current) break;
+    const g = current.querySelector("mxGeometry")!;
     rect.x += Number(g.getAttribute("x"));
     rect.y += Number(g.getAttribute("y"));
   }

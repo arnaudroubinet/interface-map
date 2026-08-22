@@ -35,11 +35,11 @@ export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode:
     { title: "Platform only", ...buildPlatformOnlyView(model, reading, options) },
   ];
 
-  const parNom = (a: string, b: string) => a.localeCompare(b, "fr");
+  const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
   // Pas de planche par technologie en fonctionnel : il n'y a plus de
   // technologie. Et pas de planche pour un acteur qui n'est pas sur la carte.
-  const technologies = mode === "functional" ? [] : [...new Set(reading.flows.map((f) => f.flowType.trim()))].sort(parNom);
+  const technologies = mode === "functional" ? [] : [...new Set(reading.flows.map((f) => f.flowType.trim()))].sort(byName);
   // Rien n'empêche un acteur de porter le nom d'un type de flux : deux onglets
   // « HTTP » côte à côte dans draw.io, indiscernables. La mention se lit dans
   // les mots de l'application elle-même (« By technology », « By actor »), et
@@ -55,7 +55,7 @@ export function toutesLesPlanches(model: ParsedModel, rank: number | null, mode:
   // une planche, l'omettre romprait cette promesse sans le dire. `lecture.acteurs`
   // porte déjà le rang -- un acteur retiré n'y est plus, donc pas de planche.
   const isolated = mode === "functional" ? reading.actors.map((a) => a.name.trim()).filter((n) => !touched.has(n)) : [];
-  const actors = [...touched, ...isolated].sort(parNom);
+  const actors = [...touched, ...isolated].sort(byName);
   for (const actor of actors) {
     boards.push({ title: `${actor} (actor)`, actor, ...buildByActorView(model, reading.flows, actor, {}) });
   }

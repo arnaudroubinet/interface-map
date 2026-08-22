@@ -54,7 +54,7 @@ interface Remontee {
   // La traversée le reconstruisait déjà segment par segment et le jetait pour
   // n'en garder que les extrémités : c'est l'information la plus difficile à
   // obtenir du classeur, et la seule qui réponde à « par où passe ce flux ? ».
-  paths: Map<InterfaceCatalogue, Maillon[]>;
+  paths: Map<InterfaceCatalogue, Hop[]>;
   cuts: ChaineCoupee[];
 }
 
@@ -71,7 +71,7 @@ interface Remontee {
 // technologie qu'il porte à cet endroit-là. C'est précisément ce que la lecture
 // fonctionnelle efface -- et ce qu'on cherche quand on demande « par où passe
 // ce flux ? ».
-export interface Maillon {
+export interface Hop {
   provider: string;
   consumer: string;
   interfaceName: string;
@@ -80,7 +80,7 @@ export interface Maillon {
   attenuated: boolean;
 }
 
-function hop(iface: InterfaceCatalogue, conso: Consumption): Maillon {
+function hop(iface: InterfaceCatalogue, conso: Consumption): Hop {
   return {
     provider: iface.providerName.trim(),
     consumer: conso.consumerName.trim(),
@@ -142,7 +142,7 @@ function walkUp(
 
   const walked = new Set(path).add(start);
   const sources: InterfaceCatalogue[] = [];
-  const paths = new Map<InterfaceCatalogue, Maillon[]>();
+  const paths = new Map<InterfaceCatalogue, Hop[]>();
   const cuts: ChaineCoupee[] = [];
   for (const input of inputs) {
     const remontee = walkUp(model, lookup, input.iface, rank, walked);
@@ -167,7 +167,7 @@ function walkUp(
 // `f` est la consommation MÉTIER d'origine -- celle dont l'interface est le
 // DERNIER maillon. Un flux fonctionnel ne convient pas : son `iface` a déjà été
 // remplacée par la source, et la chaîne se réduirait à un maillon.
-export function chainesDuFlux(model: ParsedModel, rank: number | null, f: FlowInstance): Maillon[][] {
+export function chainsOfFlow(model: ParsedModel, rank: number | null, f: FlowInstance): Hop[][] {
   const lookup = buildInterfaceLookup(model);
   const walked = walkUp(model, lookup, f.iface, rank);
   return walked.sources

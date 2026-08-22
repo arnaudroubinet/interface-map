@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { rankOfMilestone, lifespanOf, isLiveAt, currentMilestone, TOUJOURS } from "./milestones";
+import { rankOfMilestone, lifespanOf, isLiveAt, currentMilestone, ALWAYS } from "./milestones";
 import type { ParsedModel, Milestone } from "../parsing/model";
 import { VERSION_MODELE } from "../parsing/build-model";
 
@@ -35,7 +35,7 @@ describe("rangDuPalier", () => {
 
 describe("intervalleDeVie", () => {
   it("ouvre la borne qu'aucun palier ne nomme", () => {
-    expect(lifespanOf(FRISE, { introducedAt: "", retiredAt: "" })).toEqual(TOUJOURS);
+    expect(lifespanOf(FRISE, { introducedAt: "", retiredAt: "" })).toEqual(ALWAYS);
     expect(lifespanOf(FRISE, { introducedAt: "v1", retiredAt: "" }).end).toBe(Infinity);
     expect(lifespanOf(FRISE, { introducedAt: "", retiredAt: "v3" }).start).toBe(-Infinity);
   });

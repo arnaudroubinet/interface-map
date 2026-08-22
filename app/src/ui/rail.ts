@@ -2,10 +2,10 @@ import { el, clear } from "../shared/dom";
 import { optionsFiltreActeur, optionsFiltreTechnologie, optionsFiltreMatrice } from "../aggregation/views";
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
-import type { OrdreMatrice } from "../aggregation/seriation";
-import { chainesDisponibles } from "../aggregation/chain";
-import type { Voisinage } from "../aggregation/impact";
-import type { SujetDeFrise } from "../aggregation/roadmap";
+import type { MatrixOrder } from "../aggregation/seriation";
+import { availableChains } from "../aggregation/chain";
+import type { Neighbourhood } from "../aggregation/impact";
+import type { RoadmapSubject } from "../aggregation/roadmap";
 import { rankOfMilestone } from "../aggregation/milestones";
 
 // L'ordre de lecture va du plus court au plus complet.
@@ -46,7 +46,7 @@ const GRANULARITES_MATRICE: { id: GranulariteMatrice; label: string; titreFiltre
 ];
 
 // Les quatre ordres proposés, du plus neutre au plus interprétatif.
-const ORDRES_MATRICE: { id: OrdreMatrice; label: string }[] = [
+const ORDRES_MATRICE: { id: MatrixOrder; label: string }[] = [
   { id: "alphabetical", label: "Order: alphabetical" },
   { id: "group", label: "Order: by group" },
   { id: "degree", label: "Order: by degree" },
@@ -54,7 +54,7 @@ const ORDRES_MATRICE: { id: OrdreMatrice; label: string }[] = [
 ];
 
 // Jusqu'où la planche par acteur porte le regard.
-const VOISINAGES: { id: Voisinage; label: string }[] = [
+const VOISINAGES: { id: Neighbourhood; label: string }[] = [
   { id: "direct", label: "Neighbours: direct" },
   { id: "upstream", label: "Neighbours: what it depends on" },
   { id: "downstream", label: "Neighbours: what depends on it" },
@@ -66,14 +66,14 @@ export interface RailCallbacks {
   onSelectionActeur: (name: string) => void;
   onSelectionTechnologie: (type: string) => void;
   onSelectionChaine: (chain: string) => void;
-  onVoisinage: (value: Voisinage) => void;
-  onSujetFrise: (value: SujetDeFrise) => void;
+  onVoisinage: (value: Neighbourhood) => void;
+  onSujetFrise: (value: RoadmapSubject) => void;
   onGraisseParCriticite: (value: boolean) => void;
   onPalierAffiche: (milestone: string) => void;
   onPalierCompare: (milestone: string) => void;
   onOptionCompteurs: (value: boolean) => void;
   onLibelléArête: (value: EdgeLabelMode) => void;
-  onOrdreMatrice: (value: OrdreMatrice) => void;
+  onOrdreMatrice: (value: MatrixOrder) => void;
   onEchellePng: (value: 1 | 2 | 4) => void;
   onTechnoMasquee: (techno: string, hidden: boolean) => void;
   onActeurMasque: (actor: string, hidden: boolean) => void;
@@ -288,7 +288,7 @@ export function renderRail(
       if (v.id === state.filtresActeur.neighbourhood) option.selected = true;
       neighbourhood.appendChild(option);
     }
-    neighbourhood.addEventListener("change", () => callbacks.onVoisinage(neighbourhood.value as Voisinage));
+    neighbourhood.addEventListener("change", () => callbacks.onVoisinage(neighbourhood.value as Neighbourhood));
     root.appendChild(neighbourhood);
   }
 
@@ -327,7 +327,7 @@ export function renderRail(
     // Le sélecteur de chaîne. Une chaîne n'a de sens qu'en lecture
     // fonctionnelle : c'est là que la plomberie est traversée, et la vue montre
     // justement ce que cette traversée efface.
-    const chains = chainesDisponibles(state.fichier.model, rankOfMilestone(state.fichier.model, state.shownMilestone ?? "") ?? null);
+    const chains = availableChains(state.fichier.model, rankOfMilestone(state.fichier.model, state.shownMilestone ?? "") ?? null);
     const select = el("select", { class: "rail-select rail-chain" });
     for (const c of chains) {
       const option = el("option", { value: c.id }, [c.label]);
@@ -348,7 +348,7 @@ export function renderRail(
       if (value === state.sujetFrise) option.selected = true;
       select.appendChild(option);
     }
-    select.addEventListener("change", () => callbacks.onSujetFrise(select.value as SujetDeFrise));
+    select.addEventListener("change", () => callbacks.onSujetFrise(select.value as RoadmapSubject));
     root.appendChild(select);
   }
 
@@ -372,7 +372,7 @@ export function renderRail(
       if (o.id === state.filtresMatrice.order) option.selected = true;
       order.appendChild(option);
     }
-    order.addEventListener("change", () => callbacks.onOrdreMatrice(order.value as OrdreMatrice));
+    order.addEventListener("change", () => callbacks.onOrdreMatrice(order.value as MatrixOrder));
     root.appendChild(order);
 
     root.appendChild(basculeExternes(state.filtresMatrice.masquerExternes, callbacks.onMasquerExternesMatrice));
