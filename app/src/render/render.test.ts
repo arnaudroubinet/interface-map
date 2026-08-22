@@ -10,6 +10,7 @@ import { VUES } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { ICONES_DISPONIBLES, APERCU_ICONES } from "./icones";
 import { buildAide, vuesDocumentees, exportsDocumentes } from "./aide";
+import { buildFriseSvg } from "./frise";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
 import type { MatrixResult } from "../aggregation/views";
@@ -400,5 +401,54 @@ describe("buildAide — le vocabulaire des deux lectures", () => {
   it("dit ce qu'un lien rabattu affirme, et ce qu'il n'affirme pas", () => {
     expect(texte()).toContain("derivation rule 10");
     expect(texte()).toContain("it says the information travels, not that it arrives unchanged");
+  });
+});
+
+// --- §A4 : l'axe des paliers était une liste déroulante, on ne voyait jamais
+// le temps. La frise le montre d'un coup.
+describe("buildFriseSvg", () => {
+  const frise = {
+    paliers: [
+      { nom: "v1", rang: 1, libelle: "Initial", statut: "Delivered", date: "2026-01-01", description: "", feuille: "Milestones", ligne: 2 },
+      { nom: "v2", rang: 2, libelle: "Partners", statut: "Delivered", date: "2026-06-01", description: "", feuille: "Milestones", ligne: 3 },
+    ],
+    segments: [
+      { libellé: "Member lookup 1.0", rattachement: "A", debut: 1, fin: 2, ouvertADroite: false, ouvertAGauche: false },
+      { libellé: "Member lookup 2.0", rattachement: "A", debut: 2, fin: 3, ouvertADroite: true, ouvertAGauche: false },
+    ],
+  };
+
+  it("dessine une barre par segment et une graduation par palier", () => {
+    const svg = buildFriseSvg(frise, null, null);
+    expect(svg.querySelectorAll("rect")).toHaveLength(3); // le fond, plus deux barres
+    expect(svg.querySelectorAll("line")).toHaveLength(2);
+  });
+
+  it("nomme chaque palier et chaque ligne", () => {
+    const textes = [...buildFriseSvg(frise, null, null).querySelectorAll("text")].map((t) => t.textContent);
+    expect(textes).toContain("v1");
+    expect(textes).toContain("Member lookup 1.0");
+    expect(textes.some((t) => t?.includes("2026-06-01"))).toBe(true);
+  });
+
+  // Une pointe, pas un bord franc : un bord dirait que la ligne s'arrête là,
+  // alors qu'elle n'a simplement pas de fin connue.
+  it("termine par une pointe la ligne qui n'a pas de retrait", () => {
+    expect(buildFriseSvg(frise, null, null).querySelectorAll(".fx-frise-ouvert")).toHaveLength(1);
+  });
+
+  // Le « vous êtes ici » : le palier affiché se distingue des autres.
+  it("marque le palier affiché d'une verticale plus forte", () => {
+    const svg = buildFriseSvg(frise, "v2", null);
+    const épaisseurs = [...svg.querySelectorAll("line")].map((l) => l.getAttribute("stroke-width"));
+    expect(new Set(épaisseurs).size).toBe(2);
+  });
+
+  // Une barre plus longue à droite qu'à gauche : sans ça, deux versions qui se
+  // succèdent se dessineraient au même endroit.
+  it("place chaque barre à l'abscisse de son palier", () => {
+    const svg = buildFriseSvg(frise, null, null);
+    const [, un, deux] = [...svg.querySelectorAll("rect")];
+    expect(Number(deux.getAttribute("x"))).toBeGreaterThan(Number(un.getAttribute("x")));
   });
 });

@@ -23,6 +23,8 @@ import { libelléCartouche, type ContexteSchema } from "../render/cartouche";
 import { brancherZoom } from "../render/zoom";
 import { conseilDEchelle } from "./echelle";
 import { chainesDisponibles, buildChainView } from "../aggregation/chaine";
+import { construireFrise } from "../aggregation/frise";
+import { buildFriseSvg } from "../render/frise";
 import type { Lecture } from "../aggregation/fonctionnel";
 import { lectureUnion } from "../aggregation/fonctionnel";
 import type { ViewResult } from "../aggregation/views";
@@ -59,6 +61,7 @@ import {
   withSelectionTechnologie,
   withSelectionChaine,
   withVoisinage,
+  withSujetFrise,
   withTechnoMasquee,
   withActeurMasque,
   withMasquerExternes,
@@ -354,6 +357,21 @@ export function mountApp(root: HTMLElement): void {
       zoneRendu.appendChild(buildAide());
     } else if (state.vue === "controles") {
       zoneRendu.appendChild(buildIntegrityReport(fichier.report));
+    } else if (state.vue === "frise") {
+      // Pas d'ELK : une frise est une grille, un axe et une ligne par sujet.
+      // Le moteur de placement n'y aurait rien à placer.
+      const frise = construireFrise(model, state.sujetFrise);
+      if (frise.segments.length === 0) {
+        zoneRendu.appendChild(el("p", { class: "aucun-flux" }, ["This workbook declares no milestones, so there is no timeline to draw."]));
+      } else {
+        const svg = buildFriseSvg(frise, state.palierAffiche, {
+          ...contexteDuSchema(state, fichier, { nodes: [], edges: [] }),
+          détail: `${frise.segments.length} ${state.sujetFrise === "acteurs" ? "actors" : "interfaces"}, ${frise.paliers.length} milestones`,
+        });
+        zoneRendu.appendChild(svg);
+        zoneRendu.appendChild(construireCommandesZoom(brancherZoom(svg)));
+        renderBanner(bandeau, state, true, exportHandlers);
+      }
     } else if (state.vue === "matrice") {
       const matrix = buildMatrixView(model, lecture, {
         mode: state.mode,
@@ -503,6 +521,7 @@ export function mountApp(root: HTMLElement): void {
       onVue: (vue) => setState(withVue(withMessageBandeau(state, null), vue)),
       onSelectionActeur: (nom) => setState(withSelectionActeur(withMessageBandeau(state, null), nom)),
       onGraisseParCriticite: (value) => setState(withOptions(withMessageBandeau(state, null), { graisseParCriticite: value })),
+      onSujetFrise: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
       onVoisinage: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
       onSelectionChaine: (chaîne) => setState(withSelectionChaine(withMessageBandeau(state, null), chaîne)),
       onSelectionTechnologie: (type) => setState(withSelectionTechnologie(withMessageBandeau(state, null), type)),

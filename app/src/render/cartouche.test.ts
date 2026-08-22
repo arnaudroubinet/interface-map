@@ -48,3 +48,21 @@ describe("descriptionAccessible", () => {
     expect(descriptionAccessible(ctx({ technologies: 1 }))).toContain("1 technology.");
   });
 });
+
+// --- QA : la frise compte des lignes et des paliers, pas des boîtes et des
+// traits. Son cartouche annonçait « 0 component, 0 flow » sur dix-sept lignes.
+describe("libelléCartouche — ce que la planche compte", () => {
+  it("laisse une planche dire ce qu'elle compte, quand les boîtes n'ont pas de sens", () => {
+    const c = { ...ctx(), composants: 0, flux: 0, détail: "17 interfaces, 3 milestones" };
+    expect(libelléCartouche(c).sousTitre).toContain("17 interfaces, 3 milestones");
+    expect(libelléCartouche(c).sousTitre).not.toContain("0 component");
+  });
+
+  it("garde les comptes ordinaires quand rien ne les remplace", () => {
+    expect(libelléCartouche(ctx()).sousTitre).toContain("12 components, 24 flows");
+  });
+
+  it("reprend le même détail dans la description accessible", () => {
+    expect(descriptionAccessible({ ...ctx(), détail: "17 interfaces, 3 milestones" })).toContain("17 interfaces");
+  });
+});

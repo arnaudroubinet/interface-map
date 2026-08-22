@@ -13,6 +13,9 @@ export interface ContexteSchema {
   composants: number;
   flux: number;
   technologies: number;
+  // Ce que la planche compte, quand « composants et flux » ne veut rien dire :
+  // une frise compte des lignes et des paliers, pas des boîtes et des traits.
+  détail?: string;
 }
 
 const pluriel = (n: number, mot: string, pluriels = `${mot}s`) => `${n} ${n > 1 ? pluriels : mot}`;
@@ -21,7 +24,7 @@ export function libelléCartouche(c: ContexteSchema): { titre: string; sousTitre
   const palier = c.palier ? `, milestone ${c.palier}` : "";
   return {
     titre: `${c.titre} — ${c.lecture} reading${palier}`,
-    sousTitre: `${c.source} · ${pluriel(c.composants, "component")}, ${pluriel(c.flux, "flow")} · ${c.date}`,
+    sousTitre: `${c.source} · ${c.détail ?? `${pluriel(c.composants, "component")}, ${pluriel(c.flux, "flow")}`} · ${c.date}`,
   };
 }
 
@@ -30,8 +33,7 @@ export function libelléCartouche(c: ContexteSchema): { titre: string; sousTitre
 // description, avec les comptes.
 export function descriptionAccessible(c: ContexteSchema): string {
   return (
-    `${c.source} · ${pluriel(c.composants, "component")}, ${pluriel(c.flux, "flow")}, ` +
-    `${pluriel(c.technologies, "technology", "technologies")}. ` +
+    `${c.source} · ${c.détail ?? `${pluriel(c.composants, "component")}, ${pluriel(c.flux, "flow")}, ${pluriel(c.technologies, "technology", "technologies")}`}. ` +
     "Line = data, provider to consumer. Arrowhead = who calls."
   );
 }

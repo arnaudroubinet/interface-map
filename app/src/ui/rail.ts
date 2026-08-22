@@ -5,6 +5,7 @@ import type { Mode, LibelléArête } from "../aggregation/core";
 import type { OrdreMatrice } from "../aggregation/seriation";
 import { chainesDisponibles } from "../aggregation/chaine";
 import type { Voisinage } from "../aggregation/impact";
+import type { SujetDeFrise } from "../aggregation/frise";
 import { rangDuPalier } from "../aggregation/paliers";
 
 // L'ordre de lecture va du plus court au plus complet.
@@ -27,6 +28,7 @@ const ORDRE_DES_VUES: Vue[] = [
   "par-acteur",
   "par-technologie",
   "chaine",
+  "frise",
   "matrice",
   "ecarts",
   "controles",
@@ -65,6 +67,7 @@ export interface RailCallbacks {
   onSelectionTechnologie: (type: string) => void;
   onSelectionChaine: (chaîne: string) => void;
   onVoisinage: (value: Voisinage) => void;
+  onSujetFrise: (value: SujetDeFrise) => void;
   onGraisseParCriticite: (value: boolean) => void;
   onPalierAffiche: (palier: string) => void;
   onPalierCompare: (palier: string) => void;
@@ -336,6 +339,17 @@ export function renderRail(
     if (chaînes.length === 0) {
       root.appendChild(el("p", { class: "rail-vide" }, ["No chain in this workbook: no flow crosses a technical actor."]));
     }
+  }
+
+  if (state.vue === "frise") {
+    const select = el("select", { class: "rail-selecteur rail-frise" });
+    for (const [valeur, libellé] of [["interfaces", "Interfaces"], ["acteurs", "Actors"]] as const) {
+      const option = el("option", { value: valeur }, [libellé]);
+      if (valeur === state.sujetFrise) option.selected = true;
+      select.appendChild(option);
+    }
+    select.addEventListener("change", () => callbacks.onSujetFrise(select.value as SujetDeFrise));
+    root.appendChild(select);
   }
 
   if (state.vue === "matrice") {

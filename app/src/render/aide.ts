@@ -83,6 +83,7 @@ const SECTIONS: Section[] = [
       ["By actor", "One actor at the centre and everything it touches. Edges keep their own name."],
       ["By technology", "One technology at a time — who uses it. Architecture only."],
       ["Chain", "One exchange followed end to end through the plumbing it crosses, a link per segment, each named as it is named THERE. The question asked during an incident: where does this flow actually go?"],
+      ["Roadmap", "The milestone axis as a picture: one bar per interface, from the milestone it arrives at to the one it leaves at. Overlapping versions and migrations under way become obvious."],
       ["Matrix", "The same flows as a table, readable at three grains, exportable to Excel."],
       ["Changes", "What appears and what goes between two milestones."],
       ["Integrity checks", "What the workbook gets wrong, and what it leaves unsaid."],

@@ -3,6 +3,7 @@ import type { IntegrityReport } from "../integrity/checks";
 import type { GranulariteMatrice } from "../aggregation/views";
 import type { OrdreMatrice } from "../aggregation/seriation";
 import type { Voisinage } from "../aggregation/impact";
+import type { SujetDeFrise } from "../aggregation/frise";
 import type { Mode, LibelléArête } from "../aggregation/core";
 import { VERSION_MODELE } from "../parsing/build-model";
 import { palierCourant, rangDuPalier } from "../aggregation/paliers";
@@ -15,6 +16,7 @@ export type Vue =
   | "par-acteur"
   | "par-technologie"
   | "chaine"
+  | "frise"
   | "matrice"
   | "ecarts"
   | "controles"
@@ -39,6 +41,7 @@ export const LIBELLE_VUE: Record<Vue, string> = {
   "par-acteur": "By actor",
   "par-technologie": "By technology",
   chaine: "Chain",
+  frise: "Roadmap",
   matrice: "Matrix",
   ecarts: "Changes",
   controles: "Integrity checks",
@@ -121,6 +124,8 @@ export interface AppState {
   // La chaîne suivie, par son libellé. Une chaîne n'existe qu'en lecture
   // fonctionnelle, où la plomberie est justement ce qu'on traverse.
   selectionChaine: string | null;
+  // Ce que la frise met en ligne : les acteurs ou les interfaces.
+  sujetFrise: SujetDeFrise;
   messageBandeau: string | null;
 }
 
@@ -138,6 +143,7 @@ export function initialState(): AppState {
     selectionActeur: null,
     selectionTechnologie: null,
     selectionChaine: null,
+    sujetFrise: "interfaces",
     messageBandeau: null,
   };
 }
@@ -180,6 +186,7 @@ export function withFichierCharge(state: AppState, fichier: FichierCharge): AppS
     selectionActeur: null,
     selectionTechnologie: null,
     selectionChaine: null,
+    sujetFrise: "interfaces",
     messageBandeau: null,
   };
 }
@@ -259,6 +266,10 @@ export function withActeurMasque(state: AppState, acteur: string, masqué: boole
 
 // Le voisinage ne touche pas aux masquages : élargir le regard ne révèle ni ne
 // cache personne de plus que ce que le rayon apporte.
+export function withSujetFrise(state: AppState, sujet: SujetDeFrise): AppState {
+  return { ...state, sujetFrise: sujet };
+}
+
 export function withVoisinage(state: AppState, voisinage: Voisinage): AppState {
   return { ...state, filtresActeur: { ...state.filtresActeur, voisinage } };
 }
