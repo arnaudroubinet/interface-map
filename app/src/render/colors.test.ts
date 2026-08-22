@@ -197,6 +197,17 @@ describe("colour priority", () => {
     expect(coloursOfModel(base).get("HTTP")).toBe(PALETTE[0]);
   });
 
+  // The two features have to agree on what "the referential knows this" means.
+  // The integrity report matches on the normalised name, so it reported "http"
+  // as known while the colour, keyed on the raw spelling, was lost.
+  it("matches the referential's technology whatever its case", () => {
+    const colours = coloursOfModel({
+      ...base,
+      referentialTechnologies: [{ type: "http", colour: "#b8481f" }],
+    });
+    expect(colours.get("HTTP")).toBe("#b8481f");
+  });
+
   it("ignores a referential colour that is not hexadecimal", () => {
     const colours = coloursOfModel({
       ...base,

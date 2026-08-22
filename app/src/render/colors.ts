@@ -62,22 +62,28 @@ export function coloursOfModel(model: {
     .filter((t) => declaredTypes.has(normalizeText(t)))
     .sort((a, b) => a.localeCompare(b, "fr"));
 
+  // Keyed like everything else that compares two names -- case- and
+  // accent-insensitively. On the raw spelling, "HTTP" in the workbook and
+  // "http" in the referential were two different keys: the integrity report
+  // said the referential KNOWS this technology while the colour was silently
+  // lost. Two technologies differing only in case therefore share one key, and
+  // the last declared wins, exactly as two identical spellings already did.
   const declaredColour = new Map<string, string>();
   for (const t of model.referentialTechnologies ?? []) {
     const colour = declaredColourOf(t.colour);
-    if (colour) declaredColour.set(t.type.trim(), colour);
+    if (colour) declaredColour.set(normalizeText(t.type), colour);
   }
   // Second, so that a colour typed into the workbook overwrites the
   // referential's.
   for (const t of model.flowTypes) {
     const colour = declaredColourOf(t.colour);
-    if (colour) declaredColour.set(t.type.trim(), colour);
+    if (colour) declaredColour.set(normalizeText(t.type), colour);
   }
 
   const colours = new Map<string, string>();
   const taken = new Set<string>();
   for (const tech of drawn) {
-    const colour = declaredColour.get(tech);
+    const colour = declaredColour.get(normalizeText(tech));
     if (!colour) continue;
     colours.set(tech, colour);
     taken.add(colour);
