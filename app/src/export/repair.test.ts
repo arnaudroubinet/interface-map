@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import { repairWorkbook } from "./repair";
 import { writeTemplate } from "./template-export";
 import { SAMPLE_DATA } from "./sample-data";
+import { NO_REFERENTIAL } from "./datamashup";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -114,6 +115,20 @@ describe("reparerClasseur", () => {
     if (!reread.ok) throw new Error("illisible");
     const expected = new Set(reread.model.interfaces.map((i) => i.expectedSheet));
     for (const sheet of expected) expect(reread.model.fxSheetNames).toContain(sheet);
+  });
+
+  // The model rebuilt from the package cannot know the referential URLs --
+  // they live in the workbook's binary Power Query stream -- so the caller
+  // hands them in directly rather than patching the result afterwards.
+  it("carries the referentials parameter into the returned data", () => {
+    const referentials = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY, referentials);
+    expect(r.data.referentials).toEqual(referentials);
+  });
+
+  it("defaults to no referential when the parameter is omitted", () => {
+    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
+    expect(r.data.referentials).toEqual(NO_REFERENTIAL);
   });
 });
 

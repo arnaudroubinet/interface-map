@@ -63,13 +63,14 @@ export function openMigration(): void {
     file
       .arrayBuffer()
       .then(async (bytes) => {
-        const repair = repairWorkbook(bytes);
-        const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
         // The repair rebuilds the sheets, and the referential URLs are not in
         // the sheets: they live in the binary Power Query stream. Only the
-        // dropped bytes still hold them, so they are read back and put in --
-        // otherwise repairing a workbook would silently erase its queries.
-        const workbook = writeTemplate({ ...repair.data, referentials: await readReferentialUrls(bytes) });
+        // dropped bytes still hold them, so they are read here and handed to
+        // repairWorkbook -- otherwise repairing a workbook would silently
+        // erase its queries.
+        const repair = repairWorkbook(bytes, undefined, await readReferentialUrls(bytes));
+        const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
+        const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
 
         // The checks are run over what has just been written: announcing "there
