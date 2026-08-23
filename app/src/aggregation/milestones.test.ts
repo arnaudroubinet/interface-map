@@ -21,7 +21,7 @@ function model(milestones: Milestone[]): ParsedModel {
 
 const ROADMAP = model([milestone("v1", 1), milestone("Étape 2", 2), milestone("v3", 3, "Planned")]);
 
-describe("rangDuPalier", () => {
+describe("rankOfMilestone", () => {
   it("resolves a milestone whatever the case, the accents and the spaces", () => {
     expect(rankOfMilestone(ROADMAP, " V1 ")).toBe(1);
     expect(rankOfMilestone(ROADMAP, "etape 2")).toBe(2);

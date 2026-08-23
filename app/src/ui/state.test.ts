@@ -54,7 +54,7 @@ describe("withFichierCharge", () => {
   });
 });
 
-describe("withVue / withOptions / withSelectionActeur", () => {
+describe("withView / withOptions / withActorSelection", () => {
   it("updates only the targeted slice of state", () => {
     const state = withActorSelection(withOptions(withView(initialState(), "by-actor"), { counters: false }), "Tatooine");
     expect(state.view).toBe("by-actor");

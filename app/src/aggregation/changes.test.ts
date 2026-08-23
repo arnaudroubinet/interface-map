@@ -236,7 +236,7 @@ function functionalEstate(): ParsedModel {
   });
 }
 
-describe("calculerEcarts — mode fonctionnel", () => {
+describe("computeChanges — functional reading", () => {
   it("compares the functional links when the mode asks for it", () => {
     // A link that exists only at the second milestone shows up as an addition,
     // with the plumbing removed.

@@ -18,7 +18,7 @@ function iface(flowName: string, flowType: string): InterfaceCatalogue {
 // wrapped eight hues over sixteen entries, hence gave the same colour to two
 // technologies drawn side by side -- legend
 // comprise.
-describe("couleursDuModele", () => {
+describe("coloursOfModel", () => {
   const model = (types: string[], used: string[]): ParsedModel => ({
     actors: [], groups: [], groupsSheetMissing: false, actorTypes: [], milestones: [],
     flowTypes: types.map(flowType),
