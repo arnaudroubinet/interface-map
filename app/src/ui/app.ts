@@ -35,7 +35,7 @@ import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadTemplateXlsx, type WorkbookData } from "../export/template-export";
-import { readReferentialUrls } from "../export/datamashup";
+import { readReferentialUrls, NO_REFERENTIAL } from "../export/datamashup";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
@@ -153,7 +153,15 @@ export function mountApp(root: HTMLElement): void {
   // main drop target and the "compare with" field go through here: the same
   // file must be refused for the same reason and in the same words, whichever
   // of the two it was handed to.
-  async function readWorkbook(file: File): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
+  //
+  // readReferentials is false on the comparison path: the compared workbook's
+  // referential URLs are stored but never read by anything, and reading them
+  // means reopening the whole package with XLSX.CFB -- work with no purpose
+  // there.
+  async function readWorkbook(
+    file: File,
+    readReferentials = true
+  ): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
     if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
       return { ok: false, message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
     }
@@ -188,7 +196,7 @@ export function mountApp(root: HTMLElement): void {
         model: built.model,
         report: runIntegrityChecks(built.model),
         dateModification: parsed.savedAt,
-        referentials: await readReferentialUrls(bytes),
+        referentials: readReferentials ? await readReferentialUrls(bytes) : NO_REFERENTIAL,
       },
     };
   }
@@ -202,7 +210,7 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     try {
-      const read = await readWorkbook(file);
+      const read = await readWorkbook(file, false);
       if (!read.ok) {
         setState(withMessageBandeau(state, read.message));
         return;

@@ -10,6 +10,11 @@ vi.mock("../export/download", async (importOriginal) => {
   return { ...actual, downloadText: vi.fn(), downloadWorkbook: vi.fn() };
 });
 
+vi.mock("../export/datamashup", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../export/datamashup")>();
+  return { ...actual, readReferentialUrls: vi.fn(actual.readReferentialUrls) };
+});
+
 import { downloadText, downloadWorkbook } from "../export/download";
 
 const data: WorkbookData = {
@@ -340,6 +345,51 @@ describe("Changes view — comparing two workbooks", () => {
     expect(title).toContain("january.xlsx");
     expect(title).toContain("june.xlsx");
     expect(title).not.toContain("milestone");
+  });
+
+  // The compared workbook's referential URLs are stored but never read by
+  // anything: reading them would mean reopening the whole package with
+  // XLSX.CFB for no purpose. Pinned here so nobody "fixes" this later by
+  // reading them again.
+  it("never reads the compared workbook's referential URLs", async () => {
+    vi.mocked(readReferentialUrls).mockClear();
+    const root = document.createElement("div");
+    mountApp(root);
+
+    const referentials = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+    const drop = (data: WorkbookData, name: string) => {
+      const file = { name, arrayBuffer: async () => writeTemplate(data) } as unknown as File;
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
+      root.dispatchEvent(event);
+    };
+
+    drop({ ...base([["V1", "1", "", "Delivered", "", ""]]), referentials }, "june.xlsx");
+    await vi.waitFor(() => {
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+    });
+    expect(readReferentialUrls).toHaveBeenCalledTimes(1);
+
+    buttonByLabel(root, "Changes").click();
+
+    // The compared workbook has one interface fewer: something must move, or
+    // the diagram is never drawn and the test would pass on an empty page.
+    const january = { ...base([["V1", "1", "", "Delivered", "", ""]]), interfaces: [], fx: [], referentials };
+    const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
+    Object.defineProperty(field, "files", {
+      value: [
+        { name: "january.xlsx", arrayBuffer: async () => writeTemplate(january) } as unknown as File,
+      ],
+    });
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await vi.waitFor(() => {
+      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
+    });
+
+    // Still one call: the main workbook's, only. The compared file's URLs --
+    // present in its bytes, exactly like the main one's -- were never read.
+    expect(readReferentialUrls).toHaveBeenCalledTimes(1);
   });
 });
 
