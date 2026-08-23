@@ -164,7 +164,7 @@ function nodeFallbackWorker(): new (url?: string) => Worker {
   new Function("module", "exports", elkWorkerSource)(module, module.exports);
   const FakeWorker = module.exports.Worker;
   if (!FakeWorker) {
-    throw new Error("elk-worker.min.js n'a pas exposé de Worker de repli (environnement inattendu).");
+    throw new Error("elk-worker.min.js did not expose a fallback Worker (unexpected environment).");
   }
   return FakeWorker;
 }

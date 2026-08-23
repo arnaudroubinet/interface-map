@@ -444,7 +444,7 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
 //
 function listColumn(key: string): string {
   const index = Object.keys(LISTES).indexOf(key);
-  if (index < 0) throw new Error(`vocabulaire inconnu : ${key}`);
+  if (index < 0) throw new Error(`unknown vocabulary: ${key}`);
   return XLSX.utils.encode_col(index);
 }
 

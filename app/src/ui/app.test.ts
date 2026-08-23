@@ -55,7 +55,7 @@ describe("Markdown export — a file name independent of the mode", () => {
     mountApp(root);
     dropFile(root);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
 
     buttonByLabel(root, "Integrity checks").click();
@@ -118,7 +118,7 @@ describe("by-actor view — a business actor isolated in the functional reading"
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
 
     const modeSelect = [...root.querySelectorAll("select")].find((s) =>
@@ -134,7 +134,7 @@ describe("by-actor view — a business actor isolated in the functional reading"
     (suggestion as HTMLButtonElement).click();
 
     await vi.waitFor(() => {
-      if (!root.querySelector("svg")) throw new Error("schéma pas encore dessiné");
+      if (!root.querySelector("svg")) throw new Error("diagram not drawn yet");
     });
     expect(root.querySelector(".no-flow")).toBeNull();
   });
@@ -171,7 +171,7 @@ describe("landing view — an anomaly on a row retired at the current milestone"
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
 
     const active = root.querySelector('.rail-view-item[aria-current="true"]');
@@ -202,7 +202,7 @@ describe("Changes view — a single milestone declared", () => {
     Object.defineProperty(event, "dataTransfer", { value: { files: [file] } });
     root.dispatchEvent(event);
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
 
     buttonByLabel(root, "Changes").click();
@@ -260,7 +260,7 @@ describe("Chain view — switching chains redraws", () => {
     buttonByLabel(root, "Chain").click();
     const select = await vi.waitFor(() => {
       const s = root.querySelector(".rail-chain") as HTMLSelectElement | null;
-      if (!s || s.options.length < 2) throw new Error("sélecteur pas prêt");
+      if (!s || s.options.length < 2) throw new Error("selector not ready");
       return s;
     });
     const labels = [...select.options].map((o) => o.textContent);
@@ -272,9 +272,9 @@ describe("Chain view — switching chains redraws", () => {
     const boxes = async () =>
       vi.waitFor(() => {
         const svg = root.querySelector(".render-area svg");
-        if (!svg) throw new Error("pas de schéma");
+        if (!svg) throw new Error("no diagram");
         const b = [...svg.querySelectorAll(".fx-nodes > g")].map((g) => g.querySelector("text")?.textContent);
-        if (b.length === 0) throw new Error("pas de boîte");
+        if (b.length === 0) throw new Error("no box");
         return b;
       });
 
@@ -323,7 +323,7 @@ describe("Changes view — comparing two workbooks", () => {
 
     drop(base([["V1", "1", "", "Delivered", "", ""], ["V2", "2", "", "Delivered", "", ""]]), "june.xlsx");
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
 
     buttonByLabel(root, "Changes").click();
@@ -338,7 +338,7 @@ describe("Changes view — comparing two workbooks", () => {
     field.dispatchEvent(new Event("change", { bubbles: true }));
 
     await vi.waitFor(() => {
-      if (!root.querySelector("svg title")) throw new Error("schéma pas encore dessiné");
+      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
     });
 
     const title = root.querySelector("svg title")?.textContent ?? "";
@@ -366,7 +366,7 @@ describe("Changes view — comparing two workbooks", () => {
 
     drop({ ...base([["V1", "1", "", "Delivered", "", ""]]), referentials }, "june.xlsx");
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
     expect(readReferentialUrls).toHaveBeenCalledTimes(1);
 
@@ -384,7 +384,7 @@ describe("Changes view — comparing two workbooks", () => {
     field.dispatchEvent(new Event("change", { bubbles: true }));
 
     await vi.waitFor(() => {
-      if (!root.querySelector("svg title")) throw new Error("schéma pas encore dessiné");
+      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
     });
 
     // Still one call: the main workbook's, only. The compared file's URLs --

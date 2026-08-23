@@ -813,7 +813,7 @@ describe("buildGraphSvg — the title block", () => {
     expect(ids).toHaveLength(2);
     for (const id of ids) {
       const target = [...svg.children].find((c) => c.getAttribute("id") === id);
-      expect(target, `#${id} doit être un child direct de <svg>`).toBeDefined();
+      expect(target, `#${id} must be a direct child of <svg>`).toBeDefined();
     }
     expect(svg.querySelector(":scope > title")?.textContent).toBe("Platform detail — architecture reading, milestone v2");
   });
@@ -930,7 +930,7 @@ describe("buildGraphSvg — the shape restates what the colour says", () => {
   });
 
   // A group of a single actor hides nothing: stacking it would assert the
-  // contraire.
+  // opposite.
   it("does not stack a group of a single actor", async () => {
     const svg = buildGraphSvg(await estate({ aggregate: 1 }), () => "#111");
     expect(svg.querySelector(".fx-nodes .fx-stack")).toBeNull();

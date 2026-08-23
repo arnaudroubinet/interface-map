@@ -34,7 +34,7 @@ describe("ouvrirMigration — classeur corrompu", () => {
     drop(zone, file);
 
     await vi.waitFor(() => {
-      if (!zone.querySelector(".error-message")) throw new Error("pas encore de message d'erreur");
+      if (!zone.querySelector(".error-message")) throw new Error("no error message yet");
     });
 
     const message = zone.querySelector(".error-message");
@@ -55,7 +55,7 @@ describe("openMigration — the try-again button", () => {
     drop(zone, file);
 
     await vi.waitFor(() => {
-      if (!zone.querySelector(".export-button")) throw new Error("pas encore de bouton de relance");
+      if (!zone.querySelector(".export-button")) throw new Error("no retry button yet");
     });
 
     const button = zone.querySelector(".export-button");

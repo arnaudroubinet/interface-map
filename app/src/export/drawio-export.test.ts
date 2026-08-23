@@ -309,7 +309,7 @@ describe("buildDrawio — each page describes itself", () => {
     const p = board();
     const xml = buildDrawio([p], () => "#111");
     for (const e of legendEntries(p.layout.edges, p.layout.nodes, () => "#111")) {
-      expect(xml, `input « ${e.text} » absente`).toContain(e.text);
+      expect(xml, `input "${e.text}" missing`).toContain(e.text);
     }
   });
 

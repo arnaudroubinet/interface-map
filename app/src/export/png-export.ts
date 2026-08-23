@@ -19,7 +19,7 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
       const image = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error("Échec du chargement du SVG dans une image."));
+        img.onerror = () => reject(new Error("Failed to load the SVG into an image."));
         img.src = url;
       });
 

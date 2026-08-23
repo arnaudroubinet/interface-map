@@ -278,7 +278,7 @@ function definedNamesXml(
   const names = lists
     .map((l) => {
       const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.heading));
-      if (!table) throw new Error(`list "${l.name}" : aucun table sur "${l.sheet}" ne porte "${l.heading}"`);
+      if (!table) throw new Error(`list "${l.name}": no table on "${l.sheet}" carries "${l.heading}"`);
       // A table always covers at least one data row (see applyTheTables below),
       // even on a blank workbook: the reference therefore targets a one-cell
       // empty range rather than a null range, which Excel refuses in a
@@ -467,7 +467,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
 
   const workbook = readPart(cfb, "/xl/workbook.xml");
-  if (!workbook) throw new Error("classeur illisible : xl/workbook.xml absent");
+  if (!workbook) throw new Error("unreadable workbook: xl/workbook.xml missing");
 
   // The order of sheets in workbook.xml = the order of the sheetN.xml files.
   const names = [...workbook.matchAll(/<sheet name="([^"]*)"/g)].map((m) =>
@@ -475,7 +475,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   );
 
   let contentTypes = readPart(cfb, "/[Content_Types].xml");
-  if (!contentTypes) throw new Error("classeur illisible : [Content_Types].xml absent");
+  if (!contentTypes) throw new Error("unreadable workbook: [Content_Types].xml missing");
 
   // Several tables can live on one sheet -- Lists puts one per vocabulary
   // (startColumn) -- and must leave only one <tableParts> there, only one set
@@ -640,7 +640,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   // pass -- the workbook is opened only once.
   if (styles.length > 0) {
     const stylesXml = readPart(cfb, "/xl/styles.xml");
-    if (!stylesXml) throw new Error("classeur illisible : xl/styles.xml absent");
+    if (!stylesXml) throw new Error("unreadable workbook: xl/styles.xml missing");
     const { xml, index } = addTheStyles(stylesXml);
     writePart(cfb, "/xl/styles.xml", xml);
     const styleBySheet = new Map<string, Map<string, number>>();

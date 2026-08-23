@@ -57,13 +57,13 @@ describe("the upgrade chain", () => {
 describe("upgrading a workbook in the original format", () => {
   it("produces a workbook at the current version", () => {
     const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
-    if (!result.ok) throw new Error("classeur mis à niveau illisible");
+    if (!result.ok) throw new Error("unreadable upgraded workbook");
     expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
   it("keeps actors, groups, interfaces and consumptions", () => {
     const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
-    if (!result.ok) throw new Error("classeur mis à niveau illisible");
+    if (!result.ok) throw new Error("unreadable upgraded workbook");
     const m = result.model;
     expect(m.actors.map((a) => a.name).sort()).toEqual(["Mygeeto", "Tatooine"]);
     expect(m.actors.find((a) => a.name === "Tatooine")!.owner).toBe("Yavin");
@@ -81,7 +81,7 @@ describe("upgrading a workbook in the original format", () => {
   // "Active" state would pass off as decided what never was.
   it("leaves the new columns empty", () => {
     const result = buildModel(parseWorkbook(writeTemplate(upgrade(originalModel()))));
-    if (!result.ok) throw new Error("classeur mis à niveau illisible");
+    if (!result.ok) throw new Error("unreadable upgraded workbook");
     expect(result.model.interfaces[0].version).toBe("");
     expect(result.model.interfaces[0].legacyState).toBe("");
     expect(result.model.consumptions[0].version).toBe("");
@@ -126,7 +126,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
   // workbook would open on one completeness anomaly per row.
   it("sets Origin as the arrival milestone on every existing row", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.actors.every((a) => a.introducedAt === "Origin")).toBe(true);
     expect(r.model.interfaces.filter((i) => i.flowName !== "Autre").every((i) => i.introducedAt === "Origin")).toBe(true);
     // What v1 declared "Planned" arrives later, what it declared already gone comes
@@ -136,7 +136,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
 
   it("converts what is retired or on its way out into a retirement milestone", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     // Retired: already gone, so its retirement is the origin milestone itself.
     expect(r.model.interfaces.find((i) => i.flowName === "Autre")!.retiredAt).toBe("Origin");
     // To be decommissioned: gone at the next milestone, which is therefore created.
@@ -152,7 +152,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
   // the conversion translates it, it does not swallow it.
   it("keeps À supprimer as a decision, without inventing a retirement", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     const toDelete = r.model.consumptions.find((c) => c.flowName === "Vivant")!;
     expect(toDelete.decision).toBe("Remove");
     expect(toDelete.retiredAt).toBe("");
@@ -160,7 +160,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
 
   it("converts an En projet status into an arrival at the planned milestone", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     const planned = r.model.consumptions.find((c) => c.flowName === "Autre")!;
     expect(planned.introducedAt).not.toBe("Origin");
   });
@@ -169,7 +169,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
   // nor about the columns just removed from it.
   it("complains neither about the milestones nor about the removed columns", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     const messages = runIntegrityChecks(r.model).families.flatMap((f) => f.anomalies.map((a) => a.message)).join(" | ");
     expect(messages).not.toContain("palier");
     expect(messages).not.toContain("statut");
@@ -182,7 +182,7 @@ describe("upgrade — the milestone axis replaces État and Statut", () => {
 describe("upgrade — numbering the milestones created", () => {
   it("numbers from 1 with no gap", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(templateDate(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.milestones.map((p) => p.rank)).toEqual(r.model.milestones.map((_, i) => i + 1));
   });
 });
@@ -227,7 +227,7 @@ describe("classeur produit — onglets attendus", () => {
     // exists, its name fits within the limit, and the re-reading lands exactly on it.
     const bytes = writeTemplate(upgrade(template, THE_DAY));
     const reread = buildModel(parseWorkbook(bytes));
-    if (!reread.ok) throw new Error("classeur illisible");
+    if (!reread.ok) throw new Error("unreadable workbook");
     expect(reread.model.fxSheetNames.every((n) => n.length <= 31)).toBe(true);
     expect(reread.model.fxSheetNames).toContain(reread.model.interfaces[0].expectedSheet);
   });
@@ -252,7 +252,7 @@ describe("upgrade — the workbook switches to English", () => {
 
   it("translates the values already entered", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(frenchModel(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.groups.map((g) => g.perimeter)).toEqual(["Platform", "External"]);
     expect(r.model.flowTypes[0].rawDirection).toBe("consumer → provider");
     expect(r.model.milestones[0].status).toBe("Delivered");
@@ -265,7 +265,7 @@ describe("upgrade — the workbook switches to English", () => {
   it("leaves a value it does not recognise alone", () => {
     const template = { ...frenchModel(), groups: [{ name: "Socle", perimeter: "Zone grise", sheet: "Groups", row: 0 }] };
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(template, THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.groups[0].perimeter).toBe("Zone grise");
   });
 
@@ -277,7 +277,7 @@ describe("upgrade — the workbook switches to English", () => {
       flowTypes: [base.flowType({ type: "Saleucami", rawDirection: "consommateur → exposant", description: "Protocole interne" })],
     };
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(template, THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.flowTypes.map((t) => t.type)).toContain("Saleucami");
   });
 });
@@ -298,7 +298,7 @@ describe("upgrade — the v1 already distributed", () => {
 
   it("ressort au format courant, son contenu intact", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(modelV1(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.schemaVersion).toBe(SCHEMA_VERSION);
     expect(r.model.actors.map((a) => a.name)).toEqual(modelV1().actors.map((a) => a.name));
     expect(r.model.milestones.map((p) => p.name)).toEqual(["Origin"]);
@@ -324,7 +324,7 @@ describe("upgrade — the v2 already distributed", () => {
 
   it("ressort au format courant, son contenu intact", () => {
     const r = buildModel(parseWorkbook(writeTemplate(upgrade(modelV2(), THE_DAY))));
-    if (!r.ok) throw new Error("illisible");
+    if (!r.ok) throw new Error("unreadable");
     expect(r.model.schemaVersion).toBe(SCHEMA_VERSION);
     expect(r.model.actors.map((a) => a.name)).toEqual(modelV2().actors.map((a) => a.name));
   });
@@ -480,7 +480,7 @@ describe("upgrade — v3's relays", () => {
 
   const relire = (m: ParsedModel) => {
     const reread = buildModel(parseWorkbook(writeTemplate(upgrade(m, THE_DAY))));
-    if (!reread.ok) throw new Error("classeur illisible");
+    if (!reread.ok) throw new Error("unreadable workbook");
     return reread.model;
   };
 

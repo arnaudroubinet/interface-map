@@ -47,7 +47,7 @@ describe("ordonner — seriation RCM", () => {
     const pos = new Map(order.map((id, i) => [id, i]));
     for (const cluster of [["A", "B", "C"], ["X", "Y", "Z"]]) {
       const indices = cluster.map((i) => pos.get(i)!).sort((a, b) => a - b);
-      expect(indices[2] - indices[0], `cluster ${cluster.join("")} dispersé : ${order.join(",")}`).toBe(2);
+      expect(indices[2] - indices[0], `cluster ${cluster.join("")} scattered: ${order.join(",")}`).toBe(2);
     }
   });
 

@@ -60,7 +60,7 @@ function knownDirection(type: string): string {
 export function migrateLegacyWorkbook(packageBytes: ArrayBuffer, dateMigration: Date = new Date()): MigrationReport {
   const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array", cellDates: true });
   const links = sheet(wb, FLOWS_SHEET);
-  if (links.length === 0) throw new Error(`aucune sheet "${FLOWS_SHEET}" exploitable`);
+  if (links.length === 0) throw new Error(`no usable sheet "${FLOWS_SHEET}"`);
 
   // The types actually used, not the original list: that one piles technologies
   // and decisions into the same column.
@@ -134,7 +134,7 @@ export function migrateLegacyWorkbook(packageBytes: ArrayBuffer, dateMigration: 
       "",
     ]);
 
-    // feuilleFxAttendue sanitises the name: no flow type can produce a sheet
+    // expectedFxSheet sanitises the name: no flow type can produce a sheet
     // Excel would refuse any more, so no consumption is abandoned along the
     // way.
     const tab = expectedFxSheet(provider, type);

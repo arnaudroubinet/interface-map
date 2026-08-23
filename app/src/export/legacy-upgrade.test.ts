@@ -166,7 +166,7 @@ describe("legacy migration — the version and state columns", () => {
   it("leaves version empty rather than inventing it", () => {
     const { data } = migrateLegacyWorkbook(legacyWorkbook([link({})]));
     const result = buildModel(parseWorkbook(writeTemplate(data)));
-    if (!result.ok) throw new Error("classeur migré illisible");
+    if (!result.ok) throw new Error("unreadable migrated workbook");
     expect(result.model.interfaces[0].version).toBe("");
     expect(result.model.consumptions[0].version).toBe("");
   });
@@ -174,7 +174,7 @@ describe("legacy migration — the version and state columns", () => {
   it("emits a workbook already at the current schema number", () => {
     const { data } = migrateLegacyWorkbook(legacyWorkbook([link({})]));
     const result = buildModel(parseWorkbook(writeTemplate(data)));
-    if (!result.ok) throw new Error("classeur migré illisible");
+    if (!result.ok) throw new Error("unreadable migrated workbook");
     expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
@@ -208,7 +208,7 @@ describe("FX_ sheet name — the same rule on both sides (migration and re-readi
     expect(isValidTabName(data.fx[0].name)).toBe(true);
 
     const result = buildModel(parseWorkbook(writeTemplate(data)));
-    if (!result.ok) throw new Error("classeur migré illisible");
+    if (!result.ok) throw new Error("unreadable migrated workbook");
     // The heart of the matter: the sheet the writing created is exactly the one
     // the re-reading expects, and the consumption survived the trip.
     expect(result.model.interfaces[0].expectedSheet).toBe(data.fx[0].name);
@@ -220,7 +220,7 @@ describe("FX_ sheet name — the same rule on both sides (migration and re-readi
     expect(data.fx.map((o) => o.name)).toEqual(["FX_Appelé_HTTP"]);
 
     const result = buildModel(parseWorkbook(writeTemplate(data)));
-    if (!result.ok) throw new Error("classeur migré illisible");
+    if (!result.ok) throw new Error("unreadable migrated workbook");
     expect(result.model.interfaces[0].expectedSheet).toBe("FX_Appelé_HTTP");
     expect(result.model.consumptions).toHaveLength(1);
   });

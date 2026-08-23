@@ -60,7 +60,7 @@ describe("the full chain on the sample workbook", () => {
 describe("the sample workbook exercises the business reading", () => {
   const template = () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!built.ok) throw new Error("exemple illisible");
+    if (!built.ok) throw new Error("unreadable example");
     return built.model;
   };
 
@@ -92,7 +92,7 @@ describe("the sample workbook exercises the business reading", () => {
 describe("the sample workbook carries a three-relay chain", () => {
   const template = () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!built.ok) throw new Error("exemple illisible");
+    if (!built.ok) throw new Error("unreadable example");
     return built.model;
   };
 
@@ -146,7 +146,7 @@ describe("the sample workbook carries a three-relay chain", () => {
 describe("the three-relay chain reads in a single direction", () => {
   it("chains the four segments end to end", () => {
     const built = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!built.ok) throw new Error("exemple illisible");
+    if (!built.ok) throw new Error("unreadable example");
     const m = built.model;
     const view = buildPlatformDetailView(m, reading(m, null, "architecture"), { counters: true });
 

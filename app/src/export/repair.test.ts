@@ -103,7 +103,7 @@ describe("reparerClasseur", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
     expect(r.legacyReport).toBeNull();
     const reread = buildModel(parseWorkbook(writeTemplate(r.data)));
-    if (!reread.ok) throw new Error("illisible");
+    if (!reread.ok) throw new Error("unreadable");
     expect(reread.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 
@@ -112,7 +112,7 @@ describe("reparerClasseur", () => {
   it("returns a workbook where every expected sheet exists", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
     const reread = buildModel(parseWorkbook(writeTemplate(r.data)));
-    if (!reread.ok) throw new Error("illisible");
+    if (!reread.ok) throw new Error("unreadable");
     const expected = new Set(reread.model.interfaces.map((i) => i.expectedSheet));
     for (const sheet of expected) expect(reread.model.fxSheetNames).toContain(sheet);
   });

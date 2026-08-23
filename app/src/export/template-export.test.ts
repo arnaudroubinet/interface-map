@@ -46,7 +46,7 @@ function rereadTemplate(): ArrayBuffer {
 function part(path: string, packageBytes: ArrayBuffer = rereadTemplate()): string {
   const cfb = XLSX.CFB.read(new Uint8Array(packageBytes), { type: "array" });
   const input = XLSX.CFB.find(cfb, path);
-  if (!input || !input.content) throw new Error(`part absente : ${path}`);
+  if (!input || !input.content) throw new Error(`missing part: ${path}`);
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
@@ -63,13 +63,13 @@ function tableXml(tableName: string, packageBytes: ArrayBuffer = rereadTemplate(
     const xml = part(path.replace(/^[^/]*/, ""), packageBytes);
     if (xml.includes(`name="${tableName}"`)) return xml;
   }
-  throw new Error(`table absente : ${tableName}`);
+  throw new Error(`missing table: ${tableName}`);
 }
 
 function sheetXml(name: string, packageBytes: ArrayBuffer = rereadTemplate()): string {
   const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
   const index = wb.SheetNames.indexOf(name);
-  if (index < 0) throw new Error(`tab absent : ${name}`);
+  if (index < 0) throw new Error(`missing tab: ${name}`);
   return part(`/xl/worksheets/sheet${index + 1}.xml`, packageBytes);
 }
 
@@ -105,7 +105,7 @@ describe("the workbook template", () => {
   it("declares the perimeter at group level, not deduced from the actors", () => {
     const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     // The sheet exists and is authoritative, even with no rows.
     expect(result.model.groupsSheetMissing).toBe(false);
   });
@@ -113,7 +113,7 @@ describe("the workbook template", () => {
   it("pre-fills ActorTypes with icons that exist in the catalogue", () => {
     const parsed = parseWorkbook(rereadTemplate());
     const result = buildModel(parsed);
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
 
     expect(result.model.actorTypes.length).toBeGreaterThan(0);
     for (const t of result.model.actorTypes) {
@@ -125,7 +125,7 @@ describe("the workbook template", () => {
   // entry: a blank workbook is empty, not inconsistent.
   it("triggers no blocking anomaly on opening", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     const report = runIntegrityChecks(result.model);
     const messages = report.families.flatMap((f) => f.anomalies.map((a) => a.message));
     expect(messages).toEqual([]);
@@ -198,7 +198,7 @@ describe("the workbook template", () => {
   // from the Actors sheet, and its drop-down with it.
   it("no longer asks for a perimeter on the actors", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     expect(result.model.missingOptionalColumns).toEqual([]);
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const headers = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 })[0];
@@ -342,7 +342,7 @@ describe("the workbook template", () => {
 
   it("ships the common flow types, ready to use", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     const types = result.model.flowTypes;
     expect(types.map((t) => t.type)).toContain("HTTP");
     expect(types.map((t) => t.type)).toContain("Kafka");
@@ -379,7 +379,7 @@ describe("the workbook template", () => {
 // every FX_ sheet, cell K1 -- on which both cascading lists depend -- fell
 // outside "A1:I{n}". Excel rebuilds the range without flinching, but another
 // reader (this project included)
-// s'y fie telle quelle.
+// relies on it as-is.
 describe("the workbook template — declared dimension", () => {
   it("covers Lists' helper area, not only the vocabulary tables", () => {
     const lists = sheetXml("Lists");
@@ -397,7 +397,7 @@ describe("the workbook template — declared dimension", () => {
     for (const tab of SAMPLE_DATA.fx) {
       const sheet = sheetXml(tab.name, packageBytes);
       const m = sheet.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
-      expect(m, `pas de dimension sur ${tab.name}`).not.toBeNull();
+      expect(m, `no dimension on ${tab.name}`).not.toBeNull();
       expect(XLSX.utils.decode_col(m![1])).toBeGreaterThanOrEqual(XLSX.utils.decode_col(EXTRA_COLUMN));
     }
   });
@@ -423,7 +423,7 @@ describe("the workbook template — schema number", () => {
   // test that catches a forgotten increment on either side.
   it("rereads at the version the tool expects", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     expect(result.model.schemaVersion).toBe(SCHEMA_VERSION);
   });
 });
@@ -471,7 +471,7 @@ describe("the sample file — alignment on the columns", () => {
 
   it("rereads with every value in its column", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!result.ok) throw new Error("exemple illisible");
+    if (!result.ok) throw new Error("unreadable example");
     const iface = result.model.interfaces.find((i) => i.flowName === "Member lookup")!;
     expect(iface.providerName).toBe("Takodana");
     expect(iface.flowType).toBe("HTTP");
@@ -483,7 +483,7 @@ describe("the sample file — alignment on the columns", () => {
   // part of that, so it needs a case to show.
   it("carries a decommissioning under way, so the report has something to say", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!result.ok) throw new Error("exemple illisible");
+    if (!result.ok) throw new Error("unreadable example");
     const report = runIntegrityChecks(result.model);
     const block = report.infoBlocks.find((b) => b.id === "migrations")!;
     expect(block.items.length).toBeGreaterThan(0);
@@ -617,7 +617,7 @@ describe("the workbook template — milestones", () => {
 
   it("rereads with no missing column, milestones included", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!result.ok) throw new Error("modèle illisible");
+    if (!result.ok) throw new Error("unreadable template");
     expect(result.model.missingOptionalColumns).toEqual([]);
   });
 });
@@ -627,7 +627,7 @@ describe("the workbook template — milestones", () => {
 describe("the sample file — the milestone axis", () => {
   it("fills in an arrival milestone on every row, with no anomaly", () => {
     const result = buildModel(parseWorkbook(writeTemplate(SAMPLE_DATA)));
-    if (!result.ok) throw new Error("exemple illisible");
+    if (!result.ok) throw new Error("unreadable example");
     const messages = runIntegrityChecks(result.model).families.flatMap((f) => f.anomalies.map((a) => a.message));
     expect(messages).toEqual([]);
   });
@@ -875,7 +875,7 @@ describe("the workbook template — the Excel formula sanitises like the tool", 
   const helperFormula = () => {
     const xml = sheetXml("Lists", writeTemplate(SAMPLE_DATA));
     const m = xml.match(/<f t="array"[^>]*>([^<]*)<\/f>/);
-    if (!m) throw new Error("aucune formule à résultat étalé dans l'onglet Lists");
+    if (!m) throw new Error("no spilled-result formula in the Lists sheet");
     return m[1];
   };
 
@@ -952,7 +952,7 @@ describe("the workbook template — the data-entry aids", () => {
     for (const sheet of entrySheets) {
       const applied = new Set(validations.filter((v) => v.sheet === sheet).map((v) => v.column));
       for (const [i] of columnsOf[sheet].entries()) {
-        expect(applied, `${sheet} : column ${i + 1} sans tooltip`).toContain(XLSX.utils.encode_col(i));
+        expect(applied, `${sheet}: column ${i + 1} without tooltip`).toContain(XLSX.utils.encode_col(i));
       }
     }
   });
