@@ -101,11 +101,14 @@ async function entryOfZip(zip: Uint8Array, path: string): Promise<Uint8Array | n
   for (let i = 0; i < count; i++) {
     const nameLength = view.getUint16(p + 28, true);
     const name = new TextDecoder().decode(zip.subarray(p + 46, p + 46 + nameLength));
+    const crc = view.getUint32(p + 16, true);
     const local = view.getUint32(p + 42, true);
     const size = view.getUint32(p + 20, true);
     if (name === path) {
       const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
-      return zip.subarray(start, start + size);
+      const content = zip.subarray(start, start + size);
+      expect(crc32OfTest(content)).toBe(crc);
+      return content;
     }
     p += 46 + nameLength + view.getUint16(p + 30, true) + view.getUint16(p + 32, true);
   }
