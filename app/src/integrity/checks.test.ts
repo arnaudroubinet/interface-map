@@ -1423,6 +1423,19 @@ describe("out of referential", () => {
     expect(infoBlock.items.join(" ")).toContain("MQ");
   });
 
+  // A name the referential does not know is a decision waiting for someone,
+  // not a remark: it must rank as an action, not merely be seen.
+  it("is an action: the file is correct, but a decision is waiting", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "Alderaan" })],
+        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.level).toBe("action");
+  });
+
   it("compares regardless of case and accents, as every other check does", () => {
     const report = runIntegrityChecks(
       model({

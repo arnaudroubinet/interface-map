@@ -76,10 +76,13 @@ change simplement de source.
   de la colonne `Colour` de `FlowTypes`. Ordre de priorité : la valeur saisie
   sur `FlowTypes` l'emporte — on ne retire pas à quelqu'un la possibilité de
   forcer une couleur —, à défaut celle du référentiel, à défaut la palette.
-- **Deux contrôles d'intégrité**, de gravité « signalement » et non « erreur » :
+- **Deux contrôles d'intégrité**, de gravité « action » et non « erreur » :
   un acteur ou une technologie déclaré localement mais absent du référentiel.
   Le cas est légitime — on cartographie souvent avant que le référentiel ne
-  soit à jour — mais il mérite d'être vu.
+  soit à jour — mais ce n'est pas un simple signalement : le fichier est
+  correct, et une décision attend quelqu'un. Un nom que le référentiel ne
+  connaît pas est soit un nom à aligner sur le référentiel, soit un nom qui
+  manque au référentiel ; il faut choisir.
 
 Ces listes aident la frappe, elles ne valident rien. Les listes alimentées par
 le référentiel sont donc écrites **sans alerte de refus** : une liste qui refuse
@@ -251,7 +254,7 @@ v4 doit repasser par la reconstruction pour les obtenir.
 | `parsing/model.ts` | les deux listes du référentiel et les deux URL portées par le modèle |
 | `export/schema-upgrade.ts` | étape 4 → 5 |
 | `render/colors.ts` | l'ordre de priorité des couleurs |
-| `integrity/checks.ts` | les deux signalements |
+| `integrity/checks.ts` | les deux contrôles d'action |
 | `ui/` | l'affichage et la saisie des deux URL au dépôt du classeur |
 
 ## 11. Ce qui reste à confirmer

@@ -1063,10 +1063,12 @@ function usedGroups(model: ParsedModel): InfoBlock {
   };
 }
 
-// What the workbook declares and the referential does not know. Not an anomaly:
-// a cartography is often drawn before the central referential catches up, and
-// refusing the name would stop the work for a bookkeeping lag. But an unknown
-// name is also what a typo looks like, so it is worth seeing.
+// What the workbook declares and the referential does not know. Not an
+// anomaly: a cartography is often drawn before the central referential
+// catches up, and refusing the name would stop the work for a bookkeeping
+// lag. But it is a decision waiting for someone: either the referential
+// already carries the name under another spelling and the cartography should
+// adopt it, or the referential is missing it and someone has to add it.
 function outOfReferential(model: ParsedModel): InfoBlock {
   const knownActors = new Set(model.referentialActors.map((a) => normalizeText(a.name)));
   const knownTechnologies = new Set(model.referentialTechnologies.map((t) => normalizeText(t.type)));
@@ -1091,9 +1093,10 @@ function outOfReferential(model: ParsedModel): InfoBlock {
     title: "Declared here, unknown to the referential",
     description:
       "These names are used by this workbook but do not appear in the external referential. " +
-      "That is legitimate while the referential catches up; it is also what a typo looks like.",
+      "Legitimate while it catches up, but a decision waiting: adopt a name it already carries, " +
+      "or add this one to it.",
     items,
-    level: "info",
+    level: "action",
   };
 }
 
