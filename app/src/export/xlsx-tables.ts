@@ -115,30 +115,30 @@ function sanitise(text: string): string {
 //
 // `column`, when supplied, tells apart several tables laid on the same sheet
 // -- Lists carries one per vocabulary.
-export function nomDeTableau(sheet: string, column?: string): string {
+export function tableName(sheet: string, column?: string): string {
   const base = `Tbl${sanitise(sheet)}`;
   return column ? `${base}_${sanitise(column)}` : base;
 }
 
-function xmlDuTableau(
+function tableXml(
   id: number,
   name: string,
   ref: string,
   columns: readonly string[],
-  formules: Readonly<Record<string, string>> = {},
+  formulas: Readonly<Record<string, string>> = {},
   queryTableId?: number
 ): string {
   const cols = columns
     .map((c, i) => {
-      const formule = formules[c];
+      const formula = formulas[c];
       // A query-backed column names the field feeding it and carries the
       // uniqueName Excel writes on one -- its id, verbatim. An ordinary table
       // gets neither: Excel does not write them there either.
       const field = queryTableId === undefined ? "" : ` queryTableFieldId="${i + 1}"`;
       const unique = queryTableId === undefined ? "" : ` uniqueName="${i + 1}"`;
       const start = `<tableColumn id="${i + 1}"${unique} name="${escapeXml(c)}"${field}`;
-      return formule
-        ? `${start}><calculatedColumnFormula>${escapeXml(formule)}</calculatedColumnFormula></tableColumn>`
+      return formula
+        ? `${start}><calculatedColumnFormula>${escapeXml(formula)}</calculatedColumnFormula></tableColumn>`
         : `${start}/>`;
     })
     .join("");
@@ -153,7 +153,7 @@ function xmlDuTableau(
   );
 }
 
-function xmlDesRelations(queryTableId: number): string {
+function relationshipsXml(queryTableId: number): string {
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
     `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
@@ -162,7 +162,7 @@ function xmlDesRelations(queryTableId: number): string {
   );
 }
 
-function xmlDeLaConnexion(id: number, query: string): string {
+function connectionXml(id: number, query: string): string {
   return (
     `<connection id="${id}" keepAlive="1" name="Query - ${escapeXml(query)}" ` +
     `description="Connection to the ${escapeXml(query)} query in the workbook." ` +
@@ -173,7 +173,7 @@ function xmlDeLaConnexion(id: number, query: string): string {
   );
 }
 
-function xmlDuQueryTable(id: number, connectionId: number, columns: readonly string[]): string {
+function queryTableXml(id: number, connectionId: number, columns: readonly string[]): string {
   const fields = columns
     .map((c, i) => `<queryTableField id="${i + 1}" name="${escapeXml(c)}" tableColumnId="${i + 1}"/>`)
     .join("");
@@ -190,19 +190,19 @@ function xmlDuQueryTable(id: number, connectionId: number, columns: readonly str
 
 // The types SheetJS publishes do not describe the CFB container: it is handled
 // through a minimal shape rather than bending the code to their gaps.
-export type Conteneur = Parameters<typeof XLSX.CFB.write>[0];
+export type Container = Parameters<typeof XLSX.CFB.write>[0];
 
-export function readPart(cfb: Conteneur, path: string): string | null {
+export function readPart(cfb: Container, path: string): string | null {
   const input = XLSX.CFB.find(cfb, path);
   if (!input || !input.content) return null;
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
-export function writeBinaryPart(cfb: Conteneur, path: string, bytes: Uint8Array): void {
+export function writeBinaryPart(cfb: Container, path: string, bytes: Uint8Array): void {
   XLSX.CFB.utils.cfb_add(cfb, path, bytes as unknown as number[]);
 }
 
-export function writePart(cfb: Conteneur, path: string, content: string): void {
+export function writePart(cfb: Container, path: string, content: string): void {
   writeBinaryPart(cfb, path, new TextEncoder().encode(content));
 }
 
@@ -210,7 +210,7 @@ export function writePart(cfb: Conteneur, path: string, content: string): void {
 // a brand-new workbook, and always beyond the last row actually written.
 // Frozen at 1000, the validation gave up silently on a bigger workbook -- the
 // 1001st entry was no longer checked at all.
-const PLANCHER_VALIDATION = 1000;
+const VALIDATION_FLOOR = 1000;
 
 // Adds only the missing <row>s: the sheet's dimension is set separately
 // (applyTheTables), once the extent of ALL the tables it carries is known --
@@ -271,7 +271,7 @@ function externalDataName(id: number, sheetIndex: number, sheetName: string, ref
 function definedNamesXml(
   lists: readonly NamedList[],
   tables: readonly TableToApply[],
-  nomParTableau: ReadonlyMap<TableToApply, string>,
+  nameByTable: ReadonlyMap<TableToApply, string>,
   externalData: readonly string[]
 ): string {
   if (lists.length === 0 && externalData.length === 0) return "";
@@ -283,31 +283,31 @@ function definedNamesXml(
       // even on a blank workbook: the reference therefore targets a one-cell
       // empty range rather than a null range, which Excel refuses in a
       // validation.
-      const reference = `${nomParTableau.get(table)}[${escapeXml(l.heading)}]`;
+      const reference = `${nameByTable.get(table)}[${escapeXml(l.heading)}]`;
       return `<definedName name="${l.name}">${reference}</definedName>`;
     })
     .join("");
   return `<definedNames>${names}${externalData.join("")}</definedNames>`;
 }
 
-function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: number): string {
+function validationsXml(validations: readonly ValidationToApply[], lastRow: number): string {
   if (validations.length === 0) return "";
-  const upTo = Math.max(PLANCHER_VALIDATION, lastRow);
+  const upTo = Math.max(VALIDATION_FLOOR, lastRow);
   const items = validations
     .map((v) => {
       const prompt = v.prompt
         ? `promptTitle="${escapeXml(v.prompt.title)}" prompt="${escapeXml(v.prompt.text)}" `
         : "";
-      const plage = `sqref="${v.column}2:${v.column}${upTo}"`;
+      const range = `sqref="${v.column}2:${v.column}${upTo}"`;
       // With no formula, a "none" validation: no constraint, only the tooltip.
       // Excel accepts it and shows no alert.
       if (!v.formule) {
-        return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${prompt}${plage}/>`;
+        return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${prompt}${range}/>`;
       }
       const refuses = v.suggestsOnly ? "0" : "1";
       return (
         `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="${refuses}" ` +
-        `${prompt}${plage}><formula1>${escapeXml(v.formule)}</formula1></dataValidation>`
+        `${prompt}${range}><formula1>${escapeXml(v.formule)}</formula1></dataValidation>`
       );
     })
     .join("");
@@ -376,19 +376,19 @@ function xfForRole(role: StyleRole, fontId: number, fillId: number | null): stri
 // Adds our styles to SheetJS's and returns the index of each.
 function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, number> } {
   const count = (tag: string) => Number(new RegExp(`<${tag} count="(\\d+)"`).exec(styles)?.[1] ?? "0");
-  const nbPolices = count("fonts");
+  const fontCount = count("fonts");
   const fillCount = count("fills");
-  const nbXf = count("cellXfs");
+  const xfCount = count("cellXfs");
 
-  let nextFont = nbPolices;
+  let nextFont = fontCount;
   let nextFill = fillCount;
   const fontOf: Record<string, number> = {};
   const fillOf: Record<string, number> = {};
-  const policesXml: string[] = [];
+  const fontsXml: string[] = [];
   const fillsXml: string[] = [];
   for (const role of ROLES) {
     fontOf[role] = nextFont++;
-    policesXml.push(ADDED_FONTS[role]);
+    fontsXml.push(ADDED_FONTS[role]);
     const fill = ADDED_FILLS[role];
     if (fill) {
       fillOf[role] = nextFill++;
@@ -399,26 +399,26 @@ function addTheStyles(styles: string): { xml: string; index: Record<StyleRole, n
   const index = {} as Record<StyleRole, number>;
   const xfsXml: string[] = [];
   ROLES.forEach((role, i) => {
-    index[role] = nbXf + i;
+    index[role] = xfCount + i;
     xfsXml.push(xfForRole(role, fontOf[role], fillOf[role] ?? null));
   });
 
   const xml = styles
-    .replace(`<fonts count="${nbPolices}">`, `<fonts count="${nbPolices + policesXml.length}">`)
-    .replace("</fonts>", `${policesXml.join("")}</fonts>`)
+    .replace(`<fonts count="${fontCount}">`, `<fonts count="${fontCount + fontsXml.length}">`)
+    .replace("</fonts>", `${fontsXml.join("")}</fonts>`)
     .replace(`<fills count="${fillCount}">`, `<fills count="${fillCount + fillsXml.length}">`)
     .replace("</fills>", `${fillsXml.join("")}</fills>`)
-    .replace(`<cellXfs count="${nbXf}">`, `<cellXfs count="${nbXf + xfsXml.length}">`)
+    .replace(`<cellXfs count="${xfCount}">`, `<cellXfs count="${xfCount + xfsXml.length}">`)
     .replace("</cellXfs>", `${xfsXml.join("")}</cellXfs>`);
   return { xml, index };
 }
 
 // Sets the `s` attribute on the targeted cells of an already-written sheet.
-function applyTheStyles(sheet: string, parCellule: Map<string, number>): string {
-  return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (tout, ref: string, attributs: string, closed: string) => {
-    const style = parCellule.get(ref);
-    if (style === undefined) return tout;
-    const withoutStyle = attributs.replace(/\s+s="\d+"/, "");
+function applyTheStyles(sheet: string, byCell: Map<string, number>): string {
+  return sheet.replace(/<c r="([A-Z]+\d+)"([^>]*?)(\/?)>/g, (match, ref: string, attributes: string, closed: string) => {
+    const style = byCell.get(ref);
+    if (style === undefined) return match;
+    const withoutStyle = attributes.replace(/\s+s="\d+"/, "");
     return `<c r="${ref}"${withoutStyle} s="${style}"${closed}>`;
   });
 }
@@ -489,7 +489,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   }
 
   let idTable = 0;
-  const nomParTableau = new Map<TableToApply, string>();
+  const nameByTable = new Map<TableToApply, string>();
   const usedNames = new Set<string>();
 
   // Connection ids are allocated in the order the tables are met, so the same
@@ -512,8 +512,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     // is the column carrying the cell that names the sheet. The sheet's final
     // dimension is the maximum of that extent and of the tables' -- never one
     // in place of the other.
-    const dimInitiale = sheet.match(/<dimension ref="([^"]*)"\/>/);
-    const initialExtent = dimInitiale ? declaredExtent(dimInitiale[1]) : { columnIdx: 0, row: 1 };
+    const initialDim = sheet.match(/<dimension ref="([^"]*)"\/>/);
+    const initialExtent = initialDim ? declaredExtent(initialDim[1]) : { columnIdx: 0, row: 1 };
 
     const relations: string[] = [];
     let lastSheetRow = initialExtent.row;
@@ -532,8 +532,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       //
       let name =
         tablesOfSheet.length > 1
-          ? nomDeTableau(sheetName, table.columns.join("_"))
-          : nomDeTableau(sheetName);
+          ? tableName(sheetName, table.columns.join("_"))
+          : tableName(sheetName);
       // Two different sheets can sanitise to the same name -- two flow types
       // differing only in punctuation, for instance. A duplicate table name is
       // not a curiosity Excel tolerates: ECMA-376 §18.5.1.2 requires a unique
@@ -544,7 +544,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         name = usedNames.has(disambiguated) ? `${disambiguated}_${idTable}` : disambiguated;
       }
       usedNames.add(name);
-      nomParTableau.set(table, name);
+      nameByTable.set(table, name);
 
       lastSheetRow = Math.max(lastSheetRow, lastRow);
       lastSheetColumnIndex = Math.max(lastSheetColumnIndex, lastColumnIndex);
@@ -553,11 +553,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       if (table.query) {
         idQueryTable += 1;
         queryTableId = idQueryTable;
-        connections.push(xmlDeLaConnexion(idQueryTable, table.query));
+        connections.push(connectionXml(idQueryTable, table.query));
         writePart(
           cfb,
           `/xl/queryTables/queryTable${queryTableId}.xml`,
-          xmlDuQueryTable(queryTableId, queryTableId, table.columns)
+          queryTableXml(queryTableId, queryTableId, table.columns)
         );
         contentTypes = contentTypes.replace(
           "</Types>",
@@ -569,10 +569,10 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       writePart(
         cfb,
         `/xl/tables/table${idTable}.xml`,
-        xmlDuTableau(idTable, name, ref, table.columns, table.formulaByColumn, queryTableId)
+        tableXml(idTable, name, ref, table.columns, table.formulaByColumn, queryTableId)
       );
       if (queryTableId !== undefined) {
-        writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, xmlDesRelations(queryTableId));
+        writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, relationshipsXml(queryTableId));
       }
       relations.push(`<Relationship Id="rId${relations.length + 1}" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>`);
 
@@ -606,11 +606,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     // The sheet's validations. The order of a sheet's elements is imposed by
     // the OOXML schema: dataValidations comes after sheetData and before
     // ignoredErrors, hence right after the data closes.
-    const desValidations = xmlDesValidations(validations.filter((v) => v.sheet === sheetName), lastSheetRow);
+    const sheetValidationsXml = validationsXml(validations.filter((v) => v.sheet === sheetName), lastSheetRow);
     // "tableParts" goes last in a sheet, right before it closes: the order of
     // elements is imposed by the OOXML schema.
     sheet = sheet
-      .replace("</sheetData>", `</sheetData>${desValidations}`)
+      .replace("</sheetData>", `</sheetData>${sheetValidationsXml}`)
       .replace("</worksheet>", `<tableParts count="${relations.length}">${tablePartsXml}</tableParts></worksheet>`)
       .replace(
         /<dimension ref="[^"]*"\/>/,
@@ -646,7 +646,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     const styleBySheet = new Map<string, Map<string, number>>();
     for (const style of styles) {
       const map = styleBySheet.get(style.sheet) ?? new Map<string, number>();
-      for (const cellule of style.cells) map.set(cellule, index[style.role]);
+      for (const cell of style.cells) map.set(cell, index[style.role]);
       styleBySheet.set(style.sheet, map);
     }
     for (const [sheetName, map] of styleBySheet) {
@@ -744,7 +744,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     "/xl/workbook.xml",
     workbook
       .replace(/<definedNames>.*?<\/definedNames>/, "")
-      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nomParTableau, externalDataNames)}`)
+      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nameByTable, externalDataNames)}`)
   );
 
   const output = XLSX.CFB.write(cfb, { fileType: "zip", type: "array" }) as unknown as number[];
