@@ -3,6 +3,9 @@
 // jsdom's Blob has no stream() method, which both the reader and this file's
 // deflate helper rely on. Node's own Blob does.
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
 import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL } from "./datamashup";
 import * as XLSX from "xlsx";
 import { readReferentialUrls, mashupStream } from "./datamashup";
@@ -168,6 +171,23 @@ describe("readReferentialUrls", () => {
     const item = wrapAsCustomXml(deflated);
     const read = await readReferentialUrls(workbookCarrying(item));
     expect(read.actors).toBe("https://ref/actors.csv");
+  });
+
+  // The deflate path above is exercised only against a stream this test file
+  // built itself. NO_REFERENTIAL is also what a genuinely undecodable stream
+  // returns, once the warning is swallowed -- so a fixture from real Excel
+  // proves nothing unless we also check that decoding it raised no warning.
+  it("decodes a real Excel-produced workbook without warning, even though it carries no referential", async () => {
+    const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../test/fixtures/excel-made-reference.xlsx");
+    const bytes = readFileSync(fixture);
+    const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const read = await readReferentialUrls(buffer);
+
+    expect(read).toEqual(NO_REFERENTIAL);
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
   });
 
   it("returns no referential for a workbook that carries none", async () => {
