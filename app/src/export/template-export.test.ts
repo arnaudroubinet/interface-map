@@ -43,8 +43,8 @@ function rereadTemplate(): ArrayBuffer {
 
 // The raw content of one part of the package, to check what SheetJS can
 // neither write nor reread.
-function part(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
-  const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
+function part(path: string, packageBytes: ArrayBuffer = rereadTemplate()): string {
+  const cfb = XLSX.CFB.read(new Uint8Array(packageBytes), { type: "array" });
   const input = XLSX.CFB.find(cfb, path);
   if (!input || !input.content) throw new Error(`part absente : ${path}`);
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
@@ -56,21 +56,21 @@ function part(path: string, paquet: ArrayBuffer = rereadTemplate()): string {
 // The same reason for the "table" parts: their number follows the workbook's
 // order, so it moves as soon as a table is inserted before. They are found
 // again by the name they carry.
-function tableXml(tableName: string, paquet: ArrayBuffer = rereadTemplate()): string {
-  const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
+function tableXml(tableName: string, packageBytes: ArrayBuffer = rereadTemplate()): string {
+  const cfb = XLSX.CFB.read(new Uint8Array(packageBytes), { type: "array" });
   for (const path of cfb.FullPaths) {
     if (!/\/xl\/tables\/table\d+\.xml$/.test(path)) continue;
-    const xml = part(path.replace(/^[^/]*/, ""), paquet);
+    const xml = part(path.replace(/^[^/]*/, ""), packageBytes);
     if (xml.includes(`name="${tableName}"`)) return xml;
   }
   throw new Error(`table absente : ${tableName}`);
 }
 
-function sheetXml(name: string, paquet: ArrayBuffer = rereadTemplate()): string {
-  const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
+function sheetXml(name: string, packageBytes: ArrayBuffer = rereadTemplate()): string {
+  const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
   const index = wb.SheetNames.indexOf(name);
   if (index < 0) throw new Error(`tab absent : ${name}`);
-  return part(`/xl/worksheets/sheet${index + 1}.xml`, paquet);
+  return part(`/xl/worksheets/sheet${index + 1}.xml`, packageBytes);
 }
 
 describe("the workbook template", () => {
@@ -234,7 +234,7 @@ describe("the workbook template", () => {
   // Actors!Name is where an actor is created. The spec is explicit: nothing is
   // blocked, a name the referential does not carry is only reported.
   it("never refuses a value the referential does not carry yet", () => {
-    const fed = validationsOfTemplate().filter((v) => v.formule && referentialListNames().includes(v.formule));
+    const fed = validationsOfTemplate().filter((v) => v.formula && referentialListNames().includes(v.formula));
     expect(fed.length).toBeGreaterThan(0);
     for (const v of fed) expect(v.suggestsOnly).toBe(true);
 
@@ -316,10 +316,10 @@ describe("the workbook template", () => {
     // The FX_ sheets' dependent lists compute their range: those are formulas, not
     // names. The rule therefore holds only for the latter.
     const defined = new Set(listsOfTemplate().map((l) => l.name));
-    const byName = validationsOfTemplate().filter((v) => v.formule !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formule));
+    const byName = validationsOfTemplate().filter((v) => v.formula !== undefined && /^L_[A-Za-zÀ-ÿ]+$/.test(v.formula));
     expect(byName.length).toBeGreaterThan(0);
     for (const validation of byName) {
-      expect(defined).toContain(validation.formule!);
+      expect(defined).toContain(validation.formula!);
     }
   });
 
@@ -365,9 +365,9 @@ describe("the workbook template", () => {
   it("uses no structured reference to another table", () => {
     for (let i = 1; i <= tablesOfTemplate().length; i++) {
       const table = part(`/xl/tables/table${i}.xml`);
-      const formules = [...table.matchAll(/<calculatedColumnFormula>(.*?)<\/calculatedColumnFormula>/g)];
-      for (const [, formule] of formules) {
-        expect(formule).not.toMatch(/Tbl[A-Za-z]+\[/);
+      const formulas = [...table.matchAll(/<calculatedColumnFormula>(.*?)<\/calculatedColumnFormula>/g)];
+      for (const [, formula] of formulas) {
+        expect(formula).not.toMatch(/Tbl[A-Za-z]+\[/);
       }
     }
   });
@@ -393,9 +393,9 @@ describe("the workbook template — declared dimension", () => {
   });
 
   it("covers the helper cell naming the sheet, on every FX_ sheet", () => {
-    const paquet = writeTemplate(SAMPLE_DATA);
+    const packageBytes = writeTemplate(SAMPLE_DATA);
     for (const tab of SAMPLE_DATA.fx) {
-      const sheet = sheetXml(tab.name, paquet);
+      const sheet = sheetXml(tab.name, packageBytes);
       const m = sheet.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
       expect(m, `pas de dimension sur ${tab.name}`).not.toBeNull();
       expect(XLSX.utils.decode_col(m![1])).toBeGreaterThanOrEqual(XLSX.utils.decode_col(EXTRA_COLUMN));
@@ -439,7 +439,7 @@ describe("the workbook template — interface version", () => {
       (v) => v.sheet === "Interfaces" && v.column === columnOf(INTERFACE_COLUMNS, "Version")
     );
     expect(surVersion).toHaveLength(1);
-    expect(surVersion[0].formule).toBeUndefined();
+    expect(surVersion[0].formula).toBeUndefined();
     expect(surVersion[0].prompt?.text).toContain("Free text");
   });
 
@@ -532,12 +532,12 @@ describe("the FX_ sheets' dependent lists", () => {
       (v) => v.sheet === "FX_Takodana_HTTP" && v.column === columnOf(FX_COLUMNS, "Version")
     )!;
     // The flow list keys on the sheet's name, carried by the cell.
-    expect(onFlow.formule).toContain(`$${EXTRA_COLUMN}$1`);
-    expect(onFlow.formule).toContain("MATCH(");
+    expect(onFlow.formula).toContain(`$${EXTRA_COLUMN}$1`);
+    expect(onFlow.formula).toContain("MATCH(");
     // The versions' list adds THIS ROW's flow to it: a row-relative reference,
     // so Excel shifts the formula from one row to the next.
-    expect(surVersion.formule).toContain(`$${columnOf(FX_COLUMNS, "Flow name")}2`);
-    expect(surVersion.formule).toContain("MATCH(");
+    expect(surVersion.formula).toContain(`$${columnOf(FX_COLUMNS, "Flow name")}2`);
+    expect(surVersion.formula).toContain("MATCH(");
   });
 
   it("sets both validations on every FX_ sheet", () => {
@@ -553,7 +553,7 @@ describe("the FX_ sheets' dependent lists", () => {
   // offering a flow, one of them wrong.
   it("no longer exposes a global flow list", () => {
     expect(listsOfTemplate().map((l) => l.name)).not.toContain("L_Flux");
-    expect(validationsOfTemplate(SAMPLE_DATA).map((v) => v.formule)).not.toContain("L_Flux");
+    expect(validationsOfTemplate(SAMPLE_DATA).map((v) => v.formula)).not.toContain("L_Flux");
   });
 });
 
@@ -598,7 +598,7 @@ describe("the workbook template — milestones", () => {
   // The validity bounds are picked, not typed: a typo would create a phantom
   // milestone, invisible from the Milestones sheet.
   it("constrains both validity bounds with the milestone list", () => {
-    const onMilestone = validationsOfTemplate(SAMPLE_DATA).filter((v) => v.formule === "L_Palier");
+    const onMilestone = validationsOfTemplate(SAMPLE_DATA).filter((v) => v.formula === "L_Palier");
     const sheets = new Set(onMilestone.map((v) => v.sheet));
     expect(sheets).toContain("Actors");
     expect(sheets).toContain("Interfaces");
@@ -639,8 +639,8 @@ describe("the sample file — the milestone axis", () => {
 // depend on it never fill.
 describe("formulas — no phantom sheet", () => {
   it("quotes only sheets that exist in the workbook", () => {
-    const paquet = writeTemplate();
-    const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
+    const packageBytes = writeTemplate();
+    const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
     const known = new Set(wb.SheetNames);
 
     const cited = new Set<string>();
@@ -651,14 +651,14 @@ describe("formulas — no phantom sheet", () => {
         cited.add(m[1] ?? m[2]);
       }
     };
-    for (const name of wb.SheetNames) relever(sheetXml(name, paquet));
-    relever(part("/xl/workbook.xml", paquet));
+    for (const name of wb.SheetNames) relever(sheetXml(name, packageBytes));
+    relever(part("/xl/workbook.xml", packageBytes));
     // The calculated columns live not in the sheet but in the "table" part: that
     // is where the preview formula was, and forgetting it left the check blind to
     // the very one that triggered the warning.
-    const cfb = XLSX.CFB.read(new Uint8Array(paquet), { type: "array" });
+    const cfb = XLSX.CFB.read(new Uint8Array(packageBytes), { type: "array" });
     for (const input of cfb.FullPaths) {
-      if (/\/xl\/tables\/table\d+\.xml$/.test(input)) relever(part(input.replace(/^[^/]*/, ""), paquet));
+      if (/\/xl\/tables\/table\d+\.xml$/.test(input)) relever(part(input.replace(/^[^/]*/, ""), packageBytes));
     }
 
     expect([...cited].filter((n) => !known.has(n))).toEqual([]);
@@ -671,8 +671,8 @@ describe("formulas — no phantom sheet", () => {
 // nothing to explain the difference.
 describe("the workbook template — every entry sheet is a table", () => {
   it("forgets no data sheet", () => {
-    const paquet = writeTemplate();
-    const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
+    const packageBytes = writeTemplate();
+    const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
     // Neither the prose, nor the two hidden sheets that are not typed into.
     const entry = wb.SheetNames.filter((n) => !["Instructions", "Lists", "Version"].includes(n));
     const withTable = new Set(tablesOfTemplate(SAMPLE_DATA).map((t) => t.sheet));
@@ -740,8 +740,8 @@ describe("the workbook template — nature and relays", () => {
   // alone knows which provider and which version the input comes from -- and
   // which a drop-down can guide.
   it("writes the two columns that carry the functional reading", () => {
-    const paquet = writeTemplate(SAMPLE_DATA);
-    const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
+    const packageBytes = writeTemplate(SAMPLE_DATA);
+    const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
     const types = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["ActorTypes"], { header: 1 })[0];
     const interfaces = XLSX.utils.sheet_to_json<string[]>(wb.Sheets["Interfaces"], { header: 1 })[0];
     const fxName = wb.SheetNames.find((n) => n.startsWith("FX_"))!;
@@ -839,10 +839,10 @@ describe("the workbook template — entry prompts", () => {
   });
 
   it("writes the prompt into the sheet's XML", () => {
-    const paquet = writeTemplate(SAMPLE_DATA);
-    const wb = XLSX.read(new Uint8Array(paquet), { type: "array" });
+    const packageBytes = writeTemplate(SAMPLE_DATA);
+    const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array" });
     const fxName = wb.SheetNames.find((n) => n.startsWith("FX_") && n !== "FX_Modèle")!;
-    const xml = sheetXml(fxName, paquet);
+    const xml = sheetXml(fxName, packageBytes);
     expect(xml).toContain("promptTitle=");
     expect(xml).toContain("prompt=");
   });
@@ -872,7 +872,7 @@ describe("the workbook template — entry prompts", () => {
 //
 describe("the workbook template — the Excel formula sanitises like the tool", () => {
   // Only the formula is extracted: comparing the whole XML would drown the failure.
-  const formuleAppoint = () => {
+  const helperFormula = () => {
     const xml = sheetXml("Lists", writeTemplate(SAMPLE_DATA));
     const m = xml.match(/<f t="array"[^>]*>([^<]*)<\/f>/);
     if (!m) throw new Error("aucune formule à résultat étalé dans l'onglet Lists");
@@ -880,12 +880,12 @@ describe("the workbook template — the Excel formula sanitises like the tool", 
   };
 
   it("cuts the rebuilt name at 31 characters", () => {
-    expect(formuleAppoint()).toContain("LEFT(");
-    expect(formuleAppoint()).toContain(",31)");
+    expect(helperFormula()).toContain("LEFT(");
+    expect(helperFormula()).toContain(",31)");
   });
 
   it("replaces every character Excel forbids", () => {
-    const substitutions = (formuleAppoint().match(/SUBSTITUTE\(/g) ?? []).length;
+    const substitutions = (helperFormula().match(/SUBSTITUTE\(/g) ?? []).length;
     expect(substitutions).toBe(7);
   });
 });

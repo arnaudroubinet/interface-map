@@ -58,7 +58,7 @@ function context(state: AppState, svg: SVGSVGElement | null = document.createEle
 }
 
 const loaded = () =>
-  withLoadedFile(initialState(), { name: "carto.xlsx", model: template, report: report, dateModification: null, referentials: { actors: "", technologies: "" } });
+  withLoadedFile(initialState(), { name: "carto.xlsx", model: template, report: report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
 
 beforeEach(() => {
   downloads.length = 0;
@@ -115,7 +115,7 @@ describe("handlersExport", () => {
     const { handlers, state } = context(withView(loaded(), "platform-detail"));
     await handlers.onExportPng();
     expect(downloads).toHaveLength(0);
-    expect(state().messageBandeau).toBe("No PNG here.");
+    expect(state().bannerMessage).toBe("No PNG here.");
   });
 
   it("downloads the PNG when the conversion succeeds", async () => {
@@ -185,7 +185,7 @@ describe("exports — a board says the same thing on every door it leaves by", (
       fxSheetNames: ["FX_A_HTTP"],
     }),
     report,
-    dateModification: null, referentials: { actors: "", technologies: "" },
+    modifiedAt: null, referentials: { actors: "", technologies: "" },
   });
 
   it("carries the context note on an actor's board, in the draw.io file", async () => {

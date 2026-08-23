@@ -36,7 +36,7 @@ export interface ValidationToApply {
   // constraint, whose only effect is the tooltip. That is what makes it
   // possible to explain the columns no list guides AS WELL -- they were the
   // only ones saying nothing, although they are the ones people hesitate over.
-  formule?: string;
+  formula?: string;
   // The bubble Excel shows when a cell of the column is selected. The
   // showInputMessage flag had been set since day one, with no text to show.
   prompt?: { title: string; text: string };
@@ -301,13 +301,13 @@ function validationsXml(validations: readonly ValidationToApply[], lastRow: numb
       const range = `sqref="${v.column}2:${v.column}${upTo}"`;
       // With no formula, a "none" validation: no constraint, only the tooltip.
       // Excel accepts it and shows no alert.
-      if (!v.formule) {
+      if (!v.formula) {
         return `<dataValidation type="none" allowBlank="1" showInputMessage="1" showErrorMessage="0" ${prompt}${range}/>`;
       }
       const refuses = v.suggestsOnly ? "0" : "1";
       return (
         `<dataValidation type="list" allowBlank="1" showInputMessage="1" showErrorMessage="${refuses}" ` +
-        `${prompt}${range}><formula1>${escapeXml(v.formule)}</formula1></dataValidation>`
+        `${prompt}${range}><formula1>${escapeXml(v.formula)}</formula1></dataValidation>`
       );
     })
     .join("");

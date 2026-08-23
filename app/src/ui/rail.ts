@@ -454,10 +454,10 @@ export function renderRail(
   }
 
   if (state.view === "by-technology" && state.technologySelection) {
-    root.appendChild(basculeExternes(state.technologyFilters.masquerExternes, callbacks.onMasquerExternes));
+    root.appendChild(basculeExternes(state.technologyFilters.hideExternals, callbacks.onMasquerExternes));
 
     const available = optionsFiltreTechnologie(state.file.model, flows, state.technologySelection, {
-      masquerExternes: state.technologyFilters.masquerExternes,
+      hideExternals: state.technologyFilters.hideExternals,
     });
     const actors = filterBlock("Actors", available, state.technologyFilters.hiddenActors, callbacks.onActorHiddenForTechnology);
     if (actors) root.appendChild(actors);
@@ -515,10 +515,10 @@ export function renderRail(
     order.addEventListener("change", () => callbacks.onMatrixOrder(order.value as MatrixOrder));
     root.appendChild(order);
 
-    root.appendChild(basculeExternes(state.matrixFilters.masquerExternes, callbacks.onHideExternalsInMatrix));
+    root.appendChild(basculeExternes(state.matrixFilters.hideExternals, callbacks.onHideExternalsInMatrix));
     const available = matrixFilterOptions(state.file.model, flows, {
       grain,
-      masquerExternes: state.matrixFilters.masquerExternes,
+      hideExternals: state.matrixFilters.hideExternals,
     });
     const title = GRANULARITES_MATRICE.find((g) => g.id === grain)!.filterTitle;
     const actors = filterBlock(title, available, state.matrixFilters.hiddenActors, callbacks.onActorHiddenInMatrix);

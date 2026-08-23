@@ -156,7 +156,7 @@ export function buildPlatformOnlyView(model: ParsedModel, reading: Reading, opti
 }
 
 export interface TechnologyViewOptions extends AggregationOptions {
-  masquerExternes?: boolean;
+  hideExternals?: boolean;
   hiddenActors?: readonly string[];
 }
 
@@ -167,12 +167,12 @@ export function optionsFiltreTechnologie(
   model: ParsedModel,
   flows: FlowInstance[],
   flowType: string,
-  options: { masquerExternes?: boolean }
+  options: { hideExternals?: boolean }
 ): string[] {
   const names = new Set<string>();
   for (const flow of flowsOfTechnology(flows, flowType)) {
     for (const name of [flow.provider, flow.consumer]) {
-      if (options.masquerExternes && nameIsExternal(model, name)) continue;
+      if (options.hideExternals && nameIsExternal(model, name)) continue;
       names.add(name);
     }
   }
@@ -192,7 +192,7 @@ export function buildByTechnologyView(
   const hiddenIds = new Set(options.hiddenActors ?? []);
   // A flow falls as soon as ONE of its two ends is hidden: a line to an absent
   // box means nothing.
-  const isHidden = (name: string) => hiddenIds.has(name) || (options.masquerExternes === true && nameIsExternal(model, name));
+  const isHidden = (name: string) => hiddenIds.has(name) || (options.hideExternals === true && nameIsExternal(model, name));
   const flows = flowsOfTechnology(allFlows, flowType).filter(
     (f) => !isHidden(f.provider) && !isHidden(f.consumer)
   );
@@ -335,7 +335,7 @@ export interface MatrixViewOptions {
   mode: Mode;
   grain?: MatrixGrain;
   order?: MatrixOrder;
-  masquerExternes?: boolean;
+  hideExternals?: boolean;
   hiddenActors?: readonly string[];
 }
 
@@ -366,7 +366,7 @@ function matrixFolding(
 export function matrixFilterOptions(
   model: ParsedModel,
   flows: FlowInstance[],
-  options: { grain?: MatrixGrain; masquerExternes?: boolean }
+  options: { grain?: MatrixGrain; hideExternals?: boolean }
 ): string[] {
   const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const ids = new Set<string>();
@@ -376,7 +376,7 @@ export function matrixFilterOptions(
       // "No node" sentinel: an actor with no group is absent from the folded
       // views, so it has no checkbox.
       if (!id) continue;
-      if (options.masquerExternes && external(id)) continue;
+      if (options.hideExternals && external(id)) continue;
       ids.add(id);
     }
   }
@@ -386,7 +386,7 @@ export function matrixFilterOptions(
 export function buildMatrixView(model: ParsedModel, reading: Reading, options: MatrixViewOptions): MatrixResult {
   const { key, external } = matrixFolding(model, options.grain ?? "actor");
   const hiddenIds = new Set(options.hiddenActors ?? []);
-  const isHidden = (id: string) => hiddenIds.has(id) || (options.masquerExternes === true && external(id));
+  const isHidden = (id: string) => hiddenIds.has(id) || (options.hideExternals === true && external(id));
   // A link falls as soon as one of its two ends is hidden: a row or a column
   // to an absent actor means nothing. Hiding applies to the folded id, so
   // unticking a group carries all its actors with it.

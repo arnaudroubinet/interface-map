@@ -19,21 +19,21 @@ export interface Reparation {
 // workbook of our family reads, an original one does not. That is the surest
 // test, since it is exactly the question that matters.
 //
-// The model built from `paquet` cannot know the referential URLs -- they live
+// The model built from `packageBytes` cannot know the referential URLs -- they live
 // in the workbook's binary Power Query stream, not in anything the parser
 // reads -- so the caller, which already holds the bytes, hands them in here
 // instead of patching the result afterwards.
 export function repairWorkbook(
-  paquet: ArrayBuffer,
+  packageBytes: ArrayBuffer,
   dateMigration: Date = new Date(),
   referentials: ReferentialUrls = NO_REFERENTIAL
 ): Reparation {
-  const lu = buildModel(parseWorkbook(paquet));
+  const lu = buildModel(parseWorkbook(packageBytes));
   if (lu.ok) {
     // Our family: schema upgrade where applicable, and creation of the expected
     // sheets, whether the workbook is up to date or not.
     return { data: { ...upgrade(lu.model, dateMigration), referentials }, legacyReport: null };
   }
-  const legacy = migrateLegacyWorkbook(paquet, dateMigration);
+  const legacy = migrateLegacyWorkbook(packageBytes, dateMigration);
   return { data: { ...legacy.data, referentials }, legacyReport: legacy };
 }

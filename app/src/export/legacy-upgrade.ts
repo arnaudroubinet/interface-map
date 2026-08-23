@@ -57,8 +57,8 @@ function knownDirection(type: string): string {
   return FLOW_TYPES.find((t) => normalizeText(t[0]) === normalizeText(type))?.[1] ?? "";
 }
 
-export function migrateLegacyWorkbook(paquet: ArrayBuffer, dateMigration: Date = new Date()): MigrationReport {
-  const wb = XLSX.read(new Uint8Array(paquet), { type: "array", cellDates: true });
+export function migrateLegacyWorkbook(packageBytes: ArrayBuffer, dateMigration: Date = new Date()): MigrationReport {
+  const wb = XLSX.read(new Uint8Array(packageBytes), { type: "array", cellDates: true });
   const links = sheet(wb, FLOWS_SHEET);
   if (links.length === 0) throw new Error(`aucune sheet "${FLOWS_SHEET}" exploitable`);
 

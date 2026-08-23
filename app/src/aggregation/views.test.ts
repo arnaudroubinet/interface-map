@@ -183,7 +183,7 @@ describe("buildMatrixView", () => {
     const matrix = buildMatrixView(modelTwoPerGroup, read(modelTwoPerGroup), {
       mode: "architecture",
       grain: "group",
-      masquerExternes: true,
+      hideExternals: true,
     });
     expect(matrix.columns).toEqual([]);
     expect(matrix.rows).toEqual([]);
@@ -211,7 +211,7 @@ describe("optionsFiltreMatrice", () => {
 
   it("drops externe groupes when the switch is on", () => {
     expect(
-      matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "group", masquerExternes: true })
+      matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "group", hideExternals: true })
     ).toEqual(["G1"]);
   });
 });

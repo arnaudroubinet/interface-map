@@ -152,8 +152,8 @@ const NOMS_STOCKES: Record<string, string> = {
   HSTACK: "_xlfn.HSTACK",
 };
 
-function nameForExcel(formule: string): string {
-  return formule.replace(
+function nameForExcel(formula: string): string {
+  return formula.replace(
     new RegExp(`(?<![.A-Za-z_])(${Object.keys(NOMS_STOCKES).join("|")})\\(`, "g"),
     (_, name: string) => `${NOMS_STOCKES[name]}(`
   );
@@ -199,7 +199,7 @@ function sanitiseTabFormula(expression: string): string {
   return `LEFT(${sanitised},${MAX_TAB_LENGTH})`;
 }
 
-function formulesDAppoint(lastRow: number): { cellule: string; ref: string; formule: string }[] {
+function helperFormulas(lastRow: number): { cellule: string; ref: string; formula: string }[] {
   const c = extraColumns();
   const plage = (column: string) => `Interfaces!$${column}$2:$${column}$${lastRow}`;
   const flows = plage(columnOf(INTERFACE_COLUMNS, "Flow name"));
@@ -219,14 +219,14 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       // one flow's versions contiguous, the condition for MATCH + COUNTIF.
       cellule: `${c.versionKey}2`,
       ref: `${c.versionKey}2:${c.version}${lastRow}`,
-      formule: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${notEmpty}),1,1)`),
+      formula: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${notEmpty}),1,1)`),
     },
     {
       // (sheet, flow) pairs deduplicated: without UNIQUE, a flow with three
       // versions would appear three times in the drop-down.
       cellule: `${c.flowTab}2`,
       ref: `${c.flowTab}2:${c.flows}${lastRow}`,
-      formule: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${notEmpty})),1,1)`),
+      formula: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${notEmpty})),1,1)`),
     },
     {
       // (publisher, versioned interface) pairs, sorted by publisher: this is what
@@ -238,7 +238,7 @@ function formulesDAppoint(lastRow: number): { cellule: string; ref: string; form
       ref: `${c.provider}2:${c.publishedInterface}${lastRow}`,
       // The versioned label, built like interfaceLabel: the name, a space only if
       // there is a version, then the version.
-      formule: spread(
+      formula: spread(
         `SORT(UNIQUE(FILTER(HSTACK(${provider},${flows}&IF(${version}="",""," ")&${version}),${notEmpty})),1,1)`
       ),
     },
@@ -264,8 +264,8 @@ function listsSheet(lastRow: number): XLSX.WorkSheet {
     [`${c.publishedInterface}1`, "InterfaceExposee"],
   ];
   for (const [address, title] of titles) ws[address] = { t: "s", v: title };
-  for (const { cellule, ref, formule } of formulesDAppoint(lastRow)) {
-    ws[cellule] = { t: "s", v: "", f: formule, F: ref };
+  for (const { cellule, ref, formula } of helperFormulas(lastRow)) {
+    ws[cellule] = { t: "s", v: "", f: formula, F: ref };
   }
   ws["!ref"] = `A1:${c.publishedInterface}${lastRow}`;
   return ws;
@@ -578,12 +578,12 @@ export function referentialListNames(): string[] {
 
 export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): ValidationToApply[] {
   const fromReferential = new Set(referentialListNames());
-  const v = (sheet: string, columns: readonly string[], heading: string, formule?: string) => ({
+  const v = (sheet: string, columns: readonly string[], heading: string, formula?: string) => ({
     sheet,
     column: columnOf(columns, heading),
-    formule,
+    formula,
     prompt: invitePour(sheet, heading),
-    suggestsOnly: formule !== undefined && fromReferential.has(formule),
+    suggestsOnly: formula !== undefined && fromReferential.has(formula),
   });
 
   // Every column no list guides still gets its tooltip: that is half the

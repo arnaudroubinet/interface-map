@@ -33,7 +33,7 @@ describe("initialState", () => {
 describe("withFichierCharge", () => {
   it("replaces the whole state at once and opens on the default view when the file is clean", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "classeur.xlsx", model, report, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "classeur.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.file?.name).toBe("classeur.xlsx");
     expect(loaded.view).toBe("group-to-group");
@@ -48,7 +48,7 @@ describe("withFichierCharge", () => {
       totalWarnings: 0,
     };
     const loaded = withLoadedFile(initialState(), {
-      name: "classeur.xlsx", model, report: atFault, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "classeur.xlsx", model, report: atFault, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("checks");
   });
@@ -81,7 +81,7 @@ describe("withLoadedFile — a workbook of an earlier version", () => {
 
   it("opens on the upgrade screen rather than on a view", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "vieux.xlsx", model: ancien, report, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "vieux.xlsx", model: ancien, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("upgrade");
   });
@@ -95,14 +95,14 @@ describe("withLoadedFile — a workbook of an earlier version", () => {
       infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalWarnings: 0,
     };
     const loaded = withLoadedFile(initialState(), {
-      name: "vieux.xlsx", model: ancien, report: atFault, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "vieux.xlsx", model: ancien, report: atFault, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("upgrade");
   });
 
   it("lets an up-to-date workbook open normally", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "a-jour.xlsx", model, report, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "a-jour.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("group-to-group");
   });
@@ -120,7 +120,7 @@ describe("withFichierCharge — palier d'ouverture", () => {
 
   it("opens on the last delivered milestone, comparing with the previous one", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "c.xlsm", model: withMilestones, report, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "c.xlsm", model: withMilestones, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.shownMilestone).toBe("v2");
     expect(loaded.comparedMilestone).toBe("v1");
@@ -128,7 +128,7 @@ describe("withFichierCharge — palier d'ouverture", () => {
 
   it("leaves both null when the workbook declares no milestone", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "c.xlsm", model, report, dateModification: null, referentials: { actors: "", technologies: "" },
+      name: "c.xlsm", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.shownMilestone).toBeNull();
     expect(loaded.comparedMilestone).toBeNull();
@@ -170,13 +170,13 @@ describe("reading mode", () => {
   // Switching to the functional reading without fixing the selection shows a
   // single box and no message: the box gone from the selector is still targeted.
   it("clears the actor selection when switching to the functional reading if it targeted a technical actor", () => {
-    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null, referentials: { actors: "", technologies: "" } });
+    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
     const s = withActorSelection(loaded, "Bus");
     expect(withMode(s, "functional").actorSelection).toBeNull();
   });
 
   it("keeps the selection when it already targeted a business actor", () => {
-    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, dateModification: null, referentials: { actors: "", technologies: "" } });
+    const loaded = withLoadedFile(initialState(), { name: "c.xlsx", model: modelMixte, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
     const s = withActorSelection(loaded, "Tatooine");
     expect(withMode(s, "functional").actorSelection).toBe("Tatooine");
   });
@@ -195,7 +195,7 @@ describe("withDisplayedMilestone — the selection follows what the milestone sh
   };
   const loaded = () =>
     withActorSelection(
-      withLoadedFile(initialState(), { name: "c.xlsx", model: withRoadmap, report, dateModification: null, referentials: { actors: "", technologies: "" } }),
+      withLoadedFile(initialState(), { name: "c.xlsx", model: withRoadmap, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }),
       "Tatooine"
     );
 
@@ -217,7 +217,7 @@ describe("withDisplayedMilestone — the selection follows what the milestone sh
 // truncated of everything it cannot yet read, without saying so.
 describe("viewOnLoad — both directions of the schema mismatch", () => {
   const at = (schemaVersion: number) => ({
-    name: "c.xlsx", model: { ...model, schemaVersion }, report, dateModification: null, referentials: { actors: "", technologies: "" },
+    name: "c.xlsx", model: { ...model, schemaVersion }, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
   });
 
   it("blocks on a workbook that is behind", () => {
@@ -237,7 +237,7 @@ describe("viewOnLoad — both directions of the schema mismatch", () => {
 // architecture view is presented there. Yet the rail removed only "by
 // technology", and the view stayed on offer.
 describe("withMode — the views that are moot in the functional reading", () => {
-  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model, report, dateModification: null, referentials: { actors: "", technologies: "" } });
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
 
   // "Group to group" was REOPENED in the functional reading: "which division
   // feeds which division" is precisely a board's question, and it is the only
@@ -263,7 +263,7 @@ describe("withComparedFile — comparing two workbooks", () => {
     name,
     model: base.template(),
     report: { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 },
-    dateModification: null, referentials: { actors: "", technologies: "" },
+    modifiedAt: null, referentials: { actors: "", technologies: "" },
   });
 
   it("holds no compared workbook until one is chosen", () => {
@@ -296,7 +296,7 @@ describe("withReferentials", () => {
     name: "a.xlsx",
     model: base.template(),
     report: { families: [], infoBlocks: [], totalAnomalies: 0, totalActions: 0, totalWarnings: 0 },
-    dateModification: null,
+    modifiedAt: null,
     referentials: { actors: "", technologies: "" },
   });
 

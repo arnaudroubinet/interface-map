@@ -71,14 +71,14 @@ export function renderBanner(
   root.appendChild(title);
 
   const legacyState = el("span", { class: "banner-state" });
-  if (state.messageBandeau) {
+  if (state.bannerMessage) {
     legacyState.classList.add("banner-error");
-    legacyState.textContent = state.messageBandeau;
+    legacyState.textContent = state.bannerMessage;
   } else if (state.file) {
     // A freshly produced workbook has no save date yet: say so rather than show
     // "saved" followed by a blank.
-    const date = state.file.dateModification
-      ? `saved ${state.file.dateModification.toLocaleString("en-GB")}`
+    const date = state.file.modifiedAt
+      ? `saved ${state.file.modifiedAt.toLocaleString("en-GB")}`
       : "save date unknown";
     legacyState.appendChild(el("strong", {}, [state.file.name]));
     legacyState.appendChild(

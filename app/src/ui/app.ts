@@ -110,7 +110,7 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
     reading: state.mode === "functional" ? "functional" : "architecture",
     milestone: state.shownMilestone,
     source: file.name,
-    date: file.dateModification ? file.dateModification.toISOString().slice(0, 10) : "save date unknown",
+    date: file.modifiedAt ? file.modifiedAt.toISOString().slice(0, 10) : "save date unknown",
     components: view.nodes.filter((n) => n.kind !== "boundary").length,
     flows: view.edges.length,
     technologies: new Set(view.edges.map((e) => e.technology).filter(Boolean)).size,
@@ -195,7 +195,7 @@ export function mountApp(root: HTMLElement): void {
         name: file.name,
         model: built.model,
         report: runIntegrityChecks(built.model),
-        dateModification: parsed.savedAt,
+        modifiedAt: parsed.savedAt,
         referentials: readReferentials ? await readReferentialUrls(bytes) : NO_REFERENTIAL,
       },
     };
@@ -278,7 +278,7 @@ export function mountApp(root: HTMLElement): void {
     downloadTemplateXlsx("carto-interfaces-modele.xlsx");
   }
 
-  function migrationLegacyHandler(): void {
+  function legacyMigrationHandler(): void {
     openMigration();
   }
 
@@ -326,7 +326,7 @@ export function mountApp(root: HTMLElement): void {
       renderRailFoot(rail, {
         onDownloadTemplate: downloadTemplateHandler,
         onDownloadSample: downloadSampleHandler,
-        onMigrationLegacy: migrationLegacyHandler,
+        onMigrationLegacy: legacyMigrationHandler,
       });
       clear(renderArea);
       // The help page is read BEFORE one has a workbook: that is precisely when
@@ -480,7 +480,7 @@ export function mountApp(root: HTMLElement): void {
         mode: state.mode,
         grain: state.matrixFilters.grain,
         order: state.matrixFilters.order,
-        masquerExternes: state.matrixFilters.masquerExternes,
+        hideExternals: state.matrixFilters.hideExternals,
         hiddenActors: state.matrixFilters.hiddenActors,
       });
       currentMatrix = matrix;
@@ -535,7 +535,7 @@ export function mountApp(root: HTMLElement): void {
           ? buildByTechnologyView(model, reading.flows, state.technologySelection, {
               counters: options.counters,
               edgeLabelMode: options.edgeLabelMode,
-              masquerExternes: state.technologyFilters.masquerExternes,
+              hideExternals: state.technologyFilters.hideExternals,
               hiddenActors: state.technologyFilters.hiddenActors,
             })
           : { nodes: [], edges: [] };
@@ -635,7 +635,7 @@ export function mountApp(root: HTMLElement): void {
       onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
       onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
-      onMigrationLegacy: migrationLegacyHandler,
+      onMigrationLegacy: legacyMigrationHandler,
       // The one transition that does NOT re-render. The `change` event fires on
       // blur, so editing one field and clicking straight into the other has the
       // rail rebuilt between the mousedown and the mouseup: the click landed on

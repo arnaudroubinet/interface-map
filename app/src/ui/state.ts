@@ -56,7 +56,7 @@ export interface LoadedFile {
   name: string;
   model: ParsedModel;
   report: IntegrityReport;
-  dateModification: Date | null;
+  modifiedAt: Date | null;
   // The two referential URLs the file already carries. They live in the Power
   // Query definition, inside the workbook, so they travel with it: two
   // cartographies can point at two different referentials.
@@ -94,7 +94,7 @@ export interface ActorViewFilters {
 // The same for the by-technology view: hiding everything off-platform in one
 // go, and/or unticking actor by actor.
 export interface TechnologyViewFilters {
-  masquerExternes: boolean;
+  hideExternals: boolean;
   hiddenActors: string[];
 }
 
@@ -139,7 +139,7 @@ export interface AppState {
   chainSelection: string | null;
   // What the roadmap puts on its rows: the actors or the interfaces.
   roadmapSubject: RoadmapSubject;
-  messageBandeau: string | null;
+  bannerMessage: string | null;
 }
 
 export function initialState(): AppState {
@@ -152,13 +152,13 @@ export function initialState(): AppState {
     comparedFile: null,
     options: { counters: true, edgeLabelMode: "technology", pngScale: 2, weightByCriticality: false },
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
-    technologyFilters: { masquerExternes: false, hiddenActors: [] },
-    matrixFilters: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
+    technologyFilters: { hideExternals: false, hiddenActors: [] },
+    matrixFilters: { hideExternals: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
     actorSelection: null,
     technologySelection: null,
     chainSelection: null,
     roadmapSubject: "interfaces",
-    messageBandeau: null,
+    bannerMessage: null,
   };
 }
 
@@ -199,13 +199,13 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
     // file that has just changed under it.
     comparedFile: null,
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
-    technologyFilters: { masquerExternes: false, hiddenActors: [] },
-    matrixFilters: { masquerExternes: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
+    technologyFilters: { hideExternals: false, hiddenActors: [] },
+    matrixFilters: { hideExternals: false, hiddenActors: [], grain: "actor", order: "alphabetical" },
     actorSelection: null,
     technologySelection: null,
     chainSelection: null,
     roadmapSubject: "interfaces",
-    messageBandeau: null,
+    bannerMessage: null,
   };
 }
 
@@ -319,11 +319,11 @@ export function withTechnologySelection(state: AppState, technology: string | nu
 }
 
 export function withMasquerExternes(state: AppState, masquer: boolean): AppState {
-  return { ...state, technologyFilters: { ...state.technologyFilters, masquerExternes: masquer } };
+  return { ...state, technologyFilters: { ...state.technologyFilters, hideExternals: masquer } };
 }
 
 export function withMasquerExternesMatrice(state: AppState, masquer: boolean): AppState {
-  return { ...state, matrixFilters: { ...state.matrixFilters, masquerExternes: masquer } };
+  return { ...state, matrixFilters: { ...state.matrixFilters, hideExternals: masquer } };
 }
 
 // Changing scale changes the nature of the rows: keeping the old names would
@@ -360,5 +360,5 @@ export function withActorHiddenForTechnology(state: AppState, actor: string, hid
 }
 
 export function withMessageBandeau(state: AppState, message: string | null): AppState {
-  return { ...state, messageBandeau: message };
+  return { ...state, bannerMessage: message };
 }

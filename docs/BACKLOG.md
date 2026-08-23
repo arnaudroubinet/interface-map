@@ -41,12 +41,29 @@ et CSV plutôt que classeur comme format du référentiel.
 
 ---
 
-### Traduction anglaise : reste-t-il des identifiants français ailleurs ?
+### Traduction anglaise : identifiants français encore debout
 
-**Constaté le 23 août 2026.** En finissant la traduction de
-`app/src/export/xlsx-tables.ts`, aucun balayage du reste de `app/src` n'a été
-fait pour savoir si d'autres fichiers gardent des identifiants français hérités
-de la traduction. Cosmétique, ne bloque rien.
+**Constaté le 23 août 2026, balayage fait le même jour.** Dix identifiants
+(`dateModification`, `paquet`, `formule`, `masquerExternes`, `messageBandeau`,
+`formuleAppoint`, `migrationLegacyHandler`, `formulesDAppoint`,
+`migrationsEnCours`, `formules`) ont été renommés partout dans `app/src` et
+`app/test`, déclarations et usages compris. Les deux occurrences de `paquet`
+et `formule` qui restent sont dans des messages d'erreur (littéraux de
+chaîne) — pas des identifiants, donc hors périmètre.
+
+Ce balayage n'était que ces dix noms ; d'autres identifiants français
+existent encore, non touchés faute d'être dans la liste :
+`withMasquerExternes`, `withMasquerExternesMatrice`, `onMasquerExternes` et
+`withMessageBandeau` (`app/src/ui/state.ts`, `app/src/ui/rail.ts`,
+`app/src/ui/app.ts`) — bâtis sur les noms renommés mais pas eux-mêmes dans la
+table ; `basculer`, `basculeExternes` (`app/src/ui/state.ts:279`,
+`app/src/ui/rail.ts:144`) ; `ajouterVoisin` (`app/src/aggregation/views.ts:425`) ;
+`bandeauEchelle` (`app/src/ui/app.ts:573`) ; `REMPLACEMENT_ONGLET`
+(`app/src/parsing/build-model.ts:24`) ; `coupleDeLOnglet` et le `enCours`
+local (`app/src/integrity/checks.ts`) ; `cellule`, `plage`, `listesFx`,
+`FEUILLES_DE_SAISIE` (`app/src/export/template-export.ts`,
+`app/src/export/drawio-export.ts`). Liste non exhaustive — un vrai balayage
+complet de `app/src` reste à faire.
 
 ---
 

@@ -1014,7 +1014,7 @@ function interfacesAConfirmer(model: ParsedModel): InfoBlock {
 // Who has not moved yet. An interface to be decommissioned that still carries
 // consumers is work in progress, not a fault of the workbook: it is a decision
 // waiting for someone, hence an "action" block.
-function migrationsEnCours(model: ParsedModel): InfoBlock {
+function migrationsInProgress(model: ParsedModel): InfoBlock {
   const lookup = buildInterfaceLookup(model);
   const enCours: { iface: InterfaceCatalogue; text: string }[] = [];
 
@@ -1193,7 +1193,7 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     actorsWithNoFlow(atMilestone),
     missingCriticalities(atMilestone),
     interfacesAConfirmer(atMilestone),
-    migrationsEnCours(atMilestone),
+    migrationsInProgress(atMilestone),
     decommissionCandidates(atMilestone),
     repeatedExchanges(atMilestone),
     dependencyCycles(atMilestone),
