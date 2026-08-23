@@ -386,7 +386,7 @@ describe("the workbook template — declared dimension", () => {
     const m = lists.match(/<dimension ref="A1:([A-Z]+)(\d+)"\/>/);
     expect(m).not.toBeNull();
     const [, lastColumn, lastRow] = m!;
-    // The FluxDeLOnglet column, the rightmost of the helper area.
+    // The flow-name column, the rightmost of the helper area.
     const flows = XLSX.utils.encode_col(Object.keys(LISTES).length + 5);
     expect(XLSX.utils.decode_col(lastColumn)).toBeGreaterThanOrEqual(XLSX.utils.decode_col(flows));
     expect(Number(lastRow)).toBe(1000);

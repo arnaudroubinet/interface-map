@@ -256,12 +256,12 @@ function listsSheet(lastRow: number): XLSX.WorkSheet {
 
   const c = extraColumns();
   const titles: [string, string][] = [
-    [`${c.versionKey}1`, "CleFluxVersion"],
-    [`${c.version}1`, "VersionDuFlux"],
-    [`${c.flowTab}1`, "OngletDuFlux"],
-    [`${c.flows}1`, "FluxDeLOnglet"],
-    [`${c.provider}1`, "ActeurExposant"],
-    [`${c.publishedInterface}1`, "InterfaceExposee"],
+    [`${c.versionKey}1`, "Flow version key"],
+    [`${c.version}1`, "Flow version"],
+    [`${c.flowTab}1`, "Flow sheet"],
+    [`${c.flows}1`, "Flow name"],
+    [`${c.provider}1`, "Provider actor"],
+    [`${c.publishedInterface}1`, "Published interface"],
   ];
   for (const [address, title] of titles) ws[address] = { t: "s", v: title };
   for (const { cell, ref, formula } of helperFormulas(lastRow)) {
