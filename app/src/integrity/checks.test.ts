@@ -70,6 +70,19 @@ describe("7.1 structure", () => {
     const report = runIntegrityChecks(model({ fxSheetNames: ["FX_A_HTTP", "FX_Orphelin_HTTP"] }));
     expect(report.families.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes("FX_Orphelin_HTTP"))).toBe(true);
   });
+
+  // Colour matching was made case-insensitive: "HTTP" and "http" now get the
+  // same colour, and the "two technologies share a colour" check compares the
+  // raw declared colours, so it stays silent here. This duplicate check is
+  // what catches it.
+  it("flags flow types that collide only by case", () => {
+    const report = runIntegrityChecks(
+      model({ flowTypes: [base.flowType({ type: "HTTP" }), base.flowType({ type: "http" })] })
+    );
+    expect(
+      report.families.find((f) => f.id === "structure")!.anomalies.some((a) => a.message.includes('"http"'))
+    ).toBe(true);
+  });
 });
 
 describe("7.2 references", () => {

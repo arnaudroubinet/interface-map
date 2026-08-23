@@ -201,6 +201,15 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     );
   }
 
+  // Two flow types separated only by case blur together: colour matching was
+  // made case-insensitive, so "HTTP" and "http" now get the SAME colour, with
+  // nothing else in the workbook to say they are meant to be the same
+  // technology.
+  for (const type of duplicates(model.flowTypes.map((t) => normalizeText(t.type)))) {
+    const duplicate = model.flowTypes.filter((t) => normalizeText(t.type) === type)[1];
+    anomalies.push(anomaly(`${nameFlowType(duplicate)} is declared more than once in the repository.`, duplicate));
+  }
+
   // The sheet name is cut to what Excel accepts: two different (publisher, flow
   // type) pairs can therefore land on the same one. Merging them would mix two
   // contracts' consumptions without a word -- it is said, and it is an actor or
