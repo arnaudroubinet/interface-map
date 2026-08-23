@@ -41,31 +41,12 @@ et CSV plutôt que classeur comme format du référentiel.
 
 ---
 
-### Deux points laissés ouverts par le référentiel externe
+### Traduction anglaise : reste-t-il des identifiants français ailleurs ?
 
-**Relevés le 22 août 2026** pendant la revue de l'implémentation, jugés mineurs
-et différés plutôt que corrigés à chaud.
-
-- **La réparation reconduit les URL au mauvais étage.** `repairWorkbook`
-  (`app/src/export/repair.ts`) passe par `dataFromModel`, qui ne connaît pas les
-  URL — elles vivent dans le flux binaire, pas dans une feuille. Le correctif
-  vit donc chez son unique appelant, `app/src/ui/upgrade-dialog.ts`. Un second
-  appelant ajouté plus tard rouvrirait le défaut en silence, et rien ne garde
-  `repairWorkbook` lui-même. Le déplacer proprement suppose de rendre
-  `readReferentialUrls` synchrone ou de rendre `repairWorkbook` asynchrone, ce
-  qui contamine six appels de test pour aucun gain de comportement.
-- **Deux technologies qui ne diffèrent que par la casse partagent leur couleur.**
-  Depuis que `coloursOfModel` (`app/src/render/colors.ts`) apparie sur le nom
-  normalisé — nécessaire pour rejoindre le référentiel, qui est tenu par
-  d'autres gens —, un classeur déclarant `HTTP` en `#aaa` et `http` en `#bbb`
-  donne `#bbb` aux deux. Avant, chacune gardait la sienne. Aucun des deux
-  comportements n'est juste : déclarer deux fois la même technologie est une
-  faute de saisie. Ce qui manque, c'est qu'elle soit **signalée** — et elle ne
-  l'est nulle part : `checks.ts` contrôle les doublons d'acteurs, d'interfaces
-  et de paliers, pas de technologies, et le contrôle « deux technologies de la
-  même couleur » s'appuie sur les couleurs déclarées brutes, donc reste muet
-  précisément dans ce cas. Le correctif est un contrôle de doublon sur
-  `FlowTypes`, pas un retour en arrière sur la normalisation.
+**Constaté le 23 août 2026.** En finissant la traduction de
+`app/src/export/xlsx-tables.ts`, aucun balayage du reste de `app/src` n'a été
+fait pour savoir si d'autres fichiers gardent des identifiants français hérités
+de la traduction. Cosmétique, ne bloque rien.
 
 ---
 
