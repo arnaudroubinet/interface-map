@@ -9,7 +9,7 @@ import { breakTheLine } from "./geometry";
 // thrown away, and the last piece became the one BEFORE the label: the arrow
 // stopped at its label instead of the box it aimed at -- 51 px too early, on 2
 // of the 18 lines of the "platform detail" view.
-describe("interrompreLeTrace", () => {
+describe("breakTheLine", () => {
   const lastPoint = (pieces: { x: number; y: number }[][]) => {
     const last = pieces[pieces.length - 1];
     return last[last.length - 1];

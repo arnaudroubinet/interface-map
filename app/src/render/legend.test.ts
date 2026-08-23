@@ -5,7 +5,7 @@ import type { LayoutNode } from "../layout/graph-layout";
 const node = (o: Partial<LayoutNode> = {}): LayoutNode =>
   ({ id: "A", label: "A", kind: "actor", external: false, x: 0, y: 0, width: 240, height: 120, ...o }) as LayoutNode;
 
-describe("entreesDeLegende", () => {
+describe("legendEntries", () => {
   it("lists one entry per technology drawn, in alphabetical order", () => {
     const inputs = legendEntries(
       [{ technology: "SFTP" }, { technology: "HTTP" }, { technology: "HTTP" }],

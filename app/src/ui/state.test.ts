@@ -30,7 +30,7 @@ describe("initialState", () => {
   });
 });
 
-describe("withFichierCharge", () => {
+describe("withLoadedFile", () => {
   it("replaces the whole state at once and opens on the default view when the file is clean", () => {
     const loaded = withLoadedFile(initialState(), {
       name: "classeur.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
@@ -63,7 +63,7 @@ describe("withView / withOptions / withActorSelection", () => {
   });
 });
 
-describe("withGranulariteMatrice", () => {
+describe("withMatrixGrain", () => {
   it("starts on acteur-to-acteur", () => {
     expect(initialState().matrixFilters.grain).toBe("actor");
   });

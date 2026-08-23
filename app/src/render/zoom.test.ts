@@ -3,7 +3,7 @@ import { zoomBy, panBy, type Frame } from "./zoom";
 
 const initial: Frame = { x: 0, y: 0, width: 100, height: 100 };
 
-describe("zoomer", () => {
+describe("zoomBy", () => {
   it("shrinks the frame on zoom in, grows it on zoom out", () => {
     expect(zoomBy(initial, 2, { x: 50, y: 50 }, initial).width).toBeCloseTo(50);
     expect(zoomBy(initial, 0.5, { x: 50, y: 50 }, initial).width).toBeCloseTo(200);
@@ -51,7 +51,7 @@ describe("zoomer", () => {
   });
 });
 
-describe("deplacer", () => {
+describe("panBy", () => {
   it("translates the frame without resizing it", () => {
     expect(panBy(initial, 7, -3)).toEqual({ x: 7, y: -3, width: 100, height: 100 });
   });

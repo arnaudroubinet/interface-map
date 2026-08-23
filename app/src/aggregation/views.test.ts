@@ -200,7 +200,7 @@ describe("buildMatrixView", () => {
   });
 });
 
-describe("optionsFiltreMatrice", () => {
+describe("matrixFilterOptions", () => {
   it("lists actors when the grain is 'actor'", () => {
     expect(matrixFilterOptions(modelTwoPerGroup, flows(modelTwoPerGroup), { grain: "actor" })).toEqual(["A", "A2", "B"]);
   });

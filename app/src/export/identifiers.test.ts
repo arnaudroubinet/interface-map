@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { identifiers } from "./identifiers";
 
-describe("identifiants", () => {
+describe("identifiers", () => {
   it("turns a free-form name into a word a DSL accepts", () => {
     expect(identifiers(["Sonde réseau"]).get("Sonde réseau")).toBe("sonde_reseau");
   });

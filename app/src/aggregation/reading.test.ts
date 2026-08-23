@@ -328,7 +328,7 @@ describe("walk-up — a relayer aggregating several sources", () => {
 // --- §2.4: the layout is done over the UNION of all milestones, then each
 // milestone shows only its subset. Without that, three extra edges were enough
 // to move the same thirteen boxes by a median of 400 px.
-describe("lectureUnion", () => {
+describe("unionReading", () => {
   const estate = () =>
     base.template({
       milestones: [base.milestone({ name: "v1", rank: 1 }), base.milestone({ name: "v2", rank: 2 })],

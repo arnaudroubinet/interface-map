@@ -51,7 +51,7 @@ describe("coloursOfModel", () => {
   });
 });
 
-describe("colorForTechnologies", () => {
+describe("colourForTechnologies", () => {
   it("stays stable whatever order it receives", () => {
     const a = colourForTechnologies(["Kafka", "HTTP"]);
     const b = colourForTechnologies(["HTTP", "Kafka"]);

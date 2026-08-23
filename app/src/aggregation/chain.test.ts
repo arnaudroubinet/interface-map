@@ -32,7 +32,7 @@ function threeHopEstate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   });
 }
 
-describe("chainesDisponibles", () => {
+describe("availableChains", () => {
   it("returns one hop per segment, in walking order", () => {
     const [chain] = availableChains(threeHopEstate(), null);
     expect(chain.hops.map((m) => [m.provider, m.consumer])).toEqual([

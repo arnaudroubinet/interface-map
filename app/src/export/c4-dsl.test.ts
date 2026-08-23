@@ -43,7 +43,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
   };
 }
 
-describe("modeleEnStructurizr", () => {
+describe("modelToStructurizr", () => {
   it("wraps the model and its views in a workspace named after the workbook", () => {
     const dsl = modelToStructurizr(model(), null, "carto.xlsx");
     expect(dsl).toContain('workspace "carto"');

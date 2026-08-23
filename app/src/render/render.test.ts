@@ -406,7 +406,7 @@ describe("buildHelp — the two readings' vocabulary", () => {
 
 // --- §A4: the milestone axis was a drop-down, and time was never seen. The
 // roadmap shows it at a glance.
-describe("buildFriseSvg", () => {
+describe("buildRoadmapSvg", () => {
   const timeline = {
     milestones: [
       { name: "v1", rank: 1, label: "Initial", status: "Delivered", date: "2026-01-01", description: "", sheet: "Milestones", row: 2 },

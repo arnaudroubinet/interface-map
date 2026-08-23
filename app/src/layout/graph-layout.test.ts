@@ -149,7 +149,7 @@ describe("what fits in a box", () => {
 // restricted. That is what makes the stability exact rather than approximate --
 // measured, no interactive ELK setting achieves it: on a board with a boundary,
 // interactive mode does not even reproduce its own result.
-describe("restreindreLayout", () => {
+describe("restrictLayout", () => {
   const union = (): LayoutResult => ({
     width: 100,
     height: 100,

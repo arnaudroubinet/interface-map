@@ -20,7 +20,7 @@ const family = (title: string, messages: string[]) => ({
   anomalies: messages.map((message) => ({ message })),
 });
 
-describe("rapportEnMarkdown", () => {
+describe("reportToMarkdown", () => {
   it("names the workbook the report was taken on", () => {
     const md = reportToMarkdown(report(), "carto.xlsx", null);
     expect(md).toContain("# Integrity report — carto.xlsx");

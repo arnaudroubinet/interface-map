@@ -24,7 +24,7 @@ function estate(overrides: Partial<ParsedModel> = {}): ParsedModel {
   });
 }
 
-describe("construireFrise", () => {
+describe("buildRoadmap", () => {
   it("returns one bar per row, bounded by its milestones", () => {
     const f = buildRoadmap(estate(), "interfaces");
     expect(f.segments.find((s) => s.label === "Member lookup 1.0")).toMatchObject({ start: 1, end: 3 });

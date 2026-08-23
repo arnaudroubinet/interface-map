@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { scaleHint } from "./scale";
 
-describe("conseilDEchelle", () => {
+describe("scaleHint", () => {
   // On the sample workbook: |V| = 15, d = 27/225 = 0.12. No banner, and that is
   // the right behaviour -- a warning that shouts on a small estate mostly
   // teaches people to ignore it.

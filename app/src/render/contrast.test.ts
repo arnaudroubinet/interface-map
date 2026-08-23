@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { contrastRatio, darkenTo } from "./contrast";
 import { styleOfNode } from "./node-styles";
 
-describe("ratioDeContraste", () => {
+describe("contrastRatio", () => {
   // The WCAG formula's bounds: they frame everything else.
   it("gives 21 between black and white, and 1 between a colour and itself", () => {
     expect(contrastRatio("#000000", "#ffffff")).toBeCloseTo(21, 2);
@@ -22,7 +22,7 @@ describe("ratioDeContraste", () => {
   });
 });
 
-describe("assombrirJusquA", () => {
+describe("darkenTo", () => {
   it("darkens a colour that is too light until it meets the target on white", () => {
     expect(contrastRatio(darkenTo("#eda100", 4.5), "#ffffff")).toBeGreaterThanOrEqual(4.5);
   });

@@ -43,7 +43,7 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
   };
 }
 
-describe("modeleEnLikeC4", () => {
+describe("modelToLikeC4", () => {
   it("declares the kinds it uses before using them", () => {
     const dsl = modelToLikeC4(model(), null);
     expect(dsl).toMatch(/specification \{[\s\S]*element group[\s\S]*element system[\s\S]*\}/);

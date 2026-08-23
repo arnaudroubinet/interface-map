@@ -34,7 +34,7 @@ describe("rankOfMilestone", () => {
   });
 });
 
-describe("intervalleDeVie", () => {
+describe("lifespanOf", () => {
   it("opens the bound no milestone names", () => {
     expect(lifespanOf(ROADMAP, { introducedAt: "", retiredAt: "" })).toEqual(ALWAYS);
     expect(lifespanOf(ROADMAP, { introducedAt: "v1", retiredAt: "" }).end).toBe(Infinity);
@@ -48,7 +48,7 @@ describe("intervalleDeVie", () => {
   });
 });
 
-describe("estVivant", () => {
+describe("isLiveAt", () => {
   // The retirement is EXCLUSIVE: "retired at v3" means that at v3 the row is
   // already gone. The introduction, for its part, is inclusive.
   it("includes the arrival milestone and excludes the retirement one", () => {
@@ -60,7 +60,7 @@ describe("estVivant", () => {
   });
 });
 
-describe("palierCourant", () => {
+describe("currentMilestone", () => {
   it("returns the delivered one of highest rank", () => {
     expect(currentMilestone(ROADMAP)?.name).toBe("Étape 2");
   });

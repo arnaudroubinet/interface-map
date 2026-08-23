@@ -62,7 +62,7 @@ function modelWithTechnical(): ParsedModel {
   });
 }
 
-describe("toutesLesPlanches", () => {
+describe("allBoards", () => {
   it("opens with the three views that need no selection", () => {
     expect(titles(model()).slice(0, 3)).toEqual(["Group to group", "Platform detail", "Platform only"]);
   });

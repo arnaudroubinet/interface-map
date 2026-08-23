@@ -71,7 +71,7 @@ function workbookActorsWithoutInterfaces(): ArrayBuffer {
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
-describe("reparerClasseur", () => {
+describe("repairWorkbook", () => {
   it("converts a workbook from the original format and reports what it inferred", () => {
     const r = repairWorkbook(legacyWorkbook(), THE_DAY);
     expect(r.legacyReport).not.toBeNull();

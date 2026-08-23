@@ -11,7 +11,7 @@ const context = (
   neighbours: (id) => edges[id] ?? [],
 });
 
-describe("ordonner", () => {
+describe("orderBy", () => {
   const ctx = context({ A: "Core", B: "Partners", C: "Core" }, { A: 3, B: 1, C: 2 });
 
   it("sorts by name in alphabetical order", () => {

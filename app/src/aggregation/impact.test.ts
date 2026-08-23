@@ -11,7 +11,7 @@ const link = (provider: string, consumer: string): FlowInstance =>
 
 const estate = [link("A", "B"), link("B", "C"), link("D", "A")];
 
-describe("rayon", () => {
+describe("radius", () => {
   it("counts the starting point at zero hops", () => {
     expect(radius(estate, "A", "downstream").get("A")).toBe(0);
   });

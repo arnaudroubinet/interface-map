@@ -68,7 +68,7 @@ function absoluteRect(xml: string, id: string): Rect {
 const sameRect = (a: Rect, b: Rect) =>
   ["x", "y", "width", "height"].every((c) => Math.abs(a[c as keyof Rect] - b[c as keyof Rect]) < 1e-6);
 
-describe("construireDrawio", () => {
+describe("buildDrawio", () => {
   // A file the parser refuses, draw.io refuses too: this check comes before
   // anything the file might contain.
   it("produces XML a parser accepts", () => {
