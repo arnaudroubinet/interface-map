@@ -334,6 +334,20 @@ describe("7.7 near-duplicate groups", () => {
     );
     expect(report.infoBlocks.find((b) => b.id === "groups")).toBeUndefined();
   });
+
+  // The acronym guard added for the referential-suggestion use must not
+  // reach this caller: group names here are human labels, never acronyms,
+  // so a short all-caps group pair still pairs on edit distance.
+  it("still pairs a short all-caps group one edit apart", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "A", group: "HTTP" }), actor({ name: "B", group: "HTTPS" })],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groups")!.items).toEqual([
+      "HTTP (1) and HTTPS (1) — 1 letter apart",
+    ]);
+  });
 });
 
 describe("totalAnomalies", () => {
@@ -1530,5 +1544,49 @@ describe("out of referential", () => {
       })
     );
     expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  });
+
+  it("suggests a near-duplicate referential actor name", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "Chandrilla" })],
+        referentialActors: [{ name: "Chandrila", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).toContain('did you mean "Chandrila"?');
+  });
+
+  it("does not suggest an acronym technology one edit away from another acronym", () => {
+    const report = runIntegrityChecks(
+      model({
+        flowTypes: [base.flowType({ type: "SFTP" })],
+        referentialTechnologies: [{ type: "SMTP", direction: "", description: "", colour: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).not.toContain("did you mean");
+  });
+
+  it("does not suggest HTTPS for the unknown acronym HTTP", () => {
+    const report = runIntegrityChecks(
+      model({
+        flowTypes: [base.flowType({ type: "HTTP" })],
+        referentialTechnologies: [{ type: "HTTPS", direction: "", description: "", colour: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).not.toContain("did you mean");
+  });
+
+  it("leaves the plain wording when nothing in the referential is close", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "Alderaan" })],
+        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items).toEqual([`actor "Alderaan" (Actors, row 0)`]);
   });
 });

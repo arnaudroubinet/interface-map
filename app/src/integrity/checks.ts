@@ -1110,22 +1110,37 @@ function usedGroups(model: ParsedModel): InfoBlock {
 // lag. But it is a decision waiting for someone: either the referential
 // already carries the name under another spelling and the cartography should
 // adopt it, or the referential is missing it and someone has to add it.
+// A referential name close enough to the unknown one to likely be the same
+// thing, misspelled -- acronym-guarded, since protocol acronyms (FTP/SFTP,
+// HTTP/HTTPS...) sit within the usual edit-distance threshold despite naming
+// distinct things.
+function suggestion(name: string, referentialNames: string[]): string | undefined {
+  return referentialNames.find((candidate) => nearDuplicate(name, candidate, { skipFuzzyForAcronyms: true }));
+}
+
 function outOfReferential(model: ParsedModel): InfoBlock {
-  const knownActors = new Set(model.referentialActors.map((a) => normalizeText(a.name)));
-  const knownTechnologies = new Set(model.referentialTechnologies.map((t) => normalizeText(t.type)));
+  const actorNames = model.referentialActors.map((a) => a.name);
+  const technologyNames = model.referentialTechnologies.map((t) => t.type);
+  const knownActors = new Set(actorNames.map(normalizeText));
+  const knownTechnologies = new Set(technologyNames.map(normalizeText));
+
+  const withSuggestion = (text: string, name: string, referentialNames: string[]) => {
+    const match = suggestion(name, referentialNames);
+    return match ? `${text} — did you mean "${match}"?` : text;
+  };
 
   const items = [
     ...(knownActors.size === 0
       ? []
       : locatedItems(
           model.actors.filter((a) => a.name.trim() !== "" && !knownActors.has(normalizeText(a.name))),
-          (a) => `actor "${a.name}" ${address(a)}`
+          (a) => withSuggestion(`actor "${a.name}" ${address(a)}`, a.name, actorNames)
         )),
     ...(knownTechnologies.size === 0
       ? []
       : locatedItems(
           model.flowTypes.filter((t) => t.type.trim() !== "" && !knownTechnologies.has(normalizeText(t.type))),
-          (t) => `technology "${t.type}" ${address(t)}`
+          (t) => withSuggestion(`technology "${t.type}" ${address(t)}`, t.type, technologyNames)
         )),
   ];
 
@@ -1135,7 +1150,7 @@ function outOfReferential(model: ParsedModel): InfoBlock {
     description:
       "These names are used by this workbook but do not appear in the external referential. " +
       "Legitimate while it catches up, but a decision waiting: adopt a name it already carries, " +
-      "or add this one to it.",
+      "or add this one to it — a suggestion here likely means a misspelling, not a name to add.",
     items,
     level: "action",
   };

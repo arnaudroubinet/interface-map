@@ -15,12 +15,26 @@ export interface NearDuplicate {
   reason: string;
 }
 
+export interface NearDuplicateOptions {
+  // Skip the fuzzy (edit-distance) tier when either name is an acronym.
+  // Protocol acronyms (FTP/SFTP, SQL/SSL, HTTP/HTTPS...) sit well within the
+  // usual distance threshold despite naming distinct things, so edit
+  // distance is worthless on them -- only an exact match should count.
+  skipFuzzyForAcronyms?: boolean;
+}
+
+// No lowercase letter, and short: "ESB", "HTTP", not "Chandrila".
+function isAcronym(s: string): boolean {
+  const trimmed = s.trim();
+  return trimmed.length > 0 && trimmed.length <= 6 && !/[a-z]/.test(trimmed);
+}
+
 // Two names likely to be the same thing, spelled two ways. Tried in order,
 // first hit wins: an exact match (case, accents, punctuation) beats a typo,
 // because it needs no threshold to be certain. Meant to flag a name split by
 // a spelling variant -- later also to suggest "did you mean X?" against a
 // reference list.
-export function nearDuplicate(a: string, b: string): NearDuplicate | null {
+export function nearDuplicate(a: string, b: string, options: NearDuplicateOptions = {}): NearDuplicate | null {
   const na = normalizeText(a);
   const nb = normalizeText(b);
   if (na === nb) {
@@ -32,6 +46,8 @@ export function nearDuplicate(a: string, b: string): NearDuplicate | null {
   if (stripPunctuation(na) === stripPunctuation(nb)) {
     return { distance: null, reason: "same name once punctuation is ignored" };
   }
+
+  if (options.skipFuzzyForAcronyms && (isAcronym(a) || isAcronym(b))) return null;
 
   // Below this, one edit is a quarter of the string or more and means
   // nothing: "Core" and "Care" must not pair.

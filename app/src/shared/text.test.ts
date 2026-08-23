@@ -66,4 +66,32 @@ describe("nearDuplicate", () => {
   it("is symmetric and unrelated names do not pair", () => {
     expect(nearDuplicate("Core", "Sales network")).toBeNull();
   });
+
+  describe("skipFuzzyForAcronyms", () => {
+    it("does not pair acronyms one edit apart", () => {
+      expect(nearDuplicate("SFTP", "SMTP", { skipFuzzyForAcronyms: true })).toBeNull();
+      expect(nearDuplicate("HTTP", "HTTPS", { skipFuzzyForAcronyms: true })).toBeNull();
+      expect(nearDuplicate("FTP", "SFTP", { skipFuzzyForAcronyms: true })).toBeNull();
+      expect(nearDuplicate("SQL", "SSL", { skipFuzzyForAcronyms: true })).toBeNull();
+      expect(nearDuplicate("JMS", "JMX", { skipFuzzyForAcronyms: true })).toBeNull();
+    });
+
+    it("still pairs an acronym equal but for case", () => {
+      expect(nearDuplicate("esb", "ESB", { skipFuzzyForAcronyms: true })).toEqual({
+        distance: null,
+        reason: "same name but for case",
+      });
+    });
+
+    it("still pairs a fuzzy match between two non-acronym names", () => {
+      expect(nearDuplicate("Chandrilla", "Chandrila", { skipFuzzyForAcronyms: true })).toEqual({
+        distance: 1,
+        reason: "1 letter apart",
+      });
+    });
+
+    it("is off by default, unchanged for the groups use", () => {
+      expect(nearDuplicate("HTTP", "HTTPS")).toEqual({ distance: 1, reason: "1 letter apart" });
+    });
+  });
 });
