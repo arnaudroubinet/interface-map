@@ -15,55 +15,9 @@ cases cochées cesse d'être lue.
 
 ## Décidé, pas encore construit
 
-### Référentiel externe chargé par Power Query
-
-**Décidé le 18 août 2026. Spec écrite le 22 août 2026 :**
-`docs/superpowers/specs/2026-08-22-referentiel-externe-design.md`.
-
-Périmètre arrêté le 22 août : **acteurs et technologies, chacun son onglet.**
-
-La question qui bloquait — fabriquer le flux **DataMashup** (MS-QDEFF) hors
-d'Excel — est tranchée **par l'expérience, pas par le raisonnement** : un fichier
-fabriqué de zéro s'ouvre, liste ses deux requêtes et les évalue. Aucune
-dépendance n'est nécessaire ; `excel-datamashup` et les Data Mashup Cmdlets sont
-écartés. Les blocages réels n'étaient ni les Permission Bindings ni la
-cryptographie, mais trois conventions d'écriture : `customXml/item1.xml` en
-UTF-16 avec BOM, les XML internes sans l'espace de noms `DataMashup` par défaut,
-et un contenu de métadonnées qui doit être un zip **vide** plutôt qu'absent.
-Détail complet en §6 de la spec.
-
-Deux conclusions annoncées ce jour-là et retirées ensuite, à ne pas ressortir :
-« une dépendance coûte moins cher que l'écrire » (avancé sans mesure) et « le
-test répond non » (avancé sans avoir éliminé les autres causes).
-
-Ce qui reste ouvert, listé en §11 de la spec : zip interne stocké ou compressé,
-et CSV plutôt que classeur comme format du référentiel.
-
----
-
-### Traduction anglaise : identifiants français encore debout
-
-**Constaté le 23 août 2026, balayage fait le même jour.** Dix identifiants
-(`dateModification`, `paquet`, `formule`, `masquerExternes`, `messageBandeau`,
-`formuleAppoint`, `migrationLegacyHandler`, `formulesDAppoint`,
-`migrationsEnCours`, `formules`) ont été renommés partout dans `app/src` et
-`app/test`, déclarations et usages compris. Les deux occurrences de `paquet`
-et `formule` qui restent sont dans des messages d'erreur (littéraux de
-chaîne) — pas des identifiants, donc hors périmètre.
-
-Ce balayage n'était que ces dix noms ; d'autres identifiants français
-existent encore, non touchés faute d'être dans la liste :
-`withMasquerExternes`, `withMasquerExternesMatrice`, `onMasquerExternes` et
-`withMessageBandeau` (`app/src/ui/state.ts`, `app/src/ui/rail.ts`,
-`app/src/ui/app.ts`) — bâtis sur les noms renommés mais pas eux-mêmes dans la
-table ; `basculer`, `basculeExternes` (`app/src/ui/state.ts:279`,
-`app/src/ui/rail.ts:144`) ; `ajouterVoisin` (`app/src/aggregation/views.ts:425`) ;
-`bandeauEchelle` (`app/src/ui/app.ts:573`) ; `REMPLACEMENT_ONGLET`
-(`app/src/parsing/build-model.ts:24`) ; `coupleDeLOnglet` et le `enCours`
-local (`app/src/integrity/checks.ts`) ; `cellule`, `plage`, `listesFx`,
-`FEUILLES_DE_SAISIE` (`app/src/export/template-export.ts`,
-`app/src/export/drawio-export.ts`). Liste non exhaustive — un vrai balayage
-complet de `app/src` reste à faire.
+*Rien en attente.* Le référentiel externe Power Query, dernière entrée de cette
+section, a été livré le 23 août 2026 — spec, implémentation, vérification dans le
+vrai Excel et chargement de bout en bout depuis un référentiel servi en HTTP.
 
 ---
 

@@ -17,7 +17,7 @@ function minimalWorkbook(sheets: readonly string[]): ArrayBuffer {
   return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
 }
 
-function displayNamesDesTables(packageBytes: ArrayBuffer): string[] {
+function tableDisplayNames(packageBytes: ArrayBuffer): string[] {
   const cfb = XLSX.CFB.read(new Uint8Array(packageBytes), { type: "array" });
   const names: string[] = [];
   for (const path of cfb.FullPaths) {
@@ -45,15 +45,15 @@ describe("applyTheTables — table-name collision", () => {
 
   it("gives a distinct displayName to two sheets that sanitise identically", () => {
     const packageBytes = applyOoxmlExtras(minimalWorkbook(sheets), { tables });
-    const names = displayNamesDesTables(packageBytes);
+    const names = tableDisplayNames(packageBytes);
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(2);
   });
 
   it("names the tables stably from one generation to the next", () => {
     const raw = minimalWorkbook(sheets);
-    const premier = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));
-    const second = displayNamesDesTables(applyOoxmlExtras(raw, { tables }));
+    const premier = tableDisplayNames(applyOoxmlExtras(raw, { tables }));
+    const second = tableDisplayNames(applyOoxmlExtras(raw, { tables }));
     expect(second).toEqual(premier);
   });
 });
