@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { computeChanges, buildEcartsView } from "./changes";
+import { computeChanges, buildChangesView } from "./changes";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
 
@@ -85,7 +85,7 @@ describe("computeChanges", () => {
   });
 });
 
-describe("buildEcartsView", () => {
+describe("buildChangesView", () => {
   // The diagram's real contribution: a link that exists on both sides but whose
   // volume changed. The binary marking let it through in silence.
   it("labels a link whose volume dropped with the delta, not with its count", () => {
@@ -97,7 +97,7 @@ describe("buildEcartsView", () => {
         consumption({ consumerName: "C", retiredAt: "v2" }),
       ],
     });
-    const edge = buildEcartsView(at(m, 1), at(m, 2), "architecture").edges[0];
+    const edge = buildChangesView(at(m, 1), at(m, 2), "architecture").edges[0];
     expect(edge.label).toBe("−1");
     expect(edge.change).toBe("removed");
   });
@@ -108,7 +108,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({}), consumption({ consumerName: "C", introducedAt: "v2" })],
     });
-    const edge = buildEcartsView(at(m, 1), at(m, 2), "architecture").edges[0];
+    const edge = buildChangesView(at(m, 1), at(m, 2), "architecture").edges[0];
     expect(edge.label).toBe("+1");
     expect(edge.change).toBe("added");
   });
@@ -120,7 +120,7 @@ describe("buildEcartsView", () => {
       actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
     });
-    expect(buildEcartsView(at(m, 1), at(m, 2), "architecture").edges).toEqual([]);
+    expect(buildChangesView(at(m, 1), at(m, 2), "architecture").edges).toEqual([]);
   });
 
   // The base is "platform detail": one wants to know WHICH component gained or
@@ -131,7 +131,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({ retiredAt: "v2" })],
     });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     // A is in the Platform group: it is named, not folded into "G1".
     expect(view.nodes.map((n) => n.id)).toContain("A");
     expect(view.nodes.map((n) => n.id)).not.toContain("G1");
@@ -145,7 +145,7 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({ retiredAt: "v2" })],
     });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     const ids = new Set(view.nodes.map((n) => n.id));
     for (const n of view.nodes) {
       if (n.parent) expect(ids.has(n.parent)).toBe(true);
@@ -173,7 +173,7 @@ describe("buildEcartsView", () => {
       ],
       fxSheetNames: ["FX_A_HTTP", "FX_C_HTTP"],
     });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     // A is named (Platform), B folded onto G2; G3 did not move, so it drops out.
     expect(view.nodes.map((n) => n.id).sort()).toEqual(["A", "G2"]);
   });
@@ -184,18 +184,18 @@ describe("buildEcartsView", () => {
       groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
       consumptions: [consumption({}), consumption({ consumerName: "C", introducedAt: "v2" })],
     });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     expect(view.edges.some((e) => e.change === "added")).toBe(true);
   });
 
   it("marks an edge that only existed before as a removal", () => {
     const m = model({ consumptions: [consumption({ retiredAt: "v2" })] });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     expect(view.edges.every((e) => e.change === "removed")).toBe(true);
   });
 
   it("leaves an unchanged edge unmarked", () => {
-    const view = buildEcartsView(at(model(), 1), at(model(), 2), "architecture");
+    const view = buildChangesView(at(model(), 1), at(model(), 2), "architecture");
     expect(view.edges.every((e) => e.change === undefined)).toBe(true);
   });
 
@@ -203,7 +203,7 @@ describe("buildEcartsView", () => {
   // left to reach and the diagram would be inconsistent.
   it("keeps the nodes a removed edge needs", () => {
     const m = model({ consumptions: [consumption({ retiredAt: "v2" })] });
-    const view = buildEcartsView(at(m, 1), at(m, 2), "architecture");
+    const view = buildChangesView(at(m, 1), at(m, 2), "architecture");
     for (const e of view.edges) {
       expect(view.nodes.map((n) => n.id)).toContain(e.from);
       expect(view.nodes.map((n) => n.id)).toContain(e.to);
@@ -305,7 +305,7 @@ describe("computeChanges — two workbooks", () => {
   // The diagram must survive the same crossing: its nodes come from both sides,
   // and a box that exists in only one of the two workbooks is the whole point.
   it("draws the change between two workbooks", () => {
-    const view = buildEcartsView(whole(january()), whole(june()), "architecture");
+    const view = buildChangesView(whole(january()), whole(june()), "architecture");
     expect(view.edges.map((e) => [e.from, e.to, e.change])).toEqual(
       expect.arrayContaining([
         ["A", "B", "removed"],

@@ -317,14 +317,14 @@ describe("buildDrawio — each page describes itself", () => {
   // SVG.
   it("sets the legend below the nodes' bounding box", () => {
     const xml = buildDrawio([board()], () => "#111");
-    const y = Number(/id="p0_legende_0"[\s\S]*?y="(-?\d+)"/.exec(xml)![1]);
+    const y = Number(/id="p0_legend_0"[\s\S]*?y="(-?\d+)"/.exec(xml)![1]);
     expect(y).toBeGreaterThan(80);
   });
 
   // With no context, no invented title block: the board's title is enough.
   it("makes do with the board's title when no context is supplied", () => {
-    const sans = { ...board(), context: undefined };
-    const xml = buildDrawio([sans], () => "#111");
+    const withoutContext = { ...board(), context: undefined };
+    const xml = buildDrawio([withoutContext], () => "#111");
     expect(xml).toContain("Platform detail");
     expect(xml).not.toContain("milestone");
   });

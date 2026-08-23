@@ -1,5 +1,5 @@
 import type { AppState, LoadedFile } from "./state";
-import { VIEW_LABEL, withMessageBandeau } from "./state";
+import { VIEW_LABEL, withBannerMessage } from "./state";
 import type { BannerCallbacks } from "./banner";
 import type { MatrixResult } from "../aggregation/views";
 import { rankOfMilestone } from "../aggregation/milestones";
@@ -114,7 +114,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       if (!result.ok) {
         // The message comes from the export: it distinguishes two of them, and
         // copying it here had erased one.
-        ctx.setState(withMessageBandeau(ctx.legacyState(), result.error));
+        ctx.setState(withBannerMessage(ctx.legacyState(), result.error));
         return;
       }
       downloadPngBlob(result.blob, fileName("png"));

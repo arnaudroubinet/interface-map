@@ -9,7 +9,7 @@ import { describe, it, expect } from "vitest";
 import { VIEWS } from "../ui/rail";
 import { EXPORTS } from "../ui/banner";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "./icons";
-import { buildAide, documentedViews, exportsDocumentes } from "./help";
+import { buildHelp, documentedViews, documentedExports } from "./help";
 import { buildRoadmapSvg } from "./roadmap";
 import { buildMatrixTable } from "./matrix-table";
 import { buildIntegrityReport } from "./integrity-report";
@@ -163,22 +163,22 @@ describe("buildIntegrityReport — avertissements", () => {
     const byTitle = (start: string) =>
       [...el.querySelectorAll("details")].find((d) => d.querySelector("summary")!.textContent!.startsWith(start))!;
     const error = byTitle("Cohérence");
-    const avert = byTitle("Interfaces à confirmer");
+    const warning = byTitle("Interfaces à confirmer");
     const info = byTitle("Groupes utilisés");
 
     expect(error.classList.contains("section-alert")).toBe(true);
-    expect(avert.classList.contains("section-warning")).toBe(true);
+    expect(warning.classList.contains("section-warning")).toBe(true);
     expect(info.classList.contains("section-info")).toBe(true);
 
     // Each is visible by default: a warning does not hide.
-    expect([error.open, avert.open, info.open]).toEqual([true, true, true]);
+    expect([error.open, warning.open, info.open]).toEqual([true, true, true]);
 
     // The three icons differ by their shape, not only by their colour.
     const traces = (d: Element) => d.querySelectorAll("summary svg path").length;
     expect(traces(error)).toBe(3); // octogone + croix
-    expect(traces(avert)).toBe(3); // triangle + barre + point
+    expect(traces(warning)).toBe(3); // triangle + barre + point
     expect(traces(info)).toBe(2); // barre + point, dans un cercle
-    expect(avert.querySelector("summary svg path")!.getAttribute("d")).not.toBe(
+    expect(warning.querySelector("summary svg path")!.getAttribute("d")).not.toBe(
       error.querySelector("summary svg path")!.getAttribute("d")
     );
   });
@@ -253,7 +253,7 @@ describe("buildIntegrityReport — actions", () => {
 // --- The help page is compared with the rail: a view added without a line of
 // documentation would fail this test. Documentation that falls behind is worse
 // than no documentation, since it asserts.
-describe("buildAide", () => {
+describe("buildHelp", () => {
   it("documents every rail view, and nothing more", () => {
     expect(documentedViews().sort()).toEqual(VIEWS.map((v) => v.label).sort());
   });
@@ -262,24 +262,24 @@ describe("buildAide", () => {
   // line of explanation. It is the project's best seam, and it was only serving
   // half its purpose.
   it("documents every export offered, and nothing more", () => {
-    expect(exportsDocumentes().sort()).toEqual(EXPORTS.map((e) => e.label).sort());
+    expect(documentedExports().sort()).toEqual(EXPORTS.map((e) => e.label).sort());
   });
 
   it("explains both readings and the two columns that carry them", () => {
-    const text = buildAide().textContent ?? "";
+    const text = buildHelp().textContent ?? "";
     for (const expected of ["ARCHITECTURE", "BUSINESS", "Nature", "Republished as"]) {
       expect(text).toContain(expected);
     }
   });
 
   it("says the workbook is never modified nor sent anywhere", () => {
-    const text = buildAide().textContent ?? "";
+    const text = buildHelp().textContent ?? "";
     expect(text).toContain("never writes");
     expect(text).toContain("nothing leaves this browser");
   });
 
   it("warns of the confusion between Remove and retirement", () => {
-    expect(buildAide().textContent ?? "").toContain("deprecation warning");
+    expect(buildHelp().textContent ?? "").toContain("deprecation warning");
   });
 });
 
@@ -303,8 +303,8 @@ describe("buildMatrixTable — the cells' colour", () => {
   // it has left the text for the chip.
   it("still shows the technology's colour, on its chip", () => {
     const table = buildMatrixTable(matrix("HTTP"), () => "#2a78d6");
-    const pastille = table.querySelector(".matrix-dot") as HTMLElement;
-    expect(pastille.style.backgroundColor).not.toBe("");
+    const dot = table.querySelector(".matrix-dot") as HTMLElement;
+    expect(dot.style.backgroundColor).not.toBe("");
   });
 });
 
@@ -325,9 +325,9 @@ describe("buildMatrixTable — the colour no longer carries the text", () => {
 
   it("sets the colour on a chip, never on the label", () => {
     const table = buildMatrixTable(matrix("HTTP"), () => "#7a2e3b");
-    const pastille = table.querySelector(".matrix-dot") as HTMLElement;
+    const dot = table.querySelector(".matrix-dot") as HTMLElement;
     const label = table.querySelector(".matrix-tech") as HTMLElement;
-    expect(pastille.style.backgroundColor).not.toBe("");
+    expect(dot.style.backgroundColor).not.toBe("");
     expect(label.style.color).toBe("");
   });
 
@@ -389,7 +389,7 @@ describe("buildMatrixTable — the margins and the table's semantics", () => {
 // --- §2.15: both readings exist, are correct, and did not borrow the
 // vocabulary their readers already have.
 describe("buildHelp — the two readings' vocabulary", () => {
-  const text = () => buildAide().textContent ?? "";
+  const text = () => buildHelp().textContent ?? "";
 
   it("ties both readings to the ArchiMate viewpoints", () => {
     expect(text()).toContain("Application Cooperation");

@@ -21,7 +21,7 @@ const FORBIDDEN_CHARACTERS = /[:\\/?*[\]]/;
 // The same, one by one: the helper tables' Excel formula must reproduce this
 // sanitising identically, and a regular expression cannot be written there.
 export const FORBIDDEN_TAB_CHARACTERS = [":", "\\", "/", "?", "*", "[", "]"];
-export const REMPLACEMENT_ONGLET = "-";
+export const TAB_REPLACEMENT_CHARACTER = "-";
 export const MAX_TAB_LENGTH = 31;
 
 // The state belongs to the FLOW, not to the component: an actor no longer has
@@ -164,7 +164,7 @@ export const FX_SHEET_SEPARATOR = "_";
 // integrity check reports it rather than merging them.
 export function sanitiseTabName(name: string): string {
   const withoutForbidden = FORBIDDEN_TAB_CHARACTERS.reduce(
-    (current, interdit) => current.split(interdit).join(REMPLACEMENT_ONGLET),
+    (current, forbidden) => current.split(forbidden).join(TAB_REPLACEMENT_CHARACTER),
     name
   );
   return withoutForbidden.slice(0, MAX_TAB_LENGTH);

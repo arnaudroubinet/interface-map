@@ -55,13 +55,13 @@ describe("buildGraphSvg", () => {
     // The hues come from styleOfNode, the single source: copying them here would
     // fail this test at the first contrast adjustment, with nothing having stopped
     // working.
-    const bleu = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "platform", external: false }).fill);
-    const gris = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "actor", external: true }).fill);
-    expect(bleu).not.toBeUndefined();
-    expect(gris).not.toBeUndefined();
-    expect(bleu!.getAttribute("fill")).not.toBe(gris!.getAttribute("fill"));
+    const blue = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "platform", external: false }).fill);
+    const grey = boxes.find((r) => r.getAttribute("fill") === styleOfNode({ kind: "actor", external: true }).fill);
+    expect(blue).not.toBeUndefined();
+    expect(grey).not.toBeUndefined();
+    expect(blue!.getAttribute("fill")).not.toBe(grey!.getAttribute("fill"));
     // The external side is told apart by shape too, not only by colour.
-    expect(gris!.getAttribute("stroke-dasharray")).toBe("8 5");
+    expect(grey!.getAttribute("stroke-dasharray")).toBe("8 5");
   });
 
   it("renders a node's «type» and description under its name (style C4)", async () => {
@@ -272,8 +272,8 @@ describe("buildGraphSvg", () => {
 
     const svg = buildGraphSvg(layout, () => "#2a78d6");
 
-    const tronc = [...svg.querySelectorAll(".fx-edges g > path")].find((p) => p.hasAttribute("marker-end"))!;
-    expect(tronc).toBeTruthy();
+    const trunk = [...svg.querySelectorAll(".fx-edges g > path")].find((p) => p.hasAttribute("marker-end"))!;
+    expect(trunk).toBeTruthy();
 
     const marker = svg.querySelector("marker")!;
     // By default a marker is measured in multiples of stroke-width: this trunk's
@@ -344,11 +344,11 @@ describe("buildGraphSvg", () => {
     const headSize = Number(svg.querySelector("marker")!.getAttribute("markerWidth"));
     for (const p of svg.querySelectorAll(".fx-edges g > path[marker-end]")) {
       const coords = [...p.getAttribute("d")!.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)].map((m) => ({ x: Number(m[1]), y: Number(m[2]) }));
-      const bout = coords[coords.length - 1];
-      expect(bout.x - headSize).toBeGreaterThanOrEqual(vbX);
-      expect(bout.x + headSize).toBeLessThanOrEqual(vbX + vbL);
-      expect(bout.y - headSize).toBeGreaterThanOrEqual(vbY);
-      expect(bout.y + headSize).toBeLessThanOrEqual(vbY + vbH);
+      const end = coords[coords.length - 1];
+      expect(end.x - headSize).toBeGreaterThanOrEqual(vbX);
+      expect(end.x + headSize).toBeLessThanOrEqual(vbX + vbL);
+      expect(end.y - headSize).toBeGreaterThanOrEqual(vbY);
+      expect(end.y + headSize).toBeLessThanOrEqual(vbY + vbH);
     }
   });
 
@@ -424,12 +424,12 @@ describe("buildGraphSvg — orthogonal routing", () => {
     const svg = buildGraphSvg(layout, () => "#2a78d6");
     const d = svg.querySelector(".fx-edges g > path[marker-end]")!.getAttribute("d")!;
     const coords = [...d.matchAll(/(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/g)];
-    const bout = Number(coords[coords.length - 1][1]);
+    const end = Number(coords[coords.length - 1][1]);
     const headSize = Number(svg.querySelector("marker")!.getAttribute("markerWidth"));
 
     // The line stops before the point the engine supplied: the head occupies the
     // remaining distance, plus a little play before the box.
-    expect(bout).toBeLessThan(360 - headSize);
+    expect(end).toBeLessThan(360 - headSize);
   });
 
   it("sizes the viewBox from the actual path, arrowhead footprint included", () => {
@@ -504,11 +504,11 @@ describe("buildGraphSvg — edge labels", () => {
 
   it("paints labels after the boxes, so no box can cover a label", () => {
     const svg = buildGraphSvg(layoutWithLabel("Colis à valider", "Kafka"), () => "#2a78d6");
-    const couches = [...svg.querySelectorAll("svg > g")].map((g) => g.getAttribute("class"));
+    const layers = [...svg.querySelectorAll("svg > g")].map((g) => g.getAttribute("class"));
 
     // Drawing order: boundaries, edges, boxes, labels.
-    expect(couches.indexOf("fx-labels")).toBeGreaterThan(couches.indexOf("fx-nodes"));
-    expect(couches.indexOf("fx-nodes")).toBeGreaterThan(couches.indexOf("fx-edges"));
+    expect(layers.indexOf("fx-labels")).toBeGreaterThan(layers.indexOf("fx-nodes"));
+    expect(layers.indexOf("fx-nodes")).toBeGreaterThan(layers.indexOf("fx-edges"));
   });
 
 });
@@ -623,9 +623,9 @@ describe("buildGraphSvg — the label sits inside the line", () => {
     expect(lines.filter((p) => p.hasAttribute("marker-end"))).toHaveLength(1);
     expect(lines[1].hasAttribute("marker-end")).toBe(true);
 
-    const coord = (p: Element, dernier: boolean) => {
+    const coord = (p: Element, last: boolean) => {
       const all = [...p.getAttribute("d")!.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)];
-      return Number((dernier ? all[all.length - 1] : all[0])[1]);
+      return Number((last ? all[all.length - 1] : all[0])[1]);
     };
     // The white surrounds the text, centred at x = 300.
     expect(coord(lines[0], true)).toBeLessThan(300);
@@ -837,10 +837,10 @@ describe("buildGraphSvg — the title block", () => {
   // the first row of boxes.
   it("reserves its band within the viewBox rather than laying itself over the top", async () => {
     const layout = await estate();
-    const sans = buildGraphSvg(layout, () => "#111");
-    const avec = buildGraphSvg(layout, () => "#111", context);
+    const withoutContext = buildGraphSvg(layout, () => "#111");
+    const withContext = buildGraphSvg(layout, () => "#111", context);
     const top = (s: SVGSVGElement) => Number(s.getAttribute("viewBox")!.split(" ")[1]);
-    expect(top(avec)).toBeLessThan(top(sans));
+    expect(top(withContext)).toBeLessThan(top(withoutContext));
   });
 });
 
@@ -1113,25 +1113,25 @@ describe("buildGraphSvg — the weight follows the criticality", () => {
       [{ id: "A", label: "A", kind: "actor" }, { id: "B", label: "B", kind: "actor" }],
       [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, criticality }]
     );
-  const graisse = (svg: SVGSVGElement) => Number(svg.querySelector(".fx-edges path")!.getAttribute("stroke-width"));
+  const weight = (svg: SVGSVGElement) => Number(svg.querySelector(".fx-edges path")!.getAttribute("stroke-width"));
 
   it("thickens the critical line when the setting is on", async () => {
-    expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true }))).toBeGreaterThan(2);
+    expect(weight(buildGraphSvg(await estate("1 - Critical"), () => "#111", null, { weightByCriticality: true }))).toBeGreaterThan(2);
   });
 
   it("thins the standard line", async () => {
-    expect(graisse(buildGraphSvg(await estate("3 - Standard"), () => "#111", null, { weightByCriticality: true }))).toBeLessThan(2);
+    expect(weight(buildGraphSvg(await estate("3 - Standard"), () => "#111", null, { weightByCriticality: true }))).toBeLessThan(2);
   });
 
   // Off, nothing moves: elsewhere the weight serves to say NOTHING, and the two
   // uses do not mix.
   it("keeps a uniform weight when the setting is off", async () => {
-    expect(graisse(buildGraphSvg(await estate("1 - Critical"), () => "#111"))).toBe(2);
+    expect(weight(buildGraphSvg(await estate("1 - Critical"), () => "#111"))).toBe(2);
   });
 
   // A criticality that is not filled in must not produce an invisible line.
   it("keeps the default weight on an absent criticality", async () => {
-    expect(graisse(buildGraphSvg(await estate(undefined), () => "#111", null, { weightByCriticality: true }))).toBe(2);
+    expect(weight(buildGraphSvg(await estate(undefined), () => "#111", null, { weightByCriticality: true }))).toBe(2);
   });
 
   it("announces the weights used in the legend", async () => {

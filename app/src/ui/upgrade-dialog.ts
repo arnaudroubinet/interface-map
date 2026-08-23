@@ -37,11 +37,11 @@ export function openMigration(): void {
   const previous = document.querySelector(".migration-overlay");
   if (previous) previous.remove();
 
-  const voile = el("div", { class: "migration-overlay" });
+  const overlay = el("div", { class: "migration-overlay" });
   const box = el("div", { class: "migration-box" });
 
-  const fermer = el("button", { class: "close-button", title: "Close" }, ["×"]);
-  fermer.addEventListener("click", () => voile.remove());
+  const closeButton = el("button", { class: "close-button", title: "Close" }, ["×"]);
+  closeButton.addEventListener("click", () => overlay.remove());
 
   const zone = el("div", { class: "drop-target migration-target" });
   const message = el("p", { class: "drop-target-text" });
@@ -57,7 +57,7 @@ export function openMigration(): void {
     zone.appendChild(message);
   };
 
-  const convertir = (file: File) => {
+  const convert = (file: File) => {
     message.className = "drop-target-text";
     message.textContent = "Converting…";
     file
@@ -78,7 +78,7 @@ export function openMigration(): void {
         // figure of speech. These are the same checks as the tool's, on the same
         // file.
         const reread = buildModel(parseWorkbook(workbook));
-        const bilan = reread.ok ? runIntegrityChecks(reread.model) : null;
+        const summary = reread.ok ? runIntegrityChecks(reread.model) : null;
 
         clear(zone);
         zone.appendChild(el("p", { class: "drop-target-title" }, ["Workbook repaired"]));
@@ -89,12 +89,12 @@ export function openMigration(): void {
               `${repair.data.fx.length} flow sheets.`,
           ])
         );
-        if (bilan) {
+        if (summary) {
           zone.appendChild(
             el("p", { class: "drop-target-text" }, [
-              `The workbook produced carries ${bilan.totalAnomalies} anomal${bilan.totalAnomalies > 1 ? "ies" : "y"}, ` +
-                `${bilan.totalActions} pending decision${bilan.totalActions > 1 ? "s" : ""} and ` +
-                `${bilan.totalWarnings} warning${bilan.totalWarnings > 1 ? "s" : ""}. ` +
+              `The workbook produced carries ${summary.totalAnomalies} anomal${summary.totalAnomalies > 1 ? "ies" : "y"}, ` +
+                `${summary.totalActions} pending decision${summary.totalActions > 1 ? "s" : ""} and ` +
+                `${summary.totalWarnings} warning${summary.totalWarnings > 1 ? "s" : ""}. ` +
                 "Load it in the tool for the detail: whatever the original format does not hold " +
                 "— perimeters, actor types, usages, criticalities — was left empty.",
             ])
@@ -106,9 +106,9 @@ export function openMigration(): void {
           for (const p of points) list.appendChild(el("li", {}, [p]));
           zone.appendChild(list);
         }
-        const encore = el("button", { class: "export-button" }, ["Convert another file"]);
-        encore.addEventListener("click", reset);
-        zone.appendChild(encore);
+        const convertAnotherButton = el("button", { class: "export-button" }, ["Convert another file"]);
+        convertAnotherButton.addEventListener("click", reset);
+        zone.appendChild(convertAnotherButton);
       })
       .catch((err) => {
         // The precise cause (truncated bytes, corrupt zip, missing Flux sheet...)
@@ -122,7 +122,7 @@ export function openMigration(): void {
   };
 
   reset();
-  wireDropZone(zone, convertir);
+  wireDropZone(zone, convert);
 
   // Drag and drop is not enough: from a folder or an email, one wants to be able
   // to pick the file.
@@ -130,23 +130,23 @@ export function openMigration(): void {
   choose.className = "file-field";
   choose.addEventListener("change", () => {
     const file = choose.files?.[0];
-    if (file) convertir(file);
+    if (file) convert(file);
   });
 
-  box.appendChild(fermer);
+  box.appendChild(closeButton);
   box.appendChild(el("h2", { class: "migration-title" }, ["Repair or upgrade a workbook"]));
   box.appendChild(zone);
   box.appendChild(choose);
-  voile.appendChild(box);
+  overlay.appendChild(box);
 
-  voile.addEventListener("click", (e) => {
-    if (e.target === voile) voile.remove();
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
   });
   document.addEventListener("keydown", function esc(e) {
     if (e.key !== "Escape") return;
-    voile.remove();
+    overlay.remove();
     document.removeEventListener("keydown", esc);
   });
 
-  document.body.appendChild(voile);
+  document.body.appendChild(overlay);
 }

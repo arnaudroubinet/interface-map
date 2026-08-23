@@ -98,12 +98,12 @@ describe("Excel export of the matrix — functional mode (empty technology)", ()
 // otherwise the workbook taken away is not the table one had in front of one.
 //
 describe("buildMatrixWorkbook — the order received is the order written", () => {
-  const cellule = { technology: "HTTP", count: 1, attenuated: false, names: [] };
+  const cell = { technology: "HTTP", count: 1, attenuated: false, names: [] };
   const nonAlphabetical = base.matrix({
     columns: ["Zeffo", "Bracca"],
     rows: [
-      { actor: "Zeffo", cells: new Map([["Bracca", [cellule]]]) },
-      { actor: "Bracca", cells: new Map([["Zeffo", [cellule]]]) },
+      { actor: "Zeffo", cells: new Map([["Bracca", [cell]]]) },
+      { actor: "Bracca", cells: new Map([["Zeffo", [cell]]]) },
     ],
   });
 

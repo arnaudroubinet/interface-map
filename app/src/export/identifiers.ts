@@ -7,7 +7,7 @@
 // same word would leave a single element in the produced file, and half the
 // flows would point elsewhere with nothing to say so.
 export function identifiers(names: string[]): Map<string, string> {
-  const pris = new Set<string>();
+  const taken = new Set<string>();
   const table = new Map<string, string>();
 
   for (const name of names) {
@@ -20,9 +20,9 @@ export function identifiers(names: string[]): Map<string, string> {
     const word = /^[a-z]/.test(base) ? base : `e${base}`;
 
     let candidate = word;
-    let suite = 2;
-    while (pris.has(candidate)) candidate = `${word}_${suite++}`;
-    pris.add(candidate);
+    let suffix = 2;
+    while (taken.has(candidate)) candidate = `${word}_${suffix++}`;
+    taken.add(candidate);
     table.set(name, candidate);
   }
 

@@ -84,7 +84,7 @@ export function computeChanges(before: Snapshot, after: Snapshot, mode: Mode): C
 // component gained or lost a flow, not merely which group, while keeping the
 // outside folded. One more selector on a comparison view would make it heavier
 // to read than it is worth.
-export function buildEcartsView(a: Snapshot, b: Snapshot, mode: Mode): ViewResult {
+export function buildChangesView(a: Snapshot, b: Snapshot, mode: Mode): ViewResult {
   const options = { counters: true };
   // Each side is read through ITS OWN model: on two workbooks the perimeter,
   // the groups and the actor types are the compared file's, not the current
@@ -136,8 +136,8 @@ export function buildEcartsView(a: Snapshot, b: Snapshot, mode: Mode): ViewResul
   // longer exists. It is restored when it still holds enough to frame, and the
   // parent link is cut otherwise -- the same rule as elsewhere: under two
   // components, a frame adds nothing.
-  const dedans = kept.filter((n) => n.parent !== undefined);
-  if (dedans.length < 2) {
+  const inside = kept.filter((n) => n.parent !== undefined);
+  if (inside.length < 2) {
     return { nodes: kept.map((n) => ({ ...n, parent: undefined })), edges };
   }
   const boundary = known.find((n) => n.kind === "boundary");

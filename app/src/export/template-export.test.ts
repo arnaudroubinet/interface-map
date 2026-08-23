@@ -7,7 +7,7 @@ import {
   listsOfTemplate,
   validationsOfTemplate,
   referentialListNames,
-  INVITES,
+  PROMPTS,
   columnOf,
   EXTRA_COLUMN,
   TAB_CELL,
@@ -512,8 +512,8 @@ describe("the FX_ sheets' dependent lists", () => {
 
   it("gives every FX_ sheet a cell naming its own sheet", () => {
     const wb = XLSX.read(new Uint8Array(writeTemplate(SAMPLE_DATA)), { type: "array" });
-    const cellule = wb.Sheets["FX_Takodana_HTTP"][TAB_CELL];
-    expect(cellule?.f).toContain('CELL("filename"');
+    const cell = wb.Sheets["FX_Takodana_HTTP"][TAB_CELL];
+    expect(cell?.f).toContain('CELL("filename"');
   });
 
   it("hides the column carrying that cell, outside the entry table", () => {
@@ -610,9 +610,9 @@ describe("the workbook template — milestones", () => {
   });
 
   it("feeds that list from the Milestones sheet itself", () => {
-    const plage = listsOfTemplate().find((l) => l.name === "L_Palier")!;
-    expect(plage.sheet).toBe("Milestones");
-    expect(plage.heading).toBe("Milestone");
+    const range = listsOfTemplate().find((l) => l.name === "L_Palier")!;
+    expect(range.sheet).toBe("Milestones");
+    expect(range.heading).toBe("Milestone");
   });
 
   it("rereads with no missing column, milestones included", () => {
@@ -964,7 +964,7 @@ describe("the workbook template — the data-entry aids", () => {
       ...ACTOR_COLUMNS, ...GROUP_COLUMNS, ...MILESTONE_COLUMNS,
       ...ACTOR_TYPE_COLUMNS, ...FLOW_TYPE_COLUMNS, ...INTERFACE_COLUMNS, ...FX_COLUMNS,
     ];
-    for (const key of Object.keys(INVITES)) {
+    for (const key of Object.keys(PROMPTS)) {
       const heading = key.includes(".") ? key.split(".")[1] : key;
       expect(all, `prompt orpheline : ${key}`).toContain(heading);
     }

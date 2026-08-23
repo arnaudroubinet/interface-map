@@ -77,11 +77,11 @@ describe("withGranulariteMatrice", () => {
 });
 
 describe("withLoadedFile — a workbook of an earlier version", () => {
-  const ancien = { ...model, schemaVersion: 0 };
+  const old = { ...model, schemaVersion: 0 };
 
   it("opens on the upgrade screen rather than on a view", () => {
     const loaded = withLoadedFile(initialState(), {
-      name: "vieux.xlsx", model: ancien, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
+      name: "vieux.xlsx", model: old, report, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("upgrade");
   });
@@ -95,7 +95,7 @@ describe("withLoadedFile — a workbook of an earlier version", () => {
       infoBlocks: [], totalAnomalies: 1, totalActions: 0, totalWarnings: 0,
     };
     const loaded = withLoadedFile(initialState(), {
-      name: "vieux.xlsx", model: ancien, report: atFault, modifiedAt: null, referentials: { actors: "", technologies: "" },
+      name: "vieux.xlsx", model: old, report: atFault, modifiedAt: null, referentials: { actors: "", technologies: "" },
     });
     expect(loaded.view).toBe("upgrade");
   });

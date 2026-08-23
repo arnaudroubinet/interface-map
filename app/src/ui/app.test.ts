@@ -323,7 +323,7 @@ describe("Changes view — comparing two workbooks", () => {
 
     drop(base([["V1", "1", "", "Delivered", "", ""], ["V2", "2", "", "Delivered", "", ""]]), "june.xlsx");
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
 
     buttonByLabel(root, "Changes").click();
@@ -338,7 +338,7 @@ describe("Changes view — comparing two workbooks", () => {
     field.dispatchEvent(new Event("change", { bubbles: true }));
 
     await vi.waitFor(() => {
-      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
+      if (!root.querySelector("svg title")) throw new Error("schéma pas encore dessiné");
     });
 
     const title = root.querySelector("svg title")?.textContent ?? "";
@@ -366,7 +366,7 @@ describe("Changes view — comparing two workbooks", () => {
 
     drop({ ...base([["V1", "1", "", "Delivered", "", ""]]), referentials }, "june.xlsx");
     await vi.waitFor(() => {
-      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+      if (!root.querySelector(".rail-view-item")) throw new Error("classeur pas encore chargé");
     });
     expect(readReferentialUrls).toHaveBeenCalledTimes(1);
 
@@ -384,7 +384,7 @@ describe("Changes view — comparing two workbooks", () => {
     field.dispatchEvent(new Event("change", { bubbles: true }));
 
     await vi.waitFor(() => {
-      if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
+      if (!root.querySelector("svg title")) throw new Error("schéma pas encore dessiné");
     });
 
     // Still one call: the main workbook's, only. The compared file's URLs --

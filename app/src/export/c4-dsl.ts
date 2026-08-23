@@ -41,7 +41,7 @@ function flowDirection(f: FlowInstance): { de: string; vers: string } {
   return { de: f.provider, vers: f.consumer };
 }
 
-const ETIQUETTE_TIRE = "Pulled";
+const PULLED_TAG = "Pulled";
 
 // One shape per actor type, for the commonest words only: the workbook names
 // its types freely, and an unknown type stays a box rather than getting a shape
@@ -150,7 +150,7 @@ export function modelToStructurizr(
     const tech = text(f.flowType);
     const body = [
       `        ${source} -> ${target} "${text(interfaceLabel(f.interfaceName, f.version))}" "${tech}" {`,
-      `            tags "${[tech, ...(isPulled(f) ? [ETIQUETTE_TIRE] : [])].join('" "')}"`,
+      `            tags "${[tech, ...(isPulled(f) ? [PULLED_TAG] : [])].join('" "')}"`,
     ];
     // The contract is an address: giving it to the tool means one click from the
     // diagram rather than a search through the workbook.
@@ -209,7 +209,7 @@ export function modelToStructurizr(
   // since day one. Structurizr cannot reverse an arrowhead -- it can change the
   // stroke, which at least tells the two cases apart.
   if (flows.some(isPulled)) {
-    rows.push(`            relationship "${ETIQUETTE_TIRE}" {`, "                style dashed", "            }");
+    rows.push(`            relationship "${PULLED_TAG}" {`, "                style dashed", "            }");
   }
   rows.push("        }", "    }", "}", "");
 

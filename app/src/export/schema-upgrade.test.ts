@@ -423,7 +423,7 @@ describe("upgrade — a workbook newer than the tool", () => {
 // groups lost, and as many actors referring to a group that no longer exists.
 //
 describe("upgrade — a workbook with no groups sheet", () => {
-  const sansOnglet = () => {
+  const withoutGroupsSheet = () => {
     const base = originalModel();
     return {
       ...base,
@@ -434,14 +434,14 @@ describe("upgrade — a workbook with no groups sheet", () => {
   };
 
   it("rebuilds the groups the actors carry", () => {
-    const data = upgrade(sansOnglet());
+    const data = upgrade(withoutGroupsSheet());
     expect(data.groups.map((g) => g[0]).sort()).toEqual(["Partenaires", "Socle"]);
   });
 
   // The perimeter is not guessed: it stays empty, and completeness asks for it.
   // Inventing "Platform" would give a workbook that looks complete and is wrong.
   it("leaves the perimeter empty rather than inventing it", () => {
-    expect(upgrade(sansOnglet()).groups.every((g) => g[1] === "")).toBe(true);
+    expect(upgrade(withoutGroupsSheet()).groups.every((g) => g[1] === "")).toBe(true);
   });
 
   it("touches nothing when the sheet exists", () => {

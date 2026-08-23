@@ -49,7 +49,7 @@ function day(d: Date): string {
 // in the file.
 export const MILESTONE_NEXT = "Upcoming";
 
-const est = (value: string, expected: string) => normalizeText(value) === normalizeText(expected);
+const matches = (value: string, expected: string) => normalizeText(value) === normalizeText(expected);
 
 // First movement: the milestone axis replaces State and Status. The conversion
 // does not merely add empty columns, it translates what the workbook already
@@ -89,12 +89,12 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
   const interfaces = model.interfaces.map((i) => {
     // Retired: already gone before the switch, hence alive "before" and retired
     // at the origin. To be decommissioned: announced, hence leaving at the next.
-    const alreadyGone = est(i.legacyState, "Retiré");
+    const alreadyGone = matches(i.legacyState, "Retiré");
     return {
       ...i,
       ...bounds(
         i,
-        alreadyGone ? MILESTONE_ORIGIN : est(i.legacyState, "À décommissionner") ? MILESTONE_NEXT : "",
+        alreadyGone ? MILESTONE_ORIGIN : matches(i.legacyState, "À décommissionner") ? MILESTONE_NEXT : "",
         alreadyGone ? MILESTONE_BEFORE : MILESTONE_ORIGIN
       ),
     };
@@ -104,20 +104,20 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
   // without that consumption, never when it leaves. Only the status carries any
   // time.
   const consumptions = model.consumptions.map((c) => {
-    const alreadyGone = est(c.legacyStatus, "Décommissionné");
+    const alreadyGone = matches(c.legacyStatus, "Décommissionné");
     return {
       ...c,
       ...bounds(
         c,
         alreadyGone ? MILESTONE_ORIGIN : "",
-        alreadyGone ? MILESTONE_BEFORE : est(c.legacyStatus, "En projet") ? MILESTONE_NEXT : MILESTONE_ORIGIN
+        alreadyGone ? MILESTONE_BEFORE : matches(c.legacyStatus, "En projet") ? MILESTONE_NEXT : MILESTONE_ORIGIN
       ),
     };
   });
 
   const actors = model.actors.map((a) => ({ ...a, ...bounds(a, "") }));
 
-  const utilise = (name: string) =>
+  const isUsed = (name: string) =>
     [...interfaces, ...consumptions, ...actors].some(
       (l) => l.introducedAt === name || l.retiredAt === name
     );
@@ -131,7 +131,7 @@ function seedMilestones(model: ParsedModel, context: UpgradeContext): ParsedMode
     milestones:
       model.milestones.length > 0
         ? model.milestones
-        : [...(utilise(MILESTONE_BEFORE) ? [before] : []), origin, ...(utilise(MILESTONE_NEXT) ? [next] : [])].map(
+        : [...(isUsed(MILESTONE_BEFORE) ? [before] : []), origin, ...(isUsed(MILESTONE_NEXT) ? [next] : [])].map(
             // These milestones did not exist in the original workbook: their location
             // is the one they will have on writing, header included.
             (p, i) => ({ ...p, rank: i + 1, sheet: "Milestones", row: i + 2 })
@@ -257,7 +257,7 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
 // before.
 function moveRelays(model: ParsedModel): ParsedModel {
   const republications = new Map<Consumption, string>();
-  const perdus = new Map<InterfaceCatalogue, string[]>();
+  const lost = new Map<InterfaceCatalogue, string[]>();
   for (const iface of model.interfaces) {
     for (const target of iface.legacyRelays.split(";").map((c) => c.trim()).filter(Boolean)) {
       const input = model.consumptions.find(
@@ -267,14 +267,14 @@ function moveRelays(model: ParsedModel): ParsedModel {
           !republications.has(c)
       );
       if (input) republications.set(input, interfaceLabel(iface.flowName, iface.version));
-      else perdus.set(iface, [...(perdus.get(iface) ?? []), target]);
+      else lost.set(iface, [...(lost.get(iface) ?? []), target]);
     }
   }
-  if (republications.size === 0 && perdus.size === 0) return model;
+  if (republications.size === 0 && lost.size === 0) return model;
   return {
     ...model,
     interfaces: model.interfaces.map((i) => {
-      const names = perdus.get(i);
+      const names = lost.get(i);
       if (!names) return i;
       const note = `Schema v3 relayed: ${names.join(", ")} — no consumption of "${i.providerName}" matched, set "Republished as" by hand.`;
       return { ...i, comments: [i.comments.trim(), note].filter(Boolean).join(" ") };

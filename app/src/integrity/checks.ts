@@ -35,7 +35,7 @@ import {
   VOCABULARY_NATURE,
   VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
-import { chainesCoupees } from "../aggregation/reading";
+import { brokenChains } from "../aggregation/reading";
 import { normalizeText, nearDuplicate } from "../shared/text";
 
 export interface Anomaly {
@@ -43,7 +43,7 @@ export interface Anomaly {
   // Where to go and fix it. Absent when the anomaly targets no row: a missing
   // sheet, a workbook delivered without milestones. Those anomalies go at the
   // head of the report, as they concern the file and not an entry.
-  emplacement?: Location;
+  location?: Location;
 }
 
 // The single factory for a message's subject: what is being talked about, then
@@ -75,18 +75,18 @@ function locatedItems<T extends Location>(rows: T[], text: (l: T) => string): st
 }
 
 function anomaly(message: string, e?: Location): Anomaly {
-  return e ? { message, emplacement: { sheet: e.sheet, row: e.row } } : { message };
+  return e ? { message, location: { sheet: e.sheet, row: e.row } } : { message };
 }
 
 // What has no address first -- it targets the whole file, so it reads before
 // any data-entry correction. The rest follows the workbook: sheet, then
 // increasing row, the order in which it will be fixed.
-function parEmplacement(anomalies: Anomaly[]): Anomaly[] {
+function byLocation(anomalies: Anomaly[]): Anomaly[] {
   return [...anomalies].sort((a, b) => {
-    if (!a.emplacement || !b.emplacement) return (a.emplacement ? 1 : 0) - (b.emplacement ? 1 : 0);
+    if (!a.location || !b.location) return (a.location ? 1 : 0) - (b.location ? 1 : 0);
     return (
-      a.emplacement.sheet.localeCompare(b.emplacement.sheet, "fr") ||
-      a.emplacement.row - b.emplacement.row
+      a.location.sheet.localeCompare(b.location.sheet, "fr") ||
+      a.location.row - b.location.row
     );
   });
 }
@@ -141,7 +141,7 @@ function consumptionsForInterface(lookup: InterfaceLookup, model: ParsedModel, i
 function citedBounds(where: string, v: Validity & Location) {
   return [v.introducedAt, v.retiredAt]
     .filter((value) => value.trim() !== "")
-    .map((value) => ({ where, value, emplacement: v as Location }));
+    .map((value) => ({ where, value, location: v as Location }));
 }
 
 function duplicates(values: string[]): string[] {
@@ -214,18 +214,18 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   // type) pairs can therefore land on the same one. Merging them would mix two
   // contracts' consumptions without a word -- it is said, and it is an actor or
   // type name that must be shortened.
-  const coupleDeLOnglet = new Map<string, { provider: string; type: string }>();
+  const pairsBySheet = new Map<string, { provider: string; type: string }>();
   for (const i of model.interfaces) {
-    const couple = { provider: i.providerName.trim(), type: i.flowType.trim() };
-    const already = coupleDeLOnglet.get(normalizeText(i.expectedSheet));
+    const pair = { provider: i.providerName.trim(), type: i.flowType.trim() };
+    const already = pairsBySheet.get(normalizeText(i.expectedSheet));
     if (!already) {
-      coupleDeLOnglet.set(normalizeText(i.expectedSheet), couple);
+      pairsBySheet.set(normalizeText(i.expectedSheet), pair);
       continue;
     }
-    if (already.provider === couple.provider && already.type === couple.type) continue;
+    if (already.provider === pair.provider && already.type === pair.type) continue;
     anomalies.push(
       anomaly(
-        `${nameInterface(i)}: "${couple.provider}" / "${couple.type}" and "${already.provider}" / "${already.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${MAX_TAB_LENGTH} characters. Shorten one of the names.`,
+        `${nameInterface(i)}: "${pair.provider}" / "${pair.type}" and "${already.provider}" / "${already.type}" both land on the same sheet "${i.expectedSheet}" once cut to ${MAX_TAB_LENGTH} characters. Shorten one of the names.`,
         i
       )
     );
@@ -280,7 +280,7 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
     }
   }
 
-  return { id: "structure", title: "Structure", description: "The file does not read as expected.", anomalies: parEmplacement(anomalies) };
+  return { id: "structure", title: "Structure", description: "The file does not read as expected.", anomalies: byLocation(anomalies) };
 }
 
 function checkReferences(model: ParsedModel): AnomalyFamily {
@@ -338,9 +338,9 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
     ...model.interfaces.flatMap((i) => citedBounds(nameInterface(i), i)),
     ...model.consumptions.flatMap((c) => citedBounds(nameConsumption(c), c)),
   ];
-  for (const { where, value, emplacement } of citations) {
+  for (const { where, value, location } of citations) {
     if (!declaredMilestones.has(normalizeText(value))) {
-      anomalies.push(anomaly(`${where}: milestone "${value}" missing from the "Milestones" sheet.`, emplacement));
+      anomalies.push(anomaly(`${where}: milestone "${value}" missing from the "Milestones" sheet.`, location));
     }
   }
 
@@ -351,12 +351,12 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   for (const c of model.consumptions) {
     const target = c.republishedAs.trim();
     if (target === "") continue;
-    const siennes = model.interfaces.filter((i) => i.providerName.trim() === c.consumerName.trim());
-    const exactes = siennes.filter(
+    const own = model.interfaces.filter((i) => i.providerName.trim() === c.consumerName.trim());
+    const exactMatches = own.filter(
       (i) => normalizeText(interfaceLabel(i.flowName, i.version)) === normalizeText(target)
     );
-    if (exactes.length === 1) continue;
-    const byName = siennes.filter((i) => normalizeText(i.flowName) === normalizeText(target));
+    if (exactMatches.length === 1) continue;
+    const byName = own.filter((i) => normalizeText(i.flowName) === normalizeText(target));
     if (byName.length === 1) continue;
     if (byName.length === 0) {
       anomalies.push(
@@ -411,17 +411,17 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // template opened on six errors.
   if (model.actorTypes.length > 0 && model.actors.length > 0) {
     const declaredTypes = new Set(model.actorTypes.map((t) => normalizeText(t.type)));
-    const vus = new Set<string>();
+    const visited = new Set<string>();
     for (const a of model.actors) {
       const type = a.actorType.trim();
       if (!type) continue;
-      vus.add(normalizeText(type));
+      visited.add(normalizeText(type));
       if (!declaredTypes.has(normalizeText(type))) {
         anomalies.push(anomaly(`${nameActor(a)}: actor type "${type}" missing from the "ActorTypes" sheet.`, a));
       }
     }
     for (const t of model.actorTypes) {
-      if (!vus.has(normalizeText(t.type))) {
+      if (!visited.has(normalizeText(t.type))) {
         anomalies.push(anomaly(`${nameActorType(t)} is declared but no actor carries it.`, t));
       }
     }
@@ -429,23 +429,23 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 
   if (!model.groupsSheetMissing && model.actors.length > 0) {
     const declared = new Set(model.groups.map((g) => normalizeText(g.name)));
-    const vus = new Set<string>();
+    const visited = new Set<string>();
     for (const a of model.actors) {
       const group = a.group.trim();
       if (!group) continue;
-      vus.add(normalizeText(group));
+      visited.add(normalizeText(group));
       if (!declared.has(normalizeText(group))) {
         anomalies.push(anomaly(`${nameActor(a)}: group "${group}" missing from the "Groups" sheet.`, a));
       }
     }
     for (const g of model.groups) {
-      if (!vus.has(normalizeText(g.name))) {
+      if (!visited.has(normalizeText(g.name))) {
         anomalies.push(anomaly(`${nameGroup(g)} is declared but no actor belongs to it.`, g));
       }
     }
   }
 
-  return { id: "references", title: "References", description: "A value points at nothing.", anomalies: parEmplacement(anomalies) };
+  return { id: "references", title: "References", description: "A value points at nothing.", anomalies: byLocation(anomalies) };
 }
 
 // Two readings, one section. DATA-ENTRY faults are judged on the whole
@@ -529,15 +529,15 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     ) {
       const interval = lifespanOf(model, validity);
       const arrivalFilled = validity.introducedAt.trim() !== "";
-      const retraitSaisi = validity.retiredAt.trim() !== "";
+      const retirementFilled = validity.retiredAt.trim() !== "";
 
-      if (arrivalFilled && retraitSaisi && interval.end <= interval.start) {
+      if (arrivalFilled && retirementFilled && interval.end <= interval.start) {
         anomalies.push(anomaly(`${subject}: retirement milestone is at or before the introduction milestone.`, validity));
         return;
       }
       for (const parent of parents) {
         const tooEarly = arrivalFilled && interval.start < parent.interval.start;
-        const tooLate = retraitSaisi && interval.end > parent.interval.end;
+        const tooLate = retirementFilled && interval.end > parent.interval.end;
         // Two intervals that NEVER meet spill on neither side: a consumption
         // starting where its interface retires therefore triggered nothing, while
         // describing a link that exists at no milestone at all.
@@ -582,7 +582,7 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
   // A broken chain produces no functional link. Without these two rows the link
   // was missing IN SILENCE, which is precisely what the catch-all bus check
   // below sets out to avoid.
-  for (const cut of chainesCoupees(atMilestone, null)) {
+  for (const cut of brokenChains(atMilestone, null)) {
     if (cut.reason === "loop") {
       anomalies.push(anomaly(`${nameInterface(cut.iface)}: its relay chain loops back on itself.`, cut.iface));
     }
@@ -619,7 +619,7 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     id: "coherence",
     title: "Coherence",
     description: "The file reads, but something does not add up.",
-    anomalies: parEmplacement(anomalies),
+    anomalies: byLocation(anomalies),
   };
 }
 
@@ -693,10 +693,10 @@ function checkVocabularies(model: ParsedModel): AnomalyFamily {
   }
 
   return {
-    id: "vocabulaires",
+    id: "vocabularies",
     title: "Vocabularies",
     description: "An entered value falls outside its accepted list, and changes the drawing without saying so.",
-    anomalies: parEmplacement(anomalies),
+    anomalies: byLocation(anomalies),
   };
 }
 
@@ -777,10 +777,10 @@ function checkCompleteness(model: ParsedModel): AnomalyFamily {
   }
 
   return {
-    id: "completude",
+    id: "completeness",
     title: "Completeness",
     description: "Something is missing from the entry.",
-    anomalies: parEmplacement(anomalies),
+    anomalies: byLocation(anomalies),
   };
 }
 
@@ -803,7 +803,7 @@ function decommissionCandidates(model: ParsedModel): InfoBlock {
   const items = locatedItems(candidates, (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`);
 
   return {
-    id: "decommissionnement",
+    id: "decommissioning",
     title: "Decommissioning candidates",
     description: "Interfaces whose every consumption is scheduled to go — a call to make.",
     items,
@@ -819,7 +819,7 @@ function actorsWithNoFlow(model: ParsedModel): InfoBlock {
   for (const iface of model.interfaces) touched.add(iface.providerName.trim());
   for (const c of model.consumptions) touched.add(c.consumerName.trim());
   return {
-    id: "acteurs-sans-flux",
+    id: "actors-with-no-flow",
     title: "Components with no flow",
     description: "They appear on no diagram until some interface reaches them.",
     items: locatedItems(model.actors.filter((a) => !touched.has(a.name.trim())), (a) => `${a.name} ${address(a)}`),
@@ -831,7 +831,7 @@ function actorsWithNoFlow(model: ParsedModel): InfoBlock {
 // the diagram stays correct.
 function missingCriticalities(model: ParsedModel): InfoBlock {
   return {
-    id: "criticite-manquante",
+    id: "missing-criticality",
     title: "Criticality not filled in",
     description: "Consumptions whose criticality for the consumer is left empty.",
     items: locatedItems(
@@ -855,7 +855,7 @@ function repeatedExchanges(model: ParsedModel): InfoBlock {
     counts.set(key, (counts.get(key) ?? 0) + 1);
   }
   return {
-    id: "echanges-repetes",
+    id: "repeated-exchanges",
     title: "Repeated exchanges",
     description: "Pairs of components linked more than once by the same technology.",
     items: [...counts.entries()]
@@ -876,25 +876,25 @@ function dependencies(model: ParsedModel): Map<string, Set<string>> {
   for (const c of model.consumptions) {
     const iface = findInterfaceForConsumption(lookup, c);
     if (!iface) continue;
-    const de = c.consumerName.trim();
-    const vers = iface.providerName.trim();
-    if (!de || !vers || de === vers) continue;
-    if (!arcs.has(de)) arcs.set(de, new Set());
-    arcs.get(de)!.add(vers);
+    const from = c.consumerName.trim();
+    const to = iface.providerName.trim();
+    if (!from || !to || from === to) continue;
+    if (!arcs.has(from)) arcs.set(from, new Set());
+    arcs.get(from)!.add(to);
   }
   return arcs;
 }
 
-function atteignables(start: string, arcs: Map<string, Set<string>>): Set<string> {
-  const vus = new Set<string>();
+function reachable(start: string, arcs: Map<string, Set<string>>): Set<string> {
+  const visited = new Set<string>();
   const toVisit = [...(arcs.get(start) ?? [])];
   while (toVisit.length > 0) {
     const n = toVisit.pop()!;
-    if (vus.has(n)) continue;
-    vus.add(n);
+    if (visited.has(n)) continue;
+    visited.add(n);
     toVisit.push(...(arcs.get(n) ?? []));
   }
-  return vus;
+  return visited;
 }
 
 // Who, in falling, takes the most people down. The dependency graph already
@@ -905,23 +905,23 @@ function atteignables(start: string, arcs: Map<string, Set<string>>): Set<string
 // would lengthen the list without adding anything to it.
 function blastRadius(model: ParsedModel): InfoBlock {
   const arcs = dependencies(model);
-  const versLAval = new Map<string, Set<string>>();
-  for (const [de, vers] of arcs) {
-    for (const v of vers) {
-      if (!versLAval.has(v)) versLAval.set(v, new Set());
-      versLAval.get(v)!.add(de);
+  const downstream = new Map<string, Set<string>>();
+  for (const [from, to] of arcs) {
+    for (const v of to) {
+      if (!downstream.has(v)) downstream.set(v, new Set());
+      downstream.get(v)!.add(from);
     }
   }
-  const reach = [...versLAval.keys()]
+  const reach = [...downstream.keys()]
     // Subtracted from itself: a cycle brings the actor back into its own
     // downstream, and "how many I take down" does not count me. On the sample
     // workbook, which contains a four-component cycle, this showed.
-    .map((name) => ({ name, downstream: [...atteignables(name, versLAval)].filter((x) => x !== name).length }))
+    .map((name) => ({ name, downstream: [...reachable(name, downstream)].filter((x) => x !== name).length }))
     .filter((x) => x.downstream > 0)
     .sort((a, b) => b.downstream - a.downstream || a.name.localeCompare(b.name, "fr"));
 
   return {
-    id: "rayon-impact",
+    id: "blast-radius",
     title: "Blast radius",
     description: "How many components each one takes with it, directly or through others.",
     items: reach.map((x) => `${x.name}: ${x.downstream} component${x.downstream > 1 ? "s" : ""} downstream.`),
@@ -942,7 +942,7 @@ function dependencyCycles(model: ParsedModel): InfoBlock {
   const arcs = dependencies(model);
   // Only actors depending on at least one other can form a cycle.
   const candidates = [...arcs.keys()];
-  const reach = new Map(candidates.map((n) => [n, atteignables(n, arcs)]));
+  const reach = new Map(candidates.map((n) => [n, reachable(n, arcs)]));
 
   const groups: string[] = [];
   const placed = new Set<string>();
@@ -968,7 +968,7 @@ function dependencyCycles(model: ParsedModel): InfoBlock {
 function unusedFlowTypes(model: ParsedModel): InfoBlock {
   const used = new Set(model.interfaces.map((i) => normalizeText(i.flowType)));
   return {
-    id: "typesflux-inutilises",
+    id: "unused-flow-types",
     title: "Unused flow types",
     description: "Declared in FlowTypes, but no interface uses them.",
     items: locatedItems(model.flowTypes.filter((t) => !used.has(normalizeText(t.type))), (t) => `${t.type} ${address(t)}`),
@@ -993,7 +993,7 @@ function unreadableColours(model: ParsedModel): InfoBlock {
     }
   }
   return {
-    id: "contraste",
+    id: "contrast",
     title: "Colours too light to draw",
     description: "A declared colour is darkened on screen so the line remains visible.",
     items,
@@ -1001,9 +1001,9 @@ function unreadableColours(model: ParsedModel): InfoBlock {
   };
 }
 
-function interfacesAConfirmer(model: ParsedModel): InfoBlock {
+function interfacesToConfirm(model: ParsedModel): InfoBlock {
   return {
-    id: "a-confirmer",
+    id: "to-confirm",
     title: "Interfaces to confirm",
     description: "Interfaces whose To confirm column reads Yes — to confirm or to drop.",
     items: locatedItems(model.interfaces.filter((i) => i.toConfirm), (i) => `${interfaceLabel(i.flowName, i.version)} ${address(i)}`),
@@ -1016,7 +1016,7 @@ function interfacesAConfirmer(model: ParsedModel): InfoBlock {
 // waiting for someone, hence an "action" block.
 function migrationsInProgress(model: ParsedModel): InfoBlock {
   const lookup = buildInterfaceLookup(model);
-  const enCours: { iface: InterfaceCatalogue; text: string }[] = [];
+  const inProgress: { iface: InterfaceCatalogue; text: string }[] = [];
 
   for (const iface of model.interfaces) {
     if (iface.retiredAt.trim() === "") continue;
@@ -1033,15 +1033,15 @@ function migrationsInProgress(model: ParsedModel): InfoBlock {
           normalizeText(other.expectedSheet) === normalizeText(iface.expectedSheet) &&
           other.retiredAt.trim() === ""
       )
-      .map((other) => other.version.trim() || "sans version");
+      .map((other) => other.version.trim() || "no version");
 
-    const vers = actives.length > 0 ? actives.join(", ") : "no active version";
-    enCours.push({
+    const to = actives.length > 0 ? actives.join(", ") : "no active version";
+    inProgress.push({
       iface,
-      text: `${interfaceLabel(iface.flowName, iface.version)} ${address(iface)} → ${vers}: ${remaining.join(", ")}`,
+      text: `${interfaceLabel(iface.flowName, iface.version)} ${address(iface)} → ${to}: ${remaining.join(", ")}`,
     });
   }
-  const items = locatedItems(enCours.map((e) => ({ ...e.iface, text: e.text })), (e) => e.text);
+  const items = locatedItems(inProgress.map((e) => ({ ...e.iface, text: e.text })), (e) => e.text);
 
   return {
     id: "migrations",
@@ -1094,7 +1094,7 @@ function usedGroups(model: ParsedModel): InfoBlock {
     .map((c) => `${c.a} (${counts.get(c.a)}) and ${c.b} (${counts.get(c.b)}) — ${c.reason}`);
 
   return {
-    id: "groupes",
+    id: "groups",
     title: "Groups that may be the same, misspelled",
     description:
       "Pairs of group names close enough to be the same group entered twice. Two close names can be " +
@@ -1192,7 +1192,7 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
   const infoBlocks = [
     actorsWithNoFlow(atMilestone),
     missingCriticalities(atMilestone),
-    interfacesAConfirmer(atMilestone),
+    interfacesToConfirm(atMilestone),
     migrationsInProgress(atMilestone),
     decommissionCandidates(atMilestone),
     repeatedExchanges(atMilestone),

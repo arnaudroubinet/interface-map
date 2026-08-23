@@ -3,7 +3,7 @@ import { parseWorkbook } from "../src/parsing/workbook";
 import { buildModel } from "../src/parsing/build-model";
 import { runIntegrityChecks } from "../src/integrity/checks";
 import { buildGroupToGroupView, buildPlatformDetailView } from "../src/aggregation/views";
-import { reading, chainesCoupees } from "../src/aggregation/reading";
+import { reading, brokenChains } from "../src/aggregation/reading";
 import { isTechnicalActor } from "../src/aggregation/nature";
 import { actorIsPlatform } from "../src/aggregation/core";
 import { writeTemplate } from "../src/export/template-export";
@@ -81,7 +81,7 @@ describe("the sample workbook exercises the business reading", () => {
   });
 
   it("breaks no chain", () => {
-    expect(chainesCoupees(template(), null)).toHaveLength(0);
+    expect(brokenChains(template(), null)).toHaveLength(0);
   });
 });
 

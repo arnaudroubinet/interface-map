@@ -9,7 +9,7 @@ import { el } from "../shared/dom";
 
 interface Section {
   title: string;
-  paragraphes: string[];
+  paragraphs: string[];
   // A term and what it means. Half the misunderstandings come from the
   // vocabulary, not from how the thing works.
   definitions?: [string, string][];
@@ -18,14 +18,14 @@ interface Section {
 const SECTIONS: Section[] = [
   {
     title: "What this tool does",
-    paragraphes: [
+    paragraphs: [
       "It reads an Excel workbook describing an interface map and draws it. It never writes to that workbook, and nothing leaves this browser: the file is opened locally, and no page here talks to a server.",
       "Everything you see comes from the workbook. If a diagram surprises you, the answer is in a cell.",
     ],
   },
   {
     title: "The model",
-    paragraphes: [
+    paragraphs: [
       "An interface is PROVIDED once, by one actor, and CONSUMED by one or more others. That asymmetry is the whole model: it is what lets one contract be described once and consumed twenty times.",
       "Two actors may publish interfaces of the same name; they are two interfaces, told apart by their provider.",
     ],
@@ -41,7 +41,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "The two readings",
-    paragraphes: [
+    paragraphs: [
       "The same workbook is read two ways, and you fill it in only once.",
       "These two readings match the ArchiMate viewpoints Application Cooperation and Application Usage. The tool is not inventing a concept of its own; it is offering the two an architect already works with.",
       "ARCHITECTURE answers « what does it go through »: every hop is drawn, buses and gateways included.",
@@ -54,7 +54,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "The timeline",
-    paragraphes: [
+    paragraphs: [
       "Pick a milestone and the whole tool answers as of that moment: diagrams, matrix, report and exports alike. A row is alive from the milestone it arrived at, up to but NOT including the one it was retired at — retired at v3 means already gone at v3.",
       "A flow is drawn only if its entire chain is alive: provider, interface, consumption, consumer.",
       "The « Changes » view compares two milestones and colours what appears and what goes.",
@@ -63,7 +63,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "Reading an arrow",
-    paragraphes: [
+    paragraphs: [
       "Two things are drawn on every edge, and both follow from the flow type.",
       "The LINE follows the data: always from provider to consumer. It leaves the provider and reaches the consumer, so a chain of relays reads like a pipe rather than doubling back on itself.",
       "The ARROWHEAD says who takes the initiative. On a push — Kafka, JMS, a file drop — it sits at the far end, where the data lands. On a pull — HTTP, SQL, LDAP — it sits at the near end, pointing back at the provider being queried: the consumer is the one calling.",
@@ -73,7 +73,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "The views",
-    paragraphes: [
+    paragraphs: [
       "Each answers a different question. Switching view never changes the data, only the grain it is read at.",
     ],
     definitions: [
@@ -92,7 +92,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "The integrity report",
-    paragraphes: [
+    paragraphs: [
       "Anomalies are grouped into families, and each item carries its address — sheet and row — so the workbook can be corrected without coming back here.",
       "Two scopes coexist, and the distinction matters. Structure, references, vocabularies and consistency judge the WHOLE workbook. Completeness and the informational blocks are read at the milestone on display.",
       "Informational blocks are not faults: pending decisions, migrations under way, groups in use. They describe rather than accuse.",
@@ -100,7 +100,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "The exports",
-    paragraphes: [
+    paragraphs: [
       "Each goes to a different destination, and each button lights up only where its export makes sense — that is why some are greyed out on some views.",
       "Structurizr and LikeC4 describe the park as a C4 model rather than a picture, so they export the architecture only. Their relationships follow the same rule as the diagrams — provider towards consumer — and since a C4 relationship has only one direction, a pulled one is tagged rather than reversed.",
     ],
@@ -117,7 +117,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: "Getting started",
-    paragraphes: [
+    paragraphs: [
       "With no workbook at hand, open the sample: it is filled in, it triggers no anomaly, and it exercises both readings.",
       "An empty template is available at the foot of the rail.",
       "An older workbook — or one missing its FX_ sheets — goes through « Repair or upgrade a workbook »: it comes back at the current format, with every expected sheet, without ever touching your original.",
@@ -125,11 +125,11 @@ const SECTIONS: Section[] = [
   },
 ];
 
-export function buildAide(): HTMLElement {
+export function buildHelp(): HTMLElement {
   const blocks = SECTIONS.map((s) =>
     el("section", { class: "block-info" }, [
       el("h3", {}, [s.title]),
-      ...s.paragraphes.map((p) => el("p", {}, [p])),
+      ...s.paragraphs.map((p) => el("p", {}, [p])),
       ...(s.definitions
         ? [
             el(
@@ -148,15 +148,15 @@ export function buildAide(): HTMLElement {
 // line here. Documentation that falls behind is worse than no documentation:
 // it asserts.
 export function documentedViews(): string[] {
-  return termesDe("The views");
+  return termsOf("The views");
 }
 
 // The same device for the exports: an eighth format cannot arrive without its
 // line here, and the test makes sure of it.
-export function exportsDocumentes(): string[] {
-  return termesDe("The exports");
+export function documentedExports(): string[] {
+  return termsOf("The exports");
 }
 
-function termesDe(title: string): string[] {
+function termsOf(title: string): string[] {
   return (SECTIONS.find((s) => s.title === title)?.definitions ?? []).map(([term]) => term);
 }

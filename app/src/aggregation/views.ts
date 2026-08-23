@@ -69,11 +69,11 @@ function groupDetails(
   group: string,
   actors: readonly Actor[]
 ): { subtitle?: string; external?: boolean; aggregate?: number } {
-  const membres = actors.filter((a) => a.group === group);
-  if (membres.length === 0) return {};
+  const members = actors.filter((a) => a.group === group);
+  if (members.length === 0) return {};
   return {
-    subtitle: `${membres.length} actor${membres.length > 1 ? "s" : ""}`,
-    aggregate: membres.length,
+    subtitle: `${members.length} actor${members.length > 1 ? "s" : ""}`,
+    aggregate: members.length,
     // The group's perimeter, and it alone: this is what makes the colour code
     // work on aggregated views, where the nodes are not actors.
     external: groupIsExternal(model, group) || undefined,
@@ -83,7 +83,7 @@ function groupDetails(
 // The platform boundary, in the C4 sense: a dashed container around the
 // product's components, to tell them apart at a glance from the third-party
 // systems around them.
-const ID_FRONTIERE = "__frontiere__";
+const BOUNDARY_ID = "__boundary__";
 
 // A business actor left isolated -- whose exchanges all went through broken
 // chains -- stays displayed, alone (§5.2): making it vanish would remove
@@ -131,11 +131,11 @@ export function buildPlatformDetailView(model: ParsedModel, reading: Reading, op
 
   // The platform's components go inside the boundary; everything else orbits
   // around it. Without at least two components, a frame adds nothing.
-  const dedans = allNodes.filter((n) => platformIds.has(n.id));
-  if (dedans.length < 2) return { nodes: allNodes, edges };
-  for (const n of dedans) n.parent = ID_FRONTIERE;
+  const inside = allNodes.filter((n) => platformIds.has(n.id));
+  if (inside.length < 2) return { nodes: allNodes, edges };
+  for (const n of inside) n.parent = BOUNDARY_ID;
   return {
-    nodes: [{ id: ID_FRONTIERE, label: "Platform", kind: "boundary" }, ...allNodes],
+    nodes: [{ id: BOUNDARY_ID, label: "Platform", kind: "boundary" }, ...allNodes],
     edges,
   };
 }
@@ -163,7 +163,7 @@ export interface TechnologyViewOptions extends AggregationOptions {
 // The actors that can be unticked for a given technology. The list follows the
 // "externals" switch: when it hides, its actors leave the list -- and the
 // switch alone brings them back, so nothing is lost.
-export function optionsFiltreTechnologie(
+export function technologyFilterOptions(
   model: ParsedModel,
   flows: FlowInstance[],
   flowType: string,
@@ -422,14 +422,14 @@ export function buildMatrixView(model: ParsedModel, reading: Reading, options: M
   // The order is decided HERE, once, and both display and export follow it:
   // "what is on screen is what is exported".
   const neighbourhood = new Map<string, Set<string>>();
-  const ajouterVoisin = (a: string, b: string) => {
+  const addNeighbour = (a: string, b: string) => {
     const v = neighbourhood.get(a) ?? new Set<string>();
     v.add(b);
     neighbourhood.set(a, v);
   };
   for (const g of groups) {
-    ajouterVoisin(g.from, g.to);
-    ajouterVoisin(g.to, g.from);
+    addNeighbour(g.from, g.to);
+    addNeighbour(g.to, g.from);
   }
   const orderCtx: OrderContext = {
     groupOf: (id) => model.actors.find((a) => a.name.trim() === id)?.group.trim() ?? id,

@@ -155,7 +155,7 @@ describe("7.3 consistency", () => {
   it("warns about an actor with no flow at all", () => {
     const report = runIntegrityChecks(model({ actors: [actor({ name: "A" }), actor({ name: "B" }), actor({ name: "Isole" })] }));
     expect(report.families.find((f) => f.id === "coherence")!.anomalies.some((a) => a.message.includes("Isole"))).toBe(false);
-    const block = report.infoBlocks.find((b) => b.id === "acteurs-sans-flux")!;
+    const block = report.infoBlocks.find((b) => b.id === "actors-with-no-flow")!;
     expect(block.level).toBe("warning");
     expect(block.items).toEqual(["Isole (Actors, row 0)"]);
   });
@@ -164,22 +164,22 @@ describe("7.3 consistency", () => {
 describe("7.4 completeness", () => {
   it("reports nothing on a clean model", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.families.find((f) => f.id === "completude")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "completeness")!.anomalies).toHaveLength(0);
   });
 
   it("flags an empty interface description", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ description: "" })] }));
-    expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("description"))).toBe(true);
+    expect(report.families.find((f) => f.id === "completeness")!.anomalies.some((a) => a.message.includes("description"))).toBe(true);
   });
 
   it("flags an interface with no contract at all", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ contractLink: "", contractReference: "" })] }));
-    expect(report.families.find((f) => f.id === "completude")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
+    expect(report.families.find((f) => f.id === "completeness")!.anomalies.some((a) => a.message.includes("no contract"))).toBe(true);
   });
 
   it("flags a consumption with an empty usage or decision", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ usage: "", decision: "" })] }));
-    expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(2);
+    expect(report.families.find((f) => f.id === "completeness")!.anomalies.length).toBe(2);
   });
 
   // A declared retirement already says what is done with that consumption: it
@@ -189,19 +189,19 @@ describe("7.4 completeness", () => {
     const report = runIntegrityChecks(
       model({ milestones: [], consumptions: [consumption({ decision: "", retiredAt: "v2" })] })
     );
-    const messages = report.families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "completeness")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes("decision empty"))).toBe(false);
   });
 
   it("flags an actor with an empty groupe", () => {
     const report = runIntegrityChecks(model({ actors: [actor({ name: "A", group: "" }), actor({ name: "B" })] }));
-    expect(report.families.find((f) => f.id === "completude")!.anomalies.length).toBe(1);
+    expect(report.families.find((f) => f.id === "completeness")!.anomalies.length).toBe(1);
   });
 
   // The perimeter is now entered on the group, no longer on the actor.
   it("flags a group with an empty perimeter", () => {
     const report = runIntegrityChecks(model({ groups: [{ name: "G", perimeter: "", sheet: "Groups", row: 0 }] }));
-    const messages = report.families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "completeness")!.anomalies.map((a) => a.message);
     expect(messages).toContain('Group "G" (Groups, row 0): perimeter not filled in.');
   });
 });
@@ -229,12 +229,12 @@ describe("7.6 onglet Groupes", () => {
 describe("7.5 candidates for decommissioning", () => {
   it("is empty when nothing qualifies", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toHaveLength(0);
+    expect(report.infoBlocks.find((b) => b.id === "decommissioning")!.items).toHaveLength(0);
   });
 
   it("lists an interface whose only consumption is on its way out", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ retiredAt: "v2" })] }));
-    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toEqual(["F (Interfaces, row 0)"]);
+    expect(report.infoBlocks.find((b) => b.id === "decommissioning")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 
 
@@ -243,14 +243,14 @@ describe("7.5 candidates for decommissioning", () => {
   // that an interface is a candidate for decommissioning.
   it("does not list an interface whose consumptions are all active", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.infoBlocks.find((b) => b.id === "decommissionnement")!.items).toEqual([]);
+    expect(report.infoBlocks.find((b) => b.id === "decommissioning")!.items).toEqual([]);
   });
 });
 
 describe("7.6 interfaces to confirm", () => {
   it("lists interfaces flagged Oui", () => {
     const report = runIntegrityChecks(model({ interfaces: [iface({ flowName: "F", toConfirm: true })] }));
-    expect(report.infoBlocks.find((b) => b.id === "a-confirmer")!.items).toEqual(["F (Interfaces, row 0)"]);
+    expect(report.infoBlocks.find((b) => b.id === "to-confirm")!.items).toEqual(["F (Interfaces, row 0)"]);
   });
 });
 
@@ -265,7 +265,7 @@ describe("7.7 near-duplicate groups", () => {
         ],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+    expect(report.infoBlocks.find((b) => b.id === "groups")).toBeUndefined();
   });
 
   it("pairs a case variant", () => {
@@ -277,7 +277,7 @@ describe("7.7 near-duplicate groups", () => {
         ],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+    expect(report.infoBlocks.find((b) => b.id === "groups")!.items).toEqual([
       "Core (8) and core (1) — same name but for case",
     ]);
   });
@@ -288,7 +288,7 @@ describe("7.7 near-duplicate groups", () => {
         actors: [actor({ name: "A", group: "Sales-network" }), actor({ name: "B", group: "Sales network" })],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+    expect(report.infoBlocks.find((b) => b.id === "groups")!.items).toEqual([
       "Sales network (1) and Sales-network (1) — same name once punctuation is ignored",
     ]);
   });
@@ -299,7 +299,7 @@ describe("7.7 near-duplicate groups", () => {
         actors: [actor({ name: "A", group: "Support" }), actor({ name: "B", group: "Suport" })],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+    expect(report.infoBlocks.find((b) => b.id === "groups")!.items).toEqual([
       "Suport (1) and Support (1) — 1 letter apart",
     ]);
   });
@@ -310,7 +310,7 @@ describe("7.7 near-duplicate groups", () => {
         actors: [actor({ name: "A", group: "Core" }), actor({ name: "B", group: "Care" })],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+    expect(report.infoBlocks.find((b) => b.id === "groups")).toBeUndefined();
   });
 
   it("does not pair short names further apart", () => {
@@ -319,7 +319,7 @@ describe("7.7 near-duplicate groups", () => {
         actors: [actor({ name: "A", group: "Core" }), actor({ name: "B", group: "Crait" })],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+    expect(report.infoBlocks.find((b) => b.id === "groups")).toBeUndefined();
   });
 
   it("drops a match equally close to two different others", () => {
@@ -332,7 +332,7 @@ describe("7.7 near-duplicate groups", () => {
         ],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+    expect(report.infoBlocks.find((b) => b.id === "groups")).toBeUndefined();
   });
 });
 
@@ -352,14 +352,14 @@ describe("totalAnomalies", () => {
 describe("7.6 vocabulaires", () => {
   it("reports nothing when every value is in its list", () => {
     const report = runIntegrityChecks(model({}));
-    expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "vocabularies")!.anomalies).toHaveLength(0);
   });
 
   it("flags a mistyped decision or criticality", () => {
     const report = runIntegrityChecks(
       model({ consumptions: [consumption({ decision: "A garder", criticality: "Haute" })] })
     );
-    const messages = report.families.find((f) => f.id === "vocabulaires")!.anomalies.map((a) => a.message);
+    const messages = report.families.find((f) => f.id === "vocabularies")!.anomalies.map((a) => a.message);
     expect(messages.some((m) => m.includes("Haute"))).toBe(true);
     expect(messages.some((m) => m.includes("A garder"))).toBe(true);
     expect(messages.some((m) => m.includes("Haute"))).toBe(true);
@@ -376,7 +376,7 @@ describe("7.6 vocabulaires", () => {
       })
     );
     expect(
-      report.families.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("du client au serveur"))
+      report.families.find((f) => f.id === "vocabularies")!.anomalies.some((a) => a.message.includes("du client au serveur"))
     ).toBe(true);
   });
 
@@ -385,20 +385,20 @@ describe("7.6 vocabulaires", () => {
       model({ actorTypes: [{ type: "Application", icon: "app-window", nature: "Fonctionnelle", sheet: "ActorTypes", row: 0 }] })
     );
     expect(
-      report.families.find((f) => f.id === "vocabulaires")!.anomalies.some((a) => a.message.includes("Fonctionnelle"))
+      report.families.find((f) => f.id === "vocabularies")!.anomalies.some((a) => a.message.includes("Fonctionnelle"))
     ).toBe(true);
   });
 
   it("stays silent on an empty value, which the completeness family already covers", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ legacyStatus: "", decision: "", criticality: "" })] }));
-    expect(report.families.find((f) => f.id === "vocabulaires")!.anomalies).toHaveLength(0);
+    expect(report.families.find((f) => f.id === "vocabularies")!.anomalies).toHaveLength(0);
   });
 });
 
 describe("7.7 signaux non bloquants", () => {
   it("warns about a missing criticality rather than failing the file", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ criticality: "" })] }));
-    const block = report.infoBlocks.find((b) => b.id === "criticite-manquante")!;
+    const block = report.infoBlocks.find((b) => b.id === "missing-criticality")!;
     expect(block.level).toBe("warning");
     expect(block.items).toHaveLength(1);
   });
@@ -409,7 +409,7 @@ describe("7.7 signaux non bloquants", () => {
     const report = runIntegrityChecks(
       model({ consumptions: [consumption({}), consumption({ flowName: "F", consumerName: "B" })] })
     );
-    const block = report.infoBlocks.find((b) => b.id === "echanges-repetes")!;
+    const block = report.infoBlocks.find((b) => b.id === "repeated-exchanges")!;
     expect(block.level).toBe("info");
     expect(block.items.some((i) => i.includes("A → B over HTTP"))).toBe(true);
   });
@@ -423,7 +423,7 @@ describe("7.7 signaux non bloquants", () => {
         ],
       })
     );
-    const block = report.infoBlocks.find((b) => b.id === "typesflux-inutilises")!;
+    const block = report.infoBlocks.find((b) => b.id === "unused-flow-types")!;
     expect(block.level).toBe("info");
     expect(block.items).toEqual(["Kafka (FlowTypes, row 0)"]);
   });
@@ -613,7 +613,7 @@ describe("milestones — temporal checks", () => {
 
 describe("milestones — completeness", () => {
   function messagesCompleteness(m: ParsedModel): string {
-    return runIntegrityChecks(m).families.find((f) => f.id === "completude")!.anomalies.map((a) => a.message).join(" | ");
+    return runIntegrityChecks(m).families.find((f) => f.id === "completeness")!.anomalies.map((a) => a.message).join(" | ");
   }
 
   // Nothing is guessed on behalf of whoever keeps the file: at worst they will
@@ -675,7 +675,7 @@ describe("milestones — the report follows the displayed milestone", () => {
       consumptions: [consumption({ introducedAt: "v1" })],
     });
     const block = (rank: number) =>
-      runIntegrityChecks(m, rank).infoBlocks.find((b) => b.id === "acteurs-sans-flux")!.items;
+      runIntegrityChecks(m, rank).infoBlocks.find((b) => b.id === "actors-with-no-flow")!.items;
     expect(block(1)).toContain("C (Actors, row 0)");
     expect(block(2)).not.toContain("C (Actors, row 0)");
   });
@@ -707,7 +707,7 @@ describe("the anomalies' location", () => {
       interfaces: [iface({ description: "", row: 42 })],
       consumptions: [consumption({ usage: "", sheet: "FX_A_HTTP", row: 7 })],
     });
-    const completeness = messages(m, "completude");
+    const completeness = messages(m, "completeness");
 
     expect(completeness).toContain('Interface "F" (Interfaces, row 42): description empty.');
     expect(completeness).toContain('Consumption "F" (FX_A_HTTP, row 7): usage not described.');
@@ -716,10 +716,10 @@ describe("the anomalies' location", () => {
   it("carries the address as data too, so the report can order and link on it", () => {
     const m = model({ interfaces: [iface({ description: "", row: 42 })] });
     const anomaly = runIntegrityChecks(m)
-      .families.find((f) => f.id === "completude")!
+      .families.find((f) => f.id === "completeness")!
       .anomalies.find((a) => a.message.includes("description empty"))!;
 
-    expect(anomaly.emplacement).toEqual({ sheet: "Interfaces", row: 42 });
+    expect(anomaly.location).toEqual({ sheet: "Interfaces", row: 42 });
   });
 
   it("orders a family by sheet then by ascending row", () => {
@@ -729,8 +729,8 @@ describe("the anomalies' location", () => {
       consumptions: [],
     });
     const addresses = runIntegrityChecks(m)
-      .families.find((f) => f.id === "completude")!
-      .anomalies.map((a) => `${a.emplacement!.sheet}:${a.emplacement!.row}`);
+      .families.find((f) => f.id === "completeness")!
+      .anomalies.map((a) => `${a.location!.sheet}:${a.location!.row}`);
 
     expect(addresses).toEqual(["Actors:3", "Actors:9", "Interfaces:5"]);
   });
@@ -745,8 +745,8 @@ describe("the anomalies' location", () => {
     });
     const structure = runIntegrityChecks(m).families.find((f) => f.id === "structure")!.anomalies;
 
-    expect(structure[0].emplacement).toBeUndefined();
-    expect(structure.some((a) => a.emplacement)).toBe(true);
+    expect(structure[0].location).toBeUndefined();
+    expect(structure.some((a) => a.location)).toBe(true);
   });
 });
 
@@ -765,10 +765,10 @@ describe("the informational blocks' location", () => {
       ],
     });
 
-    expect(block(m, "acteurs-sans-flux")).toEqual(["Seul (Actors, row 8)"]);
-    expect(block(m, "a-confirmer")).toEqual(["F (Interfaces, row 5)"]);
-    expect(block(m, "criticite-manquante")).toEqual(["F (FX_A_HTTP, row 6) — B"]);
-    expect(block(m, "typesflux-inutilises")).toEqual(["SFTP (FlowTypes, row 3)"]);
+    expect(block(m, "actors-with-no-flow")).toEqual(["Seul (Actors, row 8)"]);
+    expect(block(m, "to-confirm")).toEqual(["F (Interfaces, row 5)"]);
+    expect(block(m, "missing-criticality")).toEqual(["F (FX_A_HTTP, row 6) — B"]);
+    expect(block(m, "unused-flow-types")).toEqual(["SFTP (FlowTypes, row 3)"]);
   });
 
   it("orders a block by ascending row, like the rest of the report", () => {
@@ -778,7 +778,7 @@ describe("the informational blocks' location", () => {
       consumptions: [],
     });
 
-    expect(block(m, "acteurs-sans-flux")).toEqual(["A (Actors, row 2)", "Z (Actors, row 4)", "M (Actors, row 9)"]);
+    expect(block(m, "actors-with-no-flow")).toEqual(["A (Actors, row 2)", "Z (Actors, row 4)", "M (Actors, row 9)"]);
   });
 });
 
@@ -924,20 +924,20 @@ describe("nature and relays", () => {
   it("reports a nature outside the vocabulary", () => {
     const m = relayEstate();
     m.actorTypes = [{ ...TYPES[0], nature: "Métier" }, TYPES[1]];
-    expect(messages(m, "vocabulaires")).toContain("Métier");
+    expect(messages(m, "vocabularies")).toContain("Métier");
   });
 
   it("asks for the missing nature as soon as one type declares one", () => {
     const m = relayEstate();
     m.actorTypes = [{ ...TYPES[0], nature: "" }, TYPES[1]];
-    expect(messages(m, "completude")).toContain("nature");
+    expect(messages(m, "completeness")).toContain("nature");
   });
 
   // Until the team has adopted the distinction, the tool says nothing of it.
   it("stays silent on a workbook where no type declares a nature", () => {
     const m = relayEstate();
     m.actorTypes = TYPES.map((t) => ({ ...t, nature: "" }));
-    expect(messages(m, "completude")).not.toContain("nature");
+    expect(messages(m, "completeness")).not.toContain("nature");
   });
 });
 
@@ -1043,7 +1043,7 @@ describe("informational blocks — an interface is named with its version", () =
 // check took them for a duplicate because it looked only at (name, version): on
 // a real workbook, 4 false duplicates out of 9. The publisher is part of the identity.
 describe("duplicate interface — the publisher is part of the identity", () => {
-  const avec = (interfaces: ReturnType<typeof iface>[]) =>
+  const anomaliesFor = (interfaces: ReturnType<typeof iface>[]) =>
     runIntegrityChecks(model({ interfaces, consumptions: [] }))
       .families.flatMap((f) => f.anomalies)
       .map((a) => a.message)
@@ -1051,7 +1051,7 @@ describe("duplicate interface — the publisher is part of the identity", () => 
 
   it("does not report two different publishers for one name", () => {
     expect(
-      avec([
+      anomaliesFor([
         iface({ flowName: "Kashyyyk", providerName: "A", expectedSheet: "FX_A_HTTP" }),
         iface({ flowName: "Kashyyyk", providerName: "B", expectedSheet: "FX_B_HTTP" }),
       ])
@@ -1060,7 +1060,7 @@ describe("duplicate interface — the publisher is part of the identity", () => 
 
   it("still reports the same name at the same publisher", () => {
     expect(
-      avec([
+      anomaliesFor([
         iface({ flowName: "Kashyyyk", providerName: "A" }),
         iface({ flowName: "Kashyyyk", providerName: "A", row: 1 }),
       ])
@@ -1069,7 +1069,7 @@ describe("duplicate interface — the publisher is part of the identity", () => 
 
   it("leaves two versions of one contract alone", () => {
     expect(
-      avec([
+      anomaliesFor([
         iface({ flowName: "Kashyyyk", version: "1.0", providerName: "A" }),
         iface({ flowName: "Kashyyyk", version: "2.0", providerName: "A", row: 1 }),
       ])
@@ -1192,7 +1192,7 @@ describe("a technology's declared colour", () => {
   });
 
   it("reports a value that is not a colour", () => {
-    expect(messages(estate([["HTTP", "bleu ciel"]]))[0]).toContain("bleu ciel");
+    expect(messages(estate([["HTTP", "sky blue"]]))[0]).toContain("sky blue");
   });
 
   it("reports two technologies declaring the same colour", () => {
@@ -1404,7 +1404,7 @@ describe("the integrity report and the milestone axis", () => {
 describe("checks — colours too light to be drawn", () => {
   const block = (colour: string) =>
     runIntegrityChecks(model({ flowTypes: [base.flowType({ type: "HTTP", colour })] })).infoBlocks.find(
-      (b) => b.id === "contraste"
+      (b) => b.id === "contrast"
     );
 
   it("reports a declared colour too light for a line", () => {
@@ -1419,7 +1419,7 @@ describe("checks — colours too light to be drawn", () => {
   // A value that is not a colour falls to the vocabulary checks, not here:
   // reporting it twice would say the same cell twice.
   it("does not report a value that is not a colour", () => {
-    expect(block("bleu ciel")?.items).toEqual([]);
+    expect(block("sky blue")?.items).toEqual([]);
   });
 });
 
@@ -1427,7 +1427,7 @@ describe("checks — colours too light to be drawn", () => {
 // is affected?" is nonetheless the question of the day a migration has to be
 // arbitrated, and nothing answered it.
 describe("checks — blast radius", () => {
-  const block = (m: ParsedModel) => runIntegrityChecks(m).infoBlocks.find((b) => b.id === "rayon-impact");
+  const block = (m: ParsedModel) => runIntegrityChecks(m).infoBlocks.find((b) => b.id === "blast-radius");
 
   // A supplies B, B supplies C: A takes both down.
   const chain = () =>

@@ -92,7 +92,7 @@ export function buildDrawio(
 // precisely what this makes impossible.
 function explanatoryBlocks(
   { title, context, layout }: PlacedBoard,
-  cellule: (id: string) => string,
+  cellId: (id: string) => string,
   technologyColour: (technology: string) => string
 ): string[] {
   const xs = layout.nodes.flatMap((n) => [n.x - n.width / 2, n.x + n.width / 2]);
@@ -104,16 +104,16 @@ function explanatoryBlocks(
 
   const text = (id: string, value: string, x: number, y: number, l: number, h: number, style: string) =>
     cells.push(
-      `        <mxCell id="${cellule(id)}" value="${escapeXml(value)}" style="${style}" vertex="1" parent="${cellule("1")}">`,
+      `        <mxCell id="${cellId(id)}" value="${escapeXml(value)}" style="${style}" vertex="1" parent="${cellId("1")}">`,
       `          <mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${l}" height="${h}" as="geometry" />`,
       "        </mxCell>"
     );
 
-  const yCartouche = Math.min(...ys) - 64;
+  const titleBlockY = Math.min(...ys) - 64;
   const header = context ? titleBlockText(context) : { title, subtitle: "" };
-  text("cartouche_t", header.title, left, yCartouche, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
+  text("title_t", header.title, left, titleBlockY, 720, 24, "text;html=1;align=left;verticalAlign=middle;fontSize=16;fontStyle=1");
   if (header.subtitle) {
-    text("cartouche_s", header.subtitle, left, yCartouche + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
+    text("title_s", header.subtitle, left, titleBlockY + 24, 720, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11;fontColor=#5b6472");
   }
 
   const inputs = legendEntries(layout.edges, layout.nodes, technologyColour);
@@ -129,13 +129,13 @@ function explanatoryBlocks(
         e.head === "start" ? "startArrow=block;startFill=0;endArrow=none" : "endArrow=block;endFill=1;startArrow=none",
       ].join(";");
       cells.push(
-        `        <mxCell id="${cellule(`legende_${i}`)}" style="${style}" edge="1" parent="${cellule("1")}">`,
+        `        <mxCell id="${cellId(`legend_${i}`)}" style="${style}" edge="1" parent="${cellId("1")}">`,
         `          <mxGeometry relative="1" as="geometry"><mxPoint x="${Math.round(left)}" y="${Math.round(y)}" as="sourcePoint" /><mxPoint x="${Math.round(left + 34)}" y="${Math.round(y)}" as="targetPoint" /></mxGeometry>`,
         "        </mxCell>"
       );
     } else {
       text(
-        `legende_${i}`,
+        `legend_${i}`,
         "",
         left,
         y - 6,
@@ -144,7 +144,7 @@ function explanatoryBlocks(
         `rounded=0;html=1;fillColor=${e.fill};strokeColor=${e.stroke}${e.dashed ? ";dashed=1" : ""}`
       );
     }
-    text(`legende_t_${i}`, input.text, left + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
+    text(`legend_t_${i}`, input.text, left + 42, y - 10, 320, 20, "text;html=1;align=left;verticalAlign=middle;fontSize=11");
   });
 
   return cells;
@@ -162,7 +162,7 @@ function diagram(
   // The identifiers are unique within the FILE, not within the page: two boards
   // almost always name the same actor, and draw.io would then attach one's lines
   // to the other's boxes.
-  const cellule = (id: string) => `p${index}_${escapeXml(id)}`;
+  const cellId = (id: string) => `p${index}_${escapeXml(id)}`;
 
   for (const n of layout.nodes) {
     // The one point in the file where the two conventions meet, and it has
@@ -179,8 +179,8 @@ function diagram(
     // the link and the shape data, which draw.io shows under "Edit Data". An
     // mxCell can carry nothing but a label.
     const page = byActorPage.get(n.label);
-    const attributs = [
-      `id="${cellule(n.id)}"`,
+    const attributes = [
+      `id="${cellId(n.id)}"`,
       `label="${escapeXml(content(n))}"`,
       n.description ? `tooltip="${escapeXml(n.description)}"` : "",
       // Clicking a box opens that actor's board, when it exists: sixty tabs are
@@ -190,8 +190,8 @@ function diagram(
       n.external ? 'perimeter="External"' : "",
     ].filter(Boolean);
     cells.push(
-      `        <UserObject ${attributs.join(" ")}>`,
-      `          <mxCell style="${nodeStyle(n)}" vertex="1" parent="${parent ? cellule(parent.id) : cellule("1")}">`,
+      `        <UserObject ${attributes.join(" ")}>`,
+      `          <mxCell style="${nodeStyle(n)}" vertex="1" parent="${parent ? cellId(parent.id) : cellId("1")}">`,
       `            <mxGeometry x="${x}" y="${y}" width="${n.width}" height="${n.height}" as="geometry" />`,
       "          </mxCell>",
       "        </UserObject>"
@@ -216,9 +216,9 @@ function diagram(
         : ["endArrow=block", "endFill=1", "startArrow=none"]),
     ].join(";");
     cells.push(
-      `        <mxCell id="${cellule(`e${i}`)}" value="${escapeXml(
+      `        <mxCell id="${cellId(`e${i}`)}" value="${escapeXml(
         edgeLabelMode(e)
-      )}" style="${style}" edge="1" parent="${cellule("1")}" source="${cellule(e.from)}" target="${cellule(e.to)}">`,
+      )}" style="${style}" edge="1" parent="${cellId("1")}" source="${cellId(e.from)}" target="${cellId(e.to)}">`,
       '          <mxGeometry relative="1" as="geometry" />',
       "        </mxCell>"
     );
@@ -232,10 +232,10 @@ function diagram(
       layout.height
     )}" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="826" math="0" shadow="0">`,
     "      <root>",
-    `        <mxCell id="${cellule("0")}" />`,
-    `        <mxCell id="${cellule("1")}" parent="${cellule("0")}" />`,
+    `        <mxCell id="${cellId("0")}" />`,
+    `        <mxCell id="${cellId("1")}" parent="${cellId("0")}" />`,
     ...cells,
-    ...explanatoryBlocks(board, cellule, technologyColour),
+    ...explanatoryBlocks(board, cellId, technologyColour),
     "      </root>",
     "    </mxGraphModel>",
     "  </diagram>",

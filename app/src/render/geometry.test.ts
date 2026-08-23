@@ -11,8 +11,8 @@ import { breakTheLine } from "./geometry";
 // of the 18 lines of the "platform detail" view.
 describe("interrompreLeTrace", () => {
   const lastPoint = (pieces: { x: number; y: number }[][]) => {
-    const dernier = pieces[pieces.length - 1];
-    return dernier[dernier.length - 1];
+    const last = pieces[pieces.length - 1];
+    return last[last.length - 1];
   };
 
   it("keeps a remainder after a label that covers the arrival", () => {

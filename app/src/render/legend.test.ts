@@ -124,7 +124,7 @@ describe("legendEntries — the shapes are announced too", () => {
 
   it("announces the stack as soon as a node folds several actors", () => {
     const inputs = legendEntries([{ technology: "HTTP" }], [node({ aggregate: 4 })], () => "#111111");
-    expect(inputs.find((e) => e.text.includes("several components"))?.sample).toMatchObject({ pile: true });
+    expect(inputs.find((e) => e.text.includes("several components"))?.sample).toMatchObject({ stacked: true });
   });
 
   // A group of a single actor is not a stack: drawing it stacked would assert

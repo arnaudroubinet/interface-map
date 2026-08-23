@@ -86,9 +86,9 @@ describe("coloursOfModel — a colour declared by the referential", () => {
   });
 
   it("ignores a value that is not a colour", () => {
-    const c = coloursOfModel(estate([["HTTP", "bleu ciel"]], ["HTTP"]));
+    const c = coloursOfModel(estate([["HTTP", "sky blue"]], ["HTTP"]));
     expect(c.get("HTTP")).toMatch(/^#[0-9a-f]{6}$/);
-    expect(c.get("HTTP")).not.toBe("bleu ciel");
+    expect(c.get("HTTP")).not.toBe("sky blue");
   });
 
   // The point that justifies everything: a declared technology keeps its hue
@@ -131,10 +131,10 @@ describe("coloursOfModel — an undeclared technology takes no hue", () => {
   });
 
   it("does not let an unknown one shift the others' hues", () => {
-    const sans = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
-    const avec = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
-    expect(avec.get("HTTP")).toBe(sans.get("HTTP"));
-    expect(avec.get("Kafka")).toBe(sans.get("Kafka"));
+    const withoutBatch = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka"]));
+    const withBatch = coloursOfModel(estate(["HTTP", "Kafka"], ["HTTP", "Kafka", "Batch"]));
+    expect(withBatch.get("HTTP")).toBe(withoutBatch.get("HTTP"));
+    expect(withBatch.get("Kafka")).toBe(withoutBatch.get("Kafka"));
   });
 });
 

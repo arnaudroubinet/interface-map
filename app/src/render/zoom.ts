@@ -17,7 +17,7 @@ export function frameOfSvg(svg: SVGSVGElement): Frame {
   return { x, y, width, height };
 }
 
-export function appliquer(svg: SVGSVGElement, frame: Frame): void {
+export function applyZoom(svg: SVGSVGElement, frame: Frame): void {
   svg.setAttribute("viewBox", `${frame.x} ${frame.y} ${frame.width} ${frame.height}`);
 }
 
@@ -43,13 +43,13 @@ export function panBy(frame: Frame, dx: number, dy: number): Frame {
 
 // The DOM wiring: wheel to zoom, drag to pan. Returns what the banner needs to
 // drive it, and detaches on its own with the SVG it equips.
-export function brancherZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (factor: number) => void } {
+export function wireZoom(svg: SVGSVGElement): { ajuster: () => void; zoomBy: (factor: number) => void } {
   const initial = frameOfSvg(svg);
   let frame = { ...initial };
 
   const apply = (c: Frame) => {
     frame = c;
-    appliquer(svg, frame);
+    applyZoom(svg, frame);
   };
 
   // The DRAWING point under the cursor: that is what must stay still, not the

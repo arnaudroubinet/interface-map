@@ -68,10 +68,10 @@ export function reportToMarkdown(
 
   const bySeverity = new Map<string, number>();
   for (const s of sections) bySeverity.set(s.severity, (bySeverity.get(s.severity) ?? 0) + s.items.length);
-  const bilan = Object.entries(SEVERITY_LABEL)
+  const summary = Object.entries(SEVERITY_LABEL)
     .map(([severity, [singular, singularOrPlural]]) => count(bySeverity.get(severity) ?? 0, singular, singularOrPlural))
     .filter(Boolean);
-  rows.push(`${bilan.join(", ")}.`, "");
+  rows.push(`${summary.join(", ")}.`, "");
 
   for (const s of sections) {
     rows.push(`## ${inlineText(s.title)} (${s.items.length})`, "", inlineText(s.description), "");

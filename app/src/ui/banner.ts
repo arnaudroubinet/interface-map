@@ -22,7 +22,7 @@ export interface BannerCallbacks {
 // therefore cannot arrive without its line of explanation.
 export interface FormatExport {
   label: string;
-  rappel: keyof BannerCallbacks;
+  callback: keyof BannerCallbacks;
   // `drawingAvailable` says a diagram is on screen and ready to be rendered.
   active: (state: AppState, drawingAvailable: boolean) => boolean;
 }
@@ -32,20 +32,20 @@ const onADiagram = (state: AppState, drawingAvailable: boolean) =>
 
 // These three carry away the WHOLE workbook -- draw.io one board per tab, the
 // DSLs one view per board -- so none depends on the view that is open.
-const surTout = (state: AppState) => state.file !== null && state.view !== "upgrade";
+const always = (state: AppState) => state.file !== null && state.view !== "upgrade";
 
 export const EXPORTS: FormatExport[] = [
-  { label: "SVG", rappel: "onExportSvg", active: onADiagram },
-  { label: "PNG", rappel: "onExportPng", active: onADiagram },
+  { label: "SVG", callback: "onExportSvg", active: onADiagram },
+  { label: "PNG", callback: "onExportPng", active: onADiagram },
   // The matrix is not a drawing: what one wants to take away is the table, in
   // the tool where it gets sorted and filtered.
-  { label: "Excel", rappel: "onExportXlsx", active: (s) => s.file !== null && s.view === "matrix" },
+  { label: "Excel", callback: "onExportXlsx", active: (s) => s.file !== null && s.view === "matrix" },
   // The report is neither a drawing nor a table: it is a list of rows to fix,
   // each with its address. Taken away as Markdown, it pastes into a ticket and
   // gets handled without reopening the tool.
-  { label: "Markdown", rappel: "onExportMarkdown", active: (s) => s.file !== null && s.view === "checks" },
+  { label: "Markdown", callback: "onExportMarkdown", active: (s) => s.file !== null && s.view === "checks" },
   // draw.io is a drawing: it follows the reading mode.
-  { label: "draw.io", rappel: "onExportDrawio", active: surTout },
+  { label: "draw.io", callback: "onExportDrawio", active: always },
   // These two were closed in the functional reading, on the grounds that a
   // functional diagram is not a C4 architecture. The reason does not hold: a
   // system rendering a service to another is a systemLandscape's central use
@@ -54,9 +54,9 @@ export const EXPORTS: FormatExport[] = [
   // does.
   // The PDF carries every board and the report, like draw.io: it does not
   // depend on the view that is open either.
-  { label: "PDF", rappel: "onExportPdf", active: surTout },
-  { label: "Structurizr", rappel: "onExportStructurizr", active: surTout },
-  { label: "LikeC4", rappel: "onExportLikeC4", active: surTout },
+  { label: "PDF", callback: "onExportPdf", active: always },
+  { label: "Structurizr", callback: "onExportStructurizr", active: always },
+  { label: "LikeC4", callback: "onExportLikeC4", active: always },
 ];
 
 export function renderBanner(
@@ -94,7 +94,7 @@ export function renderBanner(
   for (const format of EXPORTS) {
     const button = el("button", { class: "export-button" }, [format.label]);
     button.disabled = !format.active(state, exportAvailable);
-    button.addEventListener("click", callbacks[format.rappel]);
+    button.addEventListener("click", callbacks[format.callback]);
     root.appendChild(button);
   }
 }

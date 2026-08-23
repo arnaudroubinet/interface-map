@@ -33,9 +33,9 @@ function flowList(matrix: MatrixResult): (string | number)[][] {
   return rows;
 }
 
-function widths(grille: string[][]): { wch: number }[] {
-  return grille[0].map((_, column) =>
-    ({ wch: Math.min(28, Math.max(10, ...grille.map((l) => (l[column] ?? "").length + 2))) })
+function widths(grid: string[][]): { wch: number }[] {
+  return grid[0].map((_, column) =>
+    ({ wch: Math.min(28, Math.max(10, ...grid.map((l) => (l[column] ?? "").length + 2))) })
   );
 }
 
@@ -44,19 +44,19 @@ function widths(grille: string[][]): { wch: number }[] {
 export function buildMatrixWorkbook(matrix: MatrixResult): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
 
-  const grille = matrixGrid(matrix);
-  const matrixSheet = XLSX.utils.aoa_to_sheet(grille);
-  matrixSheet["!cols"] = widths(grille);
+  const grid = matrixGrid(matrix);
+  const matrixSheet = XLSX.utils.aoa_to_sheet(grid);
+  matrixSheet["!cols"] = widths(grid);
   // No frozen panes: SheetJS in its community edition does not write the <pane>
   // tag, as verified on the produced file. What it really writes is column
   // widths and the autofilter -- so those are what is relied on, along with the
   // "Flux" sheet, which is the one actually sorted in Excel.
   //
-  matrixSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: grille[0].length - 1 } }) };
+  matrixSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: grid[0].length - 1 } }) };
   XLSX.utils.book_append_sheet(wb, matrixSheet, "Matrix");
 
-  const plat = flowList(matrix);
-  const flowsSheet = XLSX.utils.aoa_to_sheet(plat);
+  const flatRows = flowList(matrix);
+  const flowsSheet = XLSX.utils.aoa_to_sheet(flatRows);
   flowsSheet["!cols"] = [{ wch: 26 }, { wch: 26 }, { wch: 18 }, { wch: 9 }, { wch: 9 }];
   flowsSheet["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }) };
   XLSX.utils.book_append_sheet(wb, flowsSheet, "Flows");

@@ -8,7 +8,7 @@ import { normalizeText } from "../shared/text";
 // this makes impossible.
 export type LegendSample =
   | { shape: "line"; colour: string; dashed?: boolean; head?: "start" | "end"; thickness?: number }
-  | { shape: "box"; fill: string; stroke: string; dashed?: boolean; cutCorner?: boolean; pile?: boolean };
+  | { shape: "box"; fill: string; stroke: string; dashed?: boolean; cutCorner?: boolean; stacked?: boolean };
 
 export interface LegendEntry {
   sample: LegendSample;
@@ -132,7 +132,7 @@ export function legendEntries(
   if (drawable.some((n) => (n.aggregate ?? 0) > 1)) {
     const style = styleOfNode({ kind: "actor", external: false });
     inputs.push({
-      sample: { shape: "box", fill: style.fill, stroke: style.stroke, pile: true },
+      sample: { shape: "box", fill: style.fill, stroke: style.stroke, stacked: true },
       text: "stacked box: several components",
     });
   }

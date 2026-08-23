@@ -363,7 +363,7 @@ function criticalityRank(value: string): number {
   return i < 0 ? VOCABULARY_CRITICALITY.length : i;
 }
 
-function laPlusForte(a: string | undefined, b: string): string | undefined {
+function strongestCriticality(a: string | undefined, b: string): string | undefined {
   if (!a) return b.trim() ? b : undefined;
   if (!b.trim()) return a;
   return criticalityRank(b) < criticalityRank(a) ? b : a;
@@ -389,7 +389,7 @@ export function groupFlows(flows: FlowInstance[], nodeKey: NodeKeyFn, maskLoops:
     if (existing) {
       existing.count += 1;
       existing.attenuated = existing.attenuated && flow.attenuated;
-      existing.criticality = laPlusForte(existing.criticality, flow.consumption.criticality);
+      existing.criticality = strongestCriticality(existing.criticality, flow.consumption.criticality);
       if (!existing.names.includes(name)) existing.names.push(name);
     } else {
       groups.set(key, {

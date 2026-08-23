@@ -1,5 +1,5 @@
 import { el, clear } from "../shared/dom";
-import { actorFilterOptions, optionsFiltreTechnologie, matrixFilterOptions } from "../aggregation/views";
+import { actorFilterOptions, technologyFilterOptions, matrixFilterOptions } from "../aggregation/views";
 import type { MatrixGrain } from "../aggregation/views";
 import type { Mode, EdgeLabelMode } from "../aggregation/core";
 import type { MatrixOrder } from "../aggregation/seriation";
@@ -42,7 +42,7 @@ export const VIEWS: { id: View; label: string }[] = VIEW_ORDER.map((id) => ({ id
 
 // The matrix's three reading scales, with the title of the checkbox block that
 // goes with them: what gets unticked is the rows actually drawn.
-const GRANULARITES_MATRICE: { id: MatrixGrain; label: string; filterTitle: string }[] = [
+const MATRIX_GRAINS: { id: MatrixGrain; label: string; filterTitle: string }[] = [
   { id: "actor", label: "Actor to actor", filterTitle: "Actors" },
   { id: "group", label: "Group to group", filterTitle: "Groups" },
   { id: "platform", label: "Platform to group", filterTitle: "Actors and groups" },
@@ -81,7 +81,7 @@ export interface RailCallbacks {
   onPngScale: (value: 1 | 2 | 4) => void;
   onTechnologyHidden: (tech: string, hidden: boolean) => void;
   onActorHidden: (actor: string, hidden: boolean) => void;
-  onMasquerExternes: (value: boolean) => void;
+  onHideExternals: (value: boolean) => void;
   onActorHiddenForTechnology: (actor: string, hidden: boolean) => void;
   onHideExternalsInMatrix: (value: boolean) => void;
   onActorHiddenInMatrix: (actor: string, hidden: boolean) => void;
@@ -141,7 +141,7 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
 }
 
 // The "hide externals" switch, identical from one view to the next.
-function basculeExternes(checked: boolean, onChange: (value: boolean) => void): HTMLElement {
+function externalsToggle(checked: boolean, onChange: (value: boolean) => void): HTMLElement {
   const label = el("label", { class: "rail-toggle" });
   const input = el("input", { type: "checkbox" });
   input.checked = checked;
@@ -454,9 +454,9 @@ export function renderRail(
   }
 
   if (state.view === "by-technology" && state.technologySelection) {
-    root.appendChild(basculeExternes(state.technologyFilters.hideExternals, callbacks.onMasquerExternes));
+    root.appendChild(externalsToggle(state.technologyFilters.hideExternals, callbacks.onHideExternals));
 
-    const available = optionsFiltreTechnologie(state.file.model, flows, state.technologySelection, {
+    const available = technologyFilterOptions(state.file.model, flows, state.technologySelection, {
       hideExternals: state.technologyFilters.hideExternals,
     });
     const actors = filterBlock("Actors", available, state.technologyFilters.hiddenActors, callbacks.onActorHiddenForTechnology);
@@ -495,7 +495,7 @@ export function renderRail(
   if (state.view === "matrix") {
     const grain = state.matrixFilters.grain;
     const select = el("select", { class: "rail-select" });
-    for (const g of GRANULARITES_MATRICE) {
+    for (const g of MATRIX_GRAINS) {
       const option = el("option", { value: g.id }, [g.label]);
       if (g.id === grain) option.selected = true;
       select.appendChild(option);
@@ -515,12 +515,12 @@ export function renderRail(
     order.addEventListener("change", () => callbacks.onMatrixOrder(order.value as MatrixOrder));
     root.appendChild(order);
 
-    root.appendChild(basculeExternes(state.matrixFilters.hideExternals, callbacks.onHideExternalsInMatrix));
+    root.appendChild(externalsToggle(state.matrixFilters.hideExternals, callbacks.onHideExternalsInMatrix));
     const available = matrixFilterOptions(state.file.model, flows, {
       grain,
       hideExternals: state.matrixFilters.hideExternals,
     });
-    const title = GRANULARITES_MATRICE.find((g) => g.id === grain)!.filterTitle;
+    const title = MATRIX_GRAINS.find((g) => g.id === grain)!.filterTitle;
     const actors = filterBlock(title, available, state.matrixFilters.hiddenActors, callbacks.onActorHiddenInMatrix);
     if (actors) root.appendChild(actors);
   }
@@ -552,7 +552,7 @@ export function renderRail(
 
     // default. The PNG's scale, beside what it serves: an architecture diagram
     // is thin lines, the case where high resolution still pays.
-    const echelleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
+    const scaleLabel = el("label", { class: "rail-option-png" }, ["PNG "]);
     const scaleSelect = el("select", { class: "rail-select" });
     for (const factor of [1, 2, 4] as const) {
       const option = el("option", { value: String(factor) }, [`${factor}×`]);
@@ -560,8 +560,8 @@ export function renderRail(
       scaleSelect.appendChild(option);
     }
     scaleSelect.addEventListener("change", () => callbacks.onPngScale(Number(scaleSelect.value) as 1 | 2 | 4));
-    echelleLabel.appendChild(scaleSelect);
-    options.appendChild(echelleLabel);
+    scaleLabel.appendChild(scaleSelect);
+    options.appendChild(scaleLabel);
 
     // Criticality has been entered, checked and exported since day one, and was
     // never drawn. It is the workbook's most decision-bearing field.

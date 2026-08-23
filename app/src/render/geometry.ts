@@ -83,8 +83,8 @@ export function breakTheLine(points: Point[], obstacles: Rect[]): Point[][] {
     cuts.sort((x, y) => x[0] - y[0]);
     const merged: [number, number][] = [];
     for (const c of cuts) {
-      const dernier = merged[merged.length - 1];
-      if (dernier && c[0] <= dernier[1]) dernier[1] = Math.max(dernier[1], c[1]);
+      const last = merged[merged.length - 1];
+      if (last && c[0] <= last[1]) last[1] = Math.max(last[1], c[1]);
       else merged.push([...c]);
     }
 
@@ -119,24 +119,24 @@ export function roundedPath(points: Point[], radius = CORNER_RADIUS): string {
   let d = `M ${points[0].x},${points[0].y}`;
   for (let i = 1; i < points.length - 1; i++) {
     const previous = points[i - 1];
-    const coude = points[i];
+    const corner = points[i];
     const next = points[i + 1];
-    const before = Math.hypot(coude.x - previous.x, coude.y - previous.y);
-    const after = Math.hypot(next.x - coude.x, next.y - coude.y);
-    const aligned = Math.abs((coude.x - previous.x) * (next.y - coude.y) - (coude.y - previous.y) * (next.x - coude.x)) < 0.01;
+    const before = Math.hypot(corner.x - previous.x, corner.y - previous.y);
+    const after = Math.hypot(next.x - corner.x, next.y - corner.y);
+    const aligned = Math.abs((corner.x - previous.x) * (next.y - corner.y) - (corner.y - previous.y) * (next.x - corner.x)) < 0.01;
 
     if (aligned || before < 0.01 || after < 0.01) {
-      d += ` L ${coude.x},${coude.y}`;
+      d += ` L ${corner.x},${corner.y}`;
       continue;
     }
     const ra = Math.min(radius, before / 2);
     const rb = Math.min(radius, after / 2);
-    const input = { x: coude.x + ((previous.x - coude.x) / before) * ra, y: coude.y + ((previous.y - coude.y) / before) * ra };
-    const output = { x: coude.x + ((next.x - coude.x) / after) * rb, y: coude.y + ((next.y - coude.y) / after) * rb };
-    d += ` L ${input.x},${input.y} Q ${coude.x},${coude.y} ${output.x},${output.y}`;
+    const input = { x: corner.x + ((previous.x - corner.x) / before) * ra, y: corner.y + ((previous.y - corner.y) / before) * ra };
+    const output = { x: corner.x + ((next.x - corner.x) / after) * rb, y: corner.y + ((next.y - corner.y) / after) * rb };
+    d += ` L ${input.x},${input.y} Q ${corner.x},${corner.y} ${output.x},${output.y}`;
   }
-  const dernier = points[points.length - 1];
-  return d + ` L ${dernier.x},${dernier.y}`;
+  const last = points[points.length - 1];
+  return d + ` L ${last.x},${last.y}`;
 }
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
@@ -187,9 +187,9 @@ export function setBackForTheHead(points: Point[], length: number, pulled: boole
 export function pointsBeforeHead(points: Point[], length: number): Point[] {
   const n = points.length;
   const penultimate = points[n - 2];
-  const dernier = points[n - 1];
-  const dx = dernier.x - penultimate.x;
-  const dy = dernier.y - penultimate.y;
+  const last = points[n - 1];
+  const dx = last.x - penultimate.x;
+  const dy = last.y - penultimate.y;
   const dist = Math.hypot(dx, dy);
   if (dist === 0) return points;
   const setback = Math.min(length, dist * 0.95);

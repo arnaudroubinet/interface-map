@@ -68,30 +68,30 @@ const NAME_CHAR_WIDTH = 8.2;
 const ICON_SLOT = 16 + 9;
 
 export function truncatedName(label: string): string {
-  const parCaractere = Math.max(4, Math.floor((USABLE_WIDTH - ICON_SLOT) / NAME_CHAR_WIDTH));
-  return label.length <= parCaractere ? label : `${label.slice(0, parCaractere - 1).trimEnd()}…`;
+  const maxChars = Math.max(4, Math.floor((USABLE_WIDTH - ICON_SLOT) / NAME_CHAR_WIDTH));
+  return label.length <= maxChars ? label : `${label.slice(0, maxChars - 1).trimEnd()}…`;
 }
 
 // Cuts the description into lines fitting the usable width, without breaking a
 // word. Beyond the allowed number of lines, the last one is truncated.
 export function descriptionLines(text: string | undefined): string[] {
   if (!text) return [];
-  const parCaractere = Math.max(1, Math.floor(USABLE_WIDTH / DESC_CHAR_WIDTH));
+  const maxChars = Math.max(1, Math.floor(USABLE_WIDTH / DESC_CHAR_WIDTH));
   const rows: string[] = [];
-  let courante = "";
+  let current = "";
   for (const word of text.split(/\s+/)) {
-    const essai = courante ? `${courante} ${word}` : word;
-    if (essai.length <= parCaractere) {
-      courante = essai;
+    const candidate = current ? `${current} ${word}` : word;
+    if (candidate.length <= maxChars) {
+      current = candidate;
       continue;
     }
-    if (courante) rows.push(courante);
-    courante = word;
+    if (current) rows.push(current);
+    current = word;
   }
-  if (courante) rows.push(courante);
+  if (current) rows.push(current);
   if (rows.length <= MAX_DESC_LINES) return rows;
   const kept = rows.slice(0, MAX_DESC_LINES);
-  kept[MAX_DESC_LINES - 1] = kept[MAX_DESC_LINES - 1].slice(0, parCaractere - 1).trimEnd() + "…";
+  kept[MAX_DESC_LINES - 1] = kept[MAX_DESC_LINES - 1].slice(0, maxChars - 1).trimEnd() + "…";
   return kept;
 }
 
@@ -126,11 +126,11 @@ const DISC_WIDTH = 11;
 
 export function chipSize(label: string | undefined, technology: string): { width: number; height: number } {
   if (!label) return { width: 0, height: 0 };
-  const sous = subLabel(label, technology);
+  const sub = subLabel(label, technology);
   const disc = technology.trim() !== "" ? DISC_WIDTH : 0;
   return {
-    width: Math.max(chipWidth(label) + disc, sous ? chipWidth(sous) : 0),
-    height: CHIP_HEIGHT + (sous ? SUB_LINE_HEIGHT : 0),
+    width: Math.max(chipWidth(label) + disc, sub ? chipWidth(sub) : 0),
+    height: CHIP_HEIGHT + (sub ? SUB_LINE_HEIGHT : 0),
   };
 }
 
@@ -317,7 +317,7 @@ interface LabelElk {
   height?: number;
 }
 
-interface AreteElk {
+interface EdgeElk {
   id: string;
   sources: string[];
   targets: string[];
@@ -335,7 +335,7 @@ interface ElkGraph {
   layoutOptions?: Record<string, string>;
   ports?: PortElk[];
   children?: ElkNode[];
-  edges?: AreteElk[];
+  edges?: EdgeElk[];
   width?: number;
   height?: number;
 }
@@ -348,12 +348,12 @@ function centreOf(n: ElkNode): { x: number; y: number } {
 }
 
 function edgePoints(
-  arete: AreteElk | undefined,
+  edgeElk: EdgeElk | undefined,
   start: LayoutNode,
   arrival: LayoutNode,
   offset: { x: number; y: number }
 ): { x: number; y: number }[] {
-  const section = arete?.sections?.[0];
+  const section = edgeElk?.sections?.[0];
   if (!section) {
     // ELK produced no route (a degenerate case, e.g. a loop): the two centres
     // are joined, for want of anything better.
@@ -372,7 +372,7 @@ type Point = { x: number; y: number };
 
 // The number of PAIRS of edges that cross. This is the arbiter between two
 // layouts: a crossing is what costs the reader most.
-function croisements(traces: Point[][]): number {
+function crossings(traces: Point[][]): number {
   const bounds = traces.map((pts) => {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const p of pts) {
@@ -452,13 +452,13 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // a return edge being reversed at cycle breaking, its exit port is an
   // "inverted" port. The precondition for both is the same: "nodes have fixed
   // port sides", hence FIXED_SIDE.
-  const buildElkNode = (node: GraphNode, retours: Map<number, ReturnSide>): ElkNode => {
+  const buildElkNode = (node: GraphNode, returnEdges: Map<number, ReturnSide>): ElkNode => {
       // Only the return edges carry ports. Declaring them on EVERY edge was tried
       // and measured: the group view gains 6 crossings by it, but "By actor" takes
       // 10 more and the detailed view 30, for 14% more area. The other edges
       // therefore follow PortSideProcessor.
       const ports: PortElk[] = [];
-      for (const [i, side] of retours) {
+      for (const [i, side] of returnEdges) {
         if (edges[i].to === node.id) {
           ports.push({ id: `pe${i}`, width: PORT_SIZE, height: PORT_SIZE, layoutOptions: { "elk.port.side": side } });
         }
@@ -495,14 +495,14 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     childrenOf.set(node.parent, list);
   }
 
-  const buildElkGraph = (retours: Map<number, ReturnSide>): ElkGraph => ({
+  const buildElkGraph = (returnEdges: Map<number, ReturnSide>): ElkGraph => ({
     id: "root",
     layoutOptions: OPTIONS,
     children: nodes
       .filter((node) => !node.parent)
       .map((node) => {
-        const enfants = childrenOf.get(node.id);
-        if (!enfants) return buildElkNode(node, retours);
+        const children = childrenOf.get(node.id);
+        if (!children) return buildElkNode(node, returnEdges);
         // A boundary has no size of its own: ELK sizes it from its children. Only
         // the margin and the label's height are reserved.
         return {
@@ -512,7 +512,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
           layoutOptions: {
             "elk.padding": `[top=${BOUNDARY_HEADER + BOUNDARY_PAD},left=${BOUNDARY_PAD},bottom=${BOUNDARY_PAD},right=${BOUNDARY_PAD}]`,
           },
-          children: enfants.map((child) => buildElkNode(child, retours)),
+          children: children.map((child) => buildElkNode(child, returnEdges)),
         } as ElkNode;
       }),
     // One identifier per edge, independent of the (from, to) pair: two flows of
@@ -528,7 +528,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
         // (source/target in the singular) and is silently ignored here -- ELK then
         // placed the port in the right spot but attached the edge to the node,
         // hence to its west face.
-        targets: [retours.has(i) ? `pe${i}` : edge.to],
+        targets: [returnEdges.has(i) ? `pe${i}` : edge.to],
 
         // These options apply TO THE LABEL, not to the graph.
         labels: edge.label
@@ -554,12 +554,12 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
 
   // The types elkjs publishes describe the input/output graph poorly; unknown is
   // used rather than bending our model to theirs.
-  const apply = async (retours: Map<number, ReturnSide>) =>
-    (await elk.layout(buildElkGraph(retours) as unknown as never)) as unknown as ElkGraph;
+  const apply = async (returnEdges: Map<number, ReturnSide>) =>
+    (await elk.layout(buildElkGraph(returnEdges) as unknown as never)) as unknown as ElkGraph;
 
   // ELK places a child RELATIVE to its parent: the offsets are accumulated to
   // bring everyone into the same frame as the edges.
-  const aplatirEn = (r: ElkGraph) => {
+  const flatten = (r: ElkGraph) => {
     const m = new Map<string, ElkNode>();
     const walk = (list: ElkNode[] | undefined, dx: number, dy: number) => {
       for (const n of list ?? []) {
@@ -579,19 +579,19 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // straightens edges. Imposed without that guard, the redirection created 28
   // crossings on its own, on a view that had none.
   //
-  const BUDGET_PAR_ARETE = 1;
+  const CROSSING_BUDGET_PER_EDGE = 1;
 
   const freeOnes = await apply(new Map());
-  const freeIds = aplatirEn(freeOnes);
+  const freeIds = flatten(freeOnes);
 
   // The face by which an edge reaches its target, in a given layout. Only
   // "EAST" is of interest: it is the face reserved for exits.
   const entersFromEast = (r: ElkGraph, ids: Map<string, ElkNode>, i: number): boolean => {
-    const arete = (r.edges ?? []).find((e) => e.id === `e${i}`);
-    const end = arete?.sections?.[0]?.endPoint;
+    const edgeElk = (r.edges ?? []).find((e) => e.id === `e${i}`);
+    const end = edgeElk?.sections?.[0]?.endPoint;
     const target = ids.get(edges[i].to);
     if (!end || !target) return false;
-    const container = arete?.container ? ids.get(arete.container) : undefined;
+    const container = edgeElk?.container ? ids.get(edgeElk.container) : undefined;
     const x = end.x + (container?.x ?? 0);
     const y = end.y + (container?.y ?? 0);
     const left = target.x ?? 0;
@@ -603,10 +603,10 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // Each edge's polyline, in the graph's frame: enough to compare two layouts
   // before choosing one.
   const traces = (r: ElkGraph, ids: Map<string, ElkNode>): Point[][] =>
-    (r.edges ?? []).map((arete) => {
-      const section = arete.sections?.[0];
+    (r.edges ?? []).map((edgeElk) => {
+      const section = edgeElk.sections?.[0];
       if (!section) return [];
-      const container = arete.container ? ids.get(arete.container) : undefined;
+      const container = edgeElk.container ? ids.get(edgeElk.container) : undefined;
       const dx = container?.x ?? 0;
       const dy = container?.y ?? 0;
       return [section.startPoint, ...(section.bendPoints ?? []), section.endPoint].map((p) => ({
@@ -615,7 +615,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
       }));
     });
 
-  const retours = new Map<number, ReturnSide>();
+  const returnEdges = new Map<number, ReturnSide>();
   edges.forEach((edge, i) => {
     if (!entersFromEast(freeOnes, freeIds, i)) return;
     const source = freeIds.get(edge.from);
@@ -624,26 +624,26 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     // From the top or the bottom "depending on where it goes": on the side the
     // flow comes from.
     const side = (source.y ?? 0) + source.height / 2 <= (target.y ?? 0) + target.height / 2;
-    retours.set(i, side ? "NORTH" : "SOUTH");
+    returnEdges.set(i, side ? "NORTH" : "SOUTH");
   });
 
   let result = freeOnes;
-  let parId = freeIds;
+  let byId = freeIds;
 
 
-  if (retours.size > 0) {
-    const oriented = await apply(retours);
-    const orientedIds = aplatirEn(oriented);
-    const before = croisements(traces(freeOnes, freeIds));
-    const after = croisements(traces(oriented, orientedIds));
-    if (after <= before + BUDGET_PAR_ARETE * retours.size) {
+  if (returnEdges.size > 0) {
+    const oriented = await apply(returnEdges);
+    const orientedIds = flatten(oriented);
+    const before = crossings(traces(freeOnes, freeIds));
+    const after = crossings(traces(oriented, orientedIds));
+    if (after <= before + CROSSING_BUDGET_PER_EDGE * returnEdges.size) {
       result = oriented;
-      parId = orientedIds;
+      byId = orientedIds;
     }
   }
 
   const layoutNodes: LayoutNode[] = nodes.map((node) => {
-    const n = parId.get(node.id);
+    const n = byId.get(node.id);
     const width = n?.width ?? NODE_WIDTH;
     const height = n?.height ?? nodeHeight(node);
     const c = n ? centreOf(n) : { x: 0, y: 0 };
@@ -657,8 +657,8 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // reparented it there, the graph's origin otherwise. Without that offset, a
   // flow internal to the boundary was drawn beside both its nodes -- a line
   // leaving and arriving in the void.
-  const originOf = (arete: AreteElk | undefined): { x: number; y: number } => {
-    const container = arete?.container ? parId.get(arete.container) : undefined;
+  const originOf = (edgeElk: EdgeElk | undefined): { x: number; y: number } => {
+    const container = edgeElk?.container ? byId.get(edgeElk.container) : undefined;
     return container ? { x: container.x ?? 0, y: container.y ?? 0 } : { x: 0, y: 0 };
   };
 
@@ -666,12 +666,12 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
     const start = nodesById.get(edge.from);
     const arrival = nodesById.get(edge.to);
     if (!start || !arrival) return { ...edge, points: [] };
-    const arete = edgesById.get(`e${i}`);
-    const offset = originOf(arete);
-    const tag = arete?.labels?.[0];
+    const edgeElk = edgesById.get(`e${i}`);
+    const offset = originOf(edgeElk);
+    const tag = edgeElk?.labels?.[0];
     return {
       ...edge,
-      points: edgePoints(arete, start, arrival, offset),
+      points: edgePoints(edgeElk, start, arrival, offset),
       labelCentreOf:
         tag && tag.x !== undefined && tag.y !== undefined
           ? {

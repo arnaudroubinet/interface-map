@@ -482,29 +482,29 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   // reader sees at a glance that this node holds several, where only the "4
   // actors" subtitle used to say so.
   if (node.aggregate && node.aggregate > 1) {
-    const pile = el("g");
-    pile.setAttribute("class", "fx-stack");
+    const stack = el("g");
+    stack.setAttribute("class", "fx-stack");
     for (const offset of [8, 4]) {
       const behind = rect(x + offset, y - offset, node.width, node.height, style.fill, style.stroke, style.strokeWidth);
       behind.setAttribute("rx", "10");
       behind.setAttribute("opacity", "0.55");
-      pile.appendChild(behind);
+      stack.appendChild(behind);
     }
-    g.appendChild(pile);
+    g.appendChild(stack);
   }
 
   // A TECHNICAL actor carries a cut corner, like a component. That is the
   // convention ArchiMate already settled (§3.9): the shape restates what the
   // colour says, and colour alone says nothing in black and white or for a
   // colour-blind reader (WCAG 1.4.1, technique G111).
-  const COUPE = 14;
+  const CUT_CORNER = 14;
   let box: SVGElement;
   if (node.technical) {
     const path = el("path");
     path.setAttribute("class", "fx-cut-corner");
     path.setAttribute(
       "d",
-      `M${x + 10} ${y} H${x + node.width - COUPE} L${x + node.width} ${y + COUPE} V${y + node.height - 10}` +
+      `M${x + 10} ${y} H${x + node.width - CUT_CORNER} L${x + node.width} ${y + CUT_CORNER} V${y + node.height - 10}` +
         ` a10 10 0 0 1 -10 10 H${x + 10} a10 10 0 0 1 -10 -10 V${y + 10} a10 10 0 0 1 10 -10 Z`
     );
     path.setAttribute("fill", style.fill);
@@ -522,7 +522,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   if (isExternal) box.setAttribute("stroke-dasharray", "8 5");
   g.appendChild(box);
 
-  const blanc = "#ffffff";
+  const white = "#ffffff";
   // White, not grey. #cccccc fell to 1.81:1; a half-tone is not enough either --
   // #e8eef2 gives only 3.94:1. The visual hierarchy is already carried by size
   // (16 px bold, 12 px, 11 px); colour has no business carrying it as well.
@@ -538,7 +538,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   const iconSize = 16;
   const shownName = truncatedName(node.label);
   const nameWidth = shownName.length * 8.2;
-  g.appendChild(buildIcon(node.icon ?? DEFAULT_ICON, cx - nameWidth / 2 - iconSize - 6, cursor + 1, iconSize, blanc));
+  g.appendChild(buildIcon(node.icon ?? DEFAULT_ICON, cx - nameWidth / 2 - iconSize - 6, cursor + 1, iconSize, white));
 
   const nameText = el("text");
   nameText.setAttribute("x", String(cx + iconSize / 2 + 3));
@@ -546,7 +546,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
   nameText.setAttribute("text-anchor", "middle");
   nameText.setAttribute("font-size", "16");
   nameText.setAttribute("font-weight", "700");
-  nameText.setAttribute("fill", blanc);
+  nameText.setAttribute("fill", white);
   nameText.textContent = shownName;
   g.appendChild(nameText);
   // Truncated, the name stays readable on hover over the whole box -- in the
@@ -565,7 +565,7 @@ function buildNodeElement(node: LayoutNode): SVGGElement {
     typeText.setAttribute("y", String(cursor + 12));
     typeText.setAttribute("text-anchor", "middle");
     typeText.setAttribute("font-size", "12");
-    typeText.setAttribute("fill", blanc);
+    typeText.setAttribute("fill", white);
     typeText.textContent = `[${node.subtitle}${isExternal ? " · External" : ""}]`;
     g.appendChild(typeText);
     cursor += TYPE_LINE_HEIGHT;
@@ -685,9 +685,9 @@ function computeBounds(nodes: LayoutNode[], edges: RenderEdge[], labels: Map<Ren
     if (e.arrow) {
       // The head spreads around the path's endpoint, in a direction that depends
       // on the line's orientation: its whole footprint is reserved.
-      const bout = e.points[e.points.length - 1];
-      expand(bout.x - HEAD_SIZE, bout.y - HEAD_SIZE);
-      expand(bout.x + HEAD_SIZE, bout.y + HEAD_SIZE);
+      const end = e.points[e.points.length - 1];
+      expand(end.x - HEAD_SIZE, end.y - HEAD_SIZE);
+      expand(end.x + HEAD_SIZE, end.y + HEAD_SIZE);
     }
     // A label's chip spills well beyond its anchor point alone
     // (e.g. "File + ETL (repository)") -- count its real width, not just that point.
@@ -758,7 +758,7 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
     const y0 = row - 5;
     const l = LEGEND_SAMPLE;
     const h = 10;
-    if (e.pile) {
+    if (e.stacked) {
       const g2 = el("g");
       for (const [dx, dy, op] of [[4, -3, "0.55"], [0, 0, "1"]] as [number, number, string][]) {
         const r = rect(x0 + dx, y0 + dy, l - 4, h, e.fill, e.stroke, 1);
@@ -768,9 +768,9 @@ function buildLegend(inputs: readonly LegendEntry[], x: number, y: number, width
       return g2;
     }
     if (e.cutCorner) {
-      const coupe = 4;
+      const cutCorner = 4;
       const p2 = el("path");
-      p2.setAttribute("d", `M${x0} ${y0} H${x0 + l - coupe} L${x0 + l} ${y0 + coupe} V${y0 + h} H${x0} Z`);
+      p2.setAttribute("d", `M${x0} ${y0} H${x0 + l - cutCorner} L${x0 + l} ${y0 + cutCorner} V${y0 + h} H${x0} Z`);
       p2.setAttribute("fill", e.fill);
       p2.setAttribute("stroke", e.stroke);
       p2.setAttribute("stroke-width", "1");
@@ -869,9 +869,9 @@ export function buildGraphSvg(
 
   const defs = el("defs");
   // One definition per (colour, shape, size) actually used.
-  const marqueurs = new Map<string, { colour: string; hollow: boolean; size: number }>();
+  const markers = new Map<string, { colour: string; hollow: boolean; size: number }>();
   const declare = (colour: string, hollow: boolean, size: number) =>
-    marqueurs.set(arrowMarkerId(colour, hollow, size), { colour, hollow, size });
+    markers.set(arrowMarkerId(colour, hollow, size), { colour, hollow, size });
   for (const e of renderEdges) {
     if (!e.arrow) continue;
     declare(edgeColour(e, colorFor), e.pulled === true, headSizeFor(approachLengthOf(e)));
@@ -884,7 +884,7 @@ export function buildGraphSvg(
     if (e.sample.shape !== "line" || !e.sample.head) continue;
     declare(e.sample.colour, e.sample.head === "start", HEAD_SIZE);
   }
-  for (const m of marqueurs.values()) addArrowMarker(defs, m.colour, m.hollow, m.size);
+  for (const m of markers.values()) addArrowMarker(defs, m.colour, m.hollow, m.size);
   svg.appendChild(defs);
 
   const background = rect(bounds.x0, bounds.y0, width, height, PAPER, "none", 0);
@@ -910,7 +910,7 @@ export function buildGraphSvg(
   // Boundaries go under the edges: they are background scenery, not objects to
   // hover over.
   const boundaryLayer = el("g");
-  boundaryLayer.setAttribute("class", "fx-frontieres");
+  boundaryLayer.setAttribute("class", "fx-boundary");
   for (const node of layout.nodes.filter((n) => n.kind === "boundary")) {
     boundaryLayer.appendChild(buildBoundaryElement(node));
   }

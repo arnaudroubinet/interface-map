@@ -13,7 +13,7 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
     // blankrows: the empty rows are kept long enough to number them, then
     // dropped. Without them the index would shift from the first skipped row
     // on, and every following number would be wrong.
-    const brutes = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
+    const raw = XLSX.utils.sheet_to_json<Record<string, string>>(sheet, {
       defval: "",
       raw: false,
       blankrows: true,
@@ -21,7 +21,7 @@ export function parseWorkbook(buffer: ArrayBuffer): ParsedWorkbook {
     // The first data row follows the header, itself at the start of the sheet's
     // real range -- which does not always begin at A1.
     const start = sheet["!ref"] ? XLSX.utils.decode_range(sheet["!ref"]).s.r : 0;
-    const rows: RawRow[] = brutes
+    const rows: RawRow[] = raw
       .map((values, i) => ({ row: start + 2 + i, values }))
       .filter((r) => Object.values(r.values).some((v) => (v ?? "").toString().trim() !== ""));
     const headerRow = XLSX.utils.sheet_to_json<string[]>(sheet, { header: 1, raw: false })[0];

@@ -73,10 +73,10 @@ export function buildMatrixTable(
         // No chip without a technology: the functional reading empties it, and an
         // empty chip would remind of nothing.
         if (cell.technology.trim()) {
-          const pastille = document.createElement("span");
-          pastille.className = "matrix-dot";
-          pastille.style.backgroundColor = colorFor(cell.technology);
-          span.appendChild(pastille);
+          const dot = document.createElement("span");
+          dot.className = "matrix-dot";
+          dot.style.backgroundColor = colorFor(cell.technology);
+          span.appendChild(dot);
         }
         span.appendChild(document.createTextNode(cellLabel(cell.technology, cell.count, cell.names)));
         // The whole list on hover: the label names only the first few.

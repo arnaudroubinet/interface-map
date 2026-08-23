@@ -275,12 +275,12 @@ export function reading(
 export function unionReading(model: ParsedModel, mode: Mode): Reading {
   if (model.milestones.length === 0) return reading(model, null, mode);
   const flows: FlowInstance[] = [];
-  const vus = new Set<string>();
+  const seen = new Set<string>();
   for (const milestone of model.milestones) {
     for (const f of flowsForReading(model, milestone.rank, mode)) {
       const key = JSON.stringify([f.provider, f.consumer, f.flowType, f.interfaceName, f.version]);
-      if (vus.has(key)) continue;
-      vus.add(key);
+      if (seen.has(key)) continue;
+      seen.add(key);
       flows.push(f);
     }
   }
@@ -288,7 +288,7 @@ export function unionReading(model: ParsedModel, mode: Mode): Reading {
   return { flows, actors };
 }
 
-export function chainesCoupees(
+export function brokenChains(
   model: ParsedModel,
   rank: number | null,
 ): BrokenChain[] {

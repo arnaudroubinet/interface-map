@@ -45,9 +45,9 @@ describe("ordonner — seriation RCM", () => {
   it("makes the vertices of one cluster contiguous", () => {
     const order = orderBy(["A", "X", "B", "Y", "C", "Z"], "blocks", ctx);
     const pos = new Map(order.map((id, i) => [id, i]));
-    for (const amas of [["A", "B", "C"], ["X", "Y", "Z"]]) {
-      const indices = amas.map((i) => pos.get(i)!).sort((a, b) => a - b);
-      expect(indices[2] - indices[0], `amas ${amas.join("")} dispersé : ${order.join(",")}`).toBe(2);
+    for (const cluster of [["A", "B", "C"], ["X", "Y", "Z"]]) {
+      const indices = cluster.map((i) => pos.get(i)!).sort((a, b) => a - b);
+      expect(indices[2] - indices[0], `cluster ${cluster.join("")} dispersé : ${order.join(",")}`).toBe(2);
     }
   });
 

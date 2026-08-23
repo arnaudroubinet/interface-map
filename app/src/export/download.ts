@@ -10,7 +10,7 @@ const TYPES: Record<string, string> = {
 // an error nor a file. The delay covers the time a human takes to pick a
 // folder; the URL survives at most until the page reloads anyway.
 //
-const DELAI_REVOCATION_MS = 120_000;
+const REVOCATION_DELAY_MS = 120_000;
 
 export function downloadText(content: string, fileName: string): void {
   downloadBlob(new Blob([content], { type: "text/markdown;charset=utf-8" }), fileName);
@@ -34,5 +34,5 @@ export function downloadBlob(blob: Blob, fileName: string): void {
   document.body.appendChild(a);
   a.click();
   a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), DELAI_REVOCATION_MS);
+  setTimeout(() => URL.revokeObjectURL(url), REVOCATION_DELAY_MS);
 }

@@ -44,7 +44,7 @@ function headerText(c: Comparison): string {
     : `What changes between ${c.before} and ${c.after}, each read whole.`;
 }
 
-export function buildEcartsReport(changes: Changes, comparison: Comparison): HTMLElement {
+export function buildChangesReport(changes: Changes, comparison: Comparison): HTMLElement {
   const root = el("div", { class: "changes" });
   root.appendChild(el("p", { class: "changes-header" }, [headerText(comparison)]));
   root.appendChild(block("Actors", changes.actors));

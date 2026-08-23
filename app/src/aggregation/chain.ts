@@ -31,10 +31,10 @@ export function availableChains(model: ParsedModel, rank: number | null): Availa
   for (const f of businessConsumptions(model, rank)) {
     for (const hops of chainsOfFlow(model, rank, f)) {
       if (hops.length === 0) continue;
-      const dernier = hops[hops.length - 1];
-      const label = `${hops[0].provider} → ${dernier.consumer} : ${interfaceLabel(
-        dernier.interfaceName,
-        dernier.version
+      const last = hops[hops.length - 1];
+      const label = `${hops[0].provider} → ${last.consumer} : ${interfaceLabel(
+        last.interfaceName,
+        last.version
       )}`;
       if (views.has(label)) continue;
       views.add(label);

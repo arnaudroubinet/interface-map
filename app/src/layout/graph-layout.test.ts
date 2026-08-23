@@ -195,9 +195,9 @@ describe("restreindreLayout", () => {
   // The platform boundary is not an actor: it appears in no milestone view, and
   // losing it would make the frame disappear.
   it("keeps the platform boundary, which no view lists", () => {
-    const avecFrontiere = union();
-    avecFrontiere.nodes.push({ id: "__frontiere__", label: "Platform", kind: "boundary", x: 0, y: 0, width: 100, height: 100 });
-    expect(restrictLayout(avecFrontiere, atMilestone).nodes.map((n) => n.id)).toContain("__frontiere__");
+    const withBoundary = union();
+    withBoundary.nodes.push({ id: "__boundary__", label: "Platform", kind: "boundary", x: 0, y: 0, width: 100, height: 100 });
+    expect(restrictLayout(withBoundary, atMilestone).nodes.map((n) => n.id)).toContain("__boundary__");
   });
 });
 

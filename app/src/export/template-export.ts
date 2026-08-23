@@ -17,7 +17,7 @@ import {
   FX_SHEET_PREFIX,
   sanitiseTabName,
   FORBIDDEN_TAB_CHARACTERS,
-  REMPLACEMENT_ONGLET,
+  TAB_REPLACEMENT_CHARACTER,
   MAX_TAB_LENGTH,
   FX_SHEET_SEPARATOR,
   REF_ACTORS_SHEET,
@@ -144,7 +144,7 @@ const TAB_NAME_FORMULA =
 // redisplays them without the prefix. Without it, Excel does not recognise the
 // function, deletes the formula and offers to repair the workbook: which is
 // exactly what it did on a first version.
-const NOMS_STOCKES: Record<string, string> = {
+const STORED_NAMES: Record<string, string> = {
   FILTER: "_xlfn._xlws.FILTER",
   SORT: "_xlfn._xlws.SORT",
   UNIQUE: "_xlfn.UNIQUE",
@@ -154,8 +154,8 @@ const NOMS_STOCKES: Record<string, string> = {
 
 function nameForExcel(formula: string): string {
   return formula.replace(
-    new RegExp(`(?<![.A-Za-z_])(${Object.keys(NOMS_STOCKES).join("|")})\\(`, "g"),
-    (_, name: string) => `${NOMS_STOCKES[name]}(`
+    new RegExp(`(?<![.A-Za-z_])(${Object.keys(STORED_NAMES).join("|")})\\(`, "g"),
+    (_, name: string) => `${STORED_NAMES[name]}(`
   );
 }
 
@@ -193,19 +193,19 @@ function extraColumns() {
 // lists of a long-named sheet would stay empty.
 function sanitiseTabFormula(expression: string): string {
   const sanitised = FORBIDDEN_TAB_CHARACTERS.reduce(
-    (current, interdit) => `SUBSTITUTE(${current},"${interdit}","${REMPLACEMENT_ONGLET}")`,
+    (current, forbidden) => `SUBSTITUTE(${current},"${forbidden}","${TAB_REPLACEMENT_CHARACTER}")`,
     expression
   );
   return `LEFT(${sanitised},${MAX_TAB_LENGTH})`;
 }
 
-function helperFormulas(lastRow: number): { cellule: string; ref: string; formula: string }[] {
+function helperFormulas(lastRow: number): { cell: string; ref: string; formula: string }[] {
   const c = extraColumns();
-  const plage = (column: string) => `Interfaces!$${column}$2:$${column}$${lastRow}`;
-  const flows = plage(columnOf(INTERFACE_COLUMNS, "Flow name"));
-  const version = plage(columnOf(INTERFACE_COLUMNS, "Version"));
-  const provider = plage(columnOf(INTERFACE_COLUMNS, "Provider"));
-  const type = plage(columnOf(INTERFACE_COLUMNS, "Flow type"));
+  const range = (column: string) => `Interfaces!$${column}$2:$${column}$${lastRow}`;
+  const flows = range(columnOf(INTERFACE_COLUMNS, "Flow name"));
+  const version = range(columnOf(INTERFACE_COLUMNS, "Version"));
+  const provider = range(columnOf(INTERFACE_COLUMNS, "Provider"));
+  const type = range(columnOf(INTERFACE_COLUMNS, "Flow type"));
   // The expected sheet, rebuilt as everywhere else in the project
   // (expectedFxSheet, in parsing/build-model.ts, is authoritative).
   const tab = sanitiseTabFormula(`"${FX_SHEET_PREFIX}"&${provider}&"${FX_SHEET_SEPARATOR}"&${type}`);
@@ -217,14 +217,14 @@ function helperFormulas(lastRow: number): { cellule: string; ref: string; formul
     {
       // Key (sheet|flow) and version, sorted by key: it is the sort that makes
       // one flow's versions contiguous, the condition for MATCH + COUNTIF.
-      cellule: `${c.versionKey}2`,
+      cell: `${c.versionKey}2`,
       ref: `${c.versionKey}2:${c.version}${lastRow}`,
       formula: spread(`SORT(FILTER(HSTACK(${tab}&"|"&${flows},${version}),${notEmpty}),1,1)`),
     },
     {
       // (sheet, flow) pairs deduplicated: without UNIQUE, a flow with three
       // versions would appear three times in the drop-down.
-      cellule: `${c.flowTab}2`,
+      cell: `${c.flowTab}2`,
       ref: `${c.flowTab}2:${c.flows}${lastRow}`,
       formula: spread(`SORT(UNIQUE(FILTER(HSTACK(${tab},${flows}),${notEmpty})),1,1)`),
     },
@@ -234,7 +234,7 @@ function helperFormulas(lastRow: number): { cellule: string; ref: string; formul
       // the row's actor may be offered. The version is in the label: two versions
       // of one flow are two possible republications, and conflating them would
       // amount to guessing.
-      cellule: `${c.provider}2`,
+      cell: `${c.provider}2`,
       ref: `${c.provider}2:${c.publishedInterface}${lastRow}`,
       // The versioned label, built like interfaceLabel: the name, a space only if
       // there is a version, then the version.
@@ -264,8 +264,8 @@ function listsSheet(lastRow: number): XLSX.WorkSheet {
     [`${c.publishedInterface}1`, "InterfaceExposee"],
   ];
   for (const [address, title] of titles) ws[address] = { t: "s", v: title };
-  for (const { cellule, ref, formula } of helperFormulas(lastRow)) {
-    ws[cellule] = { t: "s", v: "", f: formula, F: ref };
+  for (const { cell, ref, formula } of helperFormulas(lastRow)) {
+    ws[cell] = { t: "s", v: "", f: formula, F: ref };
   }
   ws["!ref"] = `A1:${c.publishedInterface}${lastRow}`;
   return ws;
@@ -512,7 +512,7 @@ function dependentFormulas(lastRow: number) {
 // Excel caps the title at 32 characters and the text at 255.
 // Exported so the test can check that no prompt targets a non-existent column
 // -- illusory coverage is worse than a known hole.
-export const INVITES: Record<string, { title: string; text: string }> = {
+export const PROMPTS: Record<string, { title: string; text: string }> = {
   "Flow name": { title: "Interface", text: "An interface exposed by this sheet's provider. Declare it on the Interfaces sheet first." },
   // The original defect: without the flow, this list's source is #N/A and the
   // list does not open. The behaviour is right, it just failed to say so.
@@ -563,8 +563,8 @@ export const INVITES: Record<string, { title: string; text: string }> = {
 
 // The sheet first, the heading second: one and the same column name does not
 // mean the same thing from one sheet to the next.
-function invitePour(sheet: string, heading: string): { title: string; text: string } | undefined {
-  return INVITES[`${sheet}.${heading}`] ?? INVITES[heading];
+function promptFor(sheet: string, heading: string): { title: string; text: string } | undefined {
+  return PROMPTS[`${sheet}.${heading}`] ?? PROMPTS[heading];
 }
 
 // The lists a query fills, told apart from the ones the workbook owns by the
@@ -582,7 +582,7 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     sheet,
     column: columnOf(columns, heading),
     formula,
-    prompt: invitePour(sheet, heading),
+    prompt: promptFor(sheet, heading),
     suggestsOnly: formula !== undefined && fromReferential.has(formula),
   });
 
@@ -592,14 +592,14 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
   // the same treatment, or reports itself by the absence of a prompt.
   //
   const free = (sheet: string, columns: readonly string[], guided: readonly string[]) =>
-    columns.filter((c) => !guided.includes(c) && invitePour(sheet, c)).map((c) => v(sheet, columns, c));
+    columns.filter((c) => !guided.includes(c) && promptFor(sheet, c)).map((c) => v(sheet, columns, c));
   const dependent = dependentFormulas(lastListRow(data.interfaces.length));
   // The two validity bounds are set wherever objects are dated, and always the
   // same way.
   const bounds = (sheet: string, columns: readonly string[]) =>
     VALIDITY_COLUMNS.map((heading) => v(sheet, columns, heading, "L_Palier"));
 
-  const GUIDEES_FX = [
+  const GUIDED_FX_COLUMNS = [
     "Flow name",
     "Version",
     "Consumer",
@@ -608,7 +608,7 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     REPUBLICATION_COLUMN,
     ...VALIDITY_COLUMNS,
   ];
-  const listesFx = (sheet: string) => [
+  const fxLists = (sheet: string) => [
     v(sheet, FX_COLUMNS, "Flow name", dependent.flows),
     v(sheet, FX_COLUMNS, "Version", dependent.version),
     v(sheet, FX_COLUMNS, "Consumer", "L_Acteur"),
@@ -616,7 +616,7 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     v(sheet, FX_COLUMNS, "Decision", "L_Decision"),
     v(sheet, FX_COLUMNS, REPUBLICATION_COLUMN, dependent.republication),
     ...bounds(sheet, FX_COLUMNS),
-    ...free(sheet, FX_COLUMNS, GUIDEES_FX),
+    ...free(sheet, FX_COLUMNS, GUIDED_FX_COLUMNS),
   ];
   return [
     v("Actors", ACTOR_COLUMNS, "Name", "L_RefActeur"),
@@ -645,13 +645,13 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Flow type", "Direction"]),
     ...free("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
     // The filled flow sheets get the same lists as their pattern.
-    ...fxTabs(data).flatMap((o) => listesFx(o.name)),
+    ...fxTabs(data).flatMap((o) => fxLists(o.name)),
   ];
 }
 
 // The entry sheets and their columns, in one place: the header to style, the
 // pane to freeze and the prompt to set are all three deduced from it.
-const FEUILLES_DE_SAISIE: [string, readonly string[]][] = [
+const ENTRY_SHEETS: [string, readonly string[]][] = [
   ["Actors", ACTOR_COLUMNS],
   ["Groups", GROUP_COLUMNS],
   ["Milestones", MILESTONE_COLUMNS],
@@ -678,7 +678,7 @@ export function stylesOfTemplate(): StyleToApply[] {
   }));
   // Each entry sheet's header row: it stays on screen (frozen pane) and must
   // be distinguishable from the data it names.
-  for (const [name, columns] of FEUILLES_DE_SAISIE) {
+  for (const [name, columns] of ENTRY_SHEETS) {
     styles.push({
       sheet: name,
       cells: columns.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
@@ -721,7 +721,7 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
         role: "header" as const,
       })),
     ],
-    panes: [...FEUILLES_DE_SAISIE.map(([name]) => name), ...fxTabs(data).map((o) => o.name)],
+    panes: [...ENTRY_SHEETS.map(([name]) => name), ...fxTabs(data).map((o) => o.name)],
   });
   return completed;
 }

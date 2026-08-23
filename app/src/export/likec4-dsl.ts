@@ -31,7 +31,7 @@ function flowDirection(f: FlowInstance): { de: string; vers: string } {
   return { de: f.provider, vers: f.consumer };
 }
 
-const ETIQUETTE_TIRE = "Pulled";
+const PULLED_TAG = "Pulled";
 const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
 
 // LikeC4 refuses the whole file on a relationship from an element to itself --
@@ -85,7 +85,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     // LikeC4 refuses an undeclared tag: this one always is, even if no pulled
     // flow exists in this workbook -- a useless declaration costs nothing, an
     // invalid file costs everything.
-    `    tag ${ETIQUETTE_TIRE.toLowerCase()}`,
+    `    tag ${PULLED_TAG.toLowerCase()}`,
     ...techs.map((t) => `    tag ${tags.get(t)}`),
     // One relationship kind per technology. LikeC4 is the only target that can
     // draw our convention: the head at the CONSUMER end when the provider
@@ -161,7 +161,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     ];
     // The initiative, as a tag: LikeC4 can filter on it, and without it the
     // file would lose what the arrowhead carries on our diagrams.
-    if (isPulled(f)) body.push(`        #${ETIQUETTE_TIRE.toLowerCase()}`);
+    if (isPulled(f)) body.push(`        #${PULLED_TAG.toLowerCase()}`);
     // What the exchange carries, in the field LikeC4 provides for it: the
     // relationship has a description distinct from its label, where Structurizr
     // has only the label and must fall back on a property.

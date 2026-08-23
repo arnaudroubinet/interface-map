@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
-import { buildFunctionalFlows, chainesCoupees, unionReading } from "./reading";
+import { buildFunctionalFlows, brokenChains, unionReading } from "./reading";
 import type { ParsedModel, Actor, ActorType, InterfaceCatalogue, Consumption, Milestone } from "../parsing/model";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -172,11 +172,11 @@ describe("buildFunctionalFlows", () => {
   });
 });
 
-describe("chainesCoupees", () => {
+describe("brokenChains", () => {
   it("names the republished interface that nothing feeds", () => {
     const m = unRelais();
     m.consumptions[0].republishedAs = "";
-    const cut = chainesCoupees(m, null);
+    const cut = brokenChains(m, null);
     expect(cut).toHaveLength(1);
     expect(cut[0].reason).toBe("no-input");
     expect(cut[0].iface.flowName).toBe("trx.norm");
@@ -185,11 +185,11 @@ describe("chainesCoupees", () => {
   it("also names the one whose only input points at an unknown interface", () => {
     const m = unRelais();
     m.consumptions[0].republishedAs = "Fantôme";
-    expect(chainesCoupees(m, null)[0].reason).toBe("no-input");
+    expect(brokenChains(m, null)[0].reason).toBe("no-input");
   });
 
   it("reports nothing on a whole chain", () => {
-    expect(chainesCoupees(unRelais(), null)).toEqual([]);
+    expect(brokenChains(unRelais(), null)).toEqual([]);
   });
 
   // Nothing reads consumption: the integrity report (the only caller) never
@@ -197,14 +197,14 @@ describe("chainesCoupees", () => {
   it("does not carry the consumption, which nothing reads", () => {
     const m = unRelais();
     m.consumptions[0].republishedAs = "";
-    expect(chainesCoupees(m, null)[0]).not.toHaveProperty("conso");
+    expect(brokenChains(m, null)[0]).not.toHaveProperty("conso");
   });
 
   // A segment retired at the milestone leaves the republished interface with no
   // live input: exactly the same situation as an input never entered, and no
   // caller tells the two apart.
   it("reports a segment retired at the milestone as an interface with no input", () => {
-    const cut = chainesCoupees(aRelayWithRetiredSegment(), 2);
+    const cut = brokenChains(aRelayWithRetiredSegment(), 2);
     expect(cut).toHaveLength(1);
     expect(cut[0].reason).toBe("no-input");
   });

@@ -100,7 +100,7 @@ const callbacks: RailCallbacks = {
   onPngScale: noop,
   onTechnologyHidden: noop,
   onActorHidden: noop,
-  onMasquerExternes: noop,
+  onHideExternals: noop,
   onActorHiddenForTechnology: noop,
   onHideExternalsInMatrix: noop,
   onActorHiddenInMatrix: noop,

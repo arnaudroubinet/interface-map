@@ -215,7 +215,7 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
 // that has left the list designates nothing any more -- the diagram shows a
 // phantom box, with not a word to say why. Mode and milestone share the same
 // rule: separating them fixes only half of it.
-function selectionRetenue(state: AppState, mode: Mode, milestone: string | null): string | null {
+function retainedSelection(state: AppState, mode: Mode, milestone: string | null): string | null {
   if (!state.file || !state.actorSelection) return state.actorSelection;
   const model = state.file.model;
   const rank = milestone === null ? null : rankOfMilestone(model, milestone) ?? null;
@@ -224,7 +224,7 @@ function selectionRetenue(state: AppState, mode: Mode, milestone: string | null)
 }
 
 export function withDisplayedMilestone(state: AppState, milestone: string | null): AppState {
-  return { ...state, shownMilestone: milestone, actorSelection: selectionRetenue(state, state.mode, milestone) };
+  return { ...state, shownMilestone: milestone, actorSelection: retainedSelection(state, state.mode, milestone) };
 }
 
 export function withComparedMilestone(state: AppState, milestone: string | null): AppState {
@@ -264,7 +264,7 @@ export function withMode(state: AppState, mode: Mode): AppState {
     mode === "functional" && VIEWS_MOOT_IN_FUNCTIONAL.includes(state.view)
       ? "platform-detail"
       : state.view;
-  return { ...state, mode, view, actorSelection: selectionRetenue(state, mode, state.shownMilestone) };
+  return { ...state, mode, view, actorSelection: retainedSelection(state, mode, state.shownMilestone) };
 }
 
 export function withOptions(state: AppState, patch: Partial<AppOptions>): AppState {
@@ -276,32 +276,32 @@ export function withActorSelection(state: AppState, actor: string | null): AppSt
   return { ...state, actorSelection: actor, actorFilters: { ...state.actorFilters, hiddenTechnologies: [], hiddenActors: [] } };
 }
 
-function basculer(list: string[], value: string, hidden: boolean): string[] {
-  const sans = list.filter((v) => v !== value);
-  return hidden ? [...sans, value] : sans;
+function toggle(list: string[], value: string, hidden: boolean): string[] {
+  const rest = list.filter((v) => v !== value);
+  return hidden ? [...rest, value] : rest;
 }
 
-export function withTechnoMasquee(state: AppState, tech: string, hidden: boolean): AppState {
+export function withTechnologyHidden(state: AppState, tech: string, hidden: boolean): AppState {
   return {
     ...state,
-    actorFilters: { ...state.actorFilters, hiddenTechnologies: basculer(state.actorFilters.hiddenTechnologies, tech, hidden) },
+    actorFilters: { ...state.actorFilters, hiddenTechnologies: toggle(state.actorFilters.hiddenTechnologies, tech, hidden) },
   };
 }
 
 export function withActorHidden(state: AppState, actor: string, hidden: boolean): AppState {
   return {
     ...state,
-    actorFilters: { ...state.actorFilters, hiddenActors: basculer(state.actorFilters.hiddenActors, actor, hidden) },
+    actorFilters: { ...state.actorFilters, hiddenActors: toggle(state.actorFilters.hiddenActors, actor, hidden) },
   };
 }
 
 // The neighbourhood does not touch the hidings: widening the view neither
 // reveals nor hides anyone beyond what the radius brings.
-export function withSujetFrise(state: AppState, subject: RoadmapSubject): AppState {
+export function withRoadmapSubject(state: AppState, subject: RoadmapSubject): AppState {
   return { ...state, roadmapSubject: subject };
 }
 
-export function withVoisinage(state: AppState, neighbourhood: Neighbourhood): AppState {
+export function withNeighbourhood(state: AppState, neighbourhood: Neighbourhood): AppState {
   return { ...state, actorFilters: { ...state.actorFilters, neighbourhood } };
 }
 
@@ -318,12 +318,12 @@ export function withTechnologySelection(state: AppState, technology: string | nu
   };
 }
 
-export function withMasquerExternes(state: AppState, masquer: boolean): AppState {
-  return { ...state, technologyFilters: { ...state.technologyFilters, hideExternals: masquer } };
+export function withHideExternals(state: AppState, hide: boolean): AppState {
+  return { ...state, technologyFilters: { ...state.technologyFilters, hideExternals: hide } };
 }
 
-export function withMasquerExternesMatrice(state: AppState, masquer: boolean): AppState {
-  return { ...state, matrixFilters: { ...state.matrixFilters, hideExternals: masquer } };
+export function withHideExternalsInMatrix(state: AppState, hide: boolean): AppState {
+  return { ...state, matrixFilters: { ...state.matrixFilters, hideExternals: hide } };
 }
 
 // Changing scale changes the nature of the rows: keeping the old names would
@@ -344,7 +344,7 @@ export function withActorHiddenInMatrix(state: AppState, actor: string, hidden: 
     ...state,
     matrixFilters: {
       ...state.matrixFilters,
-      hiddenActors: basculer(state.matrixFilters.hiddenActors, actor, hidden),
+      hiddenActors: toggle(state.matrixFilters.hiddenActors, actor, hidden),
     },
   };
 }
@@ -354,11 +354,11 @@ export function withActorHiddenForTechnology(state: AppState, actor: string, hid
     ...state,
     technologyFilters: {
       ...state.technologyFilters,
-      hiddenActors: basculer(state.technologyFilters.hiddenActors, actor, hidden),
+      hiddenActors: toggle(state.technologyFilters.hiddenActors, actor, hidden),
     },
   };
 }
 
-export function withMessageBandeau(state: AppState, message: string | null): AppState {
+export function withBannerMessage(state: AppState, message: string | null): AppState {
   return { ...state, bannerMessage: message };
 }

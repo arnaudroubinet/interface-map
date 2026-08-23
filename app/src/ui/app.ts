@@ -3,8 +3,8 @@ import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, SCHEMA_VERSION } from "../parsing/build-model";
 import { rankOfMilestone } from "../aggregation/milestones";
 import { reading as readingOfMode } from "../aggregation/reading";
-import { computeChanges, buildEcartsView } from "../aggregation/changes";
-import { buildEcartsReport, buildChangesDiagramTitle } from "../render/changes-report";
+import { computeChanges, buildChangesView } from "../aggregation/changes";
+import { buildChangesReport, buildChangesDiagramTitle } from "../render/changes-report";
 import { runIntegrityChecks } from "../integrity/checks";
 import {
   buildGroupToGroupView,
@@ -20,7 +20,7 @@ import { computeLayout, restrictLayout, type LayoutResult } from "../layout/grap
 import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
-import { brancherZoom } from "../render/zoom";
+import { wireZoom } from "../render/zoom";
 import { scaleHint } from "./scale";
 import { availableChains, buildChainView } from "../aggregation/chain";
 import { buildRoadmap } from "../aggregation/roadmap";
@@ -46,7 +46,7 @@ import { modelToStructurizr } from "../export/c4-dsl";
 import { modelToLikeC4 } from "../export/likec4-dsl";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
-import { buildAide } from "../render/help";
+import { buildHelp } from "../render/help";
 import { upgrade, dataFromModel } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
@@ -63,19 +63,19 @@ import {
   withActorSelection,
   withTechnologySelection,
   withChainSelection,
-  withVoisinage,
-  withSujetFrise,
-  withTechnoMasquee,
+  withNeighbourhood,
+  withRoadmapSubject,
+  withTechnologyHidden,
   withActorHidden,
-  withMasquerExternes,
+  withHideExternals,
   withActorHiddenForTechnology,
-  withMasquerExternesMatrice,
+  withHideExternalsInMatrix,
   withActorHiddenInMatrix,
   withMatrixGrain,
   withMatrixOrder,
   withDisplayedMilestone,
   withComparedMilestone,
-  withMessageBandeau,
+  withBannerMessage,
   viewOnLoad,
   VIEW_LABEL,
   type AppState,
@@ -212,13 +212,13 @@ export function mountApp(root: HTMLElement): void {
     try {
       const read = await readWorkbook(file, false);
       if (!read.ok) {
-        setState(withMessageBandeau(state, read.message));
+        setState(withBannerMessage(state, read.message));
         return;
       }
-      setState(withComparedFile(withMessageBandeau(state, null), read.loaded));
+      setState(withComparedFile(withBannerMessage(state, null), read.loaded));
     } catch (err) {
       console.error(err);
-      setState(withMessageBandeau(state, "Workbook unreadable or corrupted."));
+      setState(withBannerMessage(state, "Workbook unreadable or corrupted."));
     }
   }
 
@@ -226,7 +226,7 @@ export function mountApp(root: HTMLElement): void {
     try {
       const read = await readWorkbook(file);
       if (!read.ok) {
-        setState(withMessageBandeau(state, read.message));
+        setState(withBannerMessage(state, read.message));
         return;
       }
 
@@ -246,7 +246,7 @@ export function mountApp(root: HTMLElement): void {
       // unexpected exception further down the pipeline must never leave an
       // unhandled promise rejection (§9 — never a silent failure).
       console.error(err);
-      setState(withMessageBandeau(state, "Workbook unreadable or corrupted."));
+      setState(withBannerMessage(state, "Workbook unreadable or corrupted."));
     }
   }
 
@@ -334,7 +334,7 @@ export function mountApp(root: HTMLElement): void {
       if (state.view === "help") {
         const result = el("button", { class: "export-button" }, ["Back"]);
         result.addEventListener("click", () => setState(withView(state, "group-to-group")));
-        renderArea.appendChild(el("div", { class: "help-standalone" }, [result, buildAide()]));
+        renderArea.appendChild(el("div", { class: "help-standalone" }, [result, buildHelp()]));
       } else {
         renderArea.appendChild(
           buildDropTarget(downloadSampleHandler, () => setState(withView(state, "help")))
@@ -393,10 +393,10 @@ export function mountApp(root: HTMLElement): void {
         const comparison = { before: compared.name, after: file.name, kind: "workbook" as const };
         const before = { model: compared.model, rank: null };
         const after = { model, rank: null };
-        renderArea.appendChild(buildEcartsReport(computeChanges(before, after, state.mode), comparison));
+        renderArea.appendChild(buildChangesReport(computeChanges(before, after, state.mode), comparison));
 
         const generation = ++renderGeneration;
-        const changesView = buildEcartsView(before, after, state.mode);
+        const changesView = buildChangesView(before, after, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
           renderArea.appendChild(buildChangesDiagramTitle(comparison));
@@ -430,7 +430,7 @@ export function mountApp(root: HTMLElement): void {
         renderArea.appendChild(el("p", { class: "no-flow" }, [text]));
       } else {
         renderArea.appendChild(
-          buildEcartsReport(
+          buildChangesReport(
             computeChanges({ model, rank: comparedRank }, { model, rank }, state.mode),
             { before: state.comparedMilestone!, after: state.shownMilestone!, kind: "milestone" }
           )
@@ -439,7 +439,7 @@ export function mountApp(root: HTMLElement): void {
         // goes to see where. It arrives later, the layout being asynchronous, and a
         // generation counter protects it from a stale display.
         const generation = ++renderGeneration;
-        const changesView = buildEcartsView({ model, rank: comparedRank }, { model, rank }, state.mode);
+        const changesView = buildChangesView({ model, rank: comparedRank }, { model, rank }, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
           renderArea.appendChild(
@@ -457,7 +457,7 @@ export function mountApp(root: HTMLElement): void {
         }
       }
     } else if (state.view === "help") {
-      renderArea.appendChild(buildAide());
+      renderArea.appendChild(buildHelp());
     } else if (state.view === "checks") {
       renderArea.appendChild(buildIntegrityReport(file.report));
     } else if (state.view === "roadmap") {
@@ -472,7 +472,7 @@ export function mountApp(root: HTMLElement): void {
           detail: `${timeline.segments.length} ${state.roadmapSubject === "actors" ? "actors" : "interfaces"}, ${timeline.milestones.length} milestones`,
         });
         renderArea.appendChild(svg);
-        renderArea.appendChild(buildZoomControls(brancherZoom(svg)));
+        renderArea.appendChild(buildZoomControls(wireZoom(svg)));
         renderBanner(banner, state, true, exportHandlers);
       }
     } else if (state.view === "matrix") {
@@ -529,7 +529,7 @@ export function mountApp(root: HTMLElement): void {
           : { nodes: [], edges: [] };
       } else {
         if (!state.technologySelection && model.flowTypes.length > 0) {
-          besoinDeSelectionTechnologie = true;
+          needsTechnologySelection = true;
         }
         view = state.technologySelection
           ? buildByTechnologyView(model, reading.flows, state.technologySelection, {
@@ -543,7 +543,7 @@ export function mountApp(root: HTMLElement): void {
       return view;
       };
 
-      let besoinDeSelectionTechnologie = false;
+      let needsTechnologySelection = false;
       let defaultActor: string | null = null;
       let defaultChain: string | null = null;
       const view = buildView(reading);
@@ -555,7 +555,7 @@ export function mountApp(root: HTMLElement): void {
         setState(withActorSelection(state, defaultActor));
         return;
       }
-      if (besoinDeSelectionTechnologie) {
+      if (needsTechnologySelection) {
         setState(withTechnologySelection(state, [...model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))[0].type));
         return;
       }
@@ -570,13 +570,13 @@ export function mountApp(root: HTMLElement): void {
         // offer somewhere to go. Never block, never truncate.
         const hint = scaleHint(view.nodes.filter((n) => n.kind !== "boundary").length, view.edges.length);
         if (hint) {
-          const bandeauEchelle = el("div", { class: "scale-hint" }, [hint.message]);
+          const scaleHint = el("div", { class: "scale-hint" }, [hint.message]);
           for (const target of hint.views) {
             const button = el("button", { type: "button" }, [VIEW_LABEL[target]]);
-            button.addEventListener("click", () => setState(withView(withMessageBandeau(state, null), target)));
-            bandeauEchelle.appendChild(button);
+            button.addEventListener("click", () => setState(withView(withBannerMessage(state, null), target)));
+            scaleHint.appendChild(button);
           }
-          renderArea.appendChild(bandeauEchelle);
+          renderArea.appendChild(scaleHint);
         }
         // The layout computation is asynchronous (ELK). A generation counter
         // protects against a stale render: if the user changes view during the
@@ -604,7 +604,7 @@ export function mountApp(root: HTMLElement): void {
               weightByCriticality: state.options.weightByCriticality,
             });
             renderArea.appendChild(svg);
-            renderArea.appendChild(buildZoomControls(brancherZoom(svg)));
+            renderArea.appendChild(buildZoomControls(wireZoom(svg)));
             // The export buttons depend on the presence of the SVG, which did not yet
             // exist when the banner was rendered.
             renderBanner(banner, state, true, exportHandlers);
@@ -621,18 +621,18 @@ export function mountApp(root: HTMLElement): void {
 
     renderRail(rail, state, reading, currentTechnologies.sort((a, b) => a.localeCompare(b, "fr")), {
       onMode: (mode) => setState(withMode(state, mode)),
-      onView: (view) => setState(withView(withMessageBandeau(state, null), view)),
-      onActorSelection: (name) => setState(withActorSelection(withMessageBandeau(state, null), name)),
-      onWeightByCriticality: (value) => setState(withOptions(withMessageBandeau(state, null), { weightByCriticality: value })),
-      onRoadmapSubject: (value) => setState(withSujetFrise(withMessageBandeau(state, null), value)),
-      onNeighbourhood: (value) => setState(withVoisinage(withMessageBandeau(state, null), value)),
-      onChainSelection: (chain) => setState(withChainSelection(withMessageBandeau(state, null), chain)),
-      onTechnologySelection: (type) => setState(withTechnologySelection(withMessageBandeau(state, null), type)),
-      onDisplayedMilestone: (milestone) => setState(recomputeReport(withDisplayedMilestone(withMessageBandeau(state, null), milestone))),
-      onComparedMilestone: (milestone) => setState(withComparedMilestone(withMessageBandeau(state, null), milestone)),
+      onView: (view) => setState(withView(withBannerMessage(state, null), view)),
+      onActorSelection: (name) => setState(withActorSelection(withBannerMessage(state, null), name)),
+      onWeightByCriticality: (value) => setState(withOptions(withBannerMessage(state, null), { weightByCriticality: value })),
+      onRoadmapSubject: (value) => setState(withRoadmapSubject(withBannerMessage(state, null), value)),
+      onNeighbourhood: (value) => setState(withNeighbourhood(withBannerMessage(state, null), value)),
+      onChainSelection: (chain) => setState(withChainSelection(withBannerMessage(state, null), chain)),
+      onTechnologySelection: (type) => setState(withTechnologySelection(withBannerMessage(state, null), type)),
+      onDisplayedMilestone: (milestone) => setState(recomputeReport(withDisplayedMilestone(withBannerMessage(state, null), milestone))),
+      onComparedMilestone: (milestone) => setState(withComparedMilestone(withBannerMessage(state, null), milestone)),
       onComparedFile: (chosen) => void handleComparedFile(chosen),
-      onCounterOption: (value) => setState(withOptions(withMessageBandeau(state, null), { counters: value })),
-      onEdgeLabel: (value) => setState(withOptions(withMessageBandeau(state, null), { edgeLabelMode: value })),
+      onCounterOption: (value) => setState(withOptions(withBannerMessage(state, null), { counters: value })),
+      onEdgeLabel: (value) => setState(withOptions(withBannerMessage(state, null), { edgeLabelMode: value })),
       onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: legacyMigrationHandler,
@@ -647,17 +647,17 @@ export function mountApp(root: HTMLElement): void {
         state = withReferentials(state, urls);
       },
       onDownloadWithReferentials: downloadWithReferentials,
-      onTechnologyHidden: (tech, hidden) => setState(withTechnoMasquee(withMessageBandeau(state, null), tech, hidden)),
-      onActorHidden: (actor, hidden) => setState(withActorHidden(withMessageBandeau(state, null), actor, hidden)),
-      onMasquerExternes: (value) => setState(withMasquerExternes(withMessageBandeau(state, null), value)),
+      onTechnologyHidden: (tech, hidden) => setState(withTechnologyHidden(withBannerMessage(state, null), tech, hidden)),
+      onActorHidden: (actor, hidden) => setState(withActorHidden(withBannerMessage(state, null), actor, hidden)),
+      onHideExternals: (value) => setState(withHideExternals(withBannerMessage(state, null), value)),
       onActorHiddenForTechnology: (actor, hidden) =>
-        setState(withActorHiddenForTechnology(withMessageBandeau(state, null), actor, hidden)),
-      onHideExternalsInMatrix: (value) => setState(withMasquerExternesMatrice(withMessageBandeau(state, null), value)),
+        setState(withActorHiddenForTechnology(withBannerMessage(state, null), actor, hidden)),
+      onHideExternalsInMatrix: (value) => setState(withHideExternalsInMatrix(withBannerMessage(state, null), value)),
       onActorHiddenInMatrix: (actor, hidden) =>
-        setState(withActorHiddenInMatrix(withMessageBandeau(state, null), actor, hidden)),
-      onPngScale: (value) => setState(withOptions(withMessageBandeau(state, null), { pngScale: value })),
-      onMatrixOrder: (value) => setState(withMatrixOrder(withMessageBandeau(state, null), value)),
-      onMatrixGrain: (grain) => setState(withMatrixGrain(withMessageBandeau(state, null), grain)),
+        setState(withActorHiddenInMatrix(withBannerMessage(state, null), actor, hidden)),
+      onPngScale: (value) => setState(withOptions(withBannerMessage(state, null), { pngScale: value })),
+      onMatrixOrder: (value) => setState(withMatrixOrder(withBannerMessage(state, null), value)),
+      onMatrixGrain: (grain) => setState(withMatrixGrain(withBannerMessage(state, null), grain)),
     });
   }
 
