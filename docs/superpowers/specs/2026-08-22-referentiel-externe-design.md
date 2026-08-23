@@ -177,6 +177,30 @@ plages nommées, des relations de feuille et des entrées dans
   d'une requête « connexion seule » par `FillEnabled=l1`,
   `FillObjectType=sTable`, `FillTarget=sTable` et `FillColumnNames`.
 
+**La cinquième convention, et elle a coûté un aller-retour dans le vrai Excel.**
+Un tableau marqué `tableType="queryTable"` ne suffit pas. Le classeur doit aussi
+porter, dans `xl/workbook.xml`, un **nom défini caché** par requête :
+
+```xml
+<definedName name="ExternalData_1" localSheetId="22" hidden="1">RefActors!$A$1:$E$2</definedName>
+```
+
+C'est *la plage de données externes* — l'objet qui relie la requête à sa
+destination. `localSheetId` est l'indice de l'onglet dans l'ordre du classeur, et
+la valeur nomme l'ONGLET, pas le tableau. Chaque colonne du tableau porte en plus
+un attribut `uniqueName`.
+
+Sans ce nom, Excel ouvre le fichier, annonce l'avoir réparé et **supprime les
+tableaux du référentiel**. La démonstration a été faite dans les deux sens : notre
+classeur sans le nom est réparé ; un classeur produit par Excel lui-même, privé de
+cette seule ligne, est réparé de la même façon, avec le message « Partie
+supprimée : /xl/queryTables/queryTable1.xml (Plage de données externes) ».
+
+Un relecteur avait relevé cette différence et l'avait jugée bénigne au motif
+qu'Excel recrée le nom à l'actualisation. C'était faux, et la leçon vaut plus que
+le fait : sur ce format, **une différence inexpliquée avec un fichier produit par
+Excel se traite comme un défaut** jusqu'à ce qu'une expérience dise le contraire.
+
 Une contrainte technique : `writePart` encode en UTF-8. `customXml/item1.xml`
 étant en UTF-16, il faut un `writeBinaryPart` prenant un `Uint8Array`.
 
