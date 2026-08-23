@@ -159,6 +159,48 @@ describe("query tables", () => {
     expect(rels).toContain("../queryTables/queryTable1.xml");
   });
 
+  // Excel writes uniqueName on the columns of a query-backed table and on those
+  // alone. Its absence was one of the two differences with a workbook Excel had
+  // itself produced, on a file it refused to open without repairing.
+  it("gives every query-backed column the uniqueName Excel writes", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const table = readPart(cfb, "/xl/tables/table1.xml")!;
+    expect(table).toContain('<tableColumn id="1" uniqueName="1" name="Name" queryTableFieldId="1"/>');
+    expect(table).toContain('<tableColumn id="2" uniqueName="2" name="Group" queryTableFieldId="2"/>');
+  });
+
+  // The external data range: the hidden defined name tying the query to where
+  // it lands. Excel drops a query table that has none -- "Fonction supprimée :
+  // Tableau dans la partie /xl/tables/tableN.xml" -- and repairs the file.
+  it("declares the external data range of the query table", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
+    const workbook = readPart(cfb, "/xl/workbook.xml")!;
+    expect(workbook).toContain(
+      '<definedName name="ExternalData_1" localSheetId="0" hidden="1">RefActors!$A$1:$B$2</definedName>'
+    );
+  });
+
+  // localSheetId is a position in the workbook's sheet order, not a sheetId:
+  // pointing at the wrong sheet is pointing at the wrong range.
+  it("numbers the external data range from the sheet's rank in the workbook", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Flow name"], ["a"]]), "Interfaces");
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Name", "Group"], ["", ""]]), "Ref actors");
+    const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+    const out = applyOoxmlExtras(raw, {
+      tables: [
+        { sheet: "Interfaces", columns: ["Flow name"], rows: 1 },
+        { sheet: "Ref actors", columns: ["Name", "Group"], rows: 0, query: "RefActors" },
+      ],
+      referentials: { actors: "https://ref/a.csv", technologies: "" },
+    });
+    const workbook = readPart(XLSX.CFB.read(new Uint8Array(out), { type: "array" }), "/xl/workbook.xml")!;
+    // A sheet name carrying a space is quoted, as a formula quotes it.
+    expect(workbook).toContain(
+      `<definedName name="ExternalData_1" localSheetId="1" hidden="1">'Ref actors'!$A$1:$B$2</definedName>`
+    );
+  });
+
   it("declares both new parts in the content types", () => {
     const cfb = XLSX.CFB.read(new Uint8Array(applyOoxmlExtras(minimal(), extras)), { type: "array" });
     const types = readPart(cfb, "/[Content_Types].xml")!;
@@ -177,6 +219,12 @@ describe("query tables", () => {
     expect(readPart(cfb, "/xl/tables/table1.xml")!).not.toContain("queryTable");
     expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
     expect(XLSX.CFB.find(cfb, "/xl/tables/_rels/table1.xml.rels")).toBeFalsy();
+    // Neither the uniqueName nor the external data range: Excel writes neither
+    // on an ordinary table, and the workbook carries no defined name at all
+    // when nothing asks for one.
+    expect(readPart(cfb, "/xl/tables/table1.xml")!).toContain('<tableColumn id="1" name="Name"/>');
+    expect(readPart(cfb, "/xl/workbook.xml")!).not.toContain("ExternalData_");
+    expect(readPart(cfb, "/xl/workbook.xml")!).not.toContain("<definedNames>");
     // What every table needs whether or not a query feeds it, and what nothing
     // pinned until a change to this loop wrote 14 spurious parts into every
     // workbook with all the tests still green: the sheet relates to its table,

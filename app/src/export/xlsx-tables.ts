@@ -131,8 +131,12 @@ function xmlDuTableau(
   const cols = columns
     .map((c, i) => {
       const formule = formules[c];
+      // A query-backed column names the field feeding it and carries the
+      // uniqueName Excel writes on one -- its id, verbatim. An ordinary table
+      // gets neither: Excel does not write them there either.
       const field = queryTableId === undefined ? "" : ` queryTableFieldId="${i + 1}"`;
-      const start = `<tableColumn id="${i + 1}" name="${escapeXml(c)}"${field}`;
+      const unique = queryTableId === undefined ? "" : ` uniqueName="${i + 1}"`;
+      const start = `<tableColumn id="${i + 1}"${unique} name="${escapeXml(c)}"${field}`;
       return formule
         ? `${start}><calculatedColumnFormula>${escapeXml(formule)}</calculatedColumnFormula></tableColumn>`
         : `${start}/>`;
@@ -232,6 +236,34 @@ function declaredExtent(ref: string): { columnIdx: number; row: number } {
   return { columnIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
 }
 
+// A sheet name as a formula quotes it: bare when it is a plain identifier,
+// between apostrophes otherwise -- and the apostrophes it holds are doubled,
+// "Mode d'emploi" becoming 'Mode d''emploi'. SheetJS forgot that doubling on
+// the autofilter's defined name, and Excel opened on a repair prompt; the
+// autofilter is gone (see applyOoxmlExtras) but the external data ranges below
+// quote a sheet in their turn.
+function sheetReference(name: string): string {
+  return /^[A-Za-z_][A-Za-z0-9_.]*$/.test(name) ? name : `'${name.replace(/'/g, "''")}'`;
+}
+
+// "A1:E2" as Excel writes it in a defined name: every coordinate absolute.
+function absolute(ref: string): string {
+  return ref.replace(/([A-Z]+)(\d+)/g, "$$$1$$$2");
+}
+
+// The external data range of a query table: the hidden defined name that ties
+// the query to where it lands. Excel writes one per query table, named after
+// the queryTable part itself, and WITHOUT it -- verified against a workbook
+// Excel produced -- it drops the table and the autofilter on opening, offering
+// to repair the file.
+function externalDataName(id: number, sheetIndex: number, sheetName: string, ref: string): string {
+  const target = `${sheetReference(sheetName)}!${absolute(ref)}`;
+  return (
+    `<definedName name="ExternalData_${id}" localSheetId="${sheetIndex}" hidden="1">` +
+    `${escapeXml(target)}</definedName>`
+  );
+}
+
 // Each defined name's reference targets the table actually laid down for the
 // list concerned -- not tableName(sheet) recomputed alongside, which ignored
 // that a sheet like Lists carries several and would have got the wrong one.
@@ -239,9 +271,10 @@ function declaredExtent(ref: string): { columnIdx: number; row: number } {
 function definedNamesXml(
   lists: readonly NamedList[],
   tables: readonly TableToApply[],
-  nomParTableau: ReadonlyMap<TableToApply, string>
+  nomParTableau: ReadonlyMap<TableToApply, string>,
+  externalData: readonly string[]
 ): string {
-  if (lists.length === 0) return "";
+  if (lists.length === 0 && externalData.length === 0) return "";
   const names = lists
     .map((l) => {
       const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.heading));
@@ -254,7 +287,7 @@ function definedNamesXml(
       return `<definedName name="${l.name}">${reference}</definedName>`;
     })
     .join("");
-  return `<definedNames>${names}</definedNames>`;
+  return `<definedNames>${names}${externalData.join("")}</definedNames>`;
 }
 
 function xmlDesValidations(validations: readonly ValidationToApply[], lastRow: number): string {
@@ -462,6 +495,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   // Connection ids are allocated in the order the tables are met, so the same
   // input always produces the same package.
   const connections: string[] = [];
+  const externalDataNames: string[] = [];
   let idQueryTable = 0;
 
   for (const [sheetName, tablesOfSheet] of bySheet) {
@@ -529,6 +563,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
           "</Types>",
           `<Override PartName="/xl/queryTables/queryTable${queryTableId}.xml" ContentType="${TYPE_QUERY_TABLE}"/></Types>`
         );
+        externalDataNames.push(externalDataName(queryTableId, index, sheetName, ref));
       }
 
       writePart(
@@ -709,7 +744,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     "/xl/workbook.xml",
     workbook
       .replace(/<definedNames>.*?<\/definedNames>/, "")
-      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nomParTableau)}`)
+      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nomParTableau, externalDataNames)}`)
   );
 
   const output = XLSX.CFB.write(cfb, { fileType: "zip", type: "array" }) as unknown as number[];
