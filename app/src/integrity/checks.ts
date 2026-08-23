@@ -36,7 +36,7 @@ import {
   VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
 import { chainesCoupees } from "../aggregation/reading";
-import { normalizeText } from "../shared/text";
+import { normalizeText, nearDuplicate } from "../shared/text";
 
 export interface Anomaly {
   message: string;
@@ -1043,6 +1043,11 @@ function migrationsEnCours(model: ParsedModel): InfoBlock {
   };
 }
 
+// An inventory of every group teaches nothing by itself -- it is just
+// scrolled past. What is worth a look is a PAIR of group names close enough
+// to be the same group, split by a spelling variant: a case difference, a
+// stray hyphen, a swapped letter. So this reports pairs, not the inventory,
+// and stays silent when every group is clearly its own.
 function usedGroups(model: ParsedModel): InfoBlock {
   const counts = new Map<string, number>();
   for (const a of model.actors) {
@@ -1050,14 +1055,41 @@ function usedGroups(model: ParsedModel): InfoBlock {
     if (!group) continue;
     counts.set(group, (counts.get(group) ?? 0) + 1);
   }
-  const items = [...counts.entries()]
-    .sort(([a], [b]) => a.localeCompare(b, "fr"))
-    .map(([group, n]) => `${group} (${n})`);
+  const names = [...counts.keys()];
+  // Uppercase before lowercase: a case variant then reads "Core ... core",
+  // the form with the capital first.
+  const byName = (a: string, b: string) => a.localeCompare(b, "fr", { caseFirst: "upper" });
+
+  const candidates: { a: string; b: string; distance: number | null; reason: string }[] = [];
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      const match = nearDuplicate(names[i], names[j]);
+      if (!match) continue;
+      const [a, b] = [names[i], names[j]].sort(byName);
+      candidates.push({ a, b, ...match });
+    }
+  }
+
+  // The fuzzy rule (distance not null) only: a name equally close to two
+  // different others is dropped from both pairs -- a wrong suggestion is
+  // worse than none, and it would send someone to rename a group that was
+  // right. The two exact rules carry no such ambiguity.
+  const tiedAt = (name: string, distance: number) =>
+    candidates.filter((c) => c.distance === distance && (c.a === name || c.b === name)).length > 1;
+  const unambiguous = candidates.filter(
+    (c) => c.distance === null || (!tiedAt(c.a, c.distance) && !tiedAt(c.b, c.distance))
+  );
+
+  const items = unambiguous
+    .sort((x, y) => byName(x.a, y.a) || byName(x.b, y.b))
+    .map((c) => `${c.a} (${counts.get(c.a)}) and ${c.b} (${counts.get(c.b)}) — ${c.reason}`);
 
   return {
     id: "groupes",
-    title: "Groups in use",
-    description: "Distinct groups found in Actors, with how many actors each holds.",
+    title: "Groups that may be the same, misspelled",
+    description:
+      "Pairs of group names close enough to be the same group entered twice. Two close names can be " +
+      "genuinely distinct, so this stays a remark, not a verdict.",
     items,
     level: "info",
   };
@@ -1160,9 +1192,13 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
     // A colour depends on no milestone: the whole workbook.
     unreadableColours(model),
     blastRadius(atMilestone),
-    usedGroups(atMilestone),
   ];
-  // Unlike its neighbours above, this block is left out entirely rather than
+  // Left out entirely rather than shown empty, like the referential gap
+  // below: an empty inventory of near-duplicate groups is not reassuring, it
+  // is nothing -- a checkmark row nobody needed to see.
+  const groupes = usedGroups(atMilestone);
+  if (groupes.items.length > 0) infoBlocks.push(groupes);
+  // Unlike most neighbours above, this block is left out entirely rather than
   // shown empty: a workbook that carries no referential must read exactly as
   // it did before the referential existed, not report every actor unknown.
   const referentialGap = outOfReferential(atMilestone);

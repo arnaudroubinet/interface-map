@@ -241,12 +241,85 @@ describe("7.6 interfaces to confirm", () => {
   });
 });
 
-describe("7.7 groups used", () => {
-  it("counts actors per non-empty groupe", () => {
+describe("7.7 near-duplicate groups", () => {
+  it("leaves out the block entirely when every group is clearly distinct", () => {
     const report = runIntegrityChecks(
-      model({ actors: [actor({ name: "A", group: "Socle" }), actor({ name: "B", group: "Socle" })] })
+      model({
+        actors: [
+          actor({ name: "A", group: "Core" }),
+          actor({ name: "B", group: "Sales network" }),
+          actor({ name: "C", group: "Finance" }),
+        ],
+      })
     );
-    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual(["Socle (2)"]);
+    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+  });
+
+  it("pairs a case variant", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [
+          ...Array.from({ length: 8 }, (_, i) => actor({ name: `A${i}`, group: "Core" })),
+          actor({ name: "B", group: "core" }),
+        ],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+      "Core (8) and core (1) — same name but for case",
+    ]);
+  });
+
+  it("pairs a punctuation variant", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "A", group: "Sales-network" }), actor({ name: "B", group: "Sales network" })],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+      "Sales network (1) and Sales-network (1) — same name once punctuation is ignored",
+    ]);
+  });
+
+  it("pairs a one-letter typo", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "A", group: "Support" }), actor({ name: "B", group: "Suport" })],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")!.items).toEqual([
+      "Suport (1) and Support (1) — 1 letter apart",
+    ]);
+  });
+
+  it("does not pair short names one edit apart", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "A", group: "Core" }), actor({ name: "B", group: "Care" })],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+  });
+
+  it("does not pair short names further apart", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "A", group: "Core" }), actor({ name: "B", group: "Crait" })],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
+  });
+
+  it("drops a match equally close to two different others", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [
+          actor({ name: "A", group: "Redis" }),
+          actor({ name: "B", group: "Redit" }),
+          actor({ name: "C", group: "Redia" }),
+        ],
+      })
+    );
+    expect(report.infoBlocks.find((b) => b.id === "groupes")).toBeUndefined();
   });
 });
 

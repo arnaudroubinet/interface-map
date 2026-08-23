@@ -31,7 +31,10 @@ describe("the full chain on the sample workbook", () => {
 
     const report = runIntegrityChecks(built.model);
     expect(report.families).toHaveLength(5);
-    expect(report.infoBlocks).toHaveLength(11);
+    // 10, not 11: the sample workbook's five groups (Core, Sales network,
+    // Health partners, Institutional, Support) are all clearly distinct, so
+    // the near-duplicate-groups block has nothing to report and is left out.
+    expect(report.infoBlocks).toHaveLength(10);
     // The identifiers, not merely the count: a block disappearing at the same time
     // as another arrives would leave the count intact.
     expect(new Set(report.infoBlocks.map((b) => b.id)).size).toBe(report.infoBlocks.length);
