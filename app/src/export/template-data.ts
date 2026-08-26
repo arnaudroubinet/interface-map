@@ -5,7 +5,7 @@ import {
   VOCABULARY_NATURE,
   VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
-import { NATURE_BUSINESS, NATURE_TECHNICAL } from "../aggregation/nature";
+import { NATURE_BUSINESS, NATURE_MIDDLEWARE, NATURE_STORAGE } from "../aggregation/nature";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 
 // What the produced workbook holds BEFORE anything is typed: its vocabularies,
@@ -48,9 +48,13 @@ export const DEFAULT_ICONS: [string, string, string][] = [
   ["Packaged product", "package", NATURE_BUSINESS],
   ["Partner", "handshake", NATURE_BUSINESS],
   ["Person", "user", NATURE_BUSINESS],
-  // The one technical type of the six: a bus or a gateway is crossed, it is not
-  // a correspondent -- which is the whole of the functional reading.
-  ["Infrastructure", "server", NATURE_TECHNICAL],
+  // The two technical types, and they are not interchangeable. A middleware is
+  // CROSSED: a bus or a gateway is not a correspondent, the flows through it
+  // are joined end to end -- that is the whole of the functional reading. A
+  // storage is where the data STOPS: a bucket, a database, an archive. Neither
+  // is folded into the other, and only the first is expected to republish.
+  ["Middleware", "network", NATURE_MIDDLEWARE],
+  ["Storage", "database", NATURE_STORAGE],
 ];
 
 // The common technologies, with the direction they are represented in. Taken

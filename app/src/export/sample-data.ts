@@ -23,7 +23,11 @@ const ACTOR_TYPES = [
   ["Packaged product", "package", "Business"],
   ["Partner", "handshake", "Business"],
   ["Person", "user", "Business"],
-  ["Infrastructure", "server", "Technical"],
+  ["Infrastructure", "server", "Middleware"],
+  // The other technical role, and the reason the two are told apart: a bucket
+  // is not crossed. What is written to it stops there, and the report has
+  // nothing to say about a flow that ends where it was meant to.
+  ["Object storage", "database", "Storage"],
 ];
 
 const GROUPS = [
@@ -62,6 +66,10 @@ const ACTORS = [
   ["Kafka", "Core", "Infrastructure", "Integration team", "Event broker", "", "v1", ""],
   ["Dagobah", "Core", "Infrastructure", "Integration team", "Contract management gateway", "", "v1", ""],
   ["ESB", "Support", "Infrastructure", "IT department", "Shared enterprise service bus, operated outside the platform", "", "v1", ""],
+  // A terminus, not a relay: the statements written here are archived, not
+  // passed on. It stays visible in the business reading -- "Chandrila archives
+  // its statements" is a fact -- where a middleware would have been folded away.
+  ["Kamino", "Core", "Object storage", "Compliance team", "Regulatory document vault", "", "v1", ""],
 ];
 
 // Flow name | Version | Provider | Flow type | Description | Contract link | Reference | Comments | To confirm | Relays | Introduced | Retired
@@ -83,6 +91,9 @@ const INTERFACES = [
   ["Policy stream", "1.0", "Malastare", "Kafka", "Policy changes republished to partners", "https://contrats.interne/flux-contrat", "CTR-VIE-10", "", "No", "v1", ""],
   ["Supporting documents", "1.0", "Onderon", "SFTP", "Documents delivered for archiving", "https://contrats.interne/pieces", "CTR-PIE-06", "", "No", "v1", ""],
   ["Member mail", "1.0", "Rodia", "SMTP", "Emails sent to members", "https://contrats.interne/courrier", "CTR-COU-07", "", "No", "v1", ""],
+  // Consumed by the vault, and by nothing else. Read as plumbing, this flow
+  // went in and came out for nobody; read as a terminus, it arrives.
+  ["Daily statements", "1.0", "Chandrila", "File", "Daily statement file dropped for archiving", "https://contrats.interne/releves", "CTR-REL-16", "", "No", "v1", ""],
   ["Regulatory return", "1.0", "Onderon", "File", "Periodic extract for the regulator", "https://contrats.interne/etat", "CTR-ETA-08", "Scope to confirm", "Yes", "v1", ""],
   ["Payslips", "1.0", "Vjun", "SFTP", "Monthly payslip delivery", "https://contrats.interne/paie", "CTR-PAI-09", "", "No", "v2", ""],
   // Chandrila ─► Kafka ─► Dagobah ─► ESB ─► Bracca: four segments, three relays.
@@ -169,6 +180,10 @@ const FX = [
       // A flow in the middle of switching over: dimmed on the diagrams.
       consumption("Supporting documents", "Crait", "Manual drop, replaced by the portal", "3 - Standard", "Transform"),
     ],
+  },
+  {
+    name: "FX_Chandrila_File",
+    rows: [consumption("Daily statements", "Kamino", "Long-term archiving", "3 - Standard")],
   },
   {
     name: "FX_Rodia_SMTP",

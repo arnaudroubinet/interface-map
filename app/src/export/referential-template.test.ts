@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import * as XLSX from "xlsx";
 import { writeReferential, SAMPLE_REFERENTIAL, EMPTY_REFERENTIAL, BLANK_REFERENTIAL } from "./referential-template";
 import { REFERENTIAL_SHEETS } from "./referential-shape";
+import { VOCABULARY_NATURE } from "../aggregation/vocabularies";
 import { tableName } from "./xlsx-tables";
 import { sectionM } from "./datamashup";
 import { SAMPLE_DATA } from "./sample-data";
@@ -207,7 +208,7 @@ describe("BLANK_REFERENTIAL", () => {
   it("ships the starting actor types, each with an icon and a nature", () => {
     for (const row of rows("ActorTypes")) {
       expect(row[1]).not.toBe("");
-      expect(["Business", "Technical"]).toContain(row[2]);
+      expect(VOCABULARY_NATURE).toContain(row[2]);
     }
   });
 

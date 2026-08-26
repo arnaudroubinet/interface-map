@@ -10,6 +10,10 @@ import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsumption } fro
 import { normalizeText } from "../shared/text";
 import type { WorkbookData } from "./template-export";
 import { NO_REFERENTIAL } from "./datamashup";
+import { NATURE_MIDDLEWARE } from "../aggregation/nature";
+
+// What a middleware was called before the two technical roles were told apart.
+const LEGACY_NATURE = "Technical";
 
 // The anchor point of every converted workbook: "all of this already existed
 // at the moment of the switch". It does not claim to say when each object
@@ -277,7 +281,29 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // the hidden lists by dataFromModel, so a workbook upgraded before it has any
   // referential keeps every icon and every direction it had.
   { de: 7, vers: 8, appliquer: (model) => model },
+  // "Technical" splits in two. It meant CROSSED -- a bus, a gateway -- and
+  // every actor wearing it was expected to republish what it consumed. That is
+  // false of a bucket or a database, where the data legitimately stops, and
+  // every write to one was reported as plumbing swallowing a flow.
+  //
+  // The word is renamed rather than reinterpreted: what was Technical is a
+  // middleware, which is exactly what it used to mean. Storage is a decision
+  // nobody has taken yet, so it is not taken for them -- the buckets keep the
+  // type they had, and it moves the day someone says so.
+  { de: 8, vers: 9, appliquer: (model) => middlewareInsteadOfTechnical(model) },
 ];
+
+// The nature is read from the hidden list now, so both sides carry it: the
+// sheet the workbook declares, and the list it reads from.
+function middlewareInsteadOfTechnical(model: ParsedModel): ParsedModel {
+  const renamed = (nature: string) =>
+    normalizeText(nature) === normalizeText(LEGACY_NATURE) ? NATURE_MIDDLEWARE : nature;
+  return {
+    ...model,
+    actorTypes: model.actorTypes.map((t) => ({ ...t, nature: renamed(t.nature) })),
+    referentialActorTypes: model.referentialActorTypes.map((t) => ({ ...t, nature: renamed(t.nature) })),
+  };
+}
 
 // Each v3 relay finds the consumption it named again: the relayer's one
 // carrying that flow name. What is not found is not invented -- a manufactured

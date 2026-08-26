@@ -15,7 +15,6 @@ import {
   buildMatrixView,
   type MatrixResult,
 } from "../aggregation/views";
-import { businessActors } from "../aggregation/nature";
 import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
 import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";

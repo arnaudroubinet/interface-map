@@ -55,7 +55,9 @@ function actorDetails(
     description: actor.description.trim() ? truncate(actor.description.trim(), MAX_DESCRIPTION_LENGTH) : undefined,
     external: groupIsExternal(model, actor.group) || undefined,
     // The nature is decided HERE, where the model is known: the rendering
-    // applies a shape, it does not go looking for one.
+    // applies a shape, it does not go looking for one. Both technical roles
+    // take it: a storage is plumbing on the drawing, even though the reading
+    // never crosses it.
     technical: isTechnicalActor(model, name) || undefined,
   };
 }

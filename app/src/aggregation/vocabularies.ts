@@ -1,4 +1,4 @@
-import { NATURE_BUSINESS, NATURE_TECHNICAL } from "./nature";
+import { NATURE_BUSINESS, NATURE_MIDDLEWARE, NATURE_STORAGE } from "./nature";
 
 // The domain's closed vocabularies. The same values feed the workbook's
 // drop-down lists (export/template-export.ts) and the integrity checks that
@@ -14,7 +14,10 @@ export const VOCABULARY_DECISION = ["Keep", "Investigate", "Transform", "Remove"
 
 export const VOCABULARY_CRITICALITY = ["1 - Critical", "2 - Important", "3 - Standard"];
 
-export const VOCABULARY_NATURE = [NATURE_BUSINESS, NATURE_TECHNICAL];
+// Three roles, not two: a middleware is CROSSED by the functional reading, a
+// storage is where the data STOPS. Reporting an S3 bucket for swallowing a flow
+// was the price of confusing them.
+export const VOCABULARY_NATURE = [NATURE_BUSINESS, NATURE_MIDDLEWARE, NATURE_STORAGE];
 
 // The perimeter decides the whole drawing: what goes inside the boundary and
 // what stays out. It used to be hard-coded in three places -- the workbook's

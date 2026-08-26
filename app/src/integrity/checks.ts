@@ -27,7 +27,7 @@ import { lifespanOf, isLiveAt, intervalsMeet, ALWAYS, type Interval } from "../a
 import { HEXA, LINE_THRESHOLD } from "../render/colors";
 import { contrastRatio } from "../render/contrast";
 import { MAX_TAB_LENGTH } from "../parsing/build-model";
-import { isTechnicalActor } from "../aggregation/nature";
+import { isTechnicalActor, isRelayActor, ACCEPTED_NATURES } from "../aggregation/nature";
 import {
   VOCABULARY_DIRECTION,
   VOCABULARY_DECISION,
@@ -608,10 +608,15 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
   // The catch-all bus: a flow goes into the plumbing and comes out for nobody.
   // Without this check, the functional link would be missing IN SILENCE, which
   // is the worst case of all.
+  //
+  // MIDDLEWARE consumers only. A storage is a terminus -- an S3 bucket, a
+  // database, an archive -- and a flow that stops there stops where it was
+  // meant to. Judging it by this rule reported every write to a bucket as
+  // plumbing swallowing a flow.
   for (const i of atMilestone.interfaces) {
     const consumers = consumptionsForInterface(lookupAtMilestone, atMilestone, i).map((c) => c.consumerName);
     if (consumers.length === 0) continue;
-    if (!consumers.every((c) => isTechnicalActor(atMilestone, c))) continue;
+    if (!consumers.every((c) => isRelayActor(atMilestone, c))) continue;
     const springs = consumptionsForInterface(lookupAtMilestone, atMilestone, i).some((c) => c.republishedAs.trim() !== "");
     if (!springs) {
       anomalies.push(
@@ -641,7 +646,9 @@ const VOCABULARIES = {
   decision: VOCABULARY_DECISION,
   criticality: VOCABULARY_CRITICALITY,
   direction: VOCABULARY_DIRECTION,
-  nature: VOCABULARY_NATURE,
+  // The accepted spellings, not the offered ones: "Technical" is still read as
+  // a middleware, so it must not be reported as unknown.
+  nature: ACCEPTED_NATURES,
   perimeter: VOCABULARY_PERIMETER,
 };
 

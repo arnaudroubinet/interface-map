@@ -53,9 +53,36 @@ describe("the upgrade chain", () => {
   // step must exist all the same: that is what makes the workbooks already in
   // circulation be recognised as stale.
   it("takes a v7 workbook to v8 without transforming the model", () => {
-    expect(SCHEMA_VERSION).toBe(8);
     const step = UPGRADE_STEPS.find((s) => s.de === 7);
     expect(step?.vers).toBe(8);
+  });
+
+  // This one DOES transform: the word changes on both sides, the sheet the
+  // workbook declares and the hidden list it reads from.
+  it("renames a v8 workbook's technical types to middleware", () => {
+    expect(SCHEMA_VERSION).toBe(9);
+    const step = UPGRADE_STEPS.find((s) => s.de === 8)!;
+    expect(step.vers).toBe(9);
+    const upgraded = step.appliquer(
+      base.template({
+        actorTypes: [{ type: "Bus", icon: "network", nature: "Technical", sheet: "ActorTypes", row: 2 }],
+        referentialActorTypes: [{ type: "Bus", icon: "network", nature: "Technical", description: "" }],
+      }),
+      { dateMigration: new Date(0) }
+    );
+    expect(upgraded.actorTypes[0].nature).toBe("Middleware");
+    expect(upgraded.referentialActorTypes[0].nature).toBe("Middleware");
+  });
+
+  it("leaves a nature it does not have to rename alone", () => {
+    const step = UPGRADE_STEPS.find((s) => s.de === 8)!;
+    const upgraded = step.appliquer(
+      base.template({
+        actorTypes: [{ type: "Vault", icon: "database", nature: "Storage", sheet: "ActorTypes", row: 2 }],
+      }),
+      { dateMigration: new Date(0) }
+    );
+    expect(upgraded.actorTypes[0].nature).toBe("Storage");
   });
 });
 

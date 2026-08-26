@@ -9,7 +9,7 @@ import {
   type Mode,
 } from "./core";
 import { normalizeText } from "../shared/text";
-import { isTechnicalActor } from "./nature";
+import { isRelayActor } from "./nature";
 import { lifespanOf, isLiveAt } from "./milestones";
 
 // The functional reading of the estate: who feeds whom, with the plumbing
@@ -39,8 +39,9 @@ function actorIsLive(
   return a === undefined || isLiveAt(lifespanOf(model, a), rank);
 }
 
-// Walks up the segments as long as the publisher is technical. Returns the
-// source interface when it is published by a business actor, otherwise the
+// Walks up the segments as long as the publisher is a middleware. Returns the
+// source interface when it is published by anything else -- a business actor,
+// or a storage, which is a source like any other -- otherwise the
 // reason for the failure -- the integrity report needs it to say WHERE the
 // chain breaks. `rank` filters just as buildFlowInstances does: an upstream
 // segment retired at that milestone cuts the chain, `null` filters nothing.
@@ -117,7 +118,7 @@ function inputsOf(
   return inputs;
 }
 
-// Walks up the segments as long as the publisher is technical, following EVERY
+// Walks up the segments as long as the publisher is a middleware, following EVERY
 // input of the republished interface. `path` carries the route walked, not
 // everything met along the way: two branches converging on the same source are
 // not a loop, they are a diamond.
@@ -128,7 +129,7 @@ function walkUp(
   rank: number | null,
   path: ReadonlySet<InterfaceCatalogue> = new Set()
 ): WalkUp {
-  if (!isTechnicalActor(model, start.providerName)) {
+  if (!isRelayActor(model, start.providerName)) {
     return { sources: [start], paths: new Map([[start, []]]), cuts: [] };
   }
   if (path.has(start)) return { sources: [], paths: new Map(), cuts: [{ iface: start, reason: "loop" }] };
@@ -180,7 +181,10 @@ export function businessConsumptions(
   rank: number | null,
 ): FlowInstance[] {
   return buildFlowInstances(model, rank).filter(
-    (f) => !isTechnicalActor(model, f.consumer),
+    // A storage consumer is NOT filtered out: the data stops there, so the flow
+    // into it is a functional fact -- "Chandrila writes its statements to the
+    // vault" -- and folding it away would lose it.
+    (f) => !isRelayActor(model, f.consumer),
   );
 }
 
@@ -237,7 +241,7 @@ export function actorsForReading(
 ): Actor[] {
   return model.actors.filter(
     (a) =>
-      (mode !== "functional" || !isTechnicalActor(model, a.name)) &&
+      (mode !== "functional" || !isRelayActor(model, a.name)) &&
       (rank === null || isLiveAt(lifespanOf(model, a), rank)),
   );
 }

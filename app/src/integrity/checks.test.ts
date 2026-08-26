@@ -1629,3 +1629,73 @@ describe("out of referential", () => {
     expect(said.join(" ")).not.toContain("did you mean");
   });
 });
+
+// A flow that ends on plumbing is only a fault when the plumbing was supposed
+// to pass it on. A bucket, a database, an archive: the data stops there, and
+// that is where it was meant to stop.
+describe("a flow that ends on a technical actor", () => {
+  const estate = (nature: string): ParsedModel =>
+    model({
+      actors: [
+        actor({ name: "Chandrila", actorType: "Application" }),
+        actor({ name: "Kamino", actorType: "Vault" }),
+      ],
+      actorTypes: [
+        { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
+        { type: "Vault", icon: "database", nature, sheet: "ActorTypes", row: 1 },
+      ],
+      interfaces: [iface({ flowName: "Daily statements", providerName: "Chandrila", expectedSheet: "FX_Chandrila_HTTP" })],
+      consumptions: [
+        consumption({ flowName: "Daily statements", consumerName: "Kamino", sheet: "FX_Chandrila_HTTP" }),
+      ],
+    });
+
+  const swallowed = (m: ParsedModel) =>
+    runIntegrityChecks(m)
+      .families.flatMap((f) => f.anomalies)
+      .filter((a) => a.message.includes("comes back out for nobody"));
+
+  it("says nothing when the flow ends in a storage", () => {
+    expect(swallowed(estate("Storage"))).toEqual([]);
+  });
+
+  // The check that exists for it must keep firing: a middleware that passes
+  // nothing on loses a functional link IN SILENCE, which is the worst case.
+  it("still reports a middleware that passes nothing on", () => {
+    expect(swallowed(estate("Middleware"))).toHaveLength(1);
+  });
+
+  it("still reports the middleware a workbook calls by its old name", () => {
+    expect(swallowed(estate("Technical"))).toHaveLength(1);
+  });
+});
+
+// A storage is never folded: it is where the flow arrives, and the functional
+// reading must say so. A middleware in the same place is crossed, and the flow
+// through it is joined up to whatever lies beyond.
+describe("the functional reading and the two technical roles", () => {
+  const estate = (nature: string): ParsedModel =>
+    model({
+      actors: [
+        actor({ name: "Chandrila", actorType: "Application" }),
+        actor({ name: "Kamino", actorType: "Vault" }),
+      ],
+      actorTypes: [
+        { type: "Application", icon: "app-window", nature: "Business", sheet: "ActorTypes", row: 0 },
+        { type: "Vault", icon: "database", nature, sheet: "ActorTypes", row: 1 },
+      ],
+      interfaces: [iface({ flowName: "Daily statements", providerName: "Chandrila", expectedSheet: "FX_Chandrila_HTTP" })],
+      consumptions: [
+        consumption({ flowName: "Daily statements", consumerName: "Kamino", sheet: "FX_Chandrila_HTTP" }),
+      ],
+    });
+
+  it("keeps the flow that arrives in a storage", () => {
+    const flows = buildFunctionalFlows(estate("Storage"), null);
+    expect(flows.map((f) => `${f.provider} → ${f.consumer}`)).toEqual(["Chandrila → Kamino"]);
+  });
+
+  it("folds away the flow that merely crosses a middleware", () => {
+    expect(buildFunctionalFlows(estate("Middleware"), null)).toEqual([]);
+  });
+});

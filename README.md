@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1022 tests
+npm test          # 1031 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -32,15 +32,33 @@ Le même classeur se lit de deux façons, et ne se saisit qu'une fois.
 **Architecture** répond à « par quoi ça passe » : tous les sauts sont dessinés,
 bus et passerelles compris.
 
-**Métier** répond à « qui alimente qui » : les acteurs techniques disparaissent
-et les flux qui les traversent sont raboutés bout à bout.
+**Métier** répond à « qui alimente qui » : les middlewares disparaissent et les
+flux qui les traversent sont raboutés bout à bout.
 
 Deux colonnes portent la distinction. `Nature`, sur l'onglet `ActorTypes`, dit
-quels types sont techniques. `Republished as`, sur les onglets `FX_`, dit sous
-laquelle de ses propres interfaces un acteur technique republie une entrée.
-La dérivation vit dans `src/aggregation/fonctionnel.ts`, et `lecture(model,
-rang, mode)` en est le point de passage unique : flux **et** acteurs résolus
-au même palier, au même mode.
+ce qu'un type **est** — et il y a trois réponses, pas deux :
+
+| Nature | Ce que c'est | En lecture métier | Doit republier ? |
+|---|---|---|---|
+| `Business` | un correspondant | affiché | non |
+| `Middleware` | de la plomberie **traversée** — bus, passerelle, ESB | replié | **oui** |
+| `Storage` | de la plomberie **terminale** — bucket, base, archive | affiché, comme destination | non |
+
+Confondre les deux rôles techniques coûtait une alerte à chaque écriture dans
+un S3 : « ce flux entre dans la plomberie et n'en ressort pour personne » —
+alors qu'il arrivait là où il devait arriver. Un `Storage` n'est jamais replié
+non plus : « Chandrila archive ses relevés » est un fait métier, pas un détail
+de tuyauterie.
+
+`Technical`, le mot d'avant, se lit toujours comme `Middleware` : le fichier
+référentiel ne porte aucun numéro de version, donc rien ne pourrait dire à
+celui qui circule qu'il est périmé.
+
+`Republished as`, sur les onglets `FX_`, dit sous laquelle de ses propres
+interfaces un middleware republie une entrée. La dérivation vit dans
+`src/aggregation/reading.ts` ; `isRelayActor` décide de ce qui est traversé,
+`isTechnicalActor` de ce qui est dessiné comme de la plomberie — les deux
+questions ne sont pas la même, et les confondre était tout le défaut.
 
 ## Le sens des flèches
 
