@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 993 tests
+npm test          # 1008 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -99,11 +99,24 @@ elle appartient au fichier, pas à l'affichage, et cet écran est le seul qui
 réécrive un fichier. Champ laissé vide, le classeur garde le référentiel qu'il
 portait déjà.
 
-Quelle URL ? Celle qui rend **les octets du fichier**. Sur SharePoint ou
-OneDrive, c'est le lien de téléchargement, pas le lien de partage — ce dernier
-sert une page web, et `Excel.Workbook` s'étrangle sur le HTML. Excel demande un
-compte professionnel au premier rafraîchissement ; les identifiants restent
-dans Excel, jamais dans le fichier, qui reste donc partageable.
+Quelle URL ? Celle qui rend **les octets du fichier**, c'est-à-dire son chemin
+et rien d'autre. Le champ ne garde que ça : tout ce qui suit le `?` d'une
+adresse SharePoint (`?d=w…&csf=1&web=1&e=…`) nomme une façon de **regarder** le
+fichier, et le préfixe `/:x:/r/` est celui de la visionneuse. Passée telle
+quelle à `Web.Contents`, cette adresse fait demander à Excel une connexion pour
+une ressource qui n'est pas le classeur — et cette connexion est refusée. Le
+nettoyage se fait dans le champ, à la saisie, pour que l'adresse affichée soit
+celle qui sera écrite. Un lien de partage invité (`/:x:/g/…`) ne porte aucun
+chemin : il est refusé et signalé, plutôt qu'écrit dans une requête qui ne peut
+qu'échouer.
+
+La chaîne de requête n'est retirée que si le chemin nomme un classeur : sur un
+serveur ordinaire, `/download?file=ref.xlsx` est une adresse dont la chaîne de
+requête EST l'adresse.
+
+Excel demande un compte professionnel au premier rafraîchissement ; les
+identifiants restent dans Excel, jamais dans le fichier, qui reste donc
+partageable.
 
 Un nom se **déclare** une fois, sur l'onglet qui le possède, et c'est là qu'il
 se choisit dans le référentiel : `Actors`, `Groups`, `ActorTypes` et

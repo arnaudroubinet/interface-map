@@ -6,7 +6,7 @@ import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL, REFERENTIAL_QUERIES } from "./datamashup";
+import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL, REFERENTIAL_QUERIES, cleanReferentialUrl, isOpaqueSharingLink } from "./datamashup";
 import * as XLSX from "xlsx";
 import { readReferentialUrl, mashupStream } from "./datamashup";
 
@@ -51,9 +51,16 @@ describe("sectionM", () => {
     }
   });
 
-  it("doubles a quote inside a URL, so the M literal stays closed", () => {
-    const m = sectionM('https://ref/a".xlsx');
-    expect(m).toContain('Web.Contents("https://ref/a"".xlsx")');
+  // A quote is not legal unencoded in an address, so the cleaner encodes it out
+  // of existence -- but only in what it could parse. What it hands back as
+  // typed can still carry one, and the M literal must survive it: an unclosed
+  // literal is a section Excel refuses whole.
+  it("doubles a quote the cleaner could not encode away", () => {
+    expect(sectionM('ref/a".xlsx')).toContain('Web.Contents("ref/a"".xlsx")');
+  });
+
+  it("writes a parsed address with its quote percent-encoded", () => {
+    expect(sectionM('https://ref/a".xlsx')).toContain('Web.Contents("https://ref/a%22.xlsx")');
   });
 
   it("writes no query at all when no referential is declared", () => {
@@ -185,9 +192,9 @@ describe("readReferentialUrl", () => {
     expect(read).toBe(REFERENTIAL);
   });
 
-  it("reads a query whose URL carries a quote", async () => {
-    const read = await readReferentialUrl(workbookCarrying(customXmlItem('https://ref/a".xlsx')));
-    expect(read).toBe('https://ref/a".xlsx');
+  it("reads back an address whose quote the M literal had to double", async () => {
+    const read = await readReferentialUrl(workbookCarrying(customXmlItem('ref/a".xlsx')));
+    expect(read).toBe('ref/a".xlsx');
   });
 
   it("reads a stream whose inner zip Excel has deflated", async () => {
@@ -352,3 +359,79 @@ function wrapAsCustomXml(stream: Uint8Array): Uint8Array {
   for (let i = 0; i < text.length; i++) view.setUint16(2 + i * 2, text.charCodeAt(i), true);
   return bytes;
 }
+
+// SharePoint hands out addresses that are not the file's, and Excel is handed
+// whatever is pasted. A viewer address asks Excel to sign in for a resource
+// that is not the workbook -- which is what a refused professional sign-in
+// looks like from the outside.
+describe("cleanReferentialUrl", () => {
+  it("keeps the path of a document library address and drops its query string", () => {
+    expect(
+      cleanReferentialUrl(
+        "https://tenant.sharepoint.com/sites/SI/Shared%20Documents/ref.xlsx?d=w1a2&csf=1&web=1&e=AbCdEf"
+      )
+    ).toBe("https://tenant.sharepoint.com/sites/SI/Shared%20Documents/ref.xlsx");
+  });
+
+  // "Copy link" prefixes the path with the web viewer's own segment. Left in,
+  // the address serves a page rather than the workbook.
+  it("strips the web viewer's prefix from a copied link", () => {
+    expect(
+      cleanReferentialUrl("https://tenant.sharepoint.com/:x:/r/sites/SI/Documents/ref.xlsx?csf=1&e=X")
+    ).toBe("https://tenant.sharepoint.com/sites/SI/Documents/ref.xlsx");
+  });
+
+  it("does the same for a personal OneDrive library", () => {
+    expect(
+      cleanReferentialUrl("https://tenant-my.sharepoint.com/:w:/r/personal/a_b_tenant_com/Documents/ref.xlsm?e=1")
+    ).toBe("https://tenant-my.sharepoint.com/personal/a_b_tenant_com/Documents/ref.xlsm");
+  });
+
+  it("drops a fragment, which never reaches the server anyway", () => {
+    expect(cleanReferentialUrl("https://intranet/ref.xlsx#sheet2")).toBe("https://intranet/ref.xlsx");
+  });
+
+  // On a plain server, /download?file=… is an address whose query string IS
+  // the address. Cutting it there would break a URL that worked.
+  it("leaves the query string alone when the path does not name a workbook", () => {
+    const served = "https://intranet/download?file=ref.xlsx&format=xlsx";
+    expect(cleanReferentialUrl(served)).toBe(served);
+  });
+
+  it("leaves an ordinary address untouched", () => {
+    expect(cleanReferentialUrl("  https://intranet/ref/referential.xlsx  ")).toBe(
+      "https://intranet/ref/referential.xlsx"
+    );
+  });
+
+  it("hands back what it cannot parse rather than emptying the field", () => {
+    expect(cleanReferentialUrl("not a url")).toBe("not a url");
+    expect(cleanReferentialUrl("   ")).toBe("");
+  });
+});
+
+// A guest sharing link carries a token where the path should be: there is no
+// file address to recover from it, so it is named as such rather than written
+// into a query that could only fail.
+describe("isOpaqueSharingLink", () => {
+  it("recognises a guest sharing link", () => {
+    expect(isOpaqueSharingLink("https://tenant-my.sharepoint.com/:x:/g/personal/a_b/EbXk7?e=9Xy")).toBe(true);
+  });
+
+  it("does not mistake a document library address for one", () => {
+    expect(isOpaqueSharingLink("https://tenant.sharepoint.com/sites/SI/Documents/ref.xlsx")).toBe(false);
+    expect(isOpaqueSharingLink("https://tenant.sharepoint.com/:x:/r/sites/SI/Documents/ref.xlsx")).toBe(false);
+    expect(isOpaqueSharingLink("https://intranet/ref.xlsx")).toBe(false);
+  });
+});
+
+// Whatever reaches the writer is cleaned there too: a workbook produced before
+// the field cleaned anything, reopened and rewritten, must not carry a viewer
+// address forward.
+describe("sectionM — the address it writes", () => {
+  it("writes the cleaned address, not the one it was handed", () => {
+    const m = sectionM("https://tenant.sharepoint.com/:x:/r/sites/SI/Documents/ref.xlsx?e=X");
+    expect(m).toContain('Web.Contents("https://tenant.sharepoint.com/sites/SI/Documents/ref.xlsx")');
+    expect(m).not.toContain("?e=X");
+  });
+});

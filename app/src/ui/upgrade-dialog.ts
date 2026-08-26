@@ -3,7 +3,13 @@ import { wireDropZone, UNREADABLE_WORKBOOK_MESSAGE } from "./drop-zone";
 import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
-import { readReferentialUrl, hasReferential, REFERENTIAL_QUERIES } from "../export/datamashup";
+import {
+  readReferentialUrl,
+  hasReferential,
+  REFERENTIAL_QUERIES,
+  cleanReferentialUrl,
+  isOpaqueSharingLink,
+} from "../export/datamashup";
 import { downloadReferentialXlsx, SAMPLE_REFERENTIAL } from "../export/referential-template";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
@@ -57,6 +63,25 @@ export function openMigration(): void {
     class: "migration-referential",
     placeholder: "https://…/referential.xlsx",
   }) as HTMLInputElement;
+
+  // What gets pasted here is a SharePoint "Copy link" nine times out of ten: a
+  // viewer address, whose sign-in Excel refuses because the resource it names
+  // is not the file. The path is kept and the rest dropped -- in the field
+  // itself, not silently on the way out: an address on screen that is not the
+  // one written is a debugging session nobody asked for.
+  const referentialSaid = el("p", { class: "migration-referential-said" });
+  referentialField.addEventListener("change", () => {
+    if (isOpaqueSharingLink(referentialField.value)) {
+      referentialSaid.className = "migration-referential-said error-message";
+      referentialSaid.textContent =
+        "That link does not name the file — it carries a viewing token instead of a path. " +
+        "Open the file in SharePoint and take the address shown there.";
+      return;
+    }
+    referentialField.value = cleanReferentialUrl(referentialField.value);
+    referentialSaid.className = "migration-referential-said";
+    referentialSaid.textContent = "";
+  });
   const blankReferential = el("button", { class: "export-button", type: "button" }, ["Blank referential"]);
   blankReferential.title = "An empty referential workbook, ready to publish and fill in";
   blankReferential.addEventListener("click", () => downloadReferentialXlsx("interface-map-referential.xlsx"));
@@ -71,6 +96,7 @@ export function openMigration(): void {
 
   const referentialBlock = el("div", { class: "migration-referential-block" }, [
     el("label", { class: "migration-referential-label" }, ["External referential", referentialField]),
+    referentialSaid,
     el("p", { class: "rail-note" }, [
       `One workbook, holding the tables ${REFERENTIAL_QUERIES.map((q) => q.table).join(", ")}. ` +
         "Left empty, the workbook keeps the referential it already points at.",
@@ -79,8 +105,9 @@ export function openMigration(): void {
     // sharing link serves a viewer page, not the file, and Excel.Workbook chokes
     // on the HTML it gets back.
     el("p", { class: "rail-note" }, [
-      "On SharePoint or OneDrive, give the file's download link — a sharing link serves a web page, not the workbook. ",
-      "Excel asks for an organisational account the first time it refreshes; the credentials stay in Excel, never in the file.",
+      "On SharePoint or OneDrive, paste the file's address: only its path is kept — everything after the \"?\" names a way of ",
+      "VIEWING the file, and Excel then asks to sign in for something that is not the workbook. ",
+      "It asks for an organisational account the first time it refreshes; the credentials stay in Excel, never in the file.",
     ]),
     // No referential yet is the ordinary case at this point, and an empty field
     // is a dead end. The file to publish is handed over here, where the
@@ -114,7 +141,7 @@ export function openMigration(): void {
         // What was typed wins over what the file carried: that is the whole
         // point of the field. An empty field changes nothing, rather than
         // erasing the referential of a workbook one only meant to repair.
-        const typed = referentialField.value.trim();
+        const typed = cleanReferentialUrl(referentialField.value);
         const referential = typed !== "" ? typed : await readReferentialUrl(bytes);
         const repair = repairWorkbook(bytes, undefined, referential);
         const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");

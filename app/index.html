@@ -203,6 +203,10 @@
   }
   .migration-referential:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .migration-referential-files { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+  /* Ce que le champ a retenu de ce qui a été collé. Vide, il ne prend pas de
+     place : une ligne blanche sous un champ correct se lit comme un manque. */
+  .migration-referential-said:empty { display: none; }
+  .migration-referential-said { margin: 0; font-size: 12px; }
   .migration-list {
     text-align: left; max-width: 560px; margin: 12px auto 0; font-size: 13px;
     color: var(--ink-muted); display: flex; flex-direction: column; gap: 6px;

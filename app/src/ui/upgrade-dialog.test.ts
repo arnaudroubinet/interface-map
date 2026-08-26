@@ -174,3 +174,47 @@ describe("openMigration — getting a referential to publish", () => {
     expect(names).toEqual(SAMPLE_DATA.actors.map((a) => a[0]));
   });
 });
+
+// What is pasted into the field is a SharePoint "Copy link" nine times out of
+// ten: a viewer address, whose sign-in Excel refuses because it is not the
+// file's. The field keeps the path and shows what it kept -- silently cleaning
+// would leave the reader with an address on screen that is not the one written.
+describe("openMigration — the address the field keeps", () => {
+  const typeUrl = (value: string): HTMLInputElement => {
+    document.body.innerHTML = "";
+    openMigration();
+    const field = document.querySelector("input.migration-referential") as HTMLInputElement;
+    field.value = value;
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    return field;
+  };
+
+  it("keeps the path of a copied link and drops the rest, in the field itself", () => {
+    const field = typeUrl("https://tenant.sharepoint.com/:x:/r/sites/SI/Documents/ref.xlsx?csf=1&web=1&e=AbCd");
+    expect(field.value).toBe("https://tenant.sharepoint.com/sites/SI/Documents/ref.xlsx");
+  });
+
+  it("writes into the workbook the address it shows", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    const field = typeUrl("https://tenant.sharepoint.com/:x:/r/sites/SI/Documents/ref.xlsx?e=AbCd");
+    const zone = document.querySelector(".migration-target") as HTMLElement;
+    drop(zone, { name: "ok.xlsx", arrayBuffer: async () => writeTemplate(emptyData) } as unknown as File);
+    await vi.waitFor(() => {
+      if (!zone.querySelector(".export-button")) throw new Error("not repaired yet");
+    });
+    expect(await readReferentialUrl(vi.mocked(downloadWorkbook).mock.calls[0][0])).toBe(field.value);
+  });
+
+  // Nothing in a guest link names the file: no address can be recovered from
+  // it, and writing it into a query would only fail at the first refresh.
+  it("says a guest sharing link cannot be used, rather than writing it", () => {
+    typeUrl("https://tenant-my.sharepoint.com/:x:/g/personal/a_b/EbXk7?e=9Xy");
+    const said = document.querySelector(".migration-referential-said");
+    expect(said?.textContent ?? "").toContain("does not name the file");
+  });
+
+  it("says nothing about an address it could keep", () => {
+    typeUrl("https://intranet/ref/referential.xlsx");
+    expect(document.querySelector(".migration-referential-said")?.textContent ?? "").toBe("");
+  });
+});

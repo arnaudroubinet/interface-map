@@ -31,6 +31,50 @@ export function hasReferential(url: ReferentialUrl): boolean {
   return url.trim() !== "";
 }
 
+// The web viewer's own prefix, and the guest link's. SharePoint's "Copy link"
+// produces the first, a link shared outside the library the second.
+const VIEWER_PREFIX = /^\/:[a-z]:\/r\//i;
+const GUEST_LINK = /^\/:[a-z]:\/g\//i;
+
+// SharePoint hands out addresses that are not the file's.
+//
+// "Copy link" gives .../:x:/r/sites/SI/Documents/ref.xlsx?d=w1&csf=1&web=1&e=AbCd
+// -- the address of a PAGE showing the file. Handed to Web.Contents as it
+// stands, Excel is asked to sign in for a resource that is not the workbook,
+// and the sign-in is refused: `?e=` carries a viewing token and `/:x:/r/` is
+// the viewer's prefix. What Excel must be given is the path, and nothing else.
+//
+// The query string is dropped only when the path names a workbook. On a plain
+// server, /download?file=ref.xlsx is an address whose query string IS the
+// address, and cutting it there would break a URL that worked.
+export function cleanReferentialUrl(raw: string): string {
+  const trimmed = raw.trim();
+  if (trimmed === "") return "";
+  let parsed: URL;
+  try {
+    parsed = new URL(trimmed);
+  } catch {
+    // Not an absolute URL: handed back as typed. Emptying the field over a
+    // typo would lose what the reader was in the middle of writing.
+    return trimmed;
+  }
+  parsed.hash = "";
+  if (VIEWER_PREFIX.test(parsed.pathname)) parsed.pathname = parsed.pathname.replace(VIEWER_PREFIX, "/");
+  if (/\.(xlsx|xlsm)$/i.test(parsed.pathname)) parsed.search = "";
+  return parsed.toString();
+}
+
+// A guest sharing link carries a token where the path should be: nothing in it
+// names the file, so no address can be recovered from it. Said out loud rather
+// than written into a query that could only fail.
+export function isOpaqueSharingLink(raw: string): boolean {
+  try {
+    return GUEST_LINK.test(new URL(raw.trim()).pathname);
+  } catch {
+    return false;
+  }
+}
+
 // A query's name IS the name of the sheet it fills. template-export puts that
 // sheet constant into the table's `query`, from where it becomes the
 // connection's `Location=` and its `SELECT * FROM [...]`: were the two
@@ -86,9 +130,12 @@ function query(name: string, table: string, columns: readonly string[], url: str
 export function queriesOf(
   url: ReferentialUrl
 ): { name: string; table: string; columns: readonly string[]; url: string }[] {
-  const trimmed = url.trim();
-  if (trimmed === "") return [];
-  return REFERENTIAL_QUERIES.map((q) => ({ name: q.query, table: q.table, columns: q.columns, url: trimmed }));
+  // Cleaned here as well as in the field: a workbook written before the field
+  // cleaned anything, reopened and rewritten, must not carry a viewer address
+  // forward.
+  const cleaned = cleanReferentialUrl(url);
+  if (cleaned === "") return [];
+  return REFERENTIAL_QUERIES.map((q) => ({ name: q.query, table: q.table, columns: q.columns, url: cleaned }));
 }
 
 export function sectionM(url: ReferentialUrl): string {
