@@ -5,6 +5,7 @@ import {
   VOCABULARY_NATURE,
   VOCABULARY_PERIMETER,
 } from "../aggregation/vocabularies";
+import { NATURE_BUSINESS, NATURE_TECHNICAL } from "../aggregation/nature";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 
 // What the produced workbook holds BEFORE anything is typed: its vocabularies,
@@ -35,15 +36,21 @@ export const LISTES: Record<string, string[]> = {
   Preview: AVAILABLE_ICONS.map((n) => ICON_PREVIEWS[n] ?? ""),
 };
 
-// The starting mapping from actor type to icon. Nothing in it is fixed: that
-// is precisely what the ActorTypes sheet is there to change.
-export const DEFAULT_ICONS: [string, string][] = [
-  ["Application", "app-window"],
-  ["Service", "cog"],
-  ["Packaged product", "package"],
-  ["Partner", "handshake"],
-  ["Person", "user"],
-  ["Infrastructure", "server"],
+// The starting actor types: a name, its icon, its nature. They seed the blank
+// REFERENTIAL, not a cartography -- a cartography picks its types from the
+// referential now, so seeding it would have it declare six types before anyone
+// said it used any.
+//
+// Nothing in it is fixed: it is a starting point in a file made to be edited.
+export const DEFAULT_ICONS: [string, string, string][] = [
+  ["Application", "app-window", NATURE_BUSINESS],
+  ["Service", "cog", NATURE_BUSINESS],
+  ["Packaged product", "package", NATURE_BUSINESS],
+  ["Partner", "handshake", NATURE_BUSINESS],
+  ["Person", "user", NATURE_BUSINESS],
+  // The one technical type of the six: a bus or a gateway is crossed, it is not
+  // a correspondent -- which is the whole of the functional reading.
+  ["Infrastructure", "server", NATURE_TECHNICAL],
 ];
 
 // The common technologies, with the direction they are represented in. Taken

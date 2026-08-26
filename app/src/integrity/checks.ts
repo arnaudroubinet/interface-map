@@ -250,7 +250,10 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
   // The perimeter is a property of the group. Without this sheet it is deduced
   // from the actors -- a mixed group then becomes "Platform" as soon as a single
   // one of its members is, which distorts colours and counts.
-  if (model.actorTypes.length === 0) {
+  // Only once an actor exists: a blank workbook declares no type because it
+  // takes them from the referential as it goes, and nothing wears the neutral
+  // icon while there is nothing to wear it.
+  if (model.actorTypes.length === 0 && model.actors.length > 0) {
     anomalies.push({
       message: 'Sheet "ActorTypes" missing or empty, so every actor wears the neutral icon. Add an "ActorTypes" sheet with the columns "Actor type" and "Icon".',
     });

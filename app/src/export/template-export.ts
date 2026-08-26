@@ -25,9 +25,12 @@ import {
   REF_ACTOR_TYPES_SHEET,
   REF_TECHNOLOGIES_SHEET,
   REF_ACTOR_COLUMNS,
+  REF_GROUP_COLUMNS,
+  REF_ACTOR_TYPE_COLUMNS,
   REF_TECHNOLOGY_COLUMNS,
 } from "../parsing/build-model";
 import { REFERENTIAL_SHEETS } from "./referential-shape";
+import { normalizeText } from "../shared/text";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import {
   VOCABULARY_DIRECTION,
@@ -38,6 +41,7 @@ import {
 } from "../aggregation/vocabularies";
 import {
   applyOoxmlExtras,
+  tableName,
   type TableToApply,
   type NamedList,
   type ValidationToApply,
@@ -104,23 +108,98 @@ export function previewFormula(row: number): string {
   return `IFERROR(INDEX(${LISTS_SHEET}!$${preview}:$${preview},MATCH(B${row},${LISTS_SHEET}!$${icon}:$${icon},0)),"")`;
 }
 
-// The only pre-filled sheet: without it every actor would carry the neutral
-// token and an integrity check would light up on a brand-new workbook.
-function actorTypesSheet(declared: readonly (readonly string[])[]): XLSX.WorkSheet {
-  const rows = declared.length > 0 ? declared.map((l) => [...l]) : DEFAULT_ICONS.map(([t, i]) => [t, i]);
-  const headers = [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN];
-  // The Preview column follows ACTOR_TYPE_COLUMNS rather than a hard-coded
-  // letter: adding "Nature" shifted it from C to D, and a frozen letter would
-  // have overwritten the neighbouring column instead of the expected formula.
-  const previewColumn = XLSX.utils.encode_col(ACTOR_TYPE_COLUMNS.length);
-  const ws = sheet([headers, ...rows], [22, 18, 14, 12]);
-  rows.forEach(([, icon], rank) => {
-    // The cached value is the one Excel will recompute anyway: it is there so
-    // that the preview shows correctly from the moment the file opens, before
-    // the first recalculation.
-    ws[`${previewColumn}${rank + 2}`] = { t: "str", f: previewFormula(rank + 2), v: ICON_PREVIEWS[icon] ?? "" };
-  });
-  ws["!ref"] = `A1:${previewColumn}${rows.length + 1}`;
+// The colour is written now, and derived like the rest: the parser already read
+// it as an optional column, so the sheet gains it without the schema having to
+// know. What the referential decides, the cartography shows.
+export const FLOW_TYPE_SHEET_COLUMNS = [...FLOW_TYPE_COLUMNS, "Colour"];
+
+// What each sheet stops owning: the name stays picked here, everything the
+// referential says about it is looked up.
+const DERIVED_ACTOR_TYPE = ["Icon", "Nature"];
+const DERIVED_FLOW_TYPE = ["Direction", "Description", "Colour"];
+
+// A column whose value is the referential's, not the reader's. The name is
+// picked from a drop-down; everything the referential says ABOUT that name is
+// looked up here, in a calculated column: Excel fills it on every row added and
+// puts it back when someone types over it.
+//
+// Two truths for the same thing is what this removes. The icon of a type, the
+// direction of a technology -- they were typed on both sides, and nothing said
+// which one won.
+//
+// A1 references to the hidden sheet, NEVER a structured reference to its table:
+// Excel loads tables in order, a formula naming a table defined further on is
+// invalid when it reads it, and it DELETES the offending table while offering
+// to repair the workbook. The icon preview already knew this; the lookups
+// inherit the lesson rather than the bug.
+//
+// IFERROR rather than #N/A: a name the referential does not know yet is an
+// ordinary state, reported by the integrity check that exists for it, not an
+// error spread across a column.
+export function fromReferential(
+  referentialSheet: string,
+  referentialColumns: readonly string[],
+  columns: readonly string[],
+  key: string,
+  column: string,
+  row: number
+): string {
+  const source = XLSX.utils.encode_col(referentialColumns.indexOf(column));
+  const sourceKey = XLSX.utils.encode_col(referentialColumns.indexOf(key));
+  const local = XLSX.utils.encode_col(columns.indexOf(key));
+  return (
+    `IFERROR(INDEX(${referentialSheet}!$${source}:$${source},` +
+    `MATCH($${local}${row},${referentialSheet}!$${sourceKey}:$${sourceKey},0)),"")`
+  );
+}
+
+function derivedFormulas(
+  referentialSheet: string,
+  referentialColumns: readonly string[],
+  columns: readonly string[],
+  key: string,
+  derived: readonly string[],
+  row: number
+): Record<string, string> {
+  return Object.fromEntries(
+    derived.map((column) => [column, fromReferential(referentialSheet, referentialColumns, columns, key, column, row)])
+  );
+}
+
+// The types this cartography uses -- their name, and nothing else it owns. The
+// sheet is no longer seeded: a type is taken from the referential now, and
+// seeding six would have the workbook declare types before anyone said it used
+// any.
+function derivedSheet(
+  columns: readonly string[],
+  referentialSheet: string,
+  referentialColumns: readonly string[],
+  key: string,
+  derived: readonly string[],
+  rows: readonly (readonly string[])[],
+  published: readonly (readonly string[])[],
+  widths: number[]
+): XLSX.WorkSheet {
+  const ws = sheet([[...columns], ...rows.map((r) => [...r])], widths);
+  // What the hidden list says about each name, worked out here. It is the
+  // cached value of the formula: Excel recomputes it anyway, but until it does
+  // the file must show the icon and the direction rather than a blank column --
+  // and a formula cell with no value at all is dropped on the way out.
+  const keyAt = referentialColumns.indexOf(key);
+  const lookup = new Map(published.map((row) => [normalizeText(row[keyAt] ?? ""), row]));
+  for (const column of derived) {
+    const letter = XLSX.utils.encode_col(columns.indexOf(column));
+    const at = referentialColumns.indexOf(column);
+    rows.forEach((row, rank) => {
+      const line = rank + 2;
+      const known = lookup.get(normalizeText(row[columns.indexOf(key)] ?? ""));
+      ws[`${letter}${line}`] = {
+        t: "str",
+        v: known?.[at] ?? "",
+        f: fromReferential(referentialSheet, referentialColumns, columns, key, column, line),
+      };
+    });
+  }
   return ws;
 }
 
@@ -289,10 +368,38 @@ export interface WorkbookData {
   actors: readonly (readonly string[])[];
   interfaces: readonly (readonly string[])[];
   fx: readonly { name: string; rows: readonly (readonly string[])[] }[];
-  // Where the referential workbook is published -- one file, one URL, the
-  // actors and the technologies being two of its tables. Absent means the
-  // workbook has no referential, which is an ordinary state.
+  // Where the referential workbook is published -- one file, one URL, the four
+  // vocabularies being four of its tables. Absent means the workbook has no
+  // referential, which is an ordinary state.
   referential?: ReferentialUrl;
+  // What the hidden Ref* sheets hold. THEY are what the workbook reads: the
+  // file at the URL only refreshes them. Carried across every rewrite, failing
+  // which exporting a workbook would empty the lists its own drop-downs and
+  // calculated columns are made of.
+  referentialRows?: ReferentialRows;
+}
+
+// The rows of the four hidden sheets, in the order REFERENTIAL_SHEETS gives
+// them.
+export type ReferentialRows = Record<string, readonly (readonly string[])[]>;
+
+// What a referential sheet is written with.
+//
+// The hidden lists carry the data -- the file at the URL only refreshes them --
+// so they must never come out empty on a workbook that has any. Preference goes
+// to what the workbook already held; failing that, to what the workbook itself
+// declares, which is put back where it now lives. Nothing is invented there: a
+// cartography naming six types could not have named them without a list, and
+// the first refresh replaces the lot with the referential's own rows.
+function referentialRowsOf(data: WorkbookData, sheet: string): readonly (readonly string[])[] {
+  const held = data.referentialRows?.[sheet];
+  if (held && held.length > 0) return held;
+  const at = (rows: readonly (readonly string[])[], width: number) =>
+    rows.map((r) => Array.from({ length: width }, (_, i) => r[i] ?? ""));
+  if (sheet === REF_ACTORS_SHEET) return at(data.actors, REF_ACTOR_COLUMNS.length);
+  if (sheet === REF_GROUPS_SHEET) return data.groups.map((g) => [g[0] ?? "", ""]);
+  if (sheet === REF_ACTOR_TYPES_SHEET) return at(data.actorTypes, REF_ACTOR_TYPE_COLUMNS.length);
+  return at(data.flowTypes, REF_TECHNOLOGY_COLUMNS.length);
 }
 
 const EMPTY_WORKBOOK: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
@@ -347,13 +454,32 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
     "Milestones"
   );
 
-  XLSX.utils.book_append_sheet(wb, actorTypesSheet(data.actorTypes), "ActorTypes");
+  XLSX.utils.book_append_sheet(
+    wb,
+    derivedSheet(
+      ACTOR_TYPE_COLUMNS,
+      REF_ACTOR_TYPES_SHEET,
+      REF_ACTOR_TYPE_COLUMNS,
+      "Actor type",
+      DERIVED_ACTOR_TYPE,
+      data.actorTypes,
+      referentialRowsOf(data, REF_ACTOR_TYPES_SHEET),
+      [22, 18, 14]
+    ),
+    "ActorTypes"
+  );
 
   XLSX.utils.book_append_sheet(
     wb,
-    sheet(
-      [[...FLOW_TYPE_COLUMNS], ...(data.flowTypes.length > 0 ? data.flowTypes : FLOW_TYPES).map((t) => [...t])],
-      [22, 26, 62]
+    derivedSheet(
+      FLOW_TYPE_SHEET_COLUMNS,
+      REF_TECHNOLOGIES_SHEET,
+      REF_TECHNOLOGY_COLUMNS,
+      "Flow type",
+      DERIVED_FLOW_TYPE,
+      data.flowTypes,
+      referentialRowsOf(data, REF_TECHNOLOGIES_SHEET),
+      [22, 26, 62, 14]
     ),
     "FlowTypes"
   );
@@ -366,7 +492,12 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
   // refresh. The header row alone is written, so the structured table has
   // something to declare.
   for (const r of REFERENTIAL_SHEETS) {
-    XLSX.utils.book_append_sheet(wb, sheet([[...r.columns]], r.columns.map(() => 20)), r.fills);
+    const rows = referentialRowsOf(data, r.fills);
+    XLSX.utils.book_append_sheet(
+      wb,
+      sheet([[...r.columns], ...rows.map((row) => [...row])], r.columns.map(() => 20)),
+      r.fills
+    );
   }
   XLSX.utils.book_append_sheet(wb, versionSheet(), VERSION_SHEET);
 
@@ -403,14 +534,19 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
     { sheet: "Milestones", columns: MILESTONE_COLUMNS, rows: data.milestones.length },
     {
       sheet: "ActorTypes",
-      columns: [...ACTOR_TYPE_COLUMNS, ICON_PREVIEW_COLUMN],
-      rows: writtenRows(data.actorTypes, DEFAULT_ICONS),
-      // Calculated column: Excel fills it by itself on the rows added. The
-      // formula stored in the table is the first data row's: Excel shifts it
-      // itself onto the following rows.
-      formulaByColumn: { [ICON_PREVIEW_COLUMN]: previewFormula(2) },
+      columns: ACTOR_TYPE_COLUMNS,
+      rows: data.actorTypes.length,
+      // Calculated columns: Excel fills them on every row added, and puts the
+      // formula back when a value is typed over it. That is what "read from the
+      // referential" is made of.
+      formulaByColumn: derivedFormulas(REF_ACTOR_TYPES_SHEET, REF_ACTOR_TYPE_COLUMNS, ACTOR_TYPE_COLUMNS, "Actor type", DERIVED_ACTOR_TYPE, 2),
     },
-    { sheet: "FlowTypes", columns: FLOW_TYPE_COLUMNS, rows: writtenRows(data.flowTypes, FLOW_TYPES) },
+    {
+      sheet: "FlowTypes",
+      columns: FLOW_TYPE_SHEET_COLUMNS,
+      rows: data.flowTypes.length,
+      formulaByColumn: derivedFormulas(REF_TECHNOLOGIES_SHEET, REF_TECHNOLOGY_COLUMNS, FLOW_TYPE_SHEET_COLUMNS, "Flow type", DERIVED_FLOW_TYPE, 2),
+    },
     { sheet: "Interfaces", columns: INTERFACE_COLUMNS, rows: data.interfaces.length },
     ...fxTabs(data).map((o) => ({ sheet: o.name, columns: FX_COLUMNS, rows: o.rows.length })),
     // One table PER vocabulary, sized to its own content -- not a single table
@@ -428,7 +564,7 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
     ...REFERENTIAL_SHEETS.map((r) => ({
       sheet: r.fills,
       columns: r.columns,
-      rows: 0,
+      rows: referentialRowsOf(data, r.fills).length,
       query: hasReferential(referential) ? r.fills : undefined,
     })),
   ];
@@ -530,9 +666,9 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
     text:
       "Fill in only when the consumer is a technical actor: which of ITS OWN interfaces republishes this flow. Several lines pointing at the same interface is how a bus aggregates.",
   },
-  Nature: { title: "Nature", text: "Technical actors are traversed in the functional reading: their actors do not appear, the flows through them are joined end to end." },
+  Nature: { title: "Nature", text: "Read from the referential. A technical type is traversed in the functional reading: its actors do not appear, and the flows through them are joined end to end. Change it in the referential, then refresh." },
   Perimeter: { title: "Perimeter", text: "Platform for what the team owns, External for the rest. This is what decides how the group is drawn." },
-  Direction: { title: "Direction", text: "Which way the arrow is drawn for this technology, on every diagram." },
+  Direction: { title: "Direction", text: "Read from the referential: which way the arrow is drawn for this technology, on every diagram. Change it in the referential, then refresh." },
   "To confirm": { title: "To confirm", text: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
 
   // --- FREE-entry columns. No list guides them, and they were the only ones
@@ -551,7 +687,11 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
   Label: { title: "Label", text: "The milestone's readable name, shown next to it in the tool." },
   Status: { title: "Status", text: "Where this milestone stands. The default milestone shown is the delivered one with the highest rank." },
   Date: { title: "Date", text: "When the milestone happens. Informative: it is Rank that decides the order." },
-  Icon: { title: "Icon", text: "The icon drawn inside the box for this type of actor. Pick from the list; Preview shows the result." },
+  // The derived columns say where their value comes from: it is the one place
+  // a reader looks when a cell will not keep what they typed.
+  Icon: { title: "Icon", text: "Read from the referential for this type. Not entered here: Excel puts the formula back. Change it in the referential, then refresh." },
+  "FlowTypes.Description": { title: "Description", text: "Read from the referential." },
+  Colour: { title: "Colour", text: "Read from the referential, in hexadecimal. Empty, the palette picks one." },
   "Flow type": { title: "Flow type", text: "The technology this interface travels over. Declared on the FlowTypes sheet, which also sets which way the arrow is drawn." },
   Provider: { title: "Provider", text: "The actor that PROVIDES this interface. It is what tells two interfaces of the same name apart, and it decides which FX_ sheet holds the consumptions." },
   Consumer: { title: "Consumer", text: "The actor that consumes this interface. One line per consumer: an interface consumed by four actors has four lines." },
@@ -625,13 +765,14 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     v("Actors", ACTOR_COLUMNS, "Name", "L_RefActeur"),
     v("Groups", GROUP_COLUMNS, "Group", "L_RefGroupe"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Actor type", "L_RefTypeActeur"),
-    v("FlowTypes", FLOW_TYPE_COLUMNS, "Flow type", "L_RefTypeFlux"),
+    v("FlowTypes", FLOW_TYPE_SHEET_COLUMNS, "Flow type", "L_RefTypeFlux"),
     v("Actors", ACTOR_COLUMNS, "Group", "L_Groupe"),
     v("Actors", ACTOR_COLUMNS, "Actor type", "L_TypeActeur"),
     v("Groups", GROUP_COLUMNS, "Perimeter", "L_Perimetre"),
-    v("ActorTypes", ACTOR_TYPE_COLUMNS, "Icon", "L_Icone"),
-    v("ActorTypes", ACTOR_TYPE_COLUMNS, "Nature", "L_Nature"),
-    v("FlowTypes", FLOW_TYPE_COLUMNS, "Direction", "L_Sens"),
+    // Icon, Nature, Direction, Description and Colour are gone from here: they
+    // are calculated columns now, read from the referential. A drop-down on a
+    // column nobody types into would invite exactly the entry the formula
+    // undoes.
     v("Interfaces", INTERFACE_COLUMNS, "Provider", "L_Acteur"),
     v("Interfaces", INTERFACE_COLUMNS, "Flow type", "L_TypeFlux"),
     v("Interfaces", INTERFACE_COLUMNS, "To confirm", "L_Confirmation"),
@@ -640,8 +781,11 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...free("Actors", ACTOR_COLUMNS, ["Name", "Group", "Actor type", ...VALIDITY_COLUMNS]),
     ...free("Groups", GROUP_COLUMNS, ["Perimeter"]),
     ...free("Milestones", MILESTONE_COLUMNS, []),
-    ...free("ActorTypes", ACTOR_TYPE_COLUMNS, ["Icon", "Nature"]),
-    ...free("FlowTypes", FLOW_TYPE_COLUMNS, ["Flow type", "Direction"]),
+    // The derived columns are guided by nothing and explained all the same: the
+    // tooltip is the only place that says where the value comes from and why it
+    // comes back when overwritten.
+    ...free("ActorTypes", ACTOR_TYPE_COLUMNS, ["Actor type"]),
+    ...free("FlowTypes", FLOW_TYPE_SHEET_COLUMNS, ["Flow type"]),
     ...free("Interfaces", INTERFACE_COLUMNS, ["Provider", "Flow type", "To confirm", ...VALIDITY_COLUMNS]),
     // The filled flow sheets get the same lists as their pattern.
     ...fxTabs(data).flatMap((o) => fxLists(o.name)),

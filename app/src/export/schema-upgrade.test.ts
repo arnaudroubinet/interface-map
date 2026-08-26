@@ -52,10 +52,10 @@ describe("the upgrade chain", () => {
   // Power Query stream and the new sheets are born at writing time -- but each
   // step must exist all the same: that is what makes the workbooks already in
   // circulation be recognised as stale.
-  it("takes a v6 workbook to v7 without transforming the model", () => {
-    expect(SCHEMA_VERSION).toBe(7);
-    const step = UPGRADE_STEPS.find((s) => s.de === 6);
-    expect(step?.vers).toBe(7);
+  it("takes a v7 workbook to v8 without transforming the model", () => {
+    expect(SCHEMA_VERSION).toBe(8);
+    const step = UPGRADE_STEPS.find((s) => s.de === 7);
+    expect(step?.vers).toBe(8);
   });
 });
 

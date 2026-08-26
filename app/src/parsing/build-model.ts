@@ -89,7 +89,7 @@ export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Critica
 // The workbook's schema number, written on a hidden sheet. A monotonic
 // integer, not a semver: it serves only to know which transformations to
 // apply, and in what order.
-export const SCHEMA_VERSION = 7;
+export const SCHEMA_VERSION = 8;
 export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 
@@ -346,6 +346,37 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       colour: get(r, headerMapRefTechnologies, "Colour"),
     }))
     .filter((t) => t.type !== "");
+
+  // What the sheet cannot say yet, the hidden list says.
+  //
+  // The icon, the nature, the direction and the description are calculated
+  // columns on the entry sheets: they LOOK UP the hidden list rather than being
+  // typed. A formula written by the tool carries no cached value until Excel
+  // computes it, so a workbook downloaded and dropped straight back in would
+  // show no icon, no nature and -- worse -- no direction, hence no arrow.
+  //
+  // Only an EMPTY value is filled: a workbook that still holds typed values,
+  // from before those columns were derived, keeps saying what it says.
+  const publishedType = new Map(referentialActorTypes.map((t) => [normalizeText(t.type), t]));
+  for (const t of actorTypes) {
+    const published = publishedType.get(normalizeText(t.type));
+    if (!published) continue;
+    if (t.icon === "") t.icon = published.icon;
+    if (t.nature === "") t.nature = published.nature;
+  }
+  const publishedTechnology = new Map(referentialTechnologies.map((t) => [normalizeText(t.type), t]));
+  for (const t of flowTypes) {
+    const published = publishedTechnology.get(normalizeText(t.type));
+    if (!published) continue;
+    if (t.rawDirection === "") {
+      t.rawDirection = published.direction;
+      t.direction = normDirection(published.direction);
+    }
+    if (t.description === "") t.description = published.description;
+    // The colour is NOT filled here: colors.ts already reads the referential's,
+    // and lets a colour typed into the workbook override it. Filling it would
+    // turn the referential's own colour into an override of itself.
+  }
 
   const milestonesSheet = findSheet(workbook.sheets, "Milestones");
   const milestones: Milestone[] = [];

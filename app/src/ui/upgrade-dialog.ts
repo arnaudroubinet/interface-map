@@ -10,7 +10,7 @@ import {
   cleanReferentialUrl,
   isOpaqueSharingLink,
 } from "../export/datamashup";
-import { downloadReferentialXlsx, SAMPLE_REFERENTIAL } from "../export/referential-template";
+import { downloadReferentialXlsx, SAMPLE_REFERENTIAL, BLANK_REFERENTIAL } from "../export/referential-template";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
@@ -83,8 +83,10 @@ export function openMigration(): void {
     referentialSaid.textContent = "";
   });
   const blankReferential = el("button", { class: "export-button", type: "button" }, ["Blank referential"]);
-  blankReferential.title = "An empty referential workbook, ready to publish and fill in";
-  blankReferential.addEventListener("click", () => downloadReferentialXlsx("interface-map-referential.xlsx"));
+  blankReferential.title = "The vocabularies to start from: actor types and technologies, no actor and no group";
+  blankReferential.addEventListener("click", () =>
+    downloadReferentialXlsx("interface-map-referential.xlsx", BLANK_REFERENTIAL)
+  );
   // Filled with the sample cartography's own names, so that the two files can
   // be pointed at each other and show the mechanism working rather than an
   // empty table.

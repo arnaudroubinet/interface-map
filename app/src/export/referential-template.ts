@@ -1,9 +1,16 @@
 import * as XLSX from "xlsx";
-import { applyOoxmlExtras, type TableToApply } from "./xlsx-tables";
+import {
+  applyOoxmlExtras,
+  type TableToApply,
+  type NamedList,
+  type ValidationToApply,
+} from "./xlsx-tables";
 import { downloadWorkbook } from "./download";
 import { REFERENTIAL_SHEETS } from "./referential-shape";
 import { SAMPLE_DATA } from "./sample-data";
-import { FLOW_TYPES } from "./template-data";
+import { FLOW_TYPES, DEFAULT_ICONS } from "./template-data";
+import { VOCABULARY_DIRECTION, VOCABULARY_NATURE } from "../aggregation/vocabularies";
+import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { PALETTE } from "../render/colors";
 
 // The referential workbook itself -- the file the queries read.
@@ -26,6 +33,45 @@ export interface ReferentialData {
 
 export const EMPTY_REFERENTIAL: ReferentialData = { actors: [], groups: [], actorTypes: [], flowTypes: [] };
 
+// What "blank" means for a referential: no actor and no group -- those belong
+// to the estate being mapped -- but the two vocabularies nobody should have to
+// retype. They used to be seeded into every cartography; they belong here now,
+// since a cartography picks its types and technologies from the referential
+// instead of declaring them. A blank referential is therefore usable at once,
+// while a blank cartography beside no referential can declare nothing -- which
+// is the point: the lists carry the data.
+export const BLANK_REFERENTIAL: ReferentialData = {
+  actors: [],
+  groups: [],
+  actorTypes: DEFAULT_ICONS.map(([type, icon, nature]) => [type, icon, nature, ""]),
+  // No colour: the palette decides until someone fixes one. A seeded colour
+  // would look like a decision the referential never made.
+  flowTypes: FLOW_TYPES.map(([type, direction, description]) => [type, direction, description, ""]),
+};
+
+// The referential's own hidden sheet: the closed vocabularies its columns are
+// picked from. It carries only what this file needs -- an icon, a nature, a
+// direction -- and not the cartography's own eight: a criticality has nothing
+// to do in a referential.
+const REFERENTIAL_LISTS: Record<string, string[]> = {
+  Icon: AVAILABLE_ICONS,
+  Preview: AVAILABLE_ICONS.map((n) => ICON_PREVIEWS[n] ?? ""),
+  Nature: VOCABULARY_NATURE,
+  Direction: VOCABULARY_DIRECTION,
+};
+
+const LISTS_SHEET = "Lists";
+
+// The icon shown beside the name that was picked. It sits HERE, and no longer
+// on the cartography, because here is where an icon is chosen: on the other
+// side the column is a lookup nobody types into, and a preview of a value one
+// cannot change is a column of noise.
+export const PREVIEW_COLUMN = "Preview";
+
+function previewFormula(): string {
+  return `IFERROR(INDEX(${LISTS_SHEET}!$B:$B,MATCH([@Icon],${LISTS_SHEET}!$A:$A,0)),"")`;
+}
+
 const INSTRUCTIONS: [string, string][] = [
   ["What this file is", "The referential the interface maps draw their names from. One workbook, one URL."],
   ["Do not rename the tables", `Each sheet carries one Excel table: ${REFERENTIAL_SHEETS.map((r) => r.table).join(", ")}. The queries look for them by name — rename one and the map stops loading it.`],
@@ -40,6 +86,67 @@ function sheetOf(columns: readonly string[], rows: readonly (readonly string[])[
   ws["!cols"] = columns.map((c) => ({ wch: Math.max(18, c.length + 4) }));
   ws["!autofilter"] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: 0, c: columns.length - 1 } }) };
   return ws;
+}
+
+// The columns a referential sheet is written with: its own, plus the icon
+// preview on the sheet where an icon is chosen.
+function columnsOfSheet(sheet: string, columns: readonly string[]): string[] {
+  return sheet === "ActorTypes" ? [...columns, PREVIEW_COLUMN] : [...columns];
+}
+
+function listsSheet(): XLSX.WorkSheet {
+  const headers = Object.keys(REFERENTIAL_LISTS);
+  const height = Math.max(...headers.map((h) => REFERENTIAL_LISTS[h].length));
+  const rows: string[][] = [headers];
+  for (let i = 0; i < height; i++) rows.push(headers.map((h) => REFERENTIAL_LISTS[h][i] ?? ""));
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws["!cols"] = headers.map((h) => ({ wch: Math.max(16, h.length + 4) }));
+  return ws;
+}
+
+// One table per vocabulary, sized to its own content: a single table over all
+// four would pad the short lists with blank rows up to the longest, and the
+// blanks would show in the drop-downs. The cartography learned this the hard
+// way; the referential inherits the lesson rather than the bug.
+function listTables(): TableToApply[] {
+  return Object.keys(REFERENTIAL_LISTS).map((key, index) => ({
+    sheet: LISTS_SHEET,
+    columns: [key],
+    rows: REFERENTIAL_LISTS[key].length,
+    startColumn: index,
+  }));
+}
+
+function listsOfReferential(): NamedList[] {
+  return [
+    { name: "L_Icone", sheet: LISTS_SHEET, heading: "Icon" },
+    { name: "L_Nature", sheet: LISTS_SHEET, heading: "Nature" },
+    { name: "L_Sens", sheet: LISTS_SHEET, heading: "Direction" },
+    // Excel's data validation does NOT accept a structured reference: a list
+    // whose formula reads TblGroups[Name] is refused outright. A defined name
+    // over the same column is accepted, and follows the table as it grows --
+    // which is why every list in this project is one.
+    { name: "L_Groupe", sheet: "Groups", heading: "Name" },
+    { name: "L_TypeActeur", sheet: "ActorTypes", heading: "Actor type" },
+  ];
+}
+
+// Every column of the referential that names something already named on
+// another of its sheets. Typed by hand, a group or a type invents a name that
+// matches nothing, and the cartography inherits the divergence -- the very
+// thing a referential exists to prevent.
+function validationsOfReferential(): ValidationToApply[] {
+  const at = (sheet: string, heading: string, formula: string): ValidationToApply => {
+    const entry = REFERENTIAL_SHEETS.find((r) => r.sheet === sheet)!;
+    return { sheet, column: XLSX.utils.encode_col(entry.columns.indexOf(heading)), formula };
+  };
+  return [
+    at("Actors", "Group", "L_Groupe"),
+    at("Actors", "Actor type", "L_TypeActeur"),
+    at("ActorTypes", "Icon", "L_Icone"),
+    at("ActorTypes", "Nature", "L_Nature"),
+    at("FlowTypes", "Direction", "L_Sens"),
+  ];
 }
 
 const rowsFor = (data: ReferentialData, sheet: string): readonly (readonly string[])[] => {
@@ -61,8 +168,24 @@ export function writeReferential(
   instructions["!cols"] = [{ wch: 26 }, { wch: 104 }];
   XLSX.utils.book_append_sheet(wb, instructions, "Instructions");
   for (const r of REFERENTIAL_SHEETS) {
-    XLSX.utils.book_append_sheet(wb, sheetOf(r.columns, rowsFor(data, r.sheet)), r.sheet);
+    const rows = rowsFor(data, r.sheet);
+    const ws = sheetOf(columnsOfSheet(r.sheet, r.columns), rows);
+    if (r.sheet === "ActorTypes") {
+      // The cached value is the one Excel recomputes anyway: it is there so the
+      // preview shows from the moment the file opens, before the first
+      // recalculation.
+      const column = XLSX.utils.encode_col(r.columns.length);
+      const icon = r.columns.indexOf("Icon");
+      rows.forEach((row, rank) => {
+        ws[`${column}${rank + 2}`] = { t: "str", f: previewFormula(), v: ICON_PREVIEWS[row[icon]] ?? "" };
+      });
+    }
+    XLSX.utils.book_append_sheet(wb, ws, r.sheet);
   }
+  XLSX.utils.book_append_sheet(wb, listsSheet(), LISTS_SHEET);
+  // Hidden for the same reason as the cartography's: it is not data to be
+  // entered, it is what the drop-downs are made of.
+  wb.Workbook = { Sheets: wb.SheetNames.map((name) => ({ Hidden: name === LISTS_SHEET ? 1 : 0 })) };
 
   // The same reason as the cartography's own writer: a workbook with no
   // ModifiedDate is reread without a save date.
@@ -75,16 +198,22 @@ export function writeReferential(
   };
 
   const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-  const tables: TableToApply[] = REFERENTIAL_SHEETS.map((r) => ({
-    sheet: r.sheet,
-    columns: r.columns,
-    rows: rowsFor(data, r.sheet).length,
-  }));
+  const tables: TableToApply[] = [
+    ...REFERENTIAL_SHEETS.map((r) => ({
+      sheet: r.sheet,
+      columns: columnsOfSheet(r.sheet, r.columns),
+      rows: rowsFor(data, r.sheet).length,
+      ...(r.sheet === "ActorTypes" ? { formulaByColumn: { [PREVIEW_COLUMN]: previewFormula() } } : {}),
+    })),
+    ...listTables(),
+  ];
   return applyOoxmlExtras(raw, {
     tables,
+    lists: listsOfReferential(),
+    validations: validationsOfReferential(),
     styles: REFERENTIAL_SHEETS.map((r) => ({
       sheet: r.sheet,
-      cells: r.columns.map((_, i) => `${XLSX.utils.encode_col(i)}1`),
+      cells: columnsOfSheet(r.sheet, r.columns).map((_, i) => `${XLSX.utils.encode_col(i)}1`),
       role: "header" as const,
     })),
     panes: REFERENTIAL_SHEETS.map((r) => r.sheet),

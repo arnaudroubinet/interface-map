@@ -3,6 +3,7 @@ import * as XLSX from "xlsx";
 import {
   buildTemplateWorkbook,
   writeTemplate,
+  FLOW_TYPE_SHEET_COLUMNS,
   tablesOfTemplate,
   listsOfTemplate,
   validationsOfTemplate,
@@ -112,15 +113,13 @@ describe("the workbook template", () => {
     expect(result.model.groupsSheetMissing).toBe(false);
   });
 
-  it("pre-fills ActorTypes with icons that exist in the catalogue", () => {
-    const parsed = parseWorkbook(rereadTemplate());
-    const result = buildModel(parsed);
+  // Nothing is seeded here any more: a type is taken from the referential as it
+  // is needed. Seeding six would have a brand-new workbook declare types before
+  // anyone said it used any -- and the referential is where they now live.
+  it("declares no actor type of its own", () => {
+    const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("unreadable template");
-
-    expect(result.model.actorTypes.length).toBeGreaterThan(0);
-    for (const t of result.model.actorTypes) {
-      expect(AVAILABLE_ICONS).toContain(t.icon);
-    }
+    expect(result.model.actorTypes).toEqual([]);
   });
 
   // A template opening on errors would cast doubt on the tool before the first
@@ -247,7 +246,7 @@ describe("the workbook template", () => {
     // And nothing else loosens: a vocabulary the workbook itself owns keeps
     // refusing what is not in it.
     expect(alertOf(sheetXml("Interfaces"), "L_TypeFlux")).toContain('showErrorMessage="1"');
-    expect(alertOf(sheetXml("ActorTypes"), "L_Icone")).toContain('showErrorMessage="1"');
+    expect(alertOf(sheetXml("Groups"), "L_Perimetre")).toContain('showErrorMessage="1"');
   });
 
   it("points each list at the table column carrying it", () => {
@@ -342,22 +341,30 @@ describe("the workbook template", () => {
     expect(hidden).toEqual(["Lists", "RefActors", "RefGroups", "RefActorTypes", "RefTechnologies", "Version"]);
   });
 
-  it("ships the common flow types, ready to use", () => {
+  // The common technologies moved to the blank referential, where the workbook
+  // now picks the ones it uses. referential-template.test.ts checks they are
+  // there; here, what matters is that nothing is declared for the reader.
+  it("declares no technology of its own", () => {
     const result = buildModel(parseWorkbook(rereadTemplate()));
     if (!result.ok) throw new Error("unreadable template");
-    const types = result.model.flowTypes;
-    expect(types.map((t) => t.type)).toContain("HTTP");
-    expect(types.map((t) => t.type)).toContain("Kafka");
-    // The direction is already settled for each: it is not typed in.
-    expect(types.every((t) => t.direction.length > 0)).toBe(true);
-    // The deposit/withdrawal variants and the composites have gone from the referential.
-    expect(types.some((t) => /repository|removed|ESB|ETL/i.test(t.type))).toBe(false);
+    expect(result.model.flowTypes).toEqual([]);
   });
 
-  it("shows the chosen icon through a calculated column, never typed", () => {
-    const table = tableXml("TblActorTypes");
-    expect(table).toContain("<calculatedColumnFormula>");
-    expect(table).toContain("Lists!$");
+  // What the referential says about a name is read, not entered: a calculated
+  // column, which Excel fills on every row added and puts back when someone
+  // types over it. The icon preview that used to sit here is gone with it --
+  // it previewed a value nobody chooses on this side any more.
+  it("reads from the referential in calculated columns, never typed", () => {
+    const types = tableXml("TblActorTypes");
+    expect(types).toContain("<calculatedColumnFormula>");
+    expect(types).toContain("RefActorTypes!$");
+    expect(types).not.toContain("Preview");
+
+    const technologies = tableXml("TblFlowTypes");
+    expect(technologies).toContain("RefTechnologies!$");
+    for (const column of ["Direction", "Description", "Colour"]) {
+      expect(technologies).toContain(`name="${column}"`);
+    }
   });
 
   // Excel loads the tables in order: a formula naming a table defined further on
@@ -964,7 +971,7 @@ describe("the workbook template — the data-entry aids", () => {
   it("declares no tooltip for a non-existent column", () => {
     const all = [
       ...ACTOR_COLUMNS, ...GROUP_COLUMNS, ...MILESTONE_COLUMNS,
-      ...ACTOR_TYPE_COLUMNS, ...FLOW_TYPE_COLUMNS, ...INTERFACE_COLUMNS, ...FX_COLUMNS,
+      ...ACTOR_TYPE_COLUMNS, ...FLOW_TYPE_SHEET_COLUMNS, ...INTERFACE_COLUMNS, ...FX_COLUMNS,
     ];
     for (const key of Object.keys(PROMPTS)) {
       const heading = key.includes(".") ? key.split(".")[1] : key;
@@ -1007,5 +1014,75 @@ describe("referential sheets", () => {
     const workbook = readPart(cfb, "/xl/workbook.xml")!;
     expect(workbook).toContain("L_RefActeur");
     expect(workbook).toContain("L_RefTypeFlux");
+  });
+});
+
+// The derived columns hold formulas, and a formula written by the tool carries
+// no cached value until Excel computes it. A workbook downloaded and dropped
+// straight back in must not lose its icons, its natures and -- worse -- its
+// directions, without which no arrow is drawn.
+describe("the workbook template — what the sheet cannot say yet, the hidden list says", () => {
+  const written = () =>
+    writeTemplate({
+      flowTypes: [["HTTP", "", ""]],
+      actorTypes: [["Application", "", ""]],
+      milestones: [],
+      groups: [["Core", "Platform"]],
+      actors: [["Tatooine", "Core", "Application", "", "", "", "", ""]],
+      interfaces: [["Authent", "", "Tatooine", "HTTP", "", "", "", "", "No", "", ""]],
+      fx: [{ name: "FX_Tatooine_HTTP", rows: [] }],
+      referentialRows: {
+        RefActorTypes: [["Application", "app-window", "Technical", ""]],
+        RefTechnologies: [["HTTP", "provider → consumer", "Pushed", "#1f5fae"]],
+      },
+    });
+
+  it("reads a type's icon and nature back from the hidden list", () => {
+    const result = buildModel(parseWorkbook(written()));
+    if (!result.ok) throw new Error("unreadable workbook");
+    const type = result.model.actorTypes[0];
+    expect(type.icon).toBe("app-window");
+    expect(type.nature).toBe("Technical");
+  });
+
+  it("reads a technology's direction back from the hidden list", () => {
+    const result = buildModel(parseWorkbook(written()));
+    if (!result.ok) throw new Error("unreadable workbook");
+    expect(result.model.flowTypes[0].direction).toBe("provider-to-consumer");
+    expect(result.model.flowTypes[0].description).toBe("Pushed");
+  });
+
+  // Nothing is invented: a name the hidden list does not carry keeps saying
+  // nothing, and the integrity check that exists for it says so.
+  it("leaves a type the hidden list does not carry alone", () => {
+    const bytes = writeTemplate({
+      flowTypes: [], actorTypes: [["Mainframe", "", ""]], milestones: [], groups: [],
+      actors: [], interfaces: [], fx: [],
+      referentialRows: { RefActorTypes: [["Application", "app-window", "Business", ""]] },
+    });
+    const result = buildModel(parseWorkbook(bytes));
+    if (!result.ok) throw new Error("unreadable workbook");
+    expect(result.model.actorTypes[0].icon).toBe("");
+  });
+});
+
+// A formula cell with no value at all is dropped on the way out -- SheetJS
+// writes nothing for it -- and the column came back empty in the file while
+// looking right in the tests. The cached value is the lookup worked out here:
+// Excel recomputes it, but until it does the file must show the icon.
+describe("the workbook template — the derived cells reach the file", () => {
+  const sample = () =>
+    XLSX.read(new Uint8Array(writeTemplate(SAMPLE_DATA)), { type: "array" });
+
+  it("writes both the formula and the value it resolves to", () => {
+    const cell = sample().Sheets.ActorTypes.B2;
+    expect(cell.f).toContain("RefActorTypes!$");
+    expect(cell.v).toBe("app-window");
+  });
+
+  it("does the same for a technology's direction", () => {
+    const cell = sample().Sheets.FlowTypes.B2;
+    expect(cell.f).toContain("RefTechnologies!$");
+    expect(cell.v).not.toBe("");
   });
 });

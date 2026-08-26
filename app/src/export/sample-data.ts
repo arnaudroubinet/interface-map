@@ -1,4 +1,5 @@
 import type { WorkbookData } from "./template-export";
+import { FLOW_TYPES } from "./template-data";
 
 // A complete fictional referential, to show the tool filled rather than empty.
 // The domain and ALL the names -- groups, components, flows -- are foreign to
@@ -201,9 +202,11 @@ const FX = [
 ];
 
 export const SAMPLE_DATA: WorkbookData = {
-  // The technologies' referential makes do with the seed; the actor types' does
-  // not: it must carry the nature.
-  flowTypes: [],
+  // The technologies are declared now rather than left to a seed: a cartography
+  // takes the ones it uses from the referential, and a sheet nobody filled
+  // would leave every interface pointing at a technology this workbook does not
+  // declare.
+  flowTypes: FLOW_TYPES.map((t) => [...t]),
   actorTypes: ACTOR_TYPES,
   milestones: MILESTONES,
   groups: GROUPS,

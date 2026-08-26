@@ -1,5 +1,11 @@
 import type { Consumption, InterfaceCatalogue, ParsedModel } from "../parsing/model";
-import { SCHEMA_VERSION } from "../parsing/build-model";
+import {
+  SCHEMA_VERSION,
+  REF_ACTORS_SHEET,
+  REF_GROUPS_SHEET,
+  REF_ACTOR_TYPES_SHEET,
+  REF_TECHNOLOGIES_SHEET,
+} from "../parsing/build-model";
 import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsumption } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
 import type { WorkbookData } from "./template-export";
@@ -261,6 +267,16 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // to pour into them. The step exists so that the workbooks in circulation go
   // back through the rebuild, which is what creates them.
   { de: 6, vers: 7, appliquer: (model) => model },
+  // The icon, the nature, the direction, the description and the colour stop
+  // being typed on the cartography: they are read from the hidden lists, in
+  // calculated columns. The icon preview goes with them -- it previewed a value
+  // nobody chooses here any more, and it now sits in the referential, on the
+  // sheet where an icon IS chosen.
+  //
+  // Nothing to convert in the model: what the workbook declared is carried into
+  // the hidden lists by dataFromModel, so a workbook upgraded before it has any
+  // referential keeps every icon and every direction it had.
+  { de: 7, vers: 8, appliquer: (model) => model },
 ];
 
 // Each v3 relay finds the consumption it named again: the relayer's one
@@ -369,6 +385,15 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // manufacturing an unreadable workbook would help nobody.
     fx: [...byTab.entries()].map(([name, rows]) => ({ name, rows })),
     referential: NO_REFERENTIAL,
+    // The hidden lists as the workbook held them. They are what its drop-downs
+    // and its calculated columns read: rewriting without them would hand back a
+    // workbook whose every derived cell resolves to nothing.
+    referentialRows: {
+      [REF_ACTORS_SHEET]: model.referentialActors.map((a) => [a.name, a.group, a.actorType, a.owner, a.description]),
+      [REF_GROUPS_SHEET]: model.referentialGroups.map((g) => [g.name, g.description]),
+      [REF_ACTOR_TYPES_SHEET]: model.referentialActorTypes.map((t) => [t.type, t.icon, t.nature, t.description]),
+      [REF_TECHNOLOGIES_SHEET]: model.referentialTechnologies.map((t) => [t.type, t.direction, t.description, t.colour]),
+    },
   };
 }
 

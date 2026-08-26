@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import * as XLSX from "xlsx";
-import { writeReferential, SAMPLE_REFERENTIAL, EMPTY_REFERENTIAL } from "./referential-template";
+import { writeReferential, SAMPLE_REFERENTIAL, EMPTY_REFERENTIAL, BLANK_REFERENTIAL } from "./referential-template";
 import { REFERENTIAL_SHEETS } from "./referential-shape";
 import { tableName } from "./xlsx-tables";
 import { sectionM } from "./datamashup";
@@ -42,16 +42,20 @@ describe("the referential workbook — the names the queries look for", () => {
     }
   });
 
-  it("carries one sheet per vocabulary, plus the sheet that explains the file", () => {
+  it("carries one sheet per vocabulary, the sheet that explains the file, and its own lists", () => {
     const wb = XLSX.read(new Uint8Array(writeReferential()), { type: "array" });
-    expect(wb.SheetNames).toEqual(["Instructions", ...REFERENTIAL_SHEETS.map((r) => r.sheet)]);
+    expect(wb.SheetNames).toEqual(["Instructions", ...REFERENTIAL_SHEETS.map((r) => r.sheet), "Lists"]);
   });
 
-  it("heads each sheet with the columns its query keeps", () => {
+  // The preview sits here now: this is where an icon is chosen. It is not one
+  // of the columns the query carries over -- the cartography has no use for a
+  // preview of a value it cannot change.
+  it("heads each sheet with the columns its query keeps, plus the icon preview", () => {
     const wb = XLSX.read(new Uint8Array(writeReferential()), { type: "array" });
     for (const r of REFERENTIAL_SHEETS) {
       const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[r.sheet], { header: 1 });
-      expect(rows[0]).toEqual([...r.columns]);
+      const expected = r.sheet === "ActorTypes" ? [...r.columns, "Preview"] : [...r.columns];
+      expect(rows[0]).toEqual(expected);
     }
   });
 });
@@ -100,7 +104,7 @@ describe("writeReferential — an empty referential", () => {
     const wb = XLSX.read(new Uint8Array(writeReferential(EMPTY_REFERENTIAL)), { type: "array" });
     for (const r of REFERENTIAL_SHEETS) {
       const rows = XLSX.utils.sheet_to_json<string[]>(wb.Sheets[r.sheet], { header: 1 });
-      expect(rows[0]).toEqual([...r.columns]);
+      expect(rows[0].slice(0, r.columns.length)).toEqual([...r.columns]);
       expect(rows.slice(1).flat().filter((cell) => `${cell ?? ""}`.trim() !== "")).toEqual([]);
     }
   });
@@ -130,5 +134,89 @@ describe("the sample referential and the sample cartography, pointed at each oth
     });
 
     expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  });
+});
+
+// A referential whose own columns are typed by hand invents the divergence it
+// exists to prevent: "Data & Finance" here, "Data and Finance" three rows down,
+// and the cartography inherits both.
+describe("the referential workbook — its own drop-downs", () => {
+  const validationsOf = (sheet: string): string[] => {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeReferential()), { type: "array" });
+    const index = REFERENTIAL_SHEETS.findIndex((r) => r.sheet === sheet) + 2;
+    const xml = part(writeReferential(), `/xl/worksheets/sheet${index}.xml`);
+    return [...xml.matchAll(/<formula1>(.*?)<\/formula1>/g)].map((m) => m[1]);
+  };
+
+  it("picks the group and the actor type from the sheets that hold them", () => {
+    const lists = validationsOf("Actors");
+    expect(lists).toContain("L_Groupe");
+    expect(lists).toContain("L_TypeActeur");
+  });
+
+  // Excel's data validation refuses a structured reference outright: a list
+  // whose formula reads TblGroups[Name] simply does not open. Every list goes
+  // through a defined name, here as in the cartography.
+  it("names every list rather than pointing a validation at a table", () => {
+    for (const r of REFERENTIAL_SHEETS) {
+      for (const formula of validationsOf(r.sheet)) expect(formula).not.toMatch(/Tbl[A-Za-z]+\[/);
+    }
+  });
+
+  it("points those names at the columns that carry the vocabulary", () => {
+    const workbook = part(writeReferential(), "/xl/workbook.xml");
+    expect(workbook).toContain('<definedName name="L_Groupe">TblGroups[Name]</definedName>');
+    expect(workbook).toContain('<definedName name="L_TypeActeur">TblActorTypes[Actor type]</definedName>');
+  });
+
+  it("picks the icon and the nature from its own vocabularies", () => {
+    const lists = validationsOf("ActorTypes");
+    expect(lists).toContain("L_Icone");
+    expect(lists).toContain("L_Nature");
+  });
+
+  it("picks a technology's direction from its own vocabulary", () => {
+    expect(validationsOf("FlowTypes")).toContain("L_Sens");
+  });
+
+  it("shows the icon it names, through a calculated column", () => {
+    const wb = XLSX.read(new Uint8Array(writeReferential(BLANK_REFERENTIAL)), { type: "array" });
+    const preview = XLSX.utils.encode_col(REFERENTIAL_SHEETS.find((r) => r.sheet === "ActorTypes")!.columns.length);
+    const cell = wb.Sheets.ActorTypes[`${preview}2`];
+    expect(cell.f).toContain("MATCH([@Icon]");
+    expect(cell.v).not.toBe("");
+  });
+});
+
+// The two vocabularies nobody should retype used to be seeded into every
+// cartography. They belong here now: a cartography takes the types and the
+// technologies it uses FROM the referential, so a blank one must have some.
+describe("BLANK_REFERENTIAL", () => {
+  const rows = (sheet: string) => {
+    const wb = XLSX.read(new Uint8Array(writeReferential(BLANK_REFERENTIAL)), { type: "array" });
+    return XLSX.utils.sheet_to_json<string[]>(wb.Sheets[sheet], { header: 1 }).slice(1);
+  };
+
+  it("ships the common technologies, each with the way it is drawn", () => {
+    const technologies = rows("FlowTypes");
+    expect(technologies.map((r) => r[0])).toContain("HTTP");
+    expect(technologies.map((r) => r[0])).toContain("Kafka");
+    expect(technologies.every((r) => (r[1] ?? "").trim() !== "")).toBe(true);
+  });
+
+  it("ships the starting actor types, each with an icon and a nature", () => {
+    for (const row of rows("ActorTypes")) {
+      expect(row[1]).not.toBe("");
+      expect(["Business", "Technical"]).toContain(row[2]);
+    }
+  });
+
+  // The estate being mapped is nobody else's: a blank referential that named
+  // actors would be naming someone's.
+  it("names no actor and no group", () => {
+    // The table always spans one row past its header, empty or not: what must
+    // not be there is a VALUE nobody typed.
+    expect(rows("Actors").flat().filter(Boolean)).toEqual([]);
+    expect(rows("Groups").flat().filter(Boolean)).toEqual([]);
   });
 });

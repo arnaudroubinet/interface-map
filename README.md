@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1008 tests
+npm test          # 1022 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -128,8 +128,32 @@ déclaré, c'est-à-dire exactement ce que le rapport marque en rouge.
 
 Ces listes **suggèrent sans refuser** : le référentiel est en retard sur la
 cartographie par construction. Ce qu'il ignore n'est pas une anomalie mais une
-décision en attente, listée dans le rapport d'intégrité. Un classeur sans
-référentiel fonctionne exactement comme sans.
+décision en attente, listée dans le rapport d'intégrité.
+
+**On choisit un nom, on ne recopie pas ce qui va avec.** Ce que le référentiel
+dit d'un nom est lu, jamais saisi : l'icône et la nature d'un type, le sens,
+la description et la couleur d'une technologie sont des **colonnes calculées**
+qui vont chercher l'onglet caché. Excel les remplit sur chaque ligne ajoutée et
+rétablit la formule si on tape par-dessus. Deux vérités pour la même chose,
+sans rien pour dire laquelle gagne, c'est précisément ce que ça supprime.
+
+Deux règles s'appliquent à ces formules, chacune payée une fois :
+
+- **jamais de référence structurée vers une autre table** dans une colonne
+  calculée — Excel charge les tables dans l'ordre, une formule nommant une
+  table définie plus loin est invalide à la lecture, et Excel **supprime** la
+  table fautive en proposant de réparer. Les recherches passent donc par des
+  références A1 vers l'onglet caché ;
+- **jamais de référence structurée dans une validation** — Excel refuse la
+  liste tout court. Chaque liste passe par un nom défini.
+
+Le classeur vierge ne déclare donc plus ni type d'acteur ni technologie : c'est
+le **référentiel vierge** qui porte ces deux vocabulaires, et la cartographie y
+prend ce qu'elle utilise. Sans liste, il n'y a rien à saisir — le fichier ne
+fait que synchroniser, ce sont les onglets cachés qui portent la donnée. C'est
+pourquoi toute réécriture les emporte avec elle, et pourquoi une valeur locale
+vide est reprise de la liste cachée à la lecture : une formule écrite par
+l'outil n'a pas encore de valeur calculée tant qu'Excel ne l'a pas ouverte.
 
 ## Où se trouve quoi
 
