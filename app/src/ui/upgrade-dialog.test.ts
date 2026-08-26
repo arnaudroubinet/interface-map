@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { openMigration } from "./upgrade-dialog";
 import { writeTemplate, type WorkbookData } from "../export/template-export";
-import { readReferentialUrls } from "../export/datamashup";
+import { readReferentialUrl } from "../export/datamashup";
 import { downloadWorkbook } from "../export/download";
 
 vi.mock("../export/download", async (importOriginal) => {
@@ -64,27 +64,67 @@ describe("openMigration — the try-again button", () => {
 });
 
 
-// The repair rebuilds every sheet, and the referential URLs are in none of
-// them: they live in the binary Power Query stream. Handing back a workbook
-// whose queries have quietly gone is exactly what the specification forbids of
-// the migration.
-describe("openMigration — the referential queries survive the repair", () => {
-  const REFERENTIALS = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+// The repair rebuilds every sheet, and the referential is in none of them: it
+// lives in the binary Power Query stream. Handing back a workbook whose queries
+// have quietly gone is exactly what the specification forbids of the migration.
+describe("openMigration — the referential of the repaired workbook", () => {
+  const REFERENTIAL = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
 
-  it("puts the dropped workbook's URLs back into the repaired one", async () => {
+  function repair(data: WorkbookData): HTMLElement {
     vi.mocked(downloadWorkbook).mockClear();
     document.body.innerHTML = "";
     openMigration();
     const zone = document.querySelector(".migration-target") as HTMLElement;
-
-    const buffer = writeTemplate({ ...emptyData, referentials: REFERENTIALS });
+    const buffer = writeTemplate(data);
     drop(zone, { name: "ok.xlsx", arrayBuffer: async () => buffer } as unknown as File);
+    return zone;
+  }
 
-    await vi.waitFor(() => {
+  const produced = async (): Promise<string> =>
+    readReferentialUrl(vi.mocked(downloadWorkbook).mock.calls[0][0]);
+
+  const settled = (zone: HTMLElement) =>
+    vi.waitFor(() => {
       if (!zone.querySelector(".export-button")) throw new Error("not repaired yet");
     });
 
+  it("keeps the one the dropped workbook already points at when the field is left empty", async () => {
+    const zone = repair({ ...emptyData, referential: REFERENTIAL });
+    await settled(zone);
     expect(downloadWorkbook).toHaveBeenCalledTimes(1);
-    expect(await readReferentialUrls(vi.mocked(downloadWorkbook).mock.calls[0][0])).toEqual(REFERENTIALS);
+    expect(await produced()).toBe(REFERENTIAL);
+  });
+
+  // Changing the referential is what this screen is for: the rail no longer
+  // carries the field, because a URL is not a reading option -- it is a
+  // property of the file, and this screen is where a file is rewritten.
+  it("writes the URL typed in the field", async () => {
+    document.body.innerHTML = "";
+    openMigration();
+    const field = document.querySelector("input.migration-referential") as HTMLInputElement;
+    expect(field).not.toBeNull();
+    field.value = "https://tenant.sharepoint.com/sites/SI/Documents/other.xlsx";
+
+    vi.mocked(downloadWorkbook).mockClear();
+    const zone = document.querySelector(".migration-target") as HTMLElement;
+    const buffer = writeTemplate({ ...emptyData, referential: REFERENTIAL });
+    drop(zone, { name: "ok.xlsx", arrayBuffer: async () => buffer } as unknown as File);
+    await settled(zone);
+
+    expect(await produced()).toBe("https://tenant.sharepoint.com/sites/SI/Documents/other.xlsx");
+  });
+
+  // Said out loud rather than left to be guessed: the field was empty, so the
+  // reader has no way to know which of the two rules applied.
+  it("names the referential the produced workbook points at", async () => {
+    const zone = repair({ ...emptyData, referential: REFERENTIAL });
+    await settled(zone);
+    expect(zone.textContent).toContain(REFERENTIAL);
+  });
+
+  it("says so when the workbook produced points at none", async () => {
+    const zone = repair(emptyData);
+    await settled(zone);
+    expect(zone.textContent).toContain("No external referential");
   });
 });

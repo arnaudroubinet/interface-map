@@ -19,17 +19,15 @@
 import * as XLSX from "xlsx";
 import { REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET } from "../parsing/build-model";
 
-export interface ReferentialUrls {
-  // Where the actors are published. Empty means "this workbook has none",
-  // which is an ordinary state, not a fault.
-  actors: string;
-  technologies: string;
-}
+// Where the referential is published. ONE workbook, one URL: the actors and
+// the technologies are two TABLES of the same file, not two files. Empty means
+// "this workbook has no referential", which is an ordinary state, not a fault.
+export type ReferentialUrl = string;
 
-export const NO_REFERENTIAL: ReferentialUrls = { actors: "", technologies: "" };
+export const NO_REFERENTIAL: ReferentialUrl = "";
 
-export function hasReferential(urls: ReferentialUrls): boolean {
-  return urls.actors.trim() !== "" || urls.technologies.trim() !== "";
+export function hasReferential(url: ReferentialUrl): boolean {
+  return url.trim() !== "";
 }
 
 // A query's name IS the name of the sheet it fills. template-export puts that
@@ -38,6 +36,16 @@ export function hasReferential(urls: ReferentialUrls): boolean {
 // declarations to drift apart, Excel would carry a connection naming a query
 // that does not exist, and nothing in the package would say so. Deriving them
 // from the sheet names makes the drift impossible rather than detectable.
+//
+// `table` is what the query reads on the OTHER side: the named table the
+// referential workbook publishes. A named table rather than a sheet, because a
+// table survives a sheet being renamed, keeps its own header row, and stops at
+// its last row -- a sheet hands back every stray cell typed under the data.
+export const REFERENTIAL_QUERIES = [
+  { query: REF_ACTORS_SHEET, table: "TblActors" },
+  { query: REF_TECHNOLOGIES_SHEET, table: "TblTechnologies" },
+] as const;
+
 export const MASHUP_QUERIES = [REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET] as const;
 
 const BOM = "﻿";
@@ -48,28 +56,36 @@ function mLiteral(text: string): string {
   return `"${text.replace(/"/g, '""')}"`;
 }
 
-function query(name: string, url: string): string {
+// `Excel.Workbook` over the bytes the URL hands back, then the named table.
+// The third argument delays type detection: the columns arrive as text, which
+// is what the sheets want -- a group code such as "007" typed as a number
+// would come back as 7 and match nothing.
+//
+// No Table.PromoteHeaders here, unlike the CSV this replaced: a named table
+// already carries its header row, and promoting again would eat its first
+// line of data.
+function query(name: string, table: string, url: string): string {
   return (
     `shared ${name} = let\n` +
-    `    Source = Csv.Document(Web.Contents(${mLiteral(url)}),[Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]),\n` +
-    `    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars=true])\n` +
+    `    Source = Excel.Workbook(Web.Contents(${mLiteral(url)}), null, true),\n` +
+    `    Data = Source{[Item=${mLiteral(table)}, Kind="Table"]}[Data]\n` +
     `in\n` +
-    `    Headers;\n`
+    `    Data;\n`
   );
 }
 
-// The queries whose URL is set, in the fixed order of MASHUP_QUERIES. A query
-// pointing nowhere is not written: Excel would show it in permanent error, and
-// the workbook is meant to work without a referential.
-export function queriesOf(urls: ReferentialUrls): { name: string; url: string }[] {
-  return [
-    { name: MASHUP_QUERIES[0], url: urls.actors.trim() },
-    { name: MASHUP_QUERIES[1], url: urls.technologies.trim() },
-  ].filter((q) => q.url !== "");
+// The two queries, in the fixed order of REFERENTIAL_QUERIES -- both reading
+// the same workbook. Nothing at all is written when no URL is set: Excel would
+// show a query in permanent error, and the workbook is meant to work without a
+// referential.
+export function queriesOf(url: ReferentialUrl): { name: string; table: string; url: string }[] {
+  const trimmed = url.trim();
+  if (trimmed === "") return [];
+  return REFERENTIAL_QUERIES.map((q) => ({ name: q.query, table: q.table, url: trimmed }));
 }
 
-export function sectionM(urls: ReferentialUrls): string {
-  return `section Section1;\n\n${queriesOf(urls).map((q) => query(q.name, q.url)).join("\n")}`;
+export function sectionM(url: ReferentialUrl): string {
+  return `section Section1;\n\n${queriesOf(url).map((q) => query(q.name, q.table, q.url)).join("\n")}`;
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -178,8 +194,8 @@ function metadataItem(name: string): string {
   );
 }
 
-function metadataXml(urls: ReferentialUrls): string {
-  const items = queriesOf(urls).map((q) => metadataItem(q.name)).join("");
+function metadataXml(url: ReferentialUrl): string {
+  const items = queriesOf(url).map((q) => metadataItem(q.name)).join("");
   return (
     `${BOM}<?xml version="1.0" encoding="utf-8"?><LocalPackageMetadataFile ${NS}><Items>` +
     `<Item><ItemLocation><ItemType>AllFormulas</ItemType><ItemPath /></ItemLocation>` +
@@ -206,15 +222,15 @@ function uint32(value: number): Uint8Array {
   return bytes;
 }
 
-export function mashupStream(urls: ReferentialUrls): Uint8Array {
+export function mashupStream(url: ReferentialUrl): Uint8Array {
   const parts = storedZip([
     { path: "Config/Package.xml", bytes: utf8(PACKAGE_XML) },
-    { path: "Formulas/Section1.m", bytes: utf8(sectionM(urls)) },
+    { path: "Formulas/Section1.m", bytes: utf8(sectionM(url)) },
     { path: "[Content_Types].xml", bytes: utf8(PARTS_CONTENT_TYPES) },
   ]);
   // The content block must be an empty zip. Left out entirely, Excel calls the
   // whole workbook damaged.
-  const metadata = concat([uint32(0), block(utf8(metadataXml(urls))), block(storedZip([]))]);
+  const metadata = concat([uint32(0), block(utf8(metadataXml(url))), block(storedZip([]))]);
   // The trailing zero is the permission bindings: Excel makes nothing of them.
   return concat([uint32(0), block(parts), block(utf8(PERMISSIONS)), block(metadata), uint32(0)]);
 }
@@ -237,11 +253,11 @@ function utf16le(text: string): Uint8Array {
   return bytes;
 }
 
-export function customXmlItem(urls: ReferentialUrls): Uint8Array {
+export function customXmlItem(url: ReferentialUrl): Uint8Array {
   return utf16le(
     `<?xml version="1.0" encoding="utf-16"?>` +
       `<DataMashup xmlns="http://schemas.microsoft.com/DataMashup">` +
-      `${base64(mashupStream(urls))}</DataMashup>`
+      `${base64(mashupStream(url))}</DataMashup>`
   );
 }
 
@@ -293,23 +309,34 @@ async function entryOfZip(zip: Uint8Array, path: string): Promise<Uint8Array | n
 // The URL a given query fetches. The literal doubles its quotes, so the
 // expression stops at the first quote NOT followed by another.
 // The search stops at the next `shared`, which opens the following query. A
-// query that carries no Web.Contents -- hand-edited, or rewritten by Excel --
-// would otherwise hand back its NEIGHBOUR's URL under its own name, and the
-// page would show a referential the workbook does not point at.
+// query that carries no source -- hand-edited, or rewritten by Excel -- would
+// otherwise hand back its NEIGHBOUR's URL under its own name, and the page
+// would show a referential the workbook does not point at.
+//
+// `Excel.Workbook` is required, not merely `Web.Contents`: a workbook written
+// before the referential became a single file carries two CSV URLs, one per
+// query. Carried over as this format's URL, such an address would be handed to
+// Excel.Workbook, which would fail on every refresh -- and the field would
+// meanwhile show an address that cannot work. A workbook of the older shape
+// therefore comes back with no referential, and its URL is typed once more.
 export function urlOfQuery(section: string, name: string): string {
   const start = new RegExp(`shared\\s+${name}\\s*=`).exec(section);
   if (!start) return "";
   const body = section.slice(start.index + start[0].length).split(/\n\s*shared\s/)[0];
-  const match = /Web\.Contents\(\s*"((?:[^"]|"")*)"/.exec(body);
+  const match = /Excel\.Workbook\(\s*Web\.Contents\(\s*"((?:[^"]|"")*)"/.exec(body);
   return match ? match[1].replace(/""/g, '"') : "";
 }
 
-// The two URLs a deposited workbook already carries, so the page can show them
-// instead of asking for them again. A workbook without a referential, or whose
+// The referential a deposited workbook already points at, so the page can show
+// it instead of asking for it again. A workbook without a referential, or whose
 // stream this module cannot make sense of, simply carries none: the URL is a
 // convenience, and refusing to open the file over it would be out of
 // proportion.
-export async function readReferentialUrls(bytes: ArrayBuffer): Promise<ReferentialUrls> {
+//
+// Both queries carry the same URL, so either answers. RefActors is asked
+// first, and RefTechnologies covers the workbook whose first query was edited
+// away by hand.
+export async function readReferentialUrl(bytes: ArrayBuffer): Promise<ReferentialUrl> {
   try {
     const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
     const part = XLSX.CFB.find(cfb, "/customXml/item1.xml");
@@ -332,10 +359,7 @@ export async function readReferentialUrls(bytes: ArrayBuffer): Promise<Referenti
     if (!section) return NO_REFERENTIAL;
 
     const source = new TextDecoder().decode(section);
-    return {
-      actors: urlOfQuery(source, MASHUP_QUERIES[0]),
-      technologies: urlOfQuery(source, MASHUP_QUERIES[1]),
-    };
+    return urlOfQuery(source, MASHUP_QUERIES[0]) || urlOfQuery(source, MASHUP_QUERIES[1]);
   } catch (err) {
     // A workbook with no mashup part returns above, without coming through
     // here: reaching this point means the part exists and we failed to make

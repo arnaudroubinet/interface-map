@@ -247,6 +247,14 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // already distributed are recognised as stale and go back through the
   // rebuild, which is what writes the queries.
   { de: 4, vers: 5, appliquer: (model) => model },
+  // The referential becomes ONE workbook read through two named tables, where
+  // v5 fetched two separate CSV files. Nothing to convert here either: the
+  // address does not live in the model but in the Power Query stream, and the
+  // v5 one cannot be carried over -- a CSV of actors handed to Excel.Workbook
+  // fails on every refresh. The step exists so that the workbooks already
+  // distributed are recognised as stale, go back through the rebuild, and have
+  // their URL typed once more on the repair screen.
+  { de: 5, vers: 6, appliquer: (model) => model },
 ];
 
 // Each v3 relay finds the consumption it named again: the relayer's one
@@ -325,8 +333,8 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
   }
 
   return {
-    // The workbook's referentials are taken as they are: replacing them with
-    // the seed would erase the types the team declared.
+    // The workbook's own vocabularies are taken as they are: replacing them
+    // with the seed would erase the types the team declared.
     flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description]),
     actorTypes: model.actorTypes.map((t) => [t.type, t.icon, t.nature]),
     milestones: model.milestones.map((p) => [p.name, String(p.rank), p.label, p.status, p.date, p.description]),
@@ -354,7 +362,7 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // Excel refuses is dropped -- the integrity check already reports it, and
     // manufacturing an unreadable workbook would help nobody.
     fx: [...byTab.entries()].map(([name, rows]) => ({ name, rows })),
-    referentials: NO_REFERENTIAL,
+    referential: NO_REFERENTIAL,
   };
 }
 

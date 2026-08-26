@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import { customXmlItem, CUSTOM_XML_PROPS, hasReferential, NO_REFERENTIAL } from "./datamashup";
-import type { ReferentialUrls } from "./datamashup";
+import type { ReferentialUrl } from "./datamashup";
 
 // SheetJS does not write Excel's structured tables: in its writer,
 // "tableParts" is nothing but a comment. But it exposes CFB, which can reread
@@ -431,9 +431,9 @@ export interface OoxmlExtras {
   // The sheets whose header row stays visible while scrolling. A thirty-row
   // entry sheet is filled in blind without it.
   panes?: readonly string[];
-  // The two referential URLs the workbook carries. Empty ones write no query at
+  // The referential workbook this file points at. Empty writes no query at
   // all: a workbook without a referential must stay an ordinary workbook.
-  referentials?: ReferentialUrls;
+  referential?: ReferentialUrl;
 }
 
 const TYPE_CUSTOM_XML_PROPS =
@@ -453,7 +453,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     validations = [],
     styles = [],
     panes = [],
-    referentials = NO_REFERENTIAL,
+    referential = NO_REFERENTIAL,
   } = Array.isArray(extras)
     ? {
         tables: extras as readonly TableToApply[],
@@ -461,7 +461,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         validations: [],
         styles: [],
         panes: [],
-        referentials: NO_REFERENTIAL,
+        referential: NO_REFERENTIAL,
       }
     : (extras as OoxmlExtras);
   const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
@@ -682,8 +682,8 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   // workbook; itemProps says which schema it follows. The item itself takes no
   // Override -- the .xml Default already covers it, and that is how Excel
   // writes it.
-  if (hasReferential(referentials)) {
-    writeBinaryPart(cfb, "/customXml/item1.xml", customXmlItem(referentials));
+  if (hasReferential(referential)) {
+    writeBinaryPart(cfb, "/customXml/item1.xml", customXmlItem(referential));
     writePart(cfb, "/customXml/itemProps1.xml", CUSTOM_XML_PROPS);
     writePart(
       cfb,

@@ -77,7 +77,7 @@ export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Critica
 // The workbook's schema number, written on a hidden sheet. A monotonic
 // integer, not a semver: it serves only to know which transformations to
 // apply, and in what order.
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 

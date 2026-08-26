@@ -108,8 +108,6 @@ const callbacks: RailCallbacks = {
   onDownloadTemplate: noop,
   onDownloadSample: noop,
   onMigrationLegacy: noop,
-  onReferentials: noop,
-  onDownloadWithReferentials: noop,
 };
 
 function actorOptions(root: HTMLElement): string[] {
@@ -124,14 +122,14 @@ function type(root: HTMLElement, text: string): void {
 
 function byActor(): AppState {
   return withView(
-    withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }),
+    withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }),
     "by-actor"
   );
 }
 
 describe("renderRail — the \"by actor\" selector", () => {
   it("lists every actor in the architecture reading", () => {
-    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "by-actor");
+    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
     expect(actorOptions(root)).toContain("Bus");
@@ -140,7 +138,7 @@ describe("renderRail — the \"by actor\" selector", () => {
   // §5.2: the selector lists only the business actors in the functional reading.
   it("lists only the business actors in the functional reading", () => {
     const state = withView(
-      withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "functional"),
+      withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }), "functional"),
       "by-actor"
     );
     const root = document.createElement("div");
@@ -165,7 +163,7 @@ describe("renderRail — the anomaly badge on the upgrade screen", () => {
       totalWarnings: 0,
     };
     const state = withView(
-      withLoadedFile(initialState(), { name: "c.xlsx", model: oldModel, report: reportWithAnomalies, modifiedAt: null, referentials: { actors: "", technologies: "" } }),
+      withLoadedFile(initialState(), { name: "c.xlsx", model: oldModel, report: reportWithAnomalies, modifiedAt: null, referential: "" }),
       "upgrade"
     );
     const root = document.createElement("div");
@@ -180,7 +178,7 @@ describe("renderRail — the by-actor view's \"Technologies\" filter", () => {
   // the whole diagram in one click while explaining nothing.
   it("does not show the Technologies block in functional mode", () => {
     const state = withActorSelection(
-      withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "functional"), "by-actor"),
+      withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" }), "functional"), "by-actor"),
       "Tatooine"
     );
     // The ground does carry a functional link: without this line, the test would
@@ -194,7 +192,7 @@ describe("renderRail — the by-actor view's \"Technologies\" filter", () => {
 
   it("shows the Technologies block in the architecture reading", () => {
     const state = withActorSelection(
-      withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "by-actor"),
+      withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" }), "by-actor"),
       "Tatooine"
     );
     const root = document.createElement("div");
@@ -232,7 +230,7 @@ describe("the \"By actor\" selector follows the displayed milestone", () => {
         name: "c.xlsx",
         model: estate,
         report: runIntegrityChecks(estate),
-        modifiedAt: null, referentials: { actors: "", technologies: "" },
+        modifiedAt: null, referential: "",
       }),
       "by-actor"
     );
@@ -250,7 +248,7 @@ describe("the \"By actor\" selector follows the displayed milestone", () => {
 // made in the rail, beside the counter -- which decides the ×N, not what gets
 // named.
 describe("renderRail — what a line's label names", () => {
-  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" });
   const rendered = (s: AppState) => {
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -334,7 +332,7 @@ describe("renderRail — the by-actor search field", () => {
 // compares against.
 describe("renderRail — comparing with a second workbook", () => {
   function changesView(state: AppState = initialState()): HTMLElement {
-    const loaded = withLoadedFile(state, { name: "june.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
+    const loaded = withLoadedFile(state, { name: "june.xlsx", model, report, modifiedAt: null, referential: "" });
     const s = withView(loaded, "changes");
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -348,12 +346,12 @@ describe("renderRail — comparing with a second workbook", () => {
   });
 
   it("names the chosen workbook and offers to drop it", () => {
-    const loaded = withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
+    const loaded = withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" });
     const s = withComparedFile(withView(loaded, "changes"), {
       name: "january.xlsx",
       model,
       report,
-      modifiedAt: null, referentials: { actors: "", technologies: "" },
+      modifiedAt: null, referential: "",
     });
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -365,7 +363,7 @@ describe("renderRail — comparing with a second workbook", () => {
   // two workbooks are compared, both sides are read whole and "Compared to"
   // would sit there doing nothing at all.
   it("hides the compared-milestone selector while a workbook is being compared", () => {
-    const withMilestones = { name: "june.xlsx", model: { ...model, milestones: [base.milestone({ name: "v1" }), base.milestone({ name: "v2", rank: 2 })] }, report, modifiedAt: null, referentials: { actors: "", technologies: "" } };
+    const withMilestones = { name: "june.xlsx", model: { ...model, milestones: [base.milestone({ name: "v1" }), base.milestone({ name: "v2", rank: 2 })] }, report, modifiedAt: null, referential: "" };
     const loaded = withView(withLoadedFile(initialState(), withMilestones), "changes");
     const labels = (s: AppState) => {
       const root = document.createElement("div");
@@ -378,7 +376,7 @@ describe("renderRail — comparing with a second workbook", () => {
 
   it("announces the file the reader picked", () => {
     let picked: File | null | undefined;
-    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "changes");
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" }), "changes");
     const root = document.createElement("div");
     renderRail(root, loaded, flows(loaded), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
     const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
@@ -390,8 +388,8 @@ describe("renderRail — comparing with a second workbook", () => {
 
   it("announces nothing chosen when the comparison is dropped", () => {
     let picked: File | null | undefined = undefined;
-    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } }), "changes");
-    const s = withComparedFile(loaded, { name: "january.xlsx", model, report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" }), "changes");
+    const s = withComparedFile(loaded, { name: "january.xlsx", model, report, modifiedAt: null, referential: "" });
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
     (root.querySelector(".rail-compare-drop") as HTMLButtonElement).click();
@@ -400,44 +398,24 @@ describe("renderRail — comparing with a second workbook", () => {
 });
 
 
-// The two URLs are a property of the FILE. The rail shows the ones it already
-// carries, so that "where does this workbook get its actors from" is answered
-// without opening Excel.
+// The referential moved to the repair screen. A URL is not a reading option:
+// it is a property of the FILE, it takes effect only once Excel refreshes, and
+// the repair screen is the one place a file is rewritten. Beside the views it
+// suggested the opposite of all three.
 describe("renderRail — the external referential", () => {
-  const railFor = (file: Parameters<typeof withLoadedFile>[1], view: View = "group-to-group") => {
-    const state = withView(withLoadedFile(initialState(), file), view);
-    const root = document.createElement("div");
-    renderRail(root, state, flows(state), [], { ...callbacks, onReferentials: capture });
-    return root;
-  };
-  let captured: { actors: string; technologies: string } | null = null;
-  const capture = (urls: { actors: string; technologies: string }) => {
-    captured = urls;
-  };
-  const withUrls = {
+  const withUrl = {
     name: "c.xlsx",
     model: modelWithFlows,
     report,
     modifiedAt: null,
-    referentials: { actors: "https://ref/a.csv", technologies: "https://ref/t.csv" },
+    referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
   };
 
-  it("shows the URLs the workbook already carries", () => {
-    const inputs = [...railFor(withUrls).querySelectorAll("input.rail-referential-url")] as HTMLInputElement[];
-    expect(inputs.map((i) => i.value)).toEqual(["https://ref/a.csv", "https://ref/t.csv"]);
-  });
-
-  it("reports an edited URL without touching the other", () => {
-    captured = null;
-    const inputs = [...railFor(withUrls).querySelectorAll("input.rail-referential-url")] as HTMLInputElement[];
-    inputs[1].value = "  https://ref/other.csv  ";
-    inputs[1].dispatchEvent(new Event("change", { bubbles: true }));
-    expect(captured).toEqual({ actors: "https://ref/a.csv", technologies: "https://ref/other.csv" });
-  });
-
-  // On the upgrade screen the file is stale: the only rewrite that makes sense
-  // there is the one that screen offers, which carries the URLs itself.
-  it("stays away from the upgrade screen", () => {
-    expect(railFor(withUrls, "upgrade").querySelector(".rail-referential")).toBeNull();
+  it("is nowhere in the rail, whatever the workbook carries", () => {
+    const state = withView(withLoadedFile(initialState(), withUrl), "group-to-group");
+    const root = document.createElement("div");
+    renderRail(root, state, flows(state), [], callbacks);
+    expect(root.querySelector(".rail-referential")).toBeNull();
+    expect(root.textContent).not.toContain(withUrl.referential);
   });
 });

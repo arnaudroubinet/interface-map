@@ -41,8 +41,8 @@ import {
   type StyleToApply,
 } from "./xlsx-tables";
 import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, FLOW_TYPES, type RowRole } from "./template-data";
-import { NO_REFERENTIAL } from "./datamashup";
-import type { ReferentialUrls } from "./datamashup";
+import { NO_REFERENTIAL, hasReferential } from "./datamashup";
+import type { ReferentialUrl } from "./datamashup";
 
 // The vocabularies and the instructions live in template-data.ts; this module
 // is nothing more than the machinery that assembles them into a workbook.
@@ -275,7 +275,7 @@ function listsSheet(lastRow: number): XLSX.WorkSheet {
 // file -- same structure, same tables, same drop-downs, one single mechanism
 // to maintain.
 export interface WorkbookData {
-  // The workbook's two referentials. Empty, they fall back to the seed: that is
+  // The workbook's two vocabularies. Empty, they fall back to the seed: that is
   // the blank template's case. Filled, they are taken as they are -- an upgrade
   // replacing them with the seed would erase the types the team declared, and
   // break every interface referring to them.
@@ -286,9 +286,10 @@ export interface WorkbookData {
   actors: readonly (readonly string[])[];
   interfaces: readonly (readonly string[])[];
   fx: readonly { name: string; rows: readonly (readonly string[])[] }[];
-  // Where the two referentials are published. Absent means the workbook has
-  // none, which is an ordinary state.
-  referentials?: ReferentialUrls;
+  // Where the referential workbook is published -- one file, one URL, the
+  // actors and the technologies being two of its tables. Absent means the
+  // workbook has no referential, which is an ordinary state.
+  referential?: ReferentialUrl;
 }
 
 const EMPTY_WORKBOOK: WorkbookData = { flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [] };
@@ -395,7 +396,7 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
   // written". Marking a table as a queryTable for a query that was never
   // written would leave its connection pointing at nothing, which is worse
   // than the ordinary, query-less table this sheet gets when its URL is blank.
-  const referentials = data.referentials ?? NO_REFERENTIAL;
+  const referential = data.referential ?? NO_REFERENTIAL;
   return [
     { sheet: "Actors", columns: ACTOR_COLUMNS, rows: data.actors.length },
     { sheet: "Groups", columns: GROUP_COLUMNS, rows: data.groups.length },
@@ -428,13 +429,13 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
       sheet: REF_ACTORS_SHEET,
       columns: REF_ACTOR_COLUMNS,
       rows: 0,
-      query: referentials.actors.trim() ? REF_ACTORS_SHEET : undefined,
+      query: hasReferential(referential) ? REF_ACTORS_SHEET : undefined,
     },
     {
       sheet: REF_TECHNOLOGIES_SHEET,
       columns: REF_TECHNOLOGY_COLUMNS,
       rows: 0,
-      query: referentials.technologies.trim() ? REF_TECHNOLOGIES_SHEET : undefined,
+      query: hasReferential(referential) ? REF_TECHNOLOGIES_SHEET : undefined,
     },
   ];
 }
@@ -710,7 +711,7 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
     tables: tablesOfTemplate(data),
     lists: listsOfTemplate(),
     validations: validationsOfTemplate(data),
-    referentials: data.referentials ?? NO_REFERENTIAL,
+    referential: data.referential ?? NO_REFERENTIAL,
     styles: [
       ...stylesOfTemplate(),
       // The filled flow sheets carry the same header row as their pattern:

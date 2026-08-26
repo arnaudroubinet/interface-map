@@ -6,70 +6,92 @@ import { describe, it, expect, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL } from "./datamashup";
+import { sectionM, customXmlItem, storedZip, hasReferential, urlOfQuery, NO_REFERENTIAL, REFERENTIAL_QUERIES } from "./datamashup";
 import * as XLSX from "xlsx";
-import { readReferentialUrls, mashupStream } from "./datamashup";
+import { readReferentialUrl, mashupStream } from "./datamashup";
+
+const REFERENTIAL = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
 
 describe("sectionM", () => {
-  it("declares one shared query per referential, in a fixed order", () => {
-    const m = sectionM({ actors: "https://ref/a.csv", technologies: "https://ref/t.csv" });
+  it("declares one shared query per sheet to fill, in a fixed order", () => {
+    const m = sectionM(REFERENTIAL);
     expect(m.startsWith("section Section1;")).toBe(true);
-    expect(m).toContain('shared RefActors =');
-    expect(m).toContain('shared RefTechnologies =');
+    expect(m).toContain("shared RefActors =");
+    expect(m).toContain("shared RefTechnologies =");
     expect(m.indexOf("RefActors")).toBeLessThan(m.indexOf("RefTechnologies"));
   });
 
-  it("reads UTF-8 CSV and promotes the header row", () => {
-    const m = sectionM({ actors: "https://ref/a.csv", technologies: "https://ref/t.csv" });
-    expect(m).toContain("Csv.Document");
-    expect(m).toContain("Encoding=65001");
-    expect(m).toContain("Table.PromoteHeaders");
+  // One referential, one file: the separation between actors and technologies
+  // is internal to the workbook, so the two queries fetch the SAME address.
+  it("points both queries at the one URL", () => {
+    const m = sectionM(REFERENTIAL);
+    expect([...m.matchAll(/Web\.Contents\("([^"]*)"/g)].map((x) => x[1])).toEqual([REFERENTIAL, REFERENTIAL]);
+  });
+
+  // A named table, not a sheet: it survives a renamed sheet, carries its own
+  // header row and stops at its last row.
+  it("reads each sheet from its named table of the referential workbook", () => {
+    const m = sectionM(REFERENTIAL);
+    expect(m).toContain("Excel.Workbook");
+    for (const { table } of REFERENTIAL_QUERIES) {
+      expect(m).toContain(`Source{[Item="${table}", Kind="Table"]}[Data]`);
+    }
+    // Promoting headers over a named table would eat its first row of data.
+    expect(m).not.toContain("Table.PromoteHeaders");
   });
 
   it("doubles a quote inside a URL, so the M literal stays closed", () => {
-    const m = sectionM({ actors: 'https://ref/a".csv', technologies: "" });
-    expect(m).toContain('Web.Contents("https://ref/a"".csv")');
+    const m = sectionM('https://ref/a".xlsx');
+    expect(m).toContain('Web.Contents("https://ref/a"".xlsx")');
   });
 
-  it("omits a query whose URL is empty rather than writing an unreachable one", () => {
-    const m = sectionM({ actors: "https://ref/a.csv", technologies: "" });
-    expect(m).toContain("shared RefActors =");
-    expect(m).not.toContain("shared RefTechnologies =");
+  it("writes no query at all when no referential is declared", () => {
+    expect(sectionM(NO_REFERENTIAL)).toBe("section Section1;\n\n");
+    expect(sectionM("   ")).not.toContain("shared");
   });
 });
 
 describe("urlOfQuery", () => {
   it("reads the URL of the query it names", () => {
-    expect(urlOfQuery(sectionM({ actors: "https://ref/a.csv", technologies: "https://ref/t.csv" }), "RefTechnologies")).toBe(
-      "https://ref/t.csv"
-    );
+    expect(urlOfQuery(sectionM(REFERENTIAL), "RefTechnologies")).toBe(REFERENTIAL);
   });
 
-  // A query with no Web.Contents -- hand-edited, or rewritten by Excel -- used
-  // to let the search run on into the FOLLOWING query and hand back ITS URL
-  // under this query's name.
+  // A query with no source -- hand-edited, or rewritten by Excel -- used to let
+  // the search run on into the FOLLOWING query and hand back ITS URL under this
+  // query's name.
   it("does not walk into the next query when its own has no source", () => {
     const section =
       "section Section1;\n\n" +
       "shared RefActors = let\n    Source = Table.FromRows({})\nin\n    Source;\n\n" +
-      'shared RefTechnologies = let\n    Source = Csv.Document(Web.Contents("https://ref/t.csv"))\nin\n    Source;\n';
+      'shared RefTechnologies = let\n    Source = Excel.Workbook(Web.Contents("https://ref/r.xlsx"))\nin\n    Source;\n';
     expect(urlOfQuery(section, "RefActors")).toBe("");
-    expect(urlOfQuery(section, "RefTechnologies")).toBe("https://ref/t.csv");
+    expect(urlOfQuery(section, "RefTechnologies")).toBe("https://ref/r.xlsx");
   });
 
   it("returns nothing for a query the section does not declare", () => {
-    expect(urlOfQuery(sectionM({ actors: "https://ref/a.csv", technologies: "" }), "RefTechnologies")).toBe("");
+    expect(urlOfQuery(sectionM(NO_REFERENTIAL), "RefTechnologies")).toBe("");
+  });
+
+  // A workbook written when the referential was two CSV files carries a
+  // Csv.Document query per sheet. Its address is not this format's: handed to
+  // Excel.Workbook it would fail on every refresh, and the field would
+  // meanwhile show an address that cannot work.
+  it("ignores the CSV query of a workbook written before the referential was one file", () => {
+    const legacy =
+      "section Section1;\n\n" +
+      'shared RefActors = let\n    Source = Csv.Document(Web.Contents("https://ref/actors.csv"))\nin\n    Source;\n';
+    expect(urlOfQuery(legacy, "RefActors")).toBe("");
   });
 });
 
 describe("hasReferential", () => {
-  it("is false when neither URL is set", () => {
+  it("is false when no URL is set", () => {
     expect(hasReferential(NO_REFERENTIAL)).toBe(false);
-    expect(hasReferential({ actors: "   ", technologies: "" })).toBe(false);
+    expect(hasReferential("   ")).toBe(false);
   });
 
-  it("is true as soon as one URL is set", () => {
-    expect(hasReferential({ actors: "https://ref/a.csv", technologies: "" })).toBe(true);
+  it("is true as soon as the URL is set", () => {
+    expect(hasReferential(REFERENTIAL)).toBe(true);
   });
 });
 
@@ -120,14 +142,14 @@ async function entryOfZip(zip: Uint8Array, path: string): Promise<Uint8Array | n
 
 describe("customXmlItem", () => {
   it("is UTF-16 little-endian with a byte-order mark, as Excel writes it", () => {
-    const bytes = customXmlItem({ actors: "https://ref/a.csv", technologies: "" });
+    const bytes = customXmlItem(REFERENTIAL);
     expect(bytes[0]).toBe(0xff);
     expect(bytes[1]).toBe(0xfe);
     expect(new TextDecoder("utf-16le").decode(bytes)).toContain("DataMashup");
   });
 
   it("carries the stream as base64 under the DataMashup namespace", () => {
-    const text = new TextDecoder("utf-16le").decode(customXmlItem({ actors: "https://ref/a.csv", technologies: "" }));
+    const text = new TextDecoder("utf-16le").decode(customXmlItem(REFERENTIAL));
     expect(text).toContain('xmlns="http://schemas.microsoft.com/DataMashup"');
     expect(/>[A-Za-z0-9+/=]{40,}</.test(text)).toBe(true);
   });
@@ -146,31 +168,23 @@ function workbookCarrying(item: Uint8Array): ArrayBuffer {
   return new Uint8Array(out).buffer;
 }
 
-describe("readReferentialUrls", () => {
-  it("finds both URLs back in a workbook this module wrote", async () => {
-    const urls = { actors: "https://ref/actors.csv", technologies: "https://ref/tech.csv" };
-    const read = await readReferentialUrls(workbookCarrying(customXmlItem(urls)));
-    expect(read).toEqual(urls);
+describe("readReferentialUrl", () => {
+  it("finds the URL back in a workbook this module wrote", async () => {
+    const read = await readReferentialUrl(workbookCarrying(customXmlItem(REFERENTIAL)));
+    expect(read).toBe(REFERENTIAL);
   });
 
   it("reads a query whose URL carries a quote", async () => {
-    const urls = { actors: 'https://ref/a".csv', technologies: "" };
-    const read = await readReferentialUrls(workbookCarrying(customXmlItem(urls)));
-    expect(read.actors).toBe('https://ref/a".csv');
-  });
-
-  it("leaves an absent query empty rather than guessing", async () => {
-    const read = await readReferentialUrls(workbookCarrying(customXmlItem({ actors: "https://ref/a.csv", technologies: "" })));
-    expect(read.technologies).toBe("");
+    const read = await readReferentialUrl(workbookCarrying(customXmlItem('https://ref/a".xlsx')));
+    expect(read).toBe('https://ref/a".xlsx');
   });
 
   it("reads a stream whose inner zip Excel has deflated", async () => {
     // What a round trip through Excel produces: same stream, compressed parts.
-    const urls = { actors: "https://ref/actors.csv", technologies: "" };
-    const deflated = await deflateTheParts(mashupStream(urls));
+    const deflated = await deflateTheParts(mashupStream(REFERENTIAL));
     const item = wrapAsCustomXml(deflated);
-    const read = await readReferentialUrls(workbookCarrying(item));
-    expect(read.actors).toBe("https://ref/actors.csv");
+    const read = await readReferentialUrl(workbookCarrying(item));
+    expect(read).toBe(REFERENTIAL);
   });
 
   // The deflate path above is exercised only against a stream this test file
@@ -183,9 +197,9 @@ describe("readReferentialUrls", () => {
     const buffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    const read = await readReferentialUrls(buffer);
+    const read = await readReferentialUrl(buffer);
 
-    expect(read).toEqual(NO_REFERENTIAL);
+    expect(read).toBe(NO_REFERENTIAL);
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
@@ -194,12 +208,12 @@ describe("readReferentialUrls", () => {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["a"]]), "S");
     const raw = XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
-    expect(await readReferentialUrls(raw)).toEqual(NO_REFERENTIAL);
+    expect(await readReferentialUrl(raw)).toBe(NO_REFERENTIAL);
   });
 
   it("returns no referential rather than throwing on a truncated stream", async () => {
-    const item = wrapAsCustomXml(mashupStream({ actors: "https://ref/a.csv", technologies: "" }).subarray(0, 12));
-    expect(await readReferentialUrls(workbookCarrying(item))).toEqual(NO_REFERENTIAL);
+    const item = wrapAsCustomXml(mashupStream(REFERENTIAL).subarray(0, 12));
+    expect(await readReferentialUrl(workbookCarrying(item))).toBe(NO_REFERENTIAL);
   });
 
   it("warns rather than staying silent when the mashup content cannot be parsed", async () => {
@@ -207,8 +221,8 @@ describe("readReferentialUrls", () => {
     // Past the element regex -- a <DataMashup> element is genuinely there --
     // but its body is not valid base64, so decoding it throws instead of
     // returning bytes we could go on to misread.
-    const read = await readReferentialUrls(workbookCarrying(garbageCustomXmlItem()));
-    expect(read).toEqual(NO_REFERENTIAL);
+    const read = await readReferentialUrl(workbookCarrying(garbageCustomXmlItem()));
+    expect(read).toBe(NO_REFERENTIAL);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
   });

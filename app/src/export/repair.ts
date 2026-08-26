@@ -3,7 +3,7 @@ import { buildModel } from "../parsing/build-model";
 import { upgrade } from "./schema-upgrade";
 import { migrateLegacyWorkbook, type MigrationReport } from "./legacy-upgrade";
 import type { WorkbookData } from "./template-export";
-import { NO_REFERENTIAL, type ReferentialUrls } from "./datamashup";
+import { NO_REFERENTIAL, type ReferentialUrl } from "./datamashup";
 
 export interface Reparation {
   data: WorkbookData;
@@ -26,14 +26,14 @@ export interface Reparation {
 export function repairWorkbook(
   packageBytes: ArrayBuffer,
   dateMigration: Date = new Date(),
-  referentials: ReferentialUrls = NO_REFERENTIAL
+  referential: ReferentialUrl = NO_REFERENTIAL
 ): Reparation {
   const lu = buildModel(parseWorkbook(packageBytes));
   if (lu.ok) {
     // Our family: schema upgrade where applicable, and creation of the expected
     // sheets, whether the workbook is up to date or not.
-    return { data: { ...upgrade(lu.model, dateMigration), referentials }, legacyReport: null };
+    return { data: { ...upgrade(lu.model, dateMigration), referential }, legacyReport: null };
   }
   const legacy = migrateLegacyWorkbook(packageBytes, dateMigration);
-  return { data: { ...legacy.data, referentials }, legacyReport: legacy };
+  return { data: { ...legacy.data, referential }, legacyReport: legacy };
 }

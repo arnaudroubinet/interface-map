@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import { mountApp } from "./app";
 import { writeTemplate, type WorkbookData } from "../export/template-export";
-import { readReferentialUrls } from "../export/datamashup";
+import { readReferentialUrl } from "../export/datamashup";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import * as XLSX from "xlsx";
 
@@ -12,7 +12,7 @@ vi.mock("../export/download", async (importOriginal) => {
 
 vi.mock("../export/datamashup", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../export/datamashup")>();
-  return { ...actual, readReferentialUrls: vi.fn(actual.readReferentialUrls) };
+  return { ...actual, readReferentialUrl: vi.fn(actual.readReferentialUrl) };
 });
 
 import { downloadText, downloadWorkbook } from "../export/download";
@@ -347,16 +347,16 @@ describe("Changes view — comparing two workbooks", () => {
     expect(title).not.toContain("milestone");
   });
 
-  // The compared workbook's referential URLs are stored but never read by
+  // The compared workbook's referential URL is stored but never read by
   // anything: reading them would mean reopening the whole package with
   // XLSX.CFB for no purpose. Pinned here so nobody "fixes" this later by
   // reading them again.
-  it("never reads the compared workbook's referential URLs", async () => {
-    vi.mocked(readReferentialUrls).mockClear();
+  it("never reads the compared workbook's referential URL", async () => {
+    vi.mocked(readReferentialUrl).mockClear();
     const root = document.createElement("div");
     mountApp(root);
 
-    const referentials = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+    const referential = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
     const drop = (data: WorkbookData, name: string) => {
       const file = { name, arrayBuffer: async () => writeTemplate(data) } as unknown as File;
       const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -364,17 +364,17 @@ describe("Changes view — comparing two workbooks", () => {
       root.dispatchEvent(event);
     };
 
-    drop({ ...base([["V1", "1", "", "Delivered", "", ""]]), referentials }, "june.xlsx");
+    drop({ ...base([["V1", "1", "", "Delivered", "", ""]]), referential }, "june.xlsx");
     await vi.waitFor(() => {
       if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
     });
-    expect(readReferentialUrls).toHaveBeenCalledTimes(1);
+    expect(readReferentialUrl).toHaveBeenCalledTimes(1);
 
     buttonByLabel(root, "Changes").click();
 
     // The compared workbook has one interface fewer: something must move, or
     // the diagram is never drawn and the test would pass on an empty page.
-    const january = { ...base([["V1", "1", "", "Delivered", "", ""]]), interfaces: [], fx: [], referentials };
+    const january = { ...base([["V1", "1", "", "Delivered", "", ""]]), interfaces: [], fx: [], referential };
     const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
     Object.defineProperty(field, "files", {
       value: [
@@ -387,9 +387,9 @@ describe("Changes view — comparing two workbooks", () => {
       if (!root.querySelector("svg title")) throw new Error("diagram not drawn yet");
     });
 
-    // Still one call: the main workbook's, only. The compared file's URLs --
-    // present in its bytes, exactly like the main one's -- were never read.
-    expect(readReferentialUrls).toHaveBeenCalledTimes(1);
+    // Still one call: the main workbook's, only. The compared file's URL --
+    // present in its bytes, exactly like the main one's -- was never read.
+    expect(readReferentialUrl).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -401,13 +401,13 @@ describe("Changes view — comparing two workbooks", () => {
 // queries. This test is that guard: it is the upgrade button, not the
 // referential block, that is clicked here.
 describe("Upgrade — the referential queries survive the rewrite", () => {
-  const REFERENTIALS = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
+  const REFERENTIAL = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
 
   // A workbook of the current format, with its schema number lowered: that is
   // what a workbook produced by an older version of the tool looks like, and
   // writeTemplate can only stamp the current one.
   function staleWorkbook(): ArrayBuffer {
-    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate({ ...data, referentials: REFERENTIALS })), {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate({ ...data, referential: REFERENTIAL })), {
       type: "array",
     });
     const version = (cfb as { FullPaths: string[] }).FullPaths.find((path) => {
@@ -429,7 +429,7 @@ describe("Upgrade — the referential queries survive the rewrite", () => {
     mountApp(root);
 
     const bytes = staleWorkbook();
-    expect(await readReferentialUrls(bytes)).toEqual(REFERENTIALS);
+    expect(await readReferentialUrl(bytes)).toBe(REFERENTIAL);
 
     const file = { name: "stale.xlsx", arrayBuffer: async () => bytes } as unknown as File;
     const event = new Event("drop", { bubbles: true, cancelable: true });
@@ -443,76 +443,11 @@ describe("Upgrade — the referential queries survive the rewrite", () => {
 
     expect(downloadWorkbook).toHaveBeenCalledTimes(1);
     const written = vi.mocked(downloadWorkbook).mock.calls[0][0];
-    expect(await readReferentialUrls(written)).toEqual(REFERENTIALS);
+    expect(await readReferentialUrl(written)).toBe(REFERENTIAL);
   });
 });
 
 
-// Editing a URL and clicking straight into the OTHER field used to lose the
-// click: `change` fires on blur, the rail was rebuilt between the mousedown and
-// the mouseup, and the second field never took focus. The edit therefore
-// updates the state WITHOUT a render -- and the paths that rewrite the workbook
-// read the state at click time, so they must still see what was just typed.
-describe("External referential — editing a URL without redrawing the rail", () => {
-  async function loadedApp(): Promise<HTMLElement> {
-    // Attached to the document: in jsdom a detached node cannot take focus, and
-    // the focus is half of what this describe block checks.
-    document.body.innerHTML = "";
-    const root = document.createElement("div");
-    document.body.appendChild(root);
-    mountApp(root);
-    dropFile(root);
-    await vi.waitFor(() => {
-      if (!root.querySelector("input.rail-referential-url")) throw new Error("rail not rendered yet");
-    });
-    return root;
-  }
-
-  const urlFields = (root: HTMLElement) =>
-    [...root.querySelectorAll("input.rail-referential-url")] as HTMLInputElement[];
-
-  function type(field: HTMLInputElement, value: string): void {
-    field.focus();
-    field.value = value;
-    field.dispatchEvent(new Event("change", { bubbles: true }));
-  }
-
-  // The proxy for the browser defect: if the rail were rebuilt, both inputs
-  // would be different nodes and the focused one would be detached.
-  it("leaves both fields in place and keeps the focus where it was", async () => {
-    const root = await loadedApp();
-    const before = urlFields(root);
-    type(before[0], "https://ref/actors.csv");
-
-    const after = urlFields(root);
-    expect(after[0]).toBe(before[0]);
-    expect(after[1]).toBe(before[1]);
-    expect(document.activeElement).toBe(before[0]);
-  });
-
-  // Both fields edited in a row, exactly as the lost click would have had them:
-  // no render happened in between, so the second edit must have seen the first.
-  it("hands the rail's own download the two URLs just typed", async () => {
-    vi.mocked(downloadWorkbook).mockClear();
-    const root = await loadedApp();
-    const fields = urlFields(root);
-    type(fields[0], "https://ref/actors.csv");
-    type(fields[1], "https://ref/technologies.csv");
-
-    buttonByLabel(root, "Download the workbook with these URLs").click();
-
-    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
-    expect(await readReferentialUrls(vi.mocked(downloadWorkbook).mock.calls[0][0])).toEqual({
-      actors: "https://ref/actors.csv",
-      technologies: "https://ref/technologies.csv",
-    });
-  });
-});
-
-// "Open a sample workbook" used to hand back a file to download: on a phone
-// that file lands in a folder the page cannot reach, and the offer to see the
-// tool at work leads nowhere. The sample is written in memory and read through
-// the very same path as a dropped workbook -- nothing is downloaded.
 describe("mountApp — opening the sample workbook", () => {
   it("loads the sample instead of downloading it", async () => {
     vi.mocked(downloadWorkbook).mockClear();

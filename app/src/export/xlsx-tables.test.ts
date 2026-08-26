@@ -5,7 +5,7 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { applyOoxmlExtras, readPart, type TableToApply } from "./xlsx-tables";
-import { readReferentialUrls } from "./datamashup";
+import { readReferentialUrl } from "./datamashup";
 
 // A minimal workbook, just enough for applyTheTables to find the sheets it is
 // asked to complete.
@@ -58,7 +58,7 @@ describe("applyTheTables — table-name collision", () => {
   });
 });
 
-describe("referentials in the package", () => {
+describe("the referential in the package", () => {
   // A one-sheet workbook is enough: what is being checked is the package, not
   // the sheet.
   function minimal(): ArrayBuffer {
@@ -72,7 +72,7 @@ describe("referentials in the package", () => {
   it("writes the three custom parts when a URL is set", () => {
     const out = applyOoxmlExtras(minimal(), {
       tables,
-      referentials: { actors: "https://ref/a.csv", technologies: "" },
+      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
     });
     const cfb = XLSX.CFB.read(new Uint8Array(out), { type: "array" });
     expect(XLSX.CFB.find(cfb, "/customXml/item1.xml")).toBeTruthy();
@@ -83,7 +83,7 @@ describe("referentials in the package", () => {
   it("declares only itemProps, the item falling under the xml default", () => {
     const out = applyOoxmlExtras(minimal(), {
       tables,
-      referentials: { actors: "https://ref/a.csv", technologies: "" },
+      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
     });
     const cfb = XLSX.CFB.read(new Uint8Array(out), { type: "array" });
     const types = readPart(cfb, "/[Content_Types].xml")!;
@@ -94,7 +94,7 @@ describe("referentials in the package", () => {
   it("relates the item to the workbook under an unused id", () => {
     const out = applyOoxmlExtras(minimal(), {
       tables,
-      referentials: { actors: "https://ref/a.csv", technologies: "" },
+      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
     });
     const cfb = XLSX.CFB.read(new Uint8Array(out), { type: "array" });
     const rels = readPart(cfb, "/xl/_rels/workbook.xml.rels")!;
@@ -105,16 +105,16 @@ describe("referentials in the package", () => {
     expect(others.filter((id) => id === match![1])).toHaveLength(1);
   });
 
-  it("writes nothing at all when both URLs are empty", () => {
-    const out = applyOoxmlExtras(minimal(), { tables, referentials: { actors: "", technologies: "" } });
+  it("writes nothing at all when no URL is set", () => {
+    const out = applyOoxmlExtras(minimal(), { tables, referential: "" });
     const cfb = XLSX.CFB.read(new Uint8Array(out), { type: "array" });
     expect(XLSX.CFB.find(cfb, "/customXml/item1.xml")).toBeFalsy();
   });
 
-  it("produces a package the reader can take the URLs back out of", async () => {
-    const urls = { actors: "https://ref/a.csv", technologies: "https://ref/t.csv" };
-    const out = applyOoxmlExtras(minimal(), { tables, referentials: urls });
-    expect(await readReferentialUrls(out)).toEqual(urls);
+  it("produces a package the reader can take the URL back out of", async () => {
+    const url = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
+    const out = applyOoxmlExtras(minimal(), { tables, referential: url });
+    expect(await readReferentialUrl(out)).toBe(url);
   });
 });
 
@@ -127,7 +127,7 @@ describe("query tables", () => {
 
   const extras = {
     tables: [{ sheet: "RefActors", columns: ["Name", "Group"], rows: 0, query: "RefActors" }],
-    referentials: { actors: "https://ref/a.csv", technologies: "" },
+    referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
   };
 
   it("declares one connection per query, pointing at the workbook's own mashup", () => {
@@ -192,7 +192,7 @@ describe("query tables", () => {
         { sheet: "Interfaces", columns: ["Flow name"], rows: 1 },
         { sheet: "Ref actors", columns: ["Name", "Group"], rows: 0, query: "RefActors" },
       ],
-      referentials: { actors: "https://ref/a.csv", technologies: "" },
+      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
     });
     const workbook = readPart(XLSX.CFB.read(new Uint8Array(out), { type: "array" }), "/xl/workbook.xml")!;
     // A sheet name carrying a space is quoted, as a formula quotes it.

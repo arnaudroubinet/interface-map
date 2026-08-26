@@ -120,15 +120,15 @@ describe("repairWorkbook", () => {
   // The model rebuilt from the package cannot know the referential URLs --
   // they live in the workbook's binary Power Query stream -- so the caller
   // hands them in directly rather than patching the result afterwards.
-  it("carries the referentials parameter into the returned data", () => {
-    const referentials = { actors: "https://ref/actors.csv", technologies: "https://ref/technologies.csv" };
-    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY, referentials);
-    expect(r.data.referentials).toEqual(referentials);
+  it("carries the referential parameter into the returned data", () => {
+    const referential = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
+    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY, referential);
+    expect(r.data.referential).toBe(referential);
   });
 
   it("defaults to no referential when the parameter is omitted", () => {
     const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
-    expect(r.data.referentials).toEqual(NO_REFERENTIAL);
+    expect(r.data.referential).toBe(NO_REFERENTIAL);
   });
 });
 

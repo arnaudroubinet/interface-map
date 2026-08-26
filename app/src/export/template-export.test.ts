@@ -32,7 +32,7 @@ import { runIntegrityChecks } from "../integrity/checks";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { SAMPLE_DATA } from "./sample-data";
 import { readPart } from "./xlsx-tables";
-import { readReferentialUrls } from "./datamashup";
+import { readReferentialUrl } from "./datamashup";
 
 // The written file is reread, not the in-memory object: that is the one the
 // user will open, and it is the one that must go back through our parser.
@@ -752,7 +752,7 @@ describe("the workbook template — nature and relays", () => {
   });
 });
 
-// --- QA: the workbook's two referentials, when they are not exactly the seed's
+// --- QA: the workbook's two vocabularies, when they are not exactly the seed's
 // size. The structured table is sized on the seed (DEFAULT_ICONS, FLOW_TYPES)
 // and not on the data actually written: the drop-down targeting it therefore
 // fills with blank rows when the team has removed some, and loses values when
@@ -992,13 +992,12 @@ describe("referential sheets", () => {
     expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
   });
 
-  it("carries both URLs through to the written workbook", async () => {
-    const urls = { actors: "https://ref/actors.csv", technologies: "https://ref/tech.csv" };
+  it("carries the URL through to the written workbook", async () => {
     const bytes = writeTemplate({
       flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [],
-      referentials: urls,
+      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
     });
-    expect(await readReferentialUrls(bytes)).toEqual(urls);
+    expect(await readReferentialUrl(bytes)).toBe("https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx");
   });
 
   it("feeds the actor and flow-type drop-downs from the referential", () => {

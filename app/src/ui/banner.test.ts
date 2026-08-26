@@ -19,7 +19,7 @@ const report: IntegrityReport = {
 };
 
 const loaded = (): AppState =>
-  withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, modifiedAt: null, referentials: { actors: "", technologies: "" } });
+  withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, modifiedAt: null, referential: "" });
 
 const active = (label: string, state: AppState, drawing = true) =>
   EXPORTS.find((e) => e.label === label)!.active(state, drawing);

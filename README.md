@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 628 tests
+npm test          # 978 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -54,7 +54,7 @@ Une pointe au bout inattendu n'est donc pas un défaut.
 ## Le schéma du classeur
 
 Il n'est écrit qu'à un endroit : `src/parsing/build-model.ts`, en tête de
-fichier. Les constantes `COLONNES_*` définissent chaque onglet, `VERSION_MODELE`
+fichier. Les constantes `*_COLUMNS` définissent chaque onglet, `SCHEMA_VERSION`
 porte le numéro de schéma courant.
 
 Un classeur déclare sa version dans un onglet masqué. À l'ouverture, s'il ne
@@ -65,12 +65,43 @@ refusé plutôt que rétrogradé en silence.
 Faire évoluer le schéma se fait en trois gestes, et le troisième est le seul
 qu'on oublie :
 
-1. la colonne dans `COLONNES_*` et le champ dans `src/parsing/model.ts` ;
-2. `VERSION_MODELE` incrémenté ;
-3. une étape dans `ETAPES_MISE_A_NIVEAU` (`src/export/migration-modele.ts`),
+1. la colonne dans `*_COLUMNS` et le champ dans `src/parsing/model.ts` ;
+2. `SCHEMA_VERSION` incrémenté ;
+3. une étape dans `UPGRADE_STEPS` (`src/export/schema-upgrade.ts`),
    qui transforme le modèle d'une version à la suivante. Même quand il n'y a
    rien à transformer, l'étape doit exister : c'est elle qui fait reconnaître
    les classeurs en circulation comme périmés.
+
+## Le référentiel externe
+
+Les noms d'acteurs et de technologies peuvent venir d'un référentiel commun
+plutôt que d'être redéclarés dans chaque classeur. **Un seul fichier, une seule
+URL** : un classeur Excel publié quelque part, portant deux tableaux nommés
+`TblActors` et `TblTechnologies`. La séparation acteurs / technologies est
+interne à ce fichier.
+
+L'outil ne va jamais sur le réseau. Il écrit la requête Power Query dans le
+classeur ; c'est Excel qui charge, à l'actualisation, dans les onglets masqués
+`RefActors` et `RefTechnologies`. Tant que personne n'a actualisé, ces onglets
+sont vides et l'outil ne voit aucun référentiel.
+
+L'URL se saisit dans **Repair or upgrade a workbook**, et nulle part ailleurs :
+elle appartient au fichier, pas à l'affichage, et cet écran est le seul qui
+réécrive un fichier. Champ laissé vide, le classeur garde le référentiel qu'il
+portait déjà.
+
+Quelle URL ? Celle qui rend **les octets du fichier**. Sur SharePoint ou
+OneDrive, c'est le lien de téléchargement, pas le lien de partage — ce dernier
+sert une page web, et `Excel.Workbook` s'étrangle sur le HTML. Excel demande un
+compte professionnel au premier rafraîchissement ; les identifiants restent
+dans Excel, jamais dans le fichier, qui reste donc partageable.
+
+Ce que le référentiel apporte : les listes déroulantes de `Actors[Name]` et
+`FlowTypes[Flow type]` — qui **suggèrent sans refuser**, le référentiel étant en
+retard sur la cartographie par construction —, la couleur des technologies
+(`Colour`, qu'une couleur saisie localement emporte), et un bloc du rapport
+d'intégrité listant ce que le classeur déclare et que le référentiel ignore.
+Un classeur sans référentiel fonctionne exactement comme sans.
 
 ## Où se trouve quoi
 

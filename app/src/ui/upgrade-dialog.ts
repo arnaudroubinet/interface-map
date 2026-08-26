@@ -3,7 +3,7 @@ import { wireDropZone, UNREADABLE_WORKBOOK_MESSAGE } from "./drop-zone";
 import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
-import { readReferentialUrls } from "../export/datamashup";
+import { readReferentialUrl, hasReferential, REFERENTIAL_QUERIES } from "../export/datamashup";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
@@ -46,6 +46,31 @@ export function openMigration(): void {
   const zone = el("div", { class: "drop-target migration-target" });
   const message = el("p", { class: "drop-target-text" });
 
+  // Where the referential is changed. It sits here, and no longer in the rail,
+  // because a URL is not a reading option: it is a property of the FILE, and
+  // this screen is the one place a file is rewritten. Typing it beside the
+  // views suggested it took effect on what was on screen, when nothing at all
+  // happens until Excel refreshes the workbook.
+  const referentialField = el("input", {
+    type: "url",
+    class: "migration-referential",
+    placeholder: "https://…/referential.xlsx",
+  }) as HTMLInputElement;
+  const referentialBlock = el("div", { class: "migration-referential-block" }, [
+    el("label", { class: "migration-referential-label" }, ["External referential", referentialField]),
+    el("p", { class: "rail-note" }, [
+      `One workbook, holding the tables ${REFERENTIAL_QUERIES.map((q) => q.table).join(" and ")}. ` +
+        "Left empty, the workbook keeps the referential it already points at.",
+    ]),
+    // The trap costs a refresh error and half an hour: a SharePoint or OneDrive
+    // sharing link serves a viewer page, not the file, and Excel.Workbook chokes
+    // on the HTML it gets back.
+    el("p", { class: "rail-note" }, [
+      "On SharePoint or OneDrive, give the file's download link — a sharing link serves a web page, not the workbook. ",
+      "Excel asks for an organisational account the first time it refreshes; the credentials stay in Excel, never in the file.",
+    ]),
+  ]);
+
   const reset = () => {
     clear(zone);
     zone.appendChild(el("p", { class: "drop-target-title" }, ["Drop a workbook — original format, older model, or simply missing sheets"]));
@@ -63,12 +88,17 @@ export function openMigration(): void {
     file
       .arrayBuffer()
       .then(async (bytes) => {
-        // The repair rebuilds the sheets, and the referential URLs are not in
-        // the sheets: they live in the binary Power Query stream. Only the
-        // dropped bytes still hold them, so they are read here and handed to
-        // repairWorkbook -- otherwise repairing a workbook would silently
-        // erase its queries.
-        const repair = repairWorkbook(bytes, undefined, await readReferentialUrls(bytes));
+        // The repair rebuilds the sheets, and the referential is not in the
+        // sheets: it lives in the binary Power Query stream. Only the dropped
+        // bytes still hold it, so it is read here and handed to repairWorkbook
+        // -- otherwise repairing a workbook would silently erase its queries.
+        //
+        // What was typed wins over what the file carried: that is the whole
+        // point of the field. An empty field changes nothing, rather than
+        // erasing the referential of a workbook one only meant to repair.
+        const typed = referentialField.value.trim();
+        const referential = typed !== "" ? typed : await readReferentialUrl(bytes);
+        const repair = repairWorkbook(bytes, undefined, referential);
         const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
         const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
@@ -100,6 +130,15 @@ export function openMigration(): void {
             ])
           );
         }
+        // Said out loud: the field may have been left empty, and the reader has
+        // then no way to tell which of the two rules applied.
+        zone.appendChild(
+          el("p", { class: "drop-target-text" }, [
+            hasReferential(referential)
+              ? `External referential: ${referential}`
+              : "No external referential: the workbook produced declares none.",
+          ])
+        );
         const points = repair.legacyReport ? row(repair.legacyReport) : [];
         if (points.length > 0) {
           const list = el("ul", { class: "migration-list" });
@@ -135,6 +174,7 @@ export function openMigration(): void {
 
   box.appendChild(closeButton);
   box.appendChild(el("h2", { class: "migration-title" }, ["Repair or upgrade a workbook"]));
+  box.appendChild(referentialBlock);
   box.appendChild(zone);
   box.appendChild(choose);
   overlay.appendChild(box);

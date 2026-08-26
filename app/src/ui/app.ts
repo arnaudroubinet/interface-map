@@ -35,7 +35,7 @@ import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadTemplateXlsx, writeTemplate, type WorkbookData } from "../export/template-export";
-import { readReferentialUrls, NO_REFERENTIAL } from "../export/datamashup";
+import { readReferentialUrl, NO_REFERENTIAL } from "../export/datamashup";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
@@ -56,7 +56,6 @@ import {
   initialState,
   withLoadedFile,
   withComparedFile,
-  withReferentials,
   withView,
   withMode,
   withOptions,
@@ -206,7 +205,7 @@ export function mountApp(root: HTMLElement): void {
         model: built.model,
         report: runIntegrityChecks(built.model),
         modifiedAt: parsed.savedAt,
-        referentials: readReferentials ? await readReferentialUrls(bytes) : NO_REFERENTIAL,
+        referential: readReferentials ? await readReferentialUrl(bytes) : NO_REFERENTIAL,
       },
     };
   }
@@ -319,14 +318,7 @@ export function mountApp(root: HTMLElement): void {
   // were when its screen was drawn.
   function downloadLoaded(filename: string, data: WorkbookData): void {
     if (!state.file) return;
-    downloadTemplateXlsx(filename, { ...data, referentials: state.file.referentials });
-  }
-
-  // The workbook, rewritten with the URLs now on screen. The tool never goes
-  // to the network: it writes the query, Excel does the loading.
-  function downloadWithReferentials(): void {
-    if (!state.file) return;
-    downloadLoaded(state.file.name, dataFromModel(state.file.model));
+    downloadTemplateXlsx(filename, { ...data, referential: state.file.referential });
   }
 
   // The seven exports live in their own module: they depend only on the state,
@@ -661,17 +653,6 @@ export function mountApp(root: HTMLElement): void {
       onDownloadTemplate: downloadTemplateHandler,
       onDownloadSample: downloadSampleHandler,
       onMigrationLegacy: legacyMigrationHandler,
-      // The one transition that does NOT re-render. The `change` event fires on
-      // blur, so editing one field and clicking straight into the other has the
-      // rail rebuilt between the mousedown and the mouseup: the click landed on
-      // a node that no longer existed, and the second field never took focus.
-      // The inputs already show what was typed and nothing else on screen reads
-      // the URLs, so there is nothing to redraw -- only the state to bring up to
-      // date, for the three paths that rewrite the workbook.
-      onReferentials: (urls) => {
-        state = withReferentials(state, urls);
-      },
-      onDownloadWithReferentials: downloadWithReferentials,
       onTechnologyHidden: (tech, hidden) => setState(withTechnologyHidden(withBannerMessage(state, null), tech, hidden)),
       onActorHidden: (actor, hidden) => setState(withActorHidden(withBannerMessage(state, null), actor, hidden)),
       onHideExternals: (value) => setState(withHideExternals(withBannerMessage(state, null), value)),

@@ -47,10 +47,14 @@ describe("the upgrade chain", () => {
     expect(expected).toBe(SCHEMA_VERSION);
   });
 
-  it("takes a v4 workbook to v5 without transforming the model", () => {
-    expect(SCHEMA_VERSION).toBe(5);
-    const step = UPGRADE_STEPS.find((s) => s.de === 4);
-    expect(step?.vers).toBe(5);
+  // The referential became ONE workbook read through two named tables. Nothing
+  // to transform -- the address lives in the Power Query stream, not in the
+  // model -- but the step must exist all the same: it is what makes the
+  // workbooks already in circulation be recognised as stale.
+  it("takes a v5 workbook to v6 without transforming the model", () => {
+    expect(SCHEMA_VERSION).toBe(6);
+    const step = UPGRADE_STEPS.find((s) => s.de === 5);
+    expect(step?.vers).toBe(6);
   });
 });
 
@@ -269,7 +273,7 @@ describe("upgrade — the workbook switches to English", () => {
     expect(r.model.groups[0].perimeter).toBe("Zone grise");
   });
 
-  // The workbook's referentials must not be replaced by the seed: the types the
+  // The workbook's own vocabularies must not be replaced by the seed: the types the
   // team declared survive the upgrade.
   it("keeps the workbook's own flow types rather than reseeding them", () => {
     const template = {
