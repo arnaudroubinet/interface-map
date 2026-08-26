@@ -305,11 +305,15 @@ export function renderRailFoot(
   callbacks: Pick<RailCallbacks, "onDownloadTemplate" | "onDownloadSample" | "onMigrationLegacy">
 ): void {
   const starts = el("div", { class: "rail-starts" });
-  const sample = el("button", { class: "rail-button" }, ["Sample workbook"]);
+  // These two hand back a FILE; the landing screen's "Open a sample workbook"
+  // opens one on the spot. Labels that did not say which was which sent a
+  // reader looking for the sample into their downloads folder -- and on a
+  // phone that folder cannot be handed back to the page.
+  const sample = el("button", { class: "rail-button" }, ["Download the sample"]);
   sample.title = "A complete fictional repository, to see the tool at work";
   sample.addEventListener("click", callbacks.onDownloadSample);
   starts.appendChild(sample);
-  const template = el("button", { class: "rail-button" }, ["Blank template"]);
+  const template = el("button", { class: "rail-button" }, ["Download a blank template"]);
   template.title = "An empty workbook, ready to fill in";
   template.addEventListener("click", callbacks.onDownloadTemplate);
   starts.appendChild(template);

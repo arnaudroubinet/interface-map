@@ -508,3 +508,40 @@ describe("External referential — editing a URL without redrawing the rail", ()
     });
   });
 });
+
+// "Open a sample workbook" used to hand back a file to download: on a phone
+// that file lands in a folder the page cannot reach, and the offer to see the
+// tool at work leads nowhere. The sample is written in memory and read through
+// the very same path as a dropped workbook -- nothing is downloaded.
+describe("mountApp — opening the sample workbook", () => {
+  it("loads the sample instead of downloading it", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    const root = document.createElement("div");
+    mountApp(root);
+
+    buttonByLabel(root, "Open a sample workbook").click();
+
+    await vi.waitFor(() => {
+      if (!root.querySelector(".rail-view-item")) throw new Error("sample not loaded yet");
+    });
+    expect(downloadWorkbook).not.toHaveBeenCalled();
+  });
+});
+
+// The picker is the only way in on a phone: what it hands over must reach the
+// same reading as a drop, message of refusal included.
+describe("mountApp — the workbook picker", () => {
+  it("loads the workbook chosen in the file field", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    const field = root.querySelector(".drop-target input[type=file]") as HTMLInputElement;
+    const buffer = writeTemplate(data);
+    const file = { name: "test.xlsx", arrayBuffer: async () => buffer } as unknown as File;
+    Object.defineProperty(field, "files", { value: [file] });
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+
+    await vi.waitFor(() => {
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+    });
+  });
+});

@@ -34,7 +34,7 @@ import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { downloadTemplateXlsx, type WorkbookData } from "../export/template-export";
+import { downloadTemplateXlsx, writeTemplate, type WorkbookData } from "../export/template-export";
 import { readReferentialUrls, NO_REFERENTIAL } from "../export/datamashup";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
@@ -122,6 +122,16 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
   };
 }
 
+// What reading a workbook actually needs of a File: its name, and its bytes.
+// The sample is not a File -- it is written in memory -- and must nonetheless
+// go through the very same path as a dropped one, refusals included.
+type WorkbookSource = { name: string; arrayBuffer: () => Promise<ArrayBuffer> };
+
+// One name for the sample, whether it is downloaded or opened: the title block
+// of every diagram carries it, and two names for the same workbook would read
+// as two workbooks.
+const SAMPLE_FILENAME = "carto-interfaces-exemple.xlsx";
+
 export function mountApp(root: HTMLElement): void {
   let state: AppState = initialState();
 
@@ -159,7 +169,7 @@ export function mountApp(root: HTMLElement): void {
   // means reopening the whole package with XLSX.CFB -- work with no purpose
   // there.
   async function readWorkbook(
-    file: File,
+    file: WorkbookSource,
     readReferentials = true
   ): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
     if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
@@ -204,7 +214,7 @@ export function mountApp(root: HTMLElement): void {
   // The workbook the Changes view measures against. It is read exactly like the
   // main one -- same refusals, same words -- but it never replaces what is on
   // screen: it is a second term, not a new subject.
-  async function handleComparedFile(file: File | null): Promise<void> {
+  async function handleComparedFile(file: WorkbookSource | null): Promise<void> {
     if (file === null) {
       setState(withComparedFile(state, null));
       return;
@@ -222,7 +232,7 @@ export function mountApp(root: HTMLElement): void {
     }
   }
 
-  async function handleFile(file: File): Promise<void> {
+  async function handleFile(file: WorkbookSource): Promise<void> {
     try {
       const read = await readWorkbook(file);
       if (!read.ok) {
@@ -283,7 +293,18 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function downloadSampleHandler(): void {
-    downloadTemplateXlsx("carto-interfaces-exemple.xlsx", SAMPLE_DATA);
+    downloadTemplateXlsx(SAMPLE_FILENAME, SAMPLE_DATA);
+  }
+
+  // The landing screen's offer is to SEE the tool at work: it used to hand back
+  // a file to download, which on a phone lands in a folder the page cannot
+  // reach -- the offer led nowhere. The sample is written in memory and read
+  // through the very same path as a dropped workbook, so it is checked, dated
+  // and reported on exactly like one. The rail's foot still offers to download
+  // it, for whoever wants the file itself.
+  function openSampleHandler(): void {
+    const bytes = writeTemplate(SAMPLE_DATA);
+    void handleFile({ name: SAMPLE_FILENAME, arrayBuffer: async () => bytes });
   }
 
   // Every rewrite of a LOADED workbook goes through here. dataFromModel() and
@@ -337,7 +358,11 @@ export function mountApp(root: HTMLElement): void {
         renderArea.appendChild(el("div", { class: "help-standalone" }, [result, buildHelp()]));
       } else {
         renderArea.appendChild(
-          buildDropTarget(downloadSampleHandler, () => setState(withView(state, "help")))
+          buildDropTarget({
+            onFile: handleFile,
+            onOpenSample: openSampleHandler,
+            onHelp: () => setState(withView(state, "help")),
+          })
         );
       }
       renderBanner(banner, state, false, exportHandlers);

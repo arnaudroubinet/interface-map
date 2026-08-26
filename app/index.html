@@ -2,6 +2,11 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
+<!-- Sans cette ligne, un téléphone rend la page sur une fenêtre virtuelle de
+     980 px puis la dézoome : les boutons deviennent illisibles et la cible de
+     dépôt inatteignable. C'est la contrepartie de la prise en charge du
+     sélecteur de fichier — le livrable s'ouvre aussi sur mobile. -->
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Interface Map</title>
 <style>
   :root {
