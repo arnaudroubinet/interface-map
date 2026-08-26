@@ -126,9 +126,16 @@ locale et tirent donc des listes locales — les faire pointer vers le
 référentiel laisserait une ligne nommer ce que cette cartographie n'a jamais
 déclaré, c'est-à-dire exactement ce que le rapport marque en rouge.
 
-Ces listes **suggèrent sans refuser** : le référentiel est en retard sur la
-cartographie par construction. Ce qu'il ignore n'est pas une anomalie mais une
-décision en attente, listée dans le rapport d'intégrité.
+Ces listes **suggèrent sans refuser** — Excel n'oppose pas un refus sec — mais
+ce qu'elles ne portent pas est une **anomalie** du rapport d'intégrité, dans la
+famille des références : un nom absent de la liste cachée n'a pas pu être
+choisi, il a été tapé ou vient d'un classeur rempli avant que le référentiel ne
+le porte, et ce que le référentiel dit de lui — une icône, un sens — ne résout
+rien. Une orthographe proche est proposée quand il y en a une.
+
+Un vocabulaire pour lequel le référentiel ne publie **rien** ne dit rien : ce
+n'est pas que tous les noms sont inconnus, c'est que personne n'a été
+interrogé.
 
 **On choisit un nom, on ne recopie pas ce qui va avec.** Ce que le référentiel
 dit d'un nom est lu, jamais saisi : l'icône et la nature d'un type, le sens,

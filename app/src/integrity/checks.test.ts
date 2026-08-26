@@ -1496,124 +1496,136 @@ describe("checks — blast radius", () => {
   });
 });
 
+// A name declared here and absent from the hidden list is a FAULT, not a
+// remark. The lists are what the drop-downs are made of: a name that is not in
+// them could not have been picked -- it was typed, or it comes from a workbook
+// filled before the referential carried it. And what the referential says about
+// it -- an icon, a direction -- resolves to nothing, so the row is half drawn or
+// not drawn at all.
 describe("out of referential", () => {
-  it("says nothing when the workbook carries no referential", () => {
-    const report = runIntegrityChecks(model({ referentialActors: [], referentialTechnologies: [] }));
-    expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  // Only what THIS check says: the fixtures trip other reference checks on the
+  // way, and a group nobody declared is a different fault from a group the
+  // referential does not carry.
+  const found = (m: Parameters<typeof runIntegrityChecks>[0]) =>
+    runIntegrityChecks(m)
+      .families.flatMap((f) => f.anomalies)
+      .filter((a) => a.message.includes("not in the referential"));
+  const messages = (m: Parameters<typeof runIntegrityChecks>[0]) => found(m).map((a) => a.message);
+
+  it("says nothing about a vocabulary the referential publishes nothing for", () => {
+    const said = messages(model({ actors: [actor({ name: "Alderaan" })], referentialActors: [] }));
+    expect(said.join(" ")).not.toContain("referential");
   });
 
-  it("names an actor the referential does not know", () => {
-    const report = runIntegrityChecks(
+  it("reports an actor the referential does not know", () => {
+    const said = messages(
       model({
         actors: [actor({ name: "Tatooine" }), actor({ name: "Alderaan" })],
         referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).toContain("Alderaan");
-    expect(infoBlock.items.join(" ")).not.toContain("Tatooine");
+    expect(said.join(" ")).toContain("Alderaan");
+    expect(said.join(" ")).not.toContain("Tatooine");
   });
 
-  // The referential owns four vocabularies, not two: a group or a type declared
-  // here and unknown there is the same waiting decision as an actor.
-  it("names a group the referential does not know", () => {
-    const report = runIntegrityChecks(
+  // The referential owns four vocabularies, not one.
+  it("reports a group the referential does not know", () => {
+    const said = messages(
       model({
         groups: [base.group({ name: "Core" }), base.group({ name: "Outer Rim" })],
         referentialGroups: [{ name: "Core", description: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).toContain("Outer Rim");
-    expect(infoBlock.items.join(" ")).not.toContain("Core");
+    expect(said.join(" ")).toContain("Outer Rim");
+    expect(said.join(" ")).not.toContain("Core");
   });
 
-  it("names an actor type the referential does not know", () => {
-    const report = runIntegrityChecks(
+  it("reports an actor type the referential does not know", () => {
+    const said = messages(
       model({
         actorTypes: [base.actorType({ type: "Application" }), base.actorType({ type: "Mainframe" })],
         referentialActorTypes: [{ type: "Application", icon: "", nature: "", description: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).toContain("Mainframe");
+    expect(said.join(" ")).toContain("Mainframe");
   });
 
-  it("names a technology the referential does not know", () => {
-    const report = runIntegrityChecks(
+  it("reports a technology the referential does not know", () => {
+    const said = messages(
       model({
         flowTypes: [base.flowType({ type: "HTTP" }), base.flowType({ type: "MQ" })],
         referentialTechnologies: [{ type: "HTTP", direction: "", description: "", colour: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).toContain("MQ");
+    expect(said.join(" ")).toContain("MQ");
   });
 
-  // A name the referential does not know is a decision waiting for someone,
-  // not a remark: it must rank as an action, not merely be seen.
-  it("is an action: the file is correct, but a decision is waiting", () => {
+  it("counts as an anomaly, and no longer as a decision to be taken", () => {
     const report = runIntegrityChecks(
       model({
         actors: [actor({ name: "Alderaan" })],
         referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.level).toBe("action");
+    expect(found(model({
+      actors: [actor({ name: "Alderaan" })],
+      referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+    }))).toHaveLength(1);
+    expect(report.totalActions).toBe(0);
+    expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+  });
+
+  // It reads on the row that declares the name: that is where it gets fixed.
+  it("points at the row that declares the name", () => {
+    const report = runIntegrityChecks(
+      model({
+        actors: [actor({ name: "Alderaan", sheet: "Actors", row: 7 })],
+        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
+      })
+    );
+    const located = report.families
+      .flatMap((f) => f.anomalies)
+      .find((a) => a.message.includes("Alderaan") && a.message.includes("not in the referential"))!;
+    expect(located.location).toEqual({ sheet: "Actors", row: 7 });
   });
 
   it("compares regardless of case and accents, as every other check does", () => {
-    const report = runIntegrityChecks(
+    const said = messages(
       model({
         actors: [actor({ name: "TATOOINE" })],
         referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
       })
     );
-    expect(report.infoBlocks.find((b) => b.id === "out-of-referential")).toBeUndefined();
+    expect(said).toEqual([]);
   });
 
   it("suggests a near-duplicate referential actor name", () => {
-    const report = runIntegrityChecks(
+    const said = messages(
       model({
         actors: [actor({ name: "Chandrilla" })],
         referentialActors: [{ name: "Chandrila", group: "", actorType: "", owner: "", description: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).toContain('did you mean "Chandrila"?');
+    expect(said.join(" ")).toContain('did you mean "Chandrila"?');
   });
 
   it("does not suggest an acronym technology one edit away from another acronym", () => {
-    const report = runIntegrityChecks(
+    const said = messages(
       model({
         flowTypes: [base.flowType({ type: "SFTP" })],
         referentialTechnologies: [{ type: "SMTP", direction: "", description: "", colour: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).not.toContain("did you mean");
+    expect(said.join(" ")).not.toContain("did you mean");
   });
 
   it("does not suggest HTTPS for the unknown acronym HTTP", () => {
-    const report = runIntegrityChecks(
+    const said = messages(
       model({
         flowTypes: [base.flowType({ type: "HTTP" })],
         referentialTechnologies: [{ type: "HTTPS", direction: "", description: "", colour: "" }],
       })
     );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items.join(" ")).not.toContain("did you mean");
-  });
-
-  it("leaves the plain wording when nothing in the referential is close", () => {
-    const report = runIntegrityChecks(
-      model({
-        actors: [actor({ name: "Alderaan" })],
-        referentialActors: [{ name: "Tatooine", group: "", actorType: "", owner: "", description: "" }],
-      })
-    );
-    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
-    expect(infoBlock.items).toEqual([`actor "Alderaan" (Actors, row 0)`]);
+    expect(said.join(" ")).not.toContain("did you mean");
   });
 });

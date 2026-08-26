@@ -287,7 +287,9 @@ function checkStructure(model: ParsedModel): AnomalyFamily {
 }
 
 function checkReferences(model: ParsedModel): AnomalyFamily {
-  const anomalies: Anomaly[] = [];
+  // Judged on the WHOLE workbook, like every other reference: the row exists in
+  // the file whichever milestone is on screen.
+  const anomalies: Anomaly[] = [...notInReferential(model)];
   const actors = actorByName(model);
   const flowTypes = new Set(model.flowTypes.map((t) => t.type.trim()));
   const lookup = buildInterfaceLookup(model);
@@ -1107,12 +1109,19 @@ function usedGroups(model: ParsedModel): InfoBlock {
   };
 }
 
-// What the workbook declares and the referential does not know. Not an
-// anomaly: a cartography is often drawn before the central referential
-// catches up, and refusing the name would stop the work for a bookkeeping
-// lag. But it is a decision waiting for someone: either the referential
-// already carries the name under another spelling and the cartography should
-// adopt it, or the referential is missing it and someone has to add it.
+// What the workbook declares and the hidden referential list does not carry.
+//
+// This is a FAULT, and it was not always one: the referential used to lag
+// behind the cartography by construction, so an unknown name was a decision
+// waiting for someone. The lists became what the drop-downs are made of --
+// a name absent from them could not have been picked, it was typed or it comes
+// from a workbook filled before the referential carried it -- and what the
+// referential says about that name, an icon, a direction, resolves to nothing.
+// The row is then half drawn, or not drawn at all.
+//
+// A vocabulary the referential publishes NOTHING for says nothing: it is not
+// that every name is unknown, it is that nobody was asked.
+//
 // A referential name close enough to the unknown one to likely be the same
 // thing, misspelled -- acronym-guarded, since protocol acronyms (FTP/SFTP,
 // HTTP/HTTPS...) sit within the usual edit-distance threshold despite naming
@@ -1121,52 +1130,30 @@ function suggestion(name: string, referentialNames: string[]): string | undefine
   return referentialNames.find((candidate) => nearDuplicate(name, candidate, { skipFuzzyForAcronyms: true }));
 }
 
-function outOfReferential(model: ParsedModel): InfoBlock {
-  const withSuggestion = (text: string, name: string, referentialNames: string[]) => {
-    const match = suggestion(name, referentialNames);
-    return match ? `${text} — did you mean "${match}"?` : text;
-  };
-
-  // The four vocabularies the referential owns, each read the same way: what
-  // this workbook declares, minus what the referential knows. A vocabulary the
-  // referential publishes nothing for says nothing at all -- it is not that
-  // every name is unknown, it is that nobody was asked.
-  const gap = <T extends { sheet: string; row: number }>(
+function notInReferential(model: ParsedModel): Anomaly[] {
+  const gap = <T extends Location>(
     published: string[],
     declared: readonly T[],
     nameOf: (item: T) => string,
     label: string
-  ): string[] => {
+  ): Anomaly[] => {
     const known = new Set(published.map(normalizeText));
     if (known.size === 0) return [];
-    return locatedItems(
-      declared.filter((d) => nameOf(d).trim() !== "" && !known.has(normalizeText(nameOf(d)))),
-      (d) => withSuggestion(`${label} "${nameOf(d)}" ${address(d)}`, nameOf(d), published)
-    );
+    return declared
+      .filter((d) => nameOf(d).trim() !== "" && !known.has(normalizeText(nameOf(d))))
+      .map((d) => {
+        const match = suggestion(nameOf(d), published);
+        const said = `${label} "${nameOf(d)}" ${address(d)}: not in the referential`;
+        return anomaly(match ? `${said} — did you mean "${match}"?` : `${said}.`, d);
+      });
   };
 
-  const items = [
-    ...gap(model.referentialActors.map((a) => a.name), model.actors, (a) => a.name, "actor"),
-    ...gap(model.referentialGroups.map((g) => g.name), model.groups, (g) => g.name, "group"),
-    ...gap(
-      model.referentialActorTypes.map((t) => t.type),
-      model.actorTypes,
-      (t) => t.type,
-      "actor type"
-    ),
-    ...gap(model.referentialTechnologies.map((t) => t.type), model.flowTypes, (t) => t.type, "technology"),
+  return [
+    ...gap(model.referentialActors.map((a) => a.name), model.actors, (a) => a.name, "Actor"),
+    ...gap(model.referentialGroups.map((g) => g.name), model.groups, (g) => g.name, "Group"),
+    ...gap(model.referentialActorTypes.map((t) => t.type), model.actorTypes, (t) => t.type, "Actor type"),
+    ...gap(model.referentialTechnologies.map((t) => t.type), model.flowTypes, (t) => t.type, "Technology"),
   ];
-
-  return {
-    id: "out-of-referential",
-    title: "Declared here, unknown to the referential",
-    description:
-      "These names are used by this workbook but do not appear in the external referential. " +
-      "Legitimate while it catches up, but a decision waiting: adopt a name it already carries, " +
-      "or add this one to it — a suggestion here likely means a misspelling, not a name to add.",
-    items,
-    level: "action",
-  };
 }
 
 // The workbook cut down to what lives at the displayed milestone. The checks
@@ -1235,11 +1222,6 @@ export function runIntegrityChecks(model: ParsedModel, rank: number | null = nul
   // is nothing -- a checkmark row nobody needed to see.
   const groupes = usedGroups(atMilestone);
   if (groupes.items.length > 0) infoBlocks.push(groupes);
-  // Unlike most neighbours above, this block is left out entirely rather than
-  // shown empty: a workbook that carries no referential must read exactly as
-  // it did before the referential existed, not report every actor unknown.
-  const referentialGap = outOfReferential(atMilestone);
-  if (referentialGap.items.length > 0) infoBlocks.push(referentialGap);
   const totalAnomalies = families.reduce((sum, f) => sum + f.anomalies.length, 0);
   const total = (level: InfoBlock["level"]) =>
     infoBlocks.filter((b) => b.level === level).reduce((sum, b) => sum + b.items.length, 0);
