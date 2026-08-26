@@ -38,6 +38,8 @@ function model(o: Partial<ParsedModel> = {}): ParsedModel {
     schemaVersion: SCHEMA_VERSION,
     savedAt: null,
     referentialActors: [],
+    referentialGroups: [],
+    referentialActorTypes: [],
     referentialTechnologies: [],
     ...o,
   };

@@ -156,6 +156,22 @@ export interface ReferentialActor {
   description: string;
 }
 
+export interface ReferentialGroup {
+  name: string;
+  description: string;
+}
+
+// The referential's own actor types. `icon` and `nature` are published so that
+// a cartography declaring the type can copy them rather than invent them; they
+// are NOT applied on its behalf -- what a diagram draws is decided by the
+// ActorTypes sheet, which is the one the integrity report judges.
+export interface ReferentialActorType {
+  type: string;
+  icon: string;
+  nature: string;
+  description: string;
+}
+
 export interface ReferentialTechnology {
   type: string;
   direction: string;
@@ -188,6 +204,8 @@ export interface ParsedModel {
   // Empty otherwise -- and an empty referential is not a fault: the workbook
   // must work without one.
   referentialActors: ReferentialActor[];
+  referentialGroups: ReferentialGroup[];
+  referentialActorTypes: ReferentialActorType[];
   referentialTechnologies: ReferentialTechnology[];
 }
 

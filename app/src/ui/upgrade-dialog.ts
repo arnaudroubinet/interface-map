@@ -4,6 +4,7 @@ import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
 import { readReferentialUrl, hasReferential, REFERENTIAL_QUERIES } from "../export/datamashup";
+import { downloadReferentialXlsx, SAMPLE_REFERENTIAL } from "../export/referential-template";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel } from "../parsing/build-model";
@@ -56,10 +57,22 @@ export function openMigration(): void {
     class: "migration-referential",
     placeholder: "https://…/referential.xlsx",
   }) as HTMLInputElement;
+  const blankReferential = el("button", { class: "export-button", type: "button" }, ["Blank referential"]);
+  blankReferential.title = "An empty referential workbook, ready to publish and fill in";
+  blankReferential.addEventListener("click", () => downloadReferentialXlsx("interface-map-referential.xlsx"));
+  // Filled with the sample cartography's own names, so that the two files can
+  // be pointed at each other and show the mechanism working rather than an
+  // empty table.
+  const sampleReferential = el("button", { class: "export-button", type: "button" }, ["Sample referential"]);
+  sampleReferential.title = "A filled referential, publishing what the sample workbook declares";
+  sampleReferential.addEventListener("click", () =>
+    downloadReferentialXlsx("interface-map-referential-sample.xlsx", SAMPLE_REFERENTIAL)
+  );
+
   const referentialBlock = el("div", { class: "migration-referential-block" }, [
     el("label", { class: "migration-referential-label" }, ["External referential", referentialField]),
     el("p", { class: "rail-note" }, [
-      `One workbook, holding the tables ${REFERENTIAL_QUERIES.map((q) => q.table).join(" and ")}. ` +
+      `One workbook, holding the tables ${REFERENTIAL_QUERIES.map((q) => q.table).join(", ")}. ` +
         "Left empty, the workbook keeps the referential it already points at.",
     ]),
     // The trap costs a refresh error and half an hour: a SharePoint or OneDrive
@@ -69,6 +82,11 @@ export function openMigration(): void {
       "On SharePoint or OneDrive, give the file's download link — a sharing link serves a web page, not the workbook. ",
       "Excel asks for an organisational account the first time it refreshes; the credentials stay in Excel, never in the file.",
     ]),
+    // No referential yet is the ordinary case at this point, and an empty field
+    // is a dead end. The file to publish is handed over here, where the
+    // question is asked -- the tool writes it, so its tables carry the names
+    // the query looks for.
+    el("div", { class: "migration-referential-files" }, [blankReferential, sampleReferential]),
   ]);
 
   const reset = () => {

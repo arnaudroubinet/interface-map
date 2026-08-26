@@ -12,6 +12,8 @@ import type {
   BuildModelResult,
   BlockingError,
   ReferentialActor,
+  ReferentialGroup,
+  ReferentialActorType,
   ReferentialTechnology,
 } from "./model";
 import { matchesSheetName, hasPrefix, findHeader } from "./headers";
@@ -44,12 +46,22 @@ export const LEGACY_STATUS_COLUMN = "Statut";
 
 export const ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description", "Comments", ...VALIDITY_COLUMNS];
 
-// The two sheets the external referential fills. They exist whether or not a
+// The four sheets the external referential fills. They exist whether or not a
 // referential is declared: the schema must not depend on a URL being set, or a
 // workbook would change shape the day someone types one in.
+//
+// One per vocabulary the referential owns, and the entry sheets pick their
+// names from them: `Groups` picks a group, `ActorTypes` a type, `FlowTypes` a
+// technology, `Actors` an actor. What the cartography says ABOUT a name -- a
+// perimeter, an icon, a nature -- stays on the local sheet, which is the one
+// the integrity report judges.
 export const REF_ACTORS_SHEET = "RefActors";
+export const REF_GROUPS_SHEET = "RefGroups";
+export const REF_ACTOR_TYPES_SHEET = "RefActorTypes";
 export const REF_TECHNOLOGIES_SHEET = "RefTechnologies";
 export const REF_ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description"];
+export const REF_GROUP_COLUMNS = ["Name", "Description"];
+export const REF_ACTOR_TYPE_COLUMNS = ["Actor type", "Icon", "Nature", "Description"];
 export const REF_TECHNOLOGY_COLUMNS = ["Flow type", "Direction", "Description", "Colour"];
 
 export const GROUP_COLUMNS = ["Group", "Perimeter"];
@@ -77,7 +89,7 @@ export const FX_COLUMNS = ["Flow name", "Version", "Consumer", "Usage", "Critica
 // The workbook's schema number, written on a hidden sheet. A monotonic
 // integer, not a semver: it serves only to know which transformations to
 // apply, and in what order.
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 7;
 export const VERSION_SHEET = "Version";
 export const SCHEMA_VERSION_COLUMN = "Model version";
 
@@ -304,6 +316,26 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     }))
     .filter((a) => a.name !== "");
 
+  const refGroupsSheet = findSheet(workbook.sheets, REF_GROUPS_SHEET);
+  const headerMapRefGroups = buildHeaderMap(refGroupsSheet?.headers ?? [], REF_GROUP_COLUMNS);
+  const referentialGroups: ReferentialGroup[] = (refGroupsSheet?.rows ?? [])
+    .map(({ values: r }) => ({
+      name: get(r, headerMapRefGroups, "Name"),
+      description: get(r, headerMapRefGroups, "Description"),
+    }))
+    .filter((g) => g.name !== "");
+
+  const refActorTypesSheet = findSheet(workbook.sheets, REF_ACTOR_TYPES_SHEET);
+  const headerMapRefActorTypes = buildHeaderMap(refActorTypesSheet?.headers ?? [], REF_ACTOR_TYPE_COLUMNS);
+  const referentialActorTypes: ReferentialActorType[] = (refActorTypesSheet?.rows ?? [])
+    .map(({ values: r }) => ({
+      type: get(r, headerMapRefActorTypes, "Actor type"),
+      icon: get(r, headerMapRefActorTypes, "Icon"),
+      nature: get(r, headerMapRefActorTypes, "Nature"),
+      description: get(r, headerMapRefActorTypes, "Description"),
+    }))
+    .filter((t) => t.type !== "");
+
   const refTechnologiesSheet = findSheet(workbook.sheets, REF_TECHNOLOGIES_SHEET);
   const headerMapRefTechnologies = buildHeaderMap(refTechnologiesSheet?.headers ?? [], REF_TECHNOLOGY_COLUMNS);
   const referentialTechnologies: ReferentialTechnology[] = (refTechnologiesSheet?.rows ?? [])
@@ -425,6 +457,8 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
       schemaVersion: readSchemaVersion(workbook.sheets),
       savedAt: workbook.savedAt,
       referentialActors,
+      referentialGroups,
+      referentialActorTypes,
       referentialTechnologies,
     },
   };

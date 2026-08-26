@@ -47,14 +47,15 @@ describe("the upgrade chain", () => {
     expect(expected).toBe(SCHEMA_VERSION);
   });
 
-  // The referential became ONE workbook read through two named tables. Nothing
-  // to transform -- the address lives in the Power Query stream, not in the
-  // model -- but the step must exist all the same: it is what makes the
-  // workbooks already in circulation be recognised as stale.
-  it("takes a v5 workbook to v6 without transforming the model", () => {
-    expect(SCHEMA_VERSION).toBe(6);
-    const step = UPGRADE_STEPS.find((s) => s.de === 5);
-    expect(step?.vers).toBe(6);
+  // The referential became ONE workbook, read through named tables and now
+  // owning four vocabularies. Nothing to transform -- the address lives in the
+  // Power Query stream and the new sheets are born at writing time -- but each
+  // step must exist all the same: that is what makes the workbooks already in
+  // circulation be recognised as stale.
+  it("takes a v6 workbook to v7 without transforming the model", () => {
+    expect(SCHEMA_VERSION).toBe(7);
+    const step = UPGRADE_STEPS.find((s) => s.de === 6);
+    expect(step?.vers).toBe(7);
   });
 });
 

@@ -86,6 +86,8 @@ describe("the workbook template", () => {
       "Interfaces",
       "Lists",
       "RefActors",
+      "RefGroups",
+      "RefActorTypes",
       "RefTechnologies",
       "Version",
     ]);
@@ -269,8 +271,8 @@ describe("the workbook template", () => {
       ["L_TypeFlux", "TblFlowTypes[Flow type]"],
       ["L_Palier", "TblMilestones[Milestone]"],
       ["L_RefActeur", "TblRefActors[Name]"],
-      ["L_RefGroupe", "TblRefActors[Group]"],
-      ["L_RefTypeActeur", "TblRefActors[Actor type]"],
+      ["L_RefGroupe", "TblRefGroups[Name]"],
+      ["L_RefTypeActeur", "TblRefActorTypes[Actor type]"],
       ["L_RefTypeFlux", "TblRefTechnologies[Flow type]"],
     ];
     expect(listsOfTemplate().map((l) => l.name).sort()).toEqual(expected.map(([name]) => name).sort());
@@ -333,11 +335,11 @@ describe("the workbook template", () => {
   });
 
   // Neither the pattern nor the dictionary is filled by hand.
-  it("hides Lists, the two referential sheets and Version, visible on the entry sheets", () => {
+  it("hides Lists, the four referential sheets and Version, visible on the entry sheets", () => {
     const wb = XLSX.read(new Uint8Array(rereadTemplate()), { type: "array" });
     const states = wb.Workbook!.Sheets!;
     const hidden = wb.SheetNames.filter((_, i) => states[i].Hidden);
-    expect(hidden).toEqual(["Lists", "RefActors", "RefTechnologies", "Version"]);
+    expect(hidden).toEqual(["Lists", "RefActors", "RefGroups", "RefActorTypes", "RefTechnologies", "Version"]);
   });
 
   it("ships the common flow types, ready to use", () => {

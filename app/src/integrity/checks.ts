@@ -1119,29 +1119,39 @@ function suggestion(name: string, referentialNames: string[]): string | undefine
 }
 
 function outOfReferential(model: ParsedModel): InfoBlock {
-  const actorNames = model.referentialActors.map((a) => a.name);
-  const technologyNames = model.referentialTechnologies.map((t) => t.type);
-  const knownActors = new Set(actorNames.map(normalizeText));
-  const knownTechnologies = new Set(technologyNames.map(normalizeText));
-
   const withSuggestion = (text: string, name: string, referentialNames: string[]) => {
     const match = suggestion(name, referentialNames);
     return match ? `${text} — did you mean "${match}"?` : text;
   };
 
+  // The four vocabularies the referential owns, each read the same way: what
+  // this workbook declares, minus what the referential knows. A vocabulary the
+  // referential publishes nothing for says nothing at all -- it is not that
+  // every name is unknown, it is that nobody was asked.
+  const gap = <T extends { sheet: string; row: number }>(
+    published: string[],
+    declared: readonly T[],
+    nameOf: (item: T) => string,
+    label: string
+  ): string[] => {
+    const known = new Set(published.map(normalizeText));
+    if (known.size === 0) return [];
+    return locatedItems(
+      declared.filter((d) => nameOf(d).trim() !== "" && !known.has(normalizeText(nameOf(d)))),
+      (d) => withSuggestion(`${label} "${nameOf(d)}" ${address(d)}`, nameOf(d), published)
+    );
+  };
+
   const items = [
-    ...(knownActors.size === 0
-      ? []
-      : locatedItems(
-          model.actors.filter((a) => a.name.trim() !== "" && !knownActors.has(normalizeText(a.name))),
-          (a) => withSuggestion(`actor "${a.name}" ${address(a)}`, a.name, actorNames)
-        )),
-    ...(knownTechnologies.size === 0
-      ? []
-      : locatedItems(
-          model.flowTypes.filter((t) => t.type.trim() !== "" && !knownTechnologies.has(normalizeText(t.type))),
-          (t) => withSuggestion(`technology "${t.type}" ${address(t)}`, t.type, technologyNames)
-        )),
+    ...gap(model.referentialActors.map((a) => a.name), model.actors, (a) => a.name, "actor"),
+    ...gap(model.referentialGroups.map((g) => g.name), model.groups, (g) => g.name, "group"),
+    ...gap(
+      model.referentialActorTypes.map((t) => t.type),
+      model.actorTypes,
+      (t) => t.type,
+      "actor type"
+    ),
+    ...gap(model.referentialTechnologies.map((t) => t.type), model.flowTypes, (t) => t.type, "technology"),
   ];
 
   return {

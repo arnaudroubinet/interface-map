@@ -35,6 +35,8 @@ function model(overrides: Partial<ParsedModel>): ParsedModel {
     schemaVersion: SCHEMA_VERSION,
     savedAt: null,
     referentialActors: [],
+    referentialGroups: [],
+    referentialActorTypes: [],
     referentialTechnologies: [],
     ...overrides,
   };
@@ -1510,6 +1512,31 @@ describe("out of referential", () => {
     const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
     expect(infoBlock.items.join(" ")).toContain("Alderaan");
     expect(infoBlock.items.join(" ")).not.toContain("Tatooine");
+  });
+
+  // The referential owns four vocabularies, not two: a group or a type declared
+  // here and unknown there is the same waiting decision as an actor.
+  it("names a group the referential does not know", () => {
+    const report = runIntegrityChecks(
+      model({
+        groups: [base.group({ name: "Core" }), base.group({ name: "Outer Rim" })],
+        referentialGroups: [{ name: "Core", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).toContain("Outer Rim");
+    expect(infoBlock.items.join(" ")).not.toContain("Core");
+  });
+
+  it("names an actor type the referential does not know", () => {
+    const report = runIntegrityChecks(
+      model({
+        actorTypes: [base.actorType({ type: "Application" }), base.actorType({ type: "Mainframe" })],
+        referentialActorTypes: [{ type: "Application", icon: "", nature: "", description: "" }],
+      })
+    );
+    const infoBlock = report.infoBlocks.find((b) => b.id === "out-of-referential")!;
+    expect(infoBlock.items.join(" ")).toContain("Mainframe");
   });
 
   it("names a technology the referential does not know", () => {

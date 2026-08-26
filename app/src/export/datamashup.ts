@@ -18,6 +18,7 @@
 
 import * as XLSX from "xlsx";
 import { REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET } from "../parsing/build-model";
+import { REFERENTIAL_SHEETS } from "./referential-shape";
 
 // Where the referential is published. ONE workbook, one URL: the actors and
 // the technologies are two TABLES of the same file, not two files. Empty means
@@ -37,16 +38,18 @@ export function hasReferential(url: ReferentialUrl): boolean {
 // that does not exist, and nothing in the package would say so. Deriving them
 // from the sheet names makes the drift impossible rather than detectable.
 //
-// `table` is what the query reads on the OTHER side: the named table the
-// referential workbook publishes. A named table rather than a sheet, because a
-// table survives a sheet being renamed, keeps its own header row, and stops at
-// its last row -- a sheet hands back every stray cell typed under the data.
-export const REFERENTIAL_QUERIES = [
-  { query: REF_ACTORS_SHEET, table: "TblActors" },
-  { query: REF_TECHNOLOGIES_SHEET, table: "TblTechnologies" },
-] as const;
+// One query per sheet the referential fills, reading the named table the
+// referential workbook publishes -- see referential-shape.ts. A named table
+// rather than a sheet, because a table survives its sheet being renamed, keeps
+// its own header row, and stops at its last row: a sheet hands back every stray
+// cell typed under the data.
+export const REFERENTIAL_QUERIES = REFERENTIAL_SHEETS.map((s) => ({
+  query: s.fills,
+  table: s.table,
+  columns: s.columns,
+}));
 
-export const MASHUP_QUERIES = [REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET] as const;
+export const MASHUP_QUERIES = REFERENTIAL_QUERIES.map((q) => q.query);
 
 const BOM = "﻿";
 
@@ -64,13 +67,15 @@ function mLiteral(text: string): string {
 // No Table.PromoteHeaders here, unlike the CSV this replaced: a named table
 // already carries its header row, and promoting again would eat its first
 // line of data.
-function query(name: string, table: string, url: string): string {
+function query(name: string, table: string, columns: readonly string[], url: string): string {
+  const kept = columns.map(mLiteral).join(", ");
   return (
     `shared ${name} = let\n` +
     `    Source = Excel.Workbook(Web.Contents(${mLiteral(url)}), null, true),\n` +
-    `    Data = Source{[Item=${mLiteral(table)}, Kind="Table"]}[Data]\n` +
+    `    Data = Source{[Item=${mLiteral(table)}, Kind="Table"]}[Data],\n` +
+    `    Kept = Table.SelectColumns(Data, {${kept}}, MissingField.UseNull)\n` +
     `in\n` +
-    `    Data;\n`
+    `    Kept;\n`
   );
 }
 
@@ -78,14 +83,16 @@ function query(name: string, table: string, url: string): string {
 // the same workbook. Nothing at all is written when no URL is set: Excel would
 // show a query in permanent error, and the workbook is meant to work without a
 // referential.
-export function queriesOf(url: ReferentialUrl): { name: string; table: string; url: string }[] {
+export function queriesOf(
+  url: ReferentialUrl
+): { name: string; table: string; columns: readonly string[]; url: string }[] {
   const trimmed = url.trim();
   if (trimmed === "") return [];
-  return REFERENTIAL_QUERIES.map((q) => ({ name: q.query, table: q.table, url: trimmed }));
+  return REFERENTIAL_QUERIES.map((q) => ({ name: q.query, table: q.table, columns: q.columns, url: trimmed }));
 }
 
 export function sectionM(url: ReferentialUrl): string {
-  return `section Section1;\n\n${queriesOf(url).map((q) => query(q.name, q.table, q.url)).join("\n")}`;
+  return `section Section1;\n\n${queriesOf(url).map((q) => query(q.name, q.table, q.columns, q.url)).join("\n")}`;
 }
 
 function crc32(bytes: Uint8Array): number {
@@ -333,9 +340,8 @@ export function urlOfQuery(section: string, name: string): string {
 // convenience, and refusing to open the file over it would be out of
 // proportion.
 //
-// Both queries carry the same URL, so either answers. RefActors is asked
-// first, and RefTechnologies covers the workbook whose first query was edited
-// away by hand.
+// Every query carries the same URL, so any of them answers. They are asked in
+// order, which covers the workbook whose first query was edited away by hand.
 export async function readReferentialUrl(bytes: ArrayBuffer): Promise<ReferentialUrl> {
   try {
     const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
@@ -359,7 +365,7 @@ export async function readReferentialUrl(bytes: ArrayBuffer): Promise<Referentia
     if (!section) return NO_REFERENTIAL;
 
     const source = new TextDecoder().decode(section);
-    return urlOfQuery(source, MASHUP_QUERIES[0]) || urlOfQuery(source, MASHUP_QUERIES[1]);
+    return MASHUP_QUERIES.map((name) => urlOfQuery(source, name)).find((u) => u !== "") ?? NO_REFERENTIAL;
   } catch (err) {
     // A workbook with no mashup part returns above, without coming through
     // here: reaching this point means the part exists and we failed to make

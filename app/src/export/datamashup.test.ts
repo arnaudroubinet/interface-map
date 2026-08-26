@@ -21,11 +21,12 @@ describe("sectionM", () => {
     expect(m.indexOf("RefActors")).toBeLessThan(m.indexOf("RefTechnologies"));
   });
 
-  // One referential, one file: the separation between actors and technologies
-  // is internal to the workbook, so the two queries fetch the SAME address.
-  it("points both queries at the one URL", () => {
+  // One referential, one file: the four vocabularies are four tables of the
+  // same workbook, so every query fetches the SAME address.
+  it("points every query at the one URL", () => {
     const m = sectionM(REFERENTIAL);
-    expect([...m.matchAll(/Web\.Contents\("([^"]*)"/g)].map((x) => x[1])).toEqual([REFERENTIAL, REFERENTIAL]);
+    const fetched = [...m.matchAll(/Web\.Contents\("([^"]*)"/g)].map((x) => x[1]);
+    expect(fetched).toEqual(REFERENTIAL_QUERIES.map(() => REFERENTIAL));
   });
 
   // A named table, not a sheet: it survives a renamed sheet, carries its own
@@ -38,6 +39,16 @@ describe("sectionM", () => {
     }
     // Promoting headers over a named table would eat its first row of data.
     expect(m).not.toContain("Table.PromoteHeaders");
+  });
+
+  // A referential carrying a column of its own must not pour it into a table
+  // that does not expect it, and one missing a column must not fail the whole
+  // refresh: the query names what it keeps, and tolerates what is absent.
+  it("keeps exactly the columns its sheet declares, absent ones included", () => {
+    const m = sectionM(REFERENTIAL);
+    for (const { columns } of REFERENTIAL_QUERIES) {
+      expect(m).toContain(`Table.SelectColumns(Data, {${columns.map((c) => `"${c}"`).join(", ")}}, MissingField.UseNull)`);
+    }
   });
 
   it("doubles a quote inside a URL, so the M literal stays closed", () => {

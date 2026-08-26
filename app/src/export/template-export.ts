@@ -21,10 +21,13 @@ import {
   MAX_TAB_LENGTH,
   FX_SHEET_SEPARATOR,
   REF_ACTORS_SHEET,
+  REF_GROUPS_SHEET,
+  REF_ACTOR_TYPES_SHEET,
   REF_TECHNOLOGIES_SHEET,
   REF_ACTOR_COLUMNS,
   REF_TECHNOLOGY_COLUMNS,
 } from "../parsing/build-model";
+import { REFERENTIAL_SHEETS } from "./referential-shape";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import {
   VOCABULARY_DIRECTION,
@@ -362,18 +365,15 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
   // Query-owned, and therefore empty here: Excel pours the rows in on the first
   // refresh. The header row alone is written, so the structured table has
   // something to declare.
-  XLSX.utils.book_append_sheet(wb, sheet([[...REF_ACTOR_COLUMNS]], REF_ACTOR_COLUMNS.map(() => 20)), REF_ACTORS_SHEET);
-  XLSX.utils.book_append_sheet(
-    wb,
-    sheet([[...REF_TECHNOLOGY_COLUMNS]], REF_TECHNOLOGY_COLUMNS.map(() => 20)),
-    REF_TECHNOLOGIES_SHEET
-  );
+  for (const r of REFERENTIAL_SHEETS) {
+    XLSX.utils.book_append_sheet(wb, sheet([[...r.columns]], r.columns.map(() => 20)), r.fills);
+  }
   XLSX.utils.book_append_sheet(wb, versionSheet(), VERSION_SHEET);
 
   // Lists feeds the drop-downs, Version carries the format's signature: neither
   // one is filled by hand. Hidden, they can no longer be confused with the entry
   // sheets.
-  const hidden = new Set([LISTS_SHEET, VERSION_SHEET, REF_ACTORS_SHEET, REF_TECHNOLOGIES_SHEET]);
+  const hidden = new Set([LISTS_SHEET, VERSION_SHEET, ...REFERENTIAL_SHEETS.map((r) => r.fills)]);
   wb.Workbook = { Sheets: wb.SheetNames.map((name) => ({ Hidden: hidden.has(name) ? 1 : 0 })) };
 
   return wb;
@@ -425,18 +425,12 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
       rows: LISTES[key].length,
       startColumn: index,
     })),
-    {
-      sheet: REF_ACTORS_SHEET,
-      columns: REF_ACTOR_COLUMNS,
+    ...REFERENTIAL_SHEETS.map((r) => ({
+      sheet: r.fills,
+      columns: r.columns,
       rows: 0,
-      query: hasReferential(referential) ? REF_ACTORS_SHEET : undefined,
-    },
-    {
-      sheet: REF_TECHNOLOGIES_SHEET,
-      columns: REF_TECHNOLOGY_COLUMNS,
-      rows: 0,
-      query: hasReferential(referential) ? REF_TECHNOLOGIES_SHEET : undefined,
-    },
+      query: hasReferential(referential) ? r.fills : undefined,
+    })),
   ];
 }
 
@@ -468,11 +462,12 @@ export function listsOfTemplate(): NamedList[] {
     { name: "L_Groupe", sheet: "Groups", heading: "Group" },
     { name: "L_TypeFlux", sheet: "FlowTypes", heading: "Flow type" },
     { name: "L_Palier", sheet: "Milestones", heading: "Milestone" },
-    // The referential's vocabulary. It grows on refresh, so a named range over
-    // the table follows it without anything to recompute.
+    // The referential's vocabulary, one list per sheet it owns. Each grows on
+    // refresh, so a named range over the table follows it without anything to
+    // recompute.
     { name: "L_RefActeur", sheet: REF_ACTORS_SHEET, heading: "Name" },
-    { name: "L_RefGroupe", sheet: REF_ACTORS_SHEET, heading: "Group" },
-    { name: "L_RefTypeActeur", sheet: REF_ACTORS_SHEET, heading: "Actor type" },
+    { name: "L_RefGroupe", sheet: REF_GROUPS_SHEET, heading: "Name" },
+    { name: "L_RefTypeActeur", sheet: REF_ACTOR_TYPES_SHEET, heading: "Actor type" },
     { name: "L_RefTypeFlux", sheet: REF_TECHNOLOGIES_SHEET, heading: "Flow type" },
   ];
 }
@@ -572,8 +567,9 @@ function promptFor(sheet: string, heading: string): { title: string; text: strin
 // sheet they read: a list added on a Ref* sheet tomorrow is covered without
 // anything to remember here.
 export function referentialListNames(): string[] {
+  const owned = new Set(REFERENTIAL_SHEETS.map((r) => r.fills));
   return listsOfTemplate()
-    .filter((l) => l.sheet === REF_ACTORS_SHEET || l.sheet === REF_TECHNOLOGIES_SHEET)
+    .filter((l) => owned.has(l.sheet))
     .map((l) => l.name);
 }
 
@@ -620,16 +616,18 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...free(sheet, FX_COLUMNS, GUIDED_FX_COLUMNS),
   ];
   return [
+    // A name is DECLARED once, on the sheet that owns it, and picked from the
+    // referential there -- that is the whole point of the referential. Every
+    // other column that names an actor, a group or a type REFERS to that local
+    // declaration, and therefore draws from the local list: pointing them at
+    // the referential instead would let a row name something this cartography
+    // never declared, which is exactly what the integrity report marks red.
     v("Actors", ACTOR_COLUMNS, "Name", "L_RefActeur"),
-    // The group and the actor type stay on the LOCAL sheets, although the
-    // referential carries both. The integrity check holds "Groups" to be
-    // authoritative and counts an anomaly against any group absent from it,
-    // and "ActorTypes" alone carries each type's icon. A drop-down offering the
-    // referential's values would therefore propose exactly what the report
-    // marks red, and draw a component with no icon.
+    v("Groups", GROUP_COLUMNS, "Group", "L_RefGroupe"),
+    v("ActorTypes", ACTOR_TYPE_COLUMNS, "Actor type", "L_RefTypeActeur"),
+    v("FlowTypes", FLOW_TYPE_COLUMNS, "Flow type", "L_RefTypeFlux"),
     v("Actors", ACTOR_COLUMNS, "Group", "L_Groupe"),
     v("Actors", ACTOR_COLUMNS, "Actor type", "L_TypeActeur"),
-    v("FlowTypes", FLOW_TYPE_COLUMNS, "Flow type", "L_RefTypeFlux"),
     v("Groups", GROUP_COLUMNS, "Perimeter", "L_Perimetre"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Icon", "L_Icone"),
     v("ActorTypes", ACTOR_TYPE_COLUMNS, "Nature", "L_Nature"),

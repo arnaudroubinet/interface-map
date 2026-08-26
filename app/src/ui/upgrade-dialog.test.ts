@@ -2,6 +2,9 @@ import { describe, it, expect, vi } from "vitest";
 import { openMigration } from "./upgrade-dialog";
 import { writeTemplate, type WorkbookData } from "../export/template-export";
 import { readReferentialUrl } from "../export/datamashup";
+import { REFERENTIAL_SHEETS } from "../export/referential-shape";
+import { SAMPLE_DATA } from "../export/sample-data";
+import * as XLSX from "xlsx";
 import { downloadWorkbook } from "../export/download";
 
 vi.mock("../export/download", async (importOriginal) => {
@@ -126,5 +129,48 @@ describe("openMigration — the referential of the repaired workbook", () => {
     const zone = repair(emptyData);
     await settled(zone);
     expect(zone.textContent).toContain("No external referential");
+  });
+});
+
+// The field asks for the URL of a referential the reader may not have yet.
+// Handing over the file to publish, at the very place the question is asked,
+// is the difference between an empty field and a first referential.
+describe("openMigration — getting a referential to publish", () => {
+  const written = () => vi.mocked(downloadWorkbook).mock.calls[0][0];
+
+  const tablesOf = (bytes: ArrayBuffer): string[] => {
+    const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
+    return (cfb as { FullPaths: string[] }).FullPaths.filter((p) => /\/xl\/tables\/table\d+\.xml$/.test(p))
+      .map((p) => {
+        const found = XLSX.CFB.find(cfb, p);
+        const xml = new TextDecoder().decode(new Uint8Array(found!.content as never));
+        return /displayName="([^"]+)"/.exec(xml)?.[1] ?? "";
+      });
+  };
+
+  const click = (label: string): void => {
+    vi.mocked(downloadWorkbook).mockClear();
+    document.body.innerHTML = "";
+    openMigration();
+    const button = [...document.querySelectorAll("button")].find((b) => (b.textContent ?? "").trim() === label);
+    if (!button) throw new Error(`button "${label}" not found`);
+    (button as HTMLButtonElement).click();
+  };
+
+  it("hands over a blank referential carrying the tables the query looks for", () => {
+    click("Blank referential");
+    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+    const tables = tablesOf(written());
+    for (const r of REFERENTIAL_SHEETS) expect(tables).toContain(r.table);
+  });
+
+  // Filled, because an empty referential shows nothing of what a referential
+  // does -- and filled with the sample cartography's own names, so the two can
+  // be pointed at each other.
+  it("hands over a sample referential publishing the sample cartography's actors", () => {
+    click("Sample referential");
+    const wb = XLSX.read(new Uint8Array(written()), { type: "array" });
+    const names = XLSX.utils.sheet_to_json<string[]>(wb.Sheets.Actors, { header: 1 }).slice(1).map((r) => r[0]);
+    expect(names).toEqual(SAMPLE_DATA.actors.map((a) => a[0]));
   });
 });

@@ -286,6 +286,8 @@ describe("mode fonctionnel", () => {
       schemaVersion: SCHEMA_VERSION,
       savedAt: null,
       referentialActors: [],
+      referentialGroups: [],
+      referentialActorTypes: [],
       referentialTechnologies: [],
     };
   }

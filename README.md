@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 978 tests
+npm test          # 993 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -74,16 +74,25 @@ qu'on oublie :
 
 ## Le référentiel externe
 
-Les noms d'acteurs et de technologies peuvent venir d'un référentiel commun
-plutôt que d'être redéclarés dans chaque classeur. **Un seul fichier, une seule
-URL** : un classeur Excel publié quelque part, portant deux tableaux nommés
-`TblActors` et `TblTechnologies`. La séparation acteurs / technologies est
-interne à ce fichier.
+Les noms d'acteurs, de groupes, de types d'acteur et de technologies peuvent
+venir d'un référentiel commun plutôt que d'être redéclarés dans chaque
+classeur. **Un seul fichier, une seule URL** : un classeur portant quatre
+tableaux nommés — `TblActors`, `TblGroups`, `TblActorTypes`, `TblFlowTypes`.
 
-L'outil ne va jamais sur le réseau. Il écrit la requête Power Query dans le
-classeur ; c'est Excel qui charge, à l'actualisation, dans les onglets masqués
-`RefActors` et `RefTechnologies`. Tant que personne n'a actualisé, ces onglets
-sont vides et l'outil ne voit aucun référentiel.
+**C'est l'outil qui produit ce fichier**, vierge ou rempli d'un exemple
+(écran `Repair or upgrade a workbook`). Sa forme n'est donc pas à deviner :
+`src/export/referential-shape.ts` la décrit, et c'est la même table qui sert
+à écrire le fichier, à écrire les requêtes et à créer les onglets qui les
+reçoivent. Les noms des tableaux ne doivent pas changer — c'est la seule
+contrainte dure, et le fichier le dit lui-même sur son onglet `Instructions`.
+
+L'outil ne va jamais sur le réseau. Il écrit la requête Power Query ; c'est
+Excel qui charge, à l'actualisation, dans les quatre onglets masqués
+`RefActors`, `RefGroups`, `RefActorTypes` et `RefTechnologies`. Tant que
+personne n'a actualisé, ces onglets sont vides et l'outil ne voit aucun
+référentiel. Chaque requête ne garde que les colonnes que son onglet déclare :
+une colonne en plus dans le référentiel est ignorée, une colonne en moins
+arrive vide plutôt que de faire échouer l'actualisation.
 
 L'URL se saisit dans **Repair or upgrade a workbook**, et nulle part ailleurs :
 elle appartient au fichier, pas à l'affichage, et cet écran est le seul qui
@@ -96,12 +105,18 @@ sert une page web, et `Excel.Workbook` s'étrangle sur le HTML. Excel demande un
 compte professionnel au premier rafraîchissement ; les identifiants restent
 dans Excel, jamais dans le fichier, qui reste donc partageable.
 
-Ce que le référentiel apporte : les listes déroulantes de `Actors[Name]` et
-`FlowTypes[Flow type]` — qui **suggèrent sans refuser**, le référentiel étant en
-retard sur la cartographie par construction —, la couleur des technologies
-(`Colour`, qu'une couleur saisie localement emporte), et un bloc du rapport
-d'intégrité listant ce que le classeur déclare et que le référentiel ignore.
-Un classeur sans référentiel fonctionne exactement comme sans.
+Un nom se **déclare** une fois, sur l'onglet qui le possède, et c'est là qu'il
+se choisit dans le référentiel : `Actors`, `Groups`, `ActorTypes` et
+`FlowTypes` piochent chacun dans sa liste `L_Ref…`. Toutes les autres colonnes
+qui citent un acteur, un groupe ou un type **renvoient** à cette déclaration
+locale et tirent donc des listes locales — les faire pointer vers le
+référentiel laisserait une ligne nommer ce que cette cartographie n'a jamais
+déclaré, c'est-à-dire exactement ce que le rapport marque en rouge.
+
+Ces listes **suggèrent sans refuser** : le référentiel est en retard sur la
+cartographie par construction. Ce qu'il ignore n'est pas une anomalie mais une
+décision en attente, listée dans le rapport d'intégrité. Un classeur sans
+référentiel fonctionne exactement comme sans.
 
 ## Où se trouve quoi
 

@@ -255,6 +255,12 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // distributed are recognised as stale, go back through the rebuild, and have
   // their URL typed once more on the repair screen.
   { de: 5, vers: 6, appliquer: (model) => model },
+  // The referential gains its groups and its actor types, and its technologies
+  // sheet becomes one the tool itself produces. Nothing to convert once more:
+  // the two new sheets are born at writing time, empty, waiting for the query
+  // to pour into them. The step exists so that the workbooks in circulation go
+  // back through the rebuild, which is what creates them.
+  { de: 6, vers: 7, appliquer: (model) => model },
 ];
 
 // Each v3 relay finds the consumption it named again: the relayer's one
