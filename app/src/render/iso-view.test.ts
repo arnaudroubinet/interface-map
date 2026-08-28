@@ -55,16 +55,11 @@ describe("buildIsoBoardSvg", () => {
   });
 
   it("paints back to front, so the front drawing passes before the back one", () => {
-    const l = layout({
-      nodes: [
-        { id: "Back", label: "Back", kind: "actor", x: 300, y: 0, width: 240, height: 120 },
-        { id: "Front", label: "Front", kind: "actor", x: 300, y: 500, width: 240, height: 120 },
-      ],
-      edges: [],
-    });
-    const svg = svgOf(l);
-    const names = [...svg.querySelectorAll("text")].filter((t) => t.getAttribute("font-weight") === "bold").map((t) => t.textContent);
-    expect(names).toEqual(["Back", "Front"]);
+    const svg = svgOf(layout());
+    // Whatever the placement decided, the DOM order of the drawings must be
+    // their screen order, top first: SVG paints in document order.
+    const tops = [...svg.querySelectorAll("image")].map((i) => Number(i.getAttribute("y")));
+    expect(tops).toEqual([...tops].sort((a, b) => a - b));
   });
 
   it("draws the flow in its technology's colour, head at the arrival", () => {
@@ -138,8 +133,8 @@ describe("buildIsoBoardSvg", () => {
     const l = layout({
       nodes: [
         { id: "Zone", label: "Zone", kind: "boundary", x: 200, y: 60, width: 700, height: 260 },
-        { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 240, height: 120 },
-        { id: "B", label: "B", kind: "actor", x: 400, y: 120, width: 240, height: 120 },
+        { id: "A", label: "A", kind: "actor", parent: "Zone", x: 0, y: 0, width: 240, height: 120 },
+        { id: "B", label: "B", kind: "actor", parent: "Zone", x: 400, y: 120, width: 240, height: 120 },
       ],
       edges: [],
     });

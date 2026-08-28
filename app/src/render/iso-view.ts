@@ -28,16 +28,10 @@ import { buildTitleBlock, descriptionAccessible, titleBlockText, TITLE_BLOCK_HEI
 const SVG_NS = "http://www.w3.org/2000/svg";
 const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif';
 
-// The projected tile, as fossflow's own constants have it (100 × {1.415, 0.819}).
-const HALF_TILE_W = 70.75;
-const HALF_TILE_H = 40.95;
-
-export function tileToScreen(tile: { x: number; y: number }): { x: number; y: number } {
-  return {
-    x: HALF_TILE_W * (tile.x - tile.y),
-    y: -HALF_TILE_H * (tile.x + tile.y),
-  };
-}
+// The projection lives in iso-projection.ts, shared with the placement:
+// re-exported here because the painter is its natural address for callers.
+import { tileToScreen } from "./iso-projection";
+export { tileToScreen };
 
 const FRAME_MARGIN = 24;
 // The icon's box. Bottom-anchored on its tile: an isometric drawing STANDS on
@@ -64,6 +58,17 @@ function textAt(x: number, y: number, content: string, size: number, colour: str
   t.setAttribute("fill", colour);
   if (bold) t.setAttribute("font-weight", "bold");
   t.textContent = content;
+  return t;
+}
+
+// A name with the paper showing through behind it: the flows run everywhere
+// on a dense board, and a name a line runs under stops being readable
+// precisely where the reader needs it. The halo is the stroke painted first.
+function haloed(t: SVGTextElement): SVGTextElement {
+  t.setAttribute("paint-order", "stroke");
+  t.setAttribute("stroke", PAPER);
+  t.setAttribute("stroke-width", "4");
+  t.setAttribute("stroke-linejoin", "round");
   return t;
 }
 
@@ -95,40 +100,44 @@ interface ChipRect {
 
 const rectsOverlap = (a: ChipRect, b: ChipRect) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
 
-// Where a label chip lands: on the route's LONGEST screen segment -- the one
-// with room -- and slid along it until it covers neither a drawing, nor a
+// Where a label chip lands: on one of its route's two longest screen
+// segments -- the ones with room -- slid along it and, failing that, stepped
+// off it one chip-height at a time, until it covers neither a drawing, nor a
 // name, nor another chip. The flat boards get this from ELK's label
-// placement; here the painter owes it to itself. When every position
-// collides, the middle stays: a label somewhere beats a label nowhere.
+// placement; here the painter owes it to itself. When EVERY candidate
+// collides -- the heart of a dense board -- the one covering the least is
+// taken: a label somewhere beats a label nowhere, and least-covered beats
+// the middle of the pile.
 function chipPlace(path: Point[], width: number, height: number, obstacles: ChipRect[]): { x: number; y: number } {
-  let longest = 1;
-  let longestLength = 0;
+  const segments = [];
   for (let i = 1; i < path.length; i++) {
-    const length = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
-    if (length > longestLength) {
-      longestLength = length;
-      longest = i;
+    segments.push({ a: path[i - 1], b: path[i], length: Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y) });
+  }
+  segments.sort((s, t) => t.length - s.length);
+
+  const overlapArea = (centre: { x: number; y: number }) => {
+    const rect = { x0: centre.x - width / 2, y0: centre.y - height / 2, x1: centre.x + width / 2, y1: centre.y + height / 2 };
+    let area = 0;
+    for (const o of obstacles) {
+      if (!rectsOverlap(o, rect)) continue;
+      area += (Math.min(o.x1, rect.x1) - Math.max(o.x0, rect.x0)) * (Math.min(o.y1, rect.y1) - Math.max(o.y0, rect.y0));
+    }
+    return area;
+  };
+
+  const step = height + 4;
+  let best: { centre: { x: number; y: number }; area: number } | null = null;
+  for (const { a, b } of segments.slice(0, 2)) {
+    for (const t of [0.5, 0.36, 0.64, 0.24, 0.76, 0.12, 0.88]) {
+      for (const dy of [0, -step, step, -2 * step, 2 * step, -3 * step, 3 * step]) {
+        const centre = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t + dy };
+        const area = overlapArea(centre);
+        if (area === 0) return centre;
+        if (!best || area < best.area) best = { centre, area };
+      }
     }
   }
-  const a = path[longest - 1];
-  const b = path[longest];
-  const at = (t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
-  const free = (centre: { x: number; y: number }) => {
-    const rect = { x0: centre.x - width / 2, y0: centre.y - height / 2, x1: centre.x + width / 2, y1: centre.y + height / 2 };
-    return !obstacles.some((o) => rectsOverlap(o, rect));
-  };
-  for (const t of [0.5, 0.36, 0.64, 0.24, 0.76, 0.12, 0.88]) {
-    const centre = at(t);
-    if (free(centre)) return centre;
-  }
-  // The whole segment is taken -- a dense fan of parallel flows. Step off the
-  // line instead, one chip-height at a time: beside its line still reads,
-  // under another label does not.
-  for (const dy of [-(height + 4), height + 4, -2 * (height + 4), 2 * (height + 4)]) {
-    const centre = { ...at(0.5), y: at(0.5).y + dy };
-    if (free(centre)) return centre;
-  }
-  return at(0.5);
+  return best!.centre;
 }
 
 function arrowHead(tip: Point, from: Point, colour: string): SVGPolygonElement {
@@ -173,17 +182,11 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     x1: Math.max(...points.map((p) => p.x)) + FRAME_MARGIN,
     y1: Math.max(...points.map((p) => p.y)) + FRAME_MARGIN,
   };
-  if (context) bounds.y0 -= FRAME_MARGIN + TITLE_BLOCK_HEIGHT;
-
-  const width = bounds.x1 - bounds.x0;
-  const height = bounds.y1 - bounds.y0;
-
+  // The frame is SET at the end: the label chips place themselves late, and a
+  // chip the frame was not told about came out cut at the edge.
   const svg = el("svg");
   svg.setAttribute("xmlns", SVG_NS);
   svg.setAttribute("font-family", FONT);
-  svg.setAttribute("viewBox", `${bounds.x0} ${bounds.y0} ${width} ${height}`);
-  svg.setAttribute("width", String(width));
-  svg.setAttribute("height", String(height));
 
   // Same accessibility pattern as buildGraphSvg: <title> and <desc> as direct
   // children, named by aria-labelledby.
@@ -200,11 +203,8 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     svg.appendChild(desc);
   }
 
+  // Sized at the end, with the frame.
   const background = el("rect");
-  background.setAttribute("x", String(bounds.x0));
-  background.setAttribute("y", String(bounds.y0));
-  background.setAttribute("width", String(width));
-  background.setAttribute("height", String(height));
   background.setAttribute("fill", PAPER);
   svg.appendChild(background);
 
@@ -346,18 +346,39 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
       image.setAttribute("preserveAspectRatio", "xMidYMax meet");
       svg.appendChild(image);
     }
-    svg.appendChild(textAt(p.x, p.y + ICON_FOOT + 20, item.name, 14, INK, true));
-    if (item.subtitle) svg.appendChild(textAt(p.x, p.y + ICON_FOOT + 36, `[${item.subtitle}]`, 11, "#5b6472"));
+    svg.appendChild(haloed(textAt(p.x, p.y + ICON_FOOT + 20, item.name, 14, INK, true)));
+    if (item.subtitle) svg.appendChild(haloed(textAt(p.x, p.y + ICON_FOOT + 36, `[${item.subtitle}]`, 11, "#5b6472")));
   }
 
   for (const chip of chips) svg.appendChild(chip);
 
   for (const box of view.textBoxes) {
     const p = tileToScreen(box.tile);
-    const label = textAt(p.x, p.y, box.content, box.fontSize ?? 13, "#5b6472");
+    const label = haloed(textAt(p.x, p.y, box.content, box.fontSize ?? 13, "#5b6472"));
     label.setAttribute("text-anchor", "start");
     svg.appendChild(label);
   }
+
+  // The chips have chosen their places: the frame can close around
+  // everything, and only now. chipObstacles holds the drawings' boxes too --
+  // already inside -- so taking the whole list changes nothing for them.
+  for (const rect of chipObstacles) {
+    bounds.x0 = Math.min(bounds.x0, rect.x0 - 8);
+    bounds.y0 = Math.min(bounds.y0, rect.y0 - 8);
+    bounds.x1 = Math.max(bounds.x1, rect.x1 + 8);
+    bounds.y1 = Math.max(bounds.y1, rect.y1 + 8);
+  }
+  // The title block's reserved band, above everything now known.
+  if (context) bounds.y0 -= FRAME_MARGIN + TITLE_BLOCK_HEIGHT;
+  const width = bounds.x1 - bounds.x0;
+  const height = bounds.y1 - bounds.y0;
+  svg.setAttribute("viewBox", `${bounds.x0} ${bounds.y0} ${width} ${height}`);
+  svg.setAttribute("width", String(width));
+  svg.setAttribute("height", String(height));
+  background.setAttribute("x", String(bounds.x0));
+  background.setAttribute("y", String(bounds.y0));
+  background.setAttribute("width", String(width));
+  background.setAttribute("height", String(height));
 
   if (context) svg.appendChild(buildTitleBlock(context, bounds.x0 + FRAME_MARGIN, bounds.y0 + FRAME_MARGIN));
 

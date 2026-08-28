@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { LayoutResult } from "../layout/graph-layout";
-import { modelToFossflow, fossflowJson, continuousTile, type FossflowModel } from "./fossflow-json";
+import { modelToFossflow, fossflowJson, type FossflowModel } from "./fossflow-json";
+import { screenDistance } from "../render/iso-projection";
 
 function layout(o: Partial<LayoutResult> = {}): LayoutResult {
   return {
@@ -21,10 +22,11 @@ const colour = () => "#336699";
 
 const model = (l: LayoutResult, title = "v"): FossflowModel => modelToFossflow([{ title, layout: l }], colour, "classeur.xlsx");
 
-// The screen position a tile will get, reduced to what the tests compare:
-// left-to-right reads on tx − ty, top-to-bottom on −(tx + ty).
-const screenX = (t: { x: number; y: number }) => t.x - t.y;
-const screenY = (t: { x: number; y: number }) => -(t.x + t.y);
+const actorAt = (id: string, x: number, extra: object = {}) =>
+  ({ id, label: id, kind: "actor", x, y: 0, width: 240, height: 120, ...extra }) as LayoutResult["nodes"][number];
+
+const flow = (from: string, to: string): LayoutResult["edges"][number] =>
+  ({ from, to, technology: "HTTP", count: 1, label: "F", attenuated: false, points: [] });
 
 describe("modelToFossflow", () => {
   it("produces a document with every top-level field the schema requires", () => {
@@ -68,19 +70,34 @@ describe("modelToFossflow", () => {
     }
   });
 
-  it("keeps both reading axes: right stays right, down stays down", () => {
+  it("puts the most connected actor in the middle of the board", () => {
+    // A star: the hub talks to everyone, the satellites only to the hub.
     const l = layout({
-      nodes: [
-        { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 240, height: 120 },
-        { id: "B", label: "B", kind: "actor", x: 600, y: 0, width: 240, height: 120 },
-        { id: "C", label: "C", kind: "actor", x: 0, y: 500, width: 240, height: 120 },
-      ],
-      edges: [],
+      nodes: [actorAt("Hub", 0), actorAt("S1", 400), actorAt("S2", 800), actorAt("S3", 1200), actorAt("S4", 1600)],
+      edges: [flow("Hub", "S1"), flow("Hub", "S2"), flow("S3", "Hub"), flow("S4", "Hub")],
     });
     const view = model(l).views[0];
     const tile = (id: string) => view.items.find((i) => i.id === id)!.tile;
-    expect(screenX(tile("b"))).toBeGreaterThan(screenX(tile("a")));
-    expect(screenY(tile("c"))).toBeGreaterThan(screenY(tile("a")));
+    const centroid = {
+      x: view.items.reduce((s, i) => s + i.tile.x, 0) / view.items.length,
+      y: view.items.reduce((s, i) => s + i.tile.y, 0) / view.items.length,
+    };
+    for (const satellite of ["s1", "s2", "s3", "s4"]) {
+      expect(screenDistance(tile("hub"), centroid)).toBeLessThan(screenDistance(tile(satellite), centroid));
+    }
+  });
+
+  it("pulls what exchanges a lot to the closest seat the spacing allows", () => {
+    // A and B trade three flows: nothing may sit between them -- they end up
+    // exactly one drawing-spacing apart, however far ELK had drawn them.
+    const l = layout({
+      nodes: [actorAt("A", 0), actorAt("B", 1600), actorAt("C", 800), actorAt("D", 1200)],
+      edges: [flow("A", "B"), flow("B", "A"), flow("A", "B"), flow("A", "C")],
+    });
+    const view = model(l).views[0];
+    const tile = (id: string) => view.items.find((i) => i.id === id)!.tile;
+    const chebyshev = Math.max(Math.abs(tile("a").x - tile("b").x), Math.abs(tile("a").y - tile("b").y));
+    expect(chebyshev).toBe(3);
   });
 
   it("chooses the drawing by type, cloud for the untyped external, router for the plumbing", () => {
@@ -107,8 +124,8 @@ describe("modelToFossflow", () => {
     const l = layout({
       nodes: [
         { id: "Zone", label: "Zone", kind: "boundary", x: 200, y: 60, width: 700, height: 260 },
-        { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 240, height: 120 },
-        { id: "B", label: "B", kind: "actor", x: 400, y: 120, width: 240, height: 120 },
+        actorAt("A", 0, { parent: "Zone" }),
+        actorAt("B", 400, { parent: "Zone" }),
       ],
       edges: [],
     });
@@ -156,11 +173,24 @@ describe("modelToFossflow", () => {
   });
 });
 
-describe("continuousTile", () => {
-  it("is linear: the projection carries ELK's plane without folding it", () => {
-    const a = continuousTile(100, 50);
-    const b = continuousTile(200, 100);
-    expect(b.x).toBeCloseTo(2 * a.x);
-    expect(b.y).toBeCloseTo(2 * a.y);
+describe("placeTiles, through the model", () => {
+  it("never seats a stranger inside somebody else's boundary", () => {
+    // A platform of two, and a well-connected outsider drawn towards them:
+    // the pull must stop at the boundary's wall.
+    const l = layout({
+      nodes: [
+        { id: "Zone", label: "Zone", kind: "boundary", x: 0, y: 0, width: 700, height: 260 },
+        actorAt("In1", 0, { parent: "Zone" }),
+        actorAt("In2", 400, { parent: "Zone" }),
+        actorAt("Out", 800, { external: true }),
+      ],
+      edges: [flow("In1", "Out"), flow("Out", "In2"), flow("In1", "In2")],
+    });
+    const view = model(l).views[0];
+    const zone = view.rectangles[0];
+    const out = view.items.find((i) => i.id === "out")!.tile;
+    const inside =
+      out.x >= zone.from.x && out.x <= zone.to.x && out.y >= zone.from.y && out.y <= zone.to.y;
+    expect(inside).toBe(false);
   });
 });
