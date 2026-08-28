@@ -480,3 +480,31 @@ describe("mountApp — the workbook picker", () => {
     });
   });
 });
+
+describe("the rail drawer — a phone's rail opens, serves, and closes", () => {
+  it("toggles on its button, and closes when a view is picked or the veil is touched", () => {
+    const root = document.createElement("div");
+    mountApp(root);
+
+    const toggle = root.querySelector<HTMLButtonElement>(".rail-toggle")!;
+    const layout = root.querySelector(".layout")!;
+    expect(toggle).not.toBeNull();
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    toggle.click();
+    expect(layout.classList.contains("rail-open")).toBe(true);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+
+    // Picking a view is leaving the menu: the drawer closes by itself.
+    const view = root.querySelector<HTMLButtonElement>(".rail-view-item");
+    if (view) view.click();
+    else (layout as HTMLElement).click();
+    expect(layout.classList.contains("rail-open")).toBe(false);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    // Touching the board behind the open drawer closes it too.
+    toggle.click();
+    (layout as HTMLElement).click();
+    expect(layout.classList.contains("rail-open")).toBe(false);
+  });
+});

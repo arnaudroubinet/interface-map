@@ -95,10 +95,15 @@ export function renderBanner(
   }
   root.appendChild(legacyState);
 
+  // One container for the buttons. On a desktop it does not exist for the
+  // layout (display: contents); on a phone it becomes the one row that
+  // scrolls sideways, instead of nine buttons wrapping over half the screen.
+  const exportsRow = el("div", { class: "banner-exports" });
   for (const format of EXPORTS) {
     const button = el("button", { class: "export-button" }, [format.label]);
     button.disabled = !format.active(state, exportAvailable);
     button.addEventListener("click", callbacks[format.callback]);
-    root.appendChild(button);
+    exportsRow.appendChild(button);
   }
+  root.appendChild(exportsRow);
 }

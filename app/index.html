@@ -400,6 +400,50 @@
     .export-button, .rail-view-item { transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease; }
   }
 
+  /* --- Téléphone --------------------------------------------------------
+     Trois décisions, pas un thème : le rail devient un tiroir (un volet de
+     220 px laisserait 170 px au schéma), les neuf exports deviennent UNE
+     rangée qui défile, et la planche devient une fenêtre — pleine largeur,
+     hauteur plafonnée — qu'on explore au doigt : glisser déplace, pincer
+     zoome (zoom.ts). La règle « le schéma s'affiche à SA taille » reste
+     vraie au bureau ; sur un écran de 390 px elle ne montrait qu'un coin de
+     boîte et condamnait le reste à un défilement aveugle. */
+  .rail-toggle { display: none; }
+  .banner-exports { display: contents; }
+  @media (max-width: 720px) {
+    .banner { flex-wrap: wrap; gap: 8px 12px; padding: 8px 10px; }
+    /* Le nom du classeur tient sur SA ligne, tronqué par le milieu de rien :
+       une ellipse vaut mieux que six lignes de méta au-dessus du schéma. */
+    .banner-state { flex-basis: 100%; order: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .banner-exports {
+      display: flex; gap: 8px; order: 4; flex-basis: 100%;
+      overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
+    }
+    .banner-exports .export-button { flex-shrink: 0; }
+
+    .rail { display: none; }
+    .layout.rail-open .rail {
+      display: flex; position: fixed; top: 0; left: 0; bottom: 0;
+      width: min(320px, 86vw); z-index: 40;
+      box-shadow: 4px 0 24px rgb(0 0 0 / 0.25);
+    }
+    /* Le fond derrière le tiroir : un voile cliquable, dessiné par le layout
+       lui-même — le clic y retombe, et app.ts referme. */
+    .layout.rail-open::before {
+      content: ""; position: fixed; inset: 0; z-index: 30;
+      background: rgb(0 0 0 / 0.35);
+    }
+    .rail-toggle {
+      display: inline-flex; position: fixed; right: 14px; bottom: 14px; z-index: 50;
+      border: 1px solid var(--line); border-radius: 999px; padding: 10px 16px;
+      background: var(--surface); color: var(--ink); font: inherit; font-size: 14px;
+      box-shadow: 0 2px 12px rgb(0 0 0 / 0.2); cursor: pointer;
+    }
+
+    .render-area { padding: 10px; }
+    .render-area > svg { width: 100%; height: auto; max-height: 72vh; }
+  }
+
   /* --- Impression -------------------------------------------------------
      Aucune règle n'existait : la page sortait avec son rail, son banner et
      un schéma coupé. */

@@ -142,6 +142,25 @@ export function mountApp(root: HTMLElement): void {
   root.appendChild(banner);
   root.appendChild(layout);
 
+  // On a phone the rail is a drawer: a floating button opens it, picking a
+  // view closes it, and so does touching the board behind it. On a desktop
+  // none of this exists -- the button is display:none and the class inert.
+  const railToggle = el("button", { class: "rail-toggle", type: "button", "aria-expanded": "false" }, ["☰ Views"]);
+  const setDrawer = (open: boolean) => {
+    layout.classList.toggle("rail-open", open);
+    railToggle.setAttribute("aria-expanded", String(open));
+  };
+  railToggle.addEventListener("click", () => setDrawer(!layout.classList.contains("rail-open")));
+  root.appendChild(railToggle);
+  rail.addEventListener("click", (e) => {
+    if ((e.target as HTMLElement).closest(".rail-view-item")) setDrawer(false);
+  });
+  layout.addEventListener("click", (e) => {
+    if (!layout.classList.contains("rail-open")) return;
+    if ((e.target as HTMLElement).closest(".rail")) return;
+    setDrawer(false);
+  });
+
   wireDropZone(root, handleFile);
 
   // The report depends on the displayed milestone for its "state of the
