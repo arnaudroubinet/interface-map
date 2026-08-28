@@ -7,6 +7,7 @@ import {
   type FossflowConnector,
 } from "../export/fossflow-json";
 import { PAPER, INK } from "./node-styles";
+import { routeConnectors } from "./iso-routing";
 import { buildTitleBlock, descriptionAccessible, titleBlockText, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./title-block";
 
 // The isometric painter: a FossFLOW view drawn as plain SVG, no engine.
@@ -85,18 +86,49 @@ function trimmed(points: Point[], gapStart: number, gapEnd: number): Point[] {
   return result;
 }
 
-// The connector's route in TILE space: straight when aligned, otherwise one
-// elbow -- through whichever intermediate corner is not somebody's tile. No
-// A*: fossflow routes with one because its user drags items live; an exported
-// board is already laid out by ELK, whose crossings these two candidates
-// inherit well enough for a view meant to show.
-function connectorTiles(a: Point, b: Point, occupied: Set<string>): Point[] {
-  if (a.x === b.x || a.y === b.y) return [a, b];
-  const corner1 = { x: b.x, y: a.y };
-  const corner2 = { x: a.x, y: b.y };
-  const free = (p: Point) => !occupied.has(`${p.x},${p.y}`);
-  const corner = free(corner1) ? corner1 : free(corner2) ? corner2 : corner1;
-  return [a, corner, b];
+interface ChipRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+const rectsOverlap = (a: ChipRect, b: ChipRect) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+
+// Where a label chip lands: on the route's LONGEST screen segment -- the one
+// with room -- and slid along it until it covers neither a drawing, nor a
+// name, nor another chip. The flat boards get this from ELK's label
+// placement; here the painter owes it to itself. When every position
+// collides, the middle stays: a label somewhere beats a label nowhere.
+function chipPlace(path: Point[], width: number, height: number, obstacles: ChipRect[]): { x: number; y: number } {
+  let longest = 1;
+  let longestLength = 0;
+  for (let i = 1; i < path.length; i++) {
+    const length = Math.hypot(path[i].x - path[i - 1].x, path[i].y - path[i - 1].y);
+    if (length > longestLength) {
+      longestLength = length;
+      longest = i;
+    }
+  }
+  const a = path[longest - 1];
+  const b = path[longest];
+  const at = (t: number) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+  const free = (centre: { x: number; y: number }) => {
+    const rect = { x0: centre.x - width / 2, y0: centre.y - height / 2, x1: centre.x + width / 2, y1: centre.y + height / 2 };
+    return !obstacles.some((o) => rectsOverlap(o, rect));
+  };
+  for (const t of [0.5, 0.36, 0.64, 0.24, 0.76, 0.12, 0.88]) {
+    const centre = at(t);
+    if (free(centre)) return centre;
+  }
+  // The whole segment is taken -- a dense fan of parallel flows. Step off the
+  // line instead, one chip-height at a time: beside its line still reads,
+  // under another label does not.
+  for (const dy of [-(height + 4), height + 4, -2 * (height + 4), 2 * (height + 4)]) {
+    const centre = { ...at(0.5), y: at(0.5).y + dy };
+    if (free(centre)) return centre;
+  }
+  return at(0.5);
 }
 
 function arrowHead(tip: Point, from: Point, colour: string): SVGPolygonElement {
@@ -113,8 +145,10 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
   const itemById = new Map(model.items.map((i) => [i.id, i]));
   const iconById = new Map(model.icons.map((i) => [i.id, i]));
   const colourById = new Map(model.colors.map((c) => [c.id, c.value]));
-  const tileById = new Map(view.items.map((i) => [i.id, i.tile]));
-  const occupied = new Set(view.items.map((i) => `${i.tile.x},${i.tile.y}`));
+
+  // Routed before anything is measured: the routes take part in the framing,
+  // and the corridors' lanes are part of where every line will be.
+  const routes = routeConnectors(view);
 
   // -- Bounds, in screen space, before drawing anything ----------------------
   const points: Point[] = [];
@@ -123,6 +157,7 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     points.push({ x: p.x - ICON_SIZE / 2 - 20, y: p.y - ICON_SIZE });
     points.push({ x: p.x + ICON_SIZE / 2 + 20, y: p.y + 66 });
   }
+  for (const route of routes.values()) for (const tile of route) points.push(tileToScreen(tile));
   for (const rectangle of view.rectangles) {
     points.push(tileToScreen({ x: rectangle.from.x - 0.5, y: rectangle.from.y - 0.5 }));
     points.push(tileToScreen({ x: rectangle.to.x + 0.5, y: rectangle.to.y + 0.5 }));
@@ -177,15 +212,17 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
   // Lines of constant tile column and constant tile row, projected with the
   // same formula as everything else -- ONE projection, or the ground and the
   // drawings would drift apart.
-  const tiles = [...tileById.values()];
+  const tiles = [...view.items.map((i) => i.tile), ...[...routes.values()].flat()];
   if (tiles.length > 0) {
     const txs = tiles.map((t) => t.x);
     const tys = tiles.map((t) => t.y);
+    // Floored: a route's lane sits at a fractional tile, and a grid drawn
+    // from a fractional origin would no longer be THE grid everything sits on.
     const range = {
-      x0: Math.min(...txs) - 2,
-      x1: Math.max(...txs) + 2,
-      y0: Math.min(...tys) - 2,
-      y1: Math.max(...tys) + 2,
+      x0: Math.floor(Math.min(...txs)) - 2,
+      x1: Math.ceil(Math.max(...txs)) + 2,
+      y0: Math.floor(Math.min(...tys)) - 2,
+      y1: Math.ceil(Math.max(...tys)) + 2,
     };
     const grid = el("g");
     grid.setAttribute("stroke", "#e2e7ef");
@@ -227,25 +264,23 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
   }
 
   // -- Connectors, under the drawings they join ------------------------------
-  // Parallel flows between the same two tiles are offset side by side, the way
-  // the flat boards fan their edges out -- stacked exactly on top of each
-  // other, only the last one would exist.
-  const seenPairs = new Map<string, number>();
+  // The routes come from iso-routing: found on the grid around the occupied
+  // tiles, one lane per route inside a shared corridor -- two flows never run
+  // exactly on top of each other, whoever their endpoints are.
+  //
+  // The labels dodge for themselves: every drawing and every name is an
+  // obstacle, and each chip placed becomes one for the next.
+  const chipObstacles: ChipRect[] = view.items.map((placed) => {
+    const p = tileToScreen(placed.tile);
+    return { x0: p.x - ICON_SIZE / 2, y0: p.y - ICON_SIZE + ICON_FOOT, x1: p.x + ICON_SIZE / 2, y1: p.y + ICON_FOOT + 42 };
+  });
   const chips: SVGGElement[] = [];
   for (const connector of view.connectors) {
-    const ends = connector.anchors
-      .map((a) => (a.ref.item ? tileById.get(a.ref.item) : a.ref.tile))
-      .filter((t): t is Point => t !== undefined);
-    if (ends.length < 2) continue;
+    const route = routes.get(connector.id);
+    if (!route) continue;
     const colour = (connector.color && colourById.get(connector.color)) || INK;
 
-    const pairKey = [`${ends[0].x},${ends[0].y}`, `${ends[1].x},${ends[1].y}`].sort().join("|");
-    const rank = seenPairs.get(pairKey) ?? 0;
-    seenPairs.set(pairKey, rank + 1);
-    const shift = rank * 9;
-
-    const route = connectorTiles(ends[0], ends[ends.length - 1], occupied);
-    let path = route.map(tileToScreen).map((p) => ({ x: p.x + shift, y: p.y + shift * 0.6 }));
+    let path = route.map(tileToScreen);
     path = trimmed(
       path,
       connector.startArrow ? END_GAP + 4 : END_GAP,
@@ -272,19 +307,20 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     );
 
     if (connector.description) {
-      const middle = path[Math.floor(path.length / 2)];
-      const chip = el("g");
       const w = chipWidth(connector.description);
+      const centre = chipPlace(path, w, CHIP_HEIGHT + 2, chipObstacles);
+      chipObstacles.push({ x0: centre.x - w / 2, y0: centre.y - CHIP_HEIGHT / 2 - 1, x1: centre.x + w / 2, y1: centre.y + CHIP_HEIGHT / 2 + 1 });
+      const chip = el("g");
       const box = el("rect");
-      box.setAttribute("x", String(middle.x - w / 2));
-      box.setAttribute("y", String(middle.y - CHIP_HEIGHT / 2 - 1));
+      box.setAttribute("x", String(centre.x - w / 2));
+      box.setAttribute("y", String(centre.y - CHIP_HEIGHT / 2 - 1));
       box.setAttribute("width", String(w));
       box.setAttribute("height", String(CHIP_HEIGHT + 2));
       box.setAttribute("rx", "8");
       box.setAttribute("fill", PAPER);
       box.setAttribute("stroke", colour);
       chip.appendChild(box);
-      chip.appendChild(textAt(middle.x, middle.y + 4, connector.description, 11, INK));
+      chip.appendChild(textAt(centre.x, centre.y + 4, connector.description, 11, INK));
       // Kept for after the drawings: a chip is a LABEL, and a label hidden
       // behind an icon explains nothing.
       chips.push(chip);

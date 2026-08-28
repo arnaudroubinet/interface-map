@@ -114,6 +114,21 @@ describe("buildIsoBoardSvg", () => {
     expect(new Set(lines).size).toBe(2);
   });
 
+  it("keeps the labels of parallel flows off each other", () => {
+    const l = layout();
+    l.edges.push({ from: "A", to: "B", technology: "SQL", count: 1, label: "G", attenuated: false, points: [] });
+    const svg = svgOf(l);
+    const boxes = [...svg.querySelectorAll("g > rect[rx]")].map((r) => ({
+      x0: Number(r.getAttribute("x")),
+      y0: Number(r.getAttribute("y")),
+      x1: Number(r.getAttribute("x")) + Number(r.getAttribute("width")),
+      y1: Number(r.getAttribute("y")) + Number(r.getAttribute("height")),
+    }));
+    expect(boxes).toHaveLength(2);
+    const [a, b] = boxes;
+    expect(a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1).toBe(false);
+  });
+
   it("draws the ground grid with the same projection as the drawings", () => {
     const svg = svgOf(layout());
     expect(svg.querySelectorAll("g[stroke] line").length).toBeGreaterThan(0);
