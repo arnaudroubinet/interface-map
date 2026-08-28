@@ -95,6 +95,7 @@ const callbacks: RailCallbacks = {
   onNeighbourhood: noop,
   onRoadmapSubject: noop,
   onWeightByCriticality: noop,
+  onIsometric: noop,
   onDisplayedMilestone: noop,
   onComparedMilestone: noop,
   onComparedFile: noop,
@@ -265,7 +266,7 @@ describe("renderRail — what a line's label names", () => {
   });
 
   it("shows the one that is chosen", () => {
-    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, pngScale: 2 as const, weightByCriticality: false } };
+    const s = { ...loaded(), options: { counters: true, edgeLabelMode: "exchanges" as const, pngScale: 2 as const, weightByCriticality: false, isometric: false } };
     const select = rendered(s).querySelector(".rail-option-label select") as HTMLSelectElement;
     expect(select.value).toBe("exchanges");
   });

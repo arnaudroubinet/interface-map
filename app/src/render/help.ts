@@ -114,6 +114,7 @@ const SECTIONS: Section[] = [
       ["PDF", "Every diagram, one per page, with the integrity report in appendix — printed by the browser."],
       ["Structurizr", "The whole park as a Structurizr DSL model — architecture only."],
       ["LikeC4", "The same park as a LikeC4 model — architecture only."],
+      ["FossFLOW", "Every diagram as a FossFLOW (Isoflow) document — the same boards on an isometric grid, to rework and present in that tool."],
     ],
   },
   {

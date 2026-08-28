@@ -13,7 +13,7 @@ export function buildExportFilename(
   view: string,
   selection: string | null,
   milestone: string | null,
-  ext: "svg" | "png" | "xlsx" | "md" | "drawio" | "dsl" | "c4",
+  ext: "svg" | "png" | "xlsx" | "md" | "drawio" | "dsl" | "c4" | "json",
   mode: Mode = "architecture"
 ): string {
   // The mode is named only in the functional reading: the names produced so far

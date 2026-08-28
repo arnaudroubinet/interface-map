@@ -1,7 +1,7 @@
 # Interface Map
 
 Lit un classeur Excel décrivant une cartographie d'interfaces et le dessine :
-schémas façon C4, matrice, rapport d'intégrité, sept exports.
+schémas façon C4, matrice, rapport d'intégrité, neuf exports.
 
 Le livrable est **un seul fichier HTML autonome**. Aucun réseau à l'exécution,
 aucune ressource externe : le classeur est ouvert localement et ne quitte jamais
@@ -197,8 +197,8 @@ l'outil n'a pas encore de valeur calculée tant qu'Excel ne l'a pas ouverte.
 
 **Un export.** Écrivez le générateur dans `export/`, exposez-le dans
 `ui/banner.ts` (un `onExport…` de plus) et branchez-le dans `ui/app.ts`. Les
-exports d'image et draw.io suivent le mode de lecture ; les deux DSL C4 non,
-ils décrivent une architecture.
+exports d'image, draw.io et FossFLOW suivent le mode de lecture ; les deux
+DSL C4 non, ils décrivent une architecture.
 
 **Un contrôle d'intégrité.** Ajoutez-le à l'une des cinq familles de
 `integrity/checks.ts` (`checkStructure`, `checkReferences`, `checkVocabulaires`,

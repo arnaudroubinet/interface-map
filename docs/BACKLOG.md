@@ -50,6 +50,16 @@ On garde trace des refus : sans ça, la même idée revient tous les deux mois.
   boîtes portent du texte, ce que les leurs ne font pas, et `elk.direction`
   est un axe de lecture qu'une rotation détruit. Voir
   `.superpowers/notes/rapport-isoflow-3d.md`.
+
+  **Revu le 28 août 2026, et partiellement repris — comme rendu, jamais comme
+  lecture.** Le démontage de fossflow (fork MIT d'isoflow) a montré que son
+  moteur tient en trois formules et des icônes déjà dessinées ; le peintre est
+  donc à nous (`render/iso-view.ts`, SVG pur, zéro React), ce qui fait tomber
+  l'objection du texte : nos boîtes le gardent, pointes d'initiative comprises.
+  L'objection de l'axe de lecture tient toujours : c'est une option de rendu
+  décochée par défaut, pas une vue, et la translation qui l'alimente est celle
+  de l'export FossFLOW (`export/fossflow-json.ts`), validée contre le schéma
+  zod de fossflow lui-même.
 - **Navigation clavier complète dans le SVG.** Écartée explicitement par
   l'utilisateur.
 - **Réglages ELK pour le rapport de forme.** Quatre leviers mesurés le 22 août

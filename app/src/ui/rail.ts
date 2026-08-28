@@ -71,6 +71,7 @@ export interface RailCallbacks {
   onNeighbourhood: (value: Neighbourhood) => void;
   onRoadmapSubject: (value: RoadmapSubject) => void;
   onWeightByCriticality: (value: boolean) => void;
+  onIsometric: (value: boolean) => void;
   onDisplayedMilestone: (milestone: string) => void;
   onComparedMilestone: (milestone: string) => void;
   onComparedFile: (file: File | null) => void;
@@ -512,6 +513,18 @@ export function renderRail(
     critLabel.appendChild(critInput);
     critLabel.appendChild(document.createTextNode(" thickness by criticality"));
     options.appendChild(critLabel);
+
+    // The isometric rendering of the SAME board -- for showing, not reading:
+    // the projection rotates the left-to-right reading axis, which is why it
+    // is a rendering option and never a view of its own, and why it is off by
+    // default (see BACKLOG, « Vue isométrique façon isoflow »).
+    const isoLabel = el("label", { class: "rail-option-isometric" });
+    const isoInput = el("input", { type: "checkbox" });
+    isoInput.checked = state.options.isometric;
+    isoInput.addEventListener("change", () => callbacks.onIsometric(isoInput.checked));
+    isoLabel.appendChild(isoInput);
+    isoLabel.appendChild(document.createTextNode(" isometric rendering"));
+    options.appendChild(isoLabel);
 
     root.appendChild(options);
   }

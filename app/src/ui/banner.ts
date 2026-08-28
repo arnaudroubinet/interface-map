@@ -10,9 +10,10 @@ export interface BannerCallbacks {
   onExportPdf: () => void;
   onExportStructurizr: () => void;
   onExportLikeC4: () => void;
+  onExportFossflow: () => void;
 }
 
-// The exports table. Eight today, and a ninth should not force anyone to
+// The exports table. Nine today, and a tenth should not force anyone to
 // hunt, through eighty lines of buttons, for which of the four disabling rules
 // resembles it. They are here, side by side, in one column: the question
 // "which one applies to me" is answered by reading its neighbours.
@@ -57,6 +58,9 @@ export const EXPORTS: FormatExport[] = [
   { label: "PDF", callback: "onExportPdf", active: always },
   { label: "Structurizr", callback: "onExportStructurizr", active: always },
   { label: "LikeC4", callback: "onExportLikeC4", active: always },
+  // Every board as a FossFLOW document, one view per board, like draw.io: a
+  // drawing that follows the reading mode, reworkable in the isometric tool.
+  { label: "FossFLOW", callback: "onExportFossflow", active: always },
 ];
 
 export function renderBanner(

@@ -18,6 +18,7 @@ import {
 import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
 import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
+import { buildIsoBoardSvg } from "../render/iso-view";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { wireZoom } from "../render/zoom";
 import { scaleHint } from "./scale";
@@ -320,7 +321,7 @@ export function mountApp(root: HTMLElement): void {
     downloadTemplateXlsx(filename, { ...data, referential: state.file.referential });
   }
 
-  // The seven exports live in their own module: they depend only on the state,
+  // The nine exports live in their own module: they depend only on the state,
   // on a way to replace it, on the diagram on screen and on the displayed
   // matrix. They are built once, with lazy reads -- a handler wired on the first
   // render must read the state at click time, not the one at its construction.
@@ -616,9 +617,14 @@ export function mountApp(root: HTMLElement): void {
           .then((union) => {
             if (generation !== renderGeneration) return;
             const positioned = restrictLayout(union, viewForComputation);
-            const svg = buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), {
-              weightByCriticality: state.options.weightByCriticality,
-            });
+            // The isometric rendering draws the SAME positioned board: one
+            // layout, two painters, so ticking the option never reshuffles
+            // what the flat view had settled.
+            const svg = state.options.isometric
+              ? buildIsoBoardSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), VIEW_LABEL[state.view])
+              : buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), {
+                  weightByCriticality: state.options.weightByCriticality,
+                });
             renderArea.appendChild(svg);
             renderArea.appendChild(buildZoomControls(wireZoom(svg)));
             // The export buttons depend on the presence of the SVG, which did not yet
@@ -640,6 +646,7 @@ export function mountApp(root: HTMLElement): void {
       onView: (view) => setState(withView(withBannerMessage(state, null), view)),
       onActorSelection: (name) => setState(withActorSelection(withBannerMessage(state, null), name)),
       onWeightByCriticality: (value) => setState(withOptions(withBannerMessage(state, null), { weightByCriticality: value })),
+      onIsometric: (value) => setState(withOptions(withBannerMessage(state, null), { isometric: value })),
       onRoadmapSubject: (value) => setState(withRoadmapSubject(withBannerMessage(state, null), value)),
       onNeighbourhood: (value) => setState(withNeighbourhood(withBannerMessage(state, null), value)),
       onChainSelection: (chain) => setState(withChainSelection(withBannerMessage(state, null), chain)),

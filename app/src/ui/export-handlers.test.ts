@@ -4,7 +4,7 @@ import { initialState, withLoadedFile, withView, withMode, withActorSelection, t
 import type { IntegrityReport } from "../integrity/checks";
 import * as base from "../testing/fixtures";
 
-// The seven exports, exercised one by one. That is what their move out of
+// The nine exports, exercised one by one. That is what their move out of
 // mountApp's closure makes possible: before, the whole DOM had to be mounted to
 // touch a single one, and none had a test.
 //
@@ -144,6 +144,14 @@ describe("handlersExport", () => {
     await context(withView(loaded(), "checks")).handlers.onExportDrawio();
     expect(downloads[0].name).toMatch(/boards.*\.drawio$/);
     expect(downloads[0].content).toContain("<mxfile");
+  });
+
+  it("carries every board into the FossFLOW document, one view per board", async () => {
+    await context(withView(loaded(), "checks")).handlers.onExportFossflow();
+    expect(downloads[0].name).toMatch(/boards.*\.json$/);
+    const document_ = JSON.parse(downloads[0].content);
+    expect(document_.title).toBe("carto.xlsx");
+    expect(document_.views.length).toBeGreaterThan(1);
   });
 });
 

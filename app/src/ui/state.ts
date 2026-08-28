@@ -78,6 +78,10 @@ export interface AppOptions {
   // elsewhere the weight serves to say NOTHING, and the two uses do not mix.
   //
   weightByCriticality: boolean;
+  // The board drawn isometrically (render/iso-view.ts) instead of flat. A
+  // rendering for SHOWING: off by default, because the projection rotates the
+  // reading axis the flat boards are laid out on.
+  isometric: boolean;
 }
 
 // What the user unticked in the by-actor view. Reset as soon as the actor
@@ -151,7 +155,7 @@ export function initialState(): AppState {
     shownMilestone: null,
     comparedMilestone: null,
     comparedFile: null,
-    options: { counters: true, edgeLabelMode: "technology", pngScale: 2, weightByCriticality: false },
+    options: { counters: true, edgeLabelMode: "technology", pngScale: 2, weightByCriticality: false, isometric: false },
     actorFilters: { hiddenTechnologies: [], hiddenActors: [], neighbourhood: "direct" },
     technologyFilters: { hideExternals: false, hiddenActors: [] },
     matrixFilters: { hideExternals: false, hiddenActors: [], grain: "actor", order: "alphabetical" },

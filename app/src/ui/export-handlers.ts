@@ -16,8 +16,9 @@ import { exportPng, downloadPngBlob } from "../export/png-export";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadText } from "../export/download";
 import { buildPrintableDocument } from "../export/pdf-export";
+import { modelToFossflow, fossflowJson } from "../export/fossflow-json";
 
-// The eight exports, outside mountApp's closure.
+// The nine exports, outside mountApp's closure.
 //
 // They used to live in there among eighteen nested functions, and none could
 // be exercised without mounting the whole DOM. Yet they depend on only four
@@ -209,6 +210,21 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       downloadText(
         modelToLikeC4(state.file.model, shownRank(state), state.mode),
         buildExportFilename("model", null, state.shownMilestone, "c4")
+      );
+    },
+
+    // Every board as a FossFLOW/Isoflow document, one view per board, like
+    // draw.io -- the same boards, on the tile grid, reworkable in that tool.
+    // The very translation the in-app isometric rendering paints from: the
+    // file cannot tell another story than the screen.
+    async onExportFossflow() {
+      const state = ctx.legacyState();
+      if (!state.file) return;
+      const colours = coloursOfModel(state.file.model);
+      const placed = await allPlacedBoards(state, state.file);
+      downloadText(
+        fossflowJson(modelToFossflow(placed, (t) => colours.get(t) ?? "#000", state.file.name)),
+        buildExportFilename("boards", null, state.shownMilestone, "json", state.mode)
       );
     },
   };
