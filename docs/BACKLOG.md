@@ -60,6 +60,15 @@ On garde trace des refus : sans ça, la même idée revient tous les deux mois.
   décochée par défaut, pas une vue, et la translation qui l'alimente est celle
   de l'export FossFLOW (`export/fossflow-json.ts`), validée contre le schéma
   zod de fossflow lui-même.
+
+  **Lisibilité, 28 août 2026** — trois leviers tirés de la littérature
+  (Purchase sur les croisements, dessins confluents, cartes APM) : troncs par
+  (cible, technologie) à voie et pointe uniques, ordre des voies + passe
+  d'échanges anti-croisements, surbrillance au survol (CSS `:has` embarqué
+  dans le SVG). Gardés en réserve si une planche résiste un jour : recuit
+  simulé seedé pour les étiquettes (Christensen/Marks/Shieber), étiquetage en
+  marge à amorces (*boundary labeling*), MIP octilinéaire façon cartes de
+  métro (Nöllenburg & Wolff) — optimal mais minutes de calcul.
 - **Navigation clavier complète dans le SVG.** Écartée explicitement par
   l'utilisateur.
 - **Réglages ELK pour le rapport de forme.** Quatre leviers mesurés le 22 août

@@ -35,10 +35,11 @@ describe("routeConnectors", () => {
         [between("a", "b")]
       )
     );
-    expect(routes.get("c1")).toEqual([
+    expect(routes.get("c1")!.points).toEqual([
       { x: 0, y: 0 },
       { x: 4, y: 0 },
     ]);
+    expect(routes.get("c1")!.drawsHead).toBe(true);
   });
 
   it("goes around an occupied tile rather than through the drawing on it", () => {
@@ -52,26 +53,72 @@ describe("routeConnectors", () => {
         [between("a", "b")]
       )
     );
-    const route = routes.get("c1")!;
+    const route = routes.get("c1")!.points;
     // A detour has turns; and no point of it sits on the occupied tile.
     expect(route.length).toBeGreaterThan(2);
     expect(route.some((p) => p.x === 2 && p.y === 0)).toBe(false);
   });
 
-  it("deals a lane to each route sharing a corridor: none runs on top of another", () => {
+  it("deals a lane per trunk sharing a corridor: none runs on top of another", () => {
+    // Three DISTINCT trunks -- three colours -- between the same two seats.
     const routes = routeConnectors(
       view(
         [
           { id: "a", tile: { x: 0, y: 0 } },
           { id: "b", tile: { x: 6, y: 0 } },
         ],
-        [between("a", "b"), between("a", "b"), between("b", "a")]
+        [
+          { ...between("a", "b"), color: "red" },
+          { ...between("a", "b"), color: "blue" },
+          { ...between("b", "a"), color: "green" },
+        ]
       )
     );
-    const rows = [...routes.values()].map((route) => route[0].y);
+    const rows = [...routes.values()].map((route) => route.points[0].y);
     expect(new Set(rows).size).toBe(3);
     // The lanes stay INSIDE the corridor: under a half-tile from its centre.
     for (const y of rows) expect(Math.abs(y)).toBeLessThan(0.5);
+  });
+
+  it("welds one technology's flows into a trunk: one lane, one head", () => {
+    // Same colour, same target: the two flows share their lane -- identical
+    // polylines -- and only the first draws the head both would have drawn.
+    const routes = routeConnectors(
+      view(
+        [
+          { id: "a", tile: { x: 0, y: 0 } },
+          { id: "b", tile: { x: 6, y: 0 } },
+        ],
+        [
+          { ...between("a", "b"), color: "red" },
+          { ...between("a", "b"), color: "red" },
+        ]
+      )
+    );
+    expect(routes.get("c1")!.points).toEqual(routes.get("c2")!.points);
+    expect(routes.get("c1")!.drawsHead).toBe(true);
+    expect(routes.get("c2")!.drawsHead).toBe(false);
+  });
+
+  it("keeps a head on a trunk member arriving from another side", () => {
+    // Two flows of one colour into b, one from the west, one from the south:
+    // their last corridors differ, so a single head would leave the second
+    // line reading as unfinished.
+    const routes = routeConnectors(
+      view(
+        [
+          { id: "a", tile: { x: 0, y: 0 } },
+          { id: "c", tile: { x: 6, y: 6 } },
+          { id: "b", tile: { x: 6, y: 0 } },
+        ],
+        [
+          { ...between("a", "b"), color: "red" },
+          { ...between("c", "b"), color: "red" },
+        ]
+      )
+    );
+    expect(routes.get("c1")!.drawsHead).toBe(true);
+    expect(routes.get("c2")!.drawsHead).toBe(true);
   });
 
   it("gives the same routes for the same board, render after render", () => {

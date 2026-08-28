@@ -166,7 +166,7 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     points.push({ x: p.x - ICON_SIZE / 2 - 20, y: p.y - ICON_SIZE });
     points.push({ x: p.x + ICON_SIZE / 2 + 20, y: p.y + 66 });
   }
-  for (const route of routes.values()) for (const tile of route) points.push(tileToScreen(tile));
+  for (const route of routes.values()) for (const tile of route.points) points.push(tileToScreen(tile));
   for (const rectangle of view.rectangles) {
     points.push(tileToScreen({ x: rectangle.from.x - 0.5, y: rectangle.from.y - 0.5 }));
     points.push(tileToScreen({ x: rectangle.to.x + 0.5, y: rectangle.to.y + 0.5 }));
@@ -212,7 +212,7 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
   // Lines of constant tile column and constant tile row, projected with the
   // same formula as everything else -- ONE projection, or the ground and the
   // drawings would drift apart.
-  const tiles = [...view.items.map((i) => i.tile), ...[...routes.values()].flat()];
+  const tiles = [...view.items.map((i) => i.tile), ...[...routes.values()].flatMap((r) => r.points)];
   if (tiles.length > 0) {
     const txs = tiles.map((t) => t.x);
     const tys = tiles.map((t) => t.y);
@@ -275,17 +275,24 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     return { x0: p.x - ICON_SIZE / 2, y0: p.y - ICON_SIZE + ICON_FOOT, x1: p.x + ICON_SIZE / 2, y1: p.y + ICON_FOOT + 42 };
   });
   const chips: SVGGElement[] = [];
+  const flowIds: string[] = [];
   for (const connector of view.connectors) {
     const route = routes.get(connector.id);
     if (!route) continue;
+    flowIds.push(connector.id);
     const colour = (connector.color && colourById.get(connector.color)) || INK;
 
-    let path = route.map(tileToScreen);
+    let path = route.points.map(tileToScreen);
     path = trimmed(
       path,
       connector.startArrow ? END_GAP + 4 : END_GAP,
       connector.startArrow ? END_GAP : END_GAP + 4
     );
+
+    // One group per flow, named by its connector: the hover style points at
+    // it, and the chip carries the same name so hovering either lights both.
+    const flow = el("g");
+    flow.setAttribute("class", `iso-flow f-${connector.id}`);
 
     const line = el("polyline");
     line.setAttribute("points", path.map((p) => `${p.x},${p.y}`).join(" "));
@@ -295,22 +302,36 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     line.setAttribute("stroke-linejoin", "round");
     if (connector.style === "DASHED") line.setAttribute("stroke-dasharray", "8 5");
     if (connector.style === "DOTTED") line.setAttribute("stroke-dasharray", "2 4");
-    svg.appendChild(line);
+    flow.appendChild(line);
+
+    // A 3.5px stroke is no hover target: an invisible twin, wide enough for
+    // a fingertip, catches the pointer instead.
+    const grip = el("polyline");
+    grip.setAttribute("points", line.getAttribute("points")!);
+    grip.setAttribute("fill", "none");
+    grip.setAttribute("stroke", colour);
+    grip.setAttribute("stroke-opacity", "0");
+    grip.setAttribute("stroke-width", "16");
+    grip.setAttribute("pointer-events", "stroke");
+    flow.appendChild(grip);
 
     // The stroke follows the data; the head says who takes the initiative
     // (startArrow: the consumer calls). The one convention of the flat boards
-    // the projection does not touch.
-    svg.appendChild(
-      connector.startArrow
-        ? arrowHead(path[0], path[1], colour)
-        : arrowHead(path[path.length - 1], path[path.length - 2], colour)
-    );
+    // the projection does not touch. A trunk's head is dealt by the routing:
+    // members overlaying the leader's line draw no second head on top of its.
+    if (connector.startArrow) {
+      flow.appendChild(arrowHead(path[0], path[1], colour));
+    } else if (route.drawsHead) {
+      flow.appendChild(arrowHead(path[path.length - 1], path[path.length - 2], colour));
+    }
+    svg.appendChild(flow);
 
     if (connector.description) {
       const w = chipWidth(connector.description);
       const centre = chipPlace(path, w, CHIP_HEIGHT + 2, chipObstacles);
       chipObstacles.push({ x0: centre.x - w / 2, y0: centre.y - CHIP_HEIGHT / 2 - 1, x1: centre.x + w / 2, y1: centre.y + CHIP_HEIGHT / 2 + 1 });
       const chip = el("g");
+      chip.setAttribute("class", `iso-flow f-${connector.id}`);
       const box = el("rect");
       box.setAttribute("x", String(centre.x - w / 2));
       box.setAttribute("y", String(centre.y - CHIP_HEIGHT / 2 - 1));
@@ -325,6 +346,20 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
       // behind an icon explains nothing.
       chips.push(chip);
     }
+  }
+
+  // Hovering a flow -- its line or its chip -- dims every other flow: the
+  // one reading aid the literature rates above any static layout work, and
+  // it costs a stylesheet. Pure CSS via :has(), carried INSIDE the SVG so an
+  // exported file keeps the behaviour; a renderer without :has() simply
+  // shows the board unchanged, and a rasteriser never hovers.
+  if (flowIds.length > 0) {
+    const style = el("style");
+    style.textContent = [
+      ".iso-flow{transition:opacity .12s ease}",
+      ...flowIds.map((id) => `svg:has(.f-${id}:hover) .iso-flow:not(.f-${id}){opacity:.12}`),
+    ].join("\n");
+    svg.appendChild(style);
   }
 
   // -- The drawings, back to front -------------------------------------------

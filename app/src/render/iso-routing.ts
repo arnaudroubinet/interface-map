@@ -112,9 +112,29 @@ interface Segment {
   offset: number;
 }
 
+export interface ConnectorRoute {
+  points: TilePoint[];
+  // Whether THIS connector draws the head where it arrives. Flows of one
+  // technology into one target form a TRUNK -- they share their lanes, so
+  // where their paths coincide they draw as one line, and that line carries
+  // one head, not a stack of them. Same confluence the flat boards make in
+  // mergeByTechnologyToTarget, translated to the grid.
+  drawsHead: boolean;
+}
+
+// A connector's trunk: what it arrives at, in which colour, in which stroke.
+// A pulled flow (head at the START) never merges -- its head is precisely
+// where the trunk's is not, the same exception the flat boards make.
+function trunkOf(connector: FossflowView["connectors"][number]): string {
+  if (connector.startArrow) return `solo:${connector.id}`;
+  const arrival = connector.anchors[connector.anchors.length - 1]?.ref;
+  const at = arrival?.item ?? (arrival?.tile ? key(arrival.tile) : connector.id);
+  return `${at}|${connector.color ?? ""}|${connector.style ?? "SOLID"}`;
+}
+
 // Every connector's route, lanes assigned. The map's iteration order is the
 // view's connector order: same input, same lanes, same drawing.
-export function routeConnectors(view: FossflowView): Map<string, TilePoint[]> {
+export function routeConnectors(view: FossflowView): Map<string, ConnectorRoute> {
   const tileById = new Map(view.items.map((i) => [i.id, i.tile]));
   const occupied = new Set(view.items.map((i) => key(i.tile)));
 
@@ -126,15 +146,28 @@ export function routeConnectors(view: FossflowView): Map<string, TilePoint[]> {
     y1: Math.max(0, ...tiles.map((t) => t.y)) + 3,
   };
 
-  // First pass: find every route and cut it into segments.
-  const routed: { id: string; turns: TilePoint[]; segments: Segment[] }[] = [];
-  const corridors = new Map<string, Segment[]>();
+  // First pass: find every route and cut it into segments. A corridor's
+  // ledger is kept per TRUNK, not per connector: the members of a trunk will
+  // take one and the same lane, which is what welds them into one line
+  // wherever their paths coincide.
+  interface CorridorUse {
+    segments: Segment[];
+    // Where this trunk's routes come from and go, on the corridor's cross
+    // axis: the lane ordering key.
+    crossSum: number;
+    crossCount: number;
+  }
+  const routed: { id: string; trunk: string; turns: TilePoint[]; segments: Segment[] }[] = [];
+  const corridors = new Map<string, Map<string, CorridorUse>>();
   for (const connector of view.connectors) {
     const ends = connector.anchors
       .map((a) => (a.ref.item ? tileById.get(a.ref.item) : a.ref.tile))
       .filter((t): t is TilePoint => t !== undefined);
     if (ends.length < 2) continue;
-    const turns = vertices(gridPath(ends[0], ends[ends.length - 1], occupied, bounds));
+    const trunk = trunkOf(connector);
+    const from = ends[0];
+    const to = ends[ends.length - 1];
+    const turns = vertices(gridPath(from, to, occupied, bounds));
     const segments: Segment[] = [];
     for (let i = 0; i + 1 < turns.length; i++) {
       const segment: Segment =
@@ -143,25 +176,48 @@ export function routeConnectors(view: FossflowView): Map<string, TilePoint[]> {
           : { axis: "col", index: turns[i].x, offset: 0 };
       segments.push(segment);
       const corridorKey = `${segment.axis}${segment.index}`;
-      corridors.set(corridorKey, [...(corridors.get(corridorKey) ?? []), segment]);
+      const users = corridors.get(corridorKey) ?? new Map<string, CorridorUse>();
+      const use = users.get(trunk) ?? { segments: [], crossSum: 0, crossCount: 0 };
+      use.segments.push(segment);
+      const cross = segment.axis === "row" ? [from.y, to.y] : [from.x, to.x];
+      use.crossSum += cross[0] + cross[1];
+      use.crossCount += 2;
+      users.set(trunk, use);
+      corridors.set(corridorKey, users);
     }
-    routed.push({ id: connector.id, turns, segments });
+    routed.push({ id: connector.id, trunk, turns, segments });
   }
 
-  // Second pass: a corridor used once keeps its centre line; shared, it deals
-  // its lanes out symmetrically around it.
+  // Second pass: a corridor used by one trunk keeps its centre line; shared,
+  // it deals one lane per trunk. The lanes are ORDERED, not just distinct:
+  // a route gets the lane on the side its endpoints already are -- two
+  // routes that would otherwise swap sides inside the corridor, and cross
+  // twice for nothing, no longer do. (Crossing minimisation is what the
+  // empirical graph-drawing literature puts first; this is its cheapest
+  // local form, the track ordering of VLSI channel routing.)
   for (const users of corridors.values()) {
-    if (users.length < 2) continue;
-    users.forEach((segment, i) => {
-      segment.offset = (i / (users.length - 1) - 0.5) * CORRIDOR_SPREAD;
+    if (users.size < 2) continue;
+    const trunks = [...users.entries()].sort(
+      (a, b) => a[1].crossSum / a[1].crossCount - b[1].crossSum / b[1].crossCount || a[0].localeCompare(b[0])
+    );
+    trunks.forEach(([, use], i) => {
+      const offset = (i / (trunks.length - 1) - 0.5) * CORRIDOR_SPREAD;
+      for (const segment of use.segments) segment.offset = offset;
     });
   }
 
   // Third pass: rebuild each polyline from its offset segments. Consecutive
   // segments alternate row/col, so each junction is simply "the column's x,
   // the row's y", offsets included.
-  const routes = new Map<string, TilePoint[]>();
-  for (const { id, turns, segments } of routed) {
+  //
+  // The head is dealt per (trunk, arrival direction): members of a trunk
+  // arriving down the SAME final corridor overlay exactly -- lane shared --
+  // and only the first draws the head the overlay carries. A member arriving
+  // from another side keeps a head of its own: a bare line end would read as
+  // unfinished, not as merged.
+  const routes = new Map<string, ConnectorRoute>();
+  const headsDealt = new Set<string>();
+  for (const { id, trunk, turns, segments } of routed) {
     if (segments.length === 0) continue;
     const fixed = (s: Segment) => s.index + s.offset;
     const first = segments[0];
@@ -175,7 +231,13 @@ export function routeConnectors(view: FossflowView): Map<string, TilePoint[]> {
     }
     const end = turns[turns.length - 1];
     points.push(last.axis === "row" ? { x: end.x, y: fixed(last) } : { x: fixed(last), y: end.y });
-    routes.set(id, points);
+
+    const tip = points[points.length - 1];
+    const before = points[points.length - 2];
+    const headKey = `${trunk}|${Math.sign(tip.x - before.x)},${Math.sign(tip.y - before.y)}`;
+    const drawsHead = !headsDealt.has(headKey);
+    headsDealt.add(headKey);
+    routes.set(id, { points, drawsHead });
   }
   return routes;
 }

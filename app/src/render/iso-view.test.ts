@@ -145,6 +145,21 @@ describe("buildIsoBoardSvg", () => {
     expect(texts).toContain("Zone");
   });
 
+  it("wires the hover focus: one named group per flow, the dimming rule in the file itself", () => {
+    const l = layout();
+    l.edges.push({ from: "A", to: "B", technology: "SQL", count: 1, label: "G", attenuated: false, points: [] });
+    const svg = svgOf(l);
+    // The line group and the chip group of one flow carry the same name:
+    // hovering either lights both.
+    expect(svg.querySelectorAll("g.iso-flow.f-c1")).toHaveLength(2);
+    const style = svg.querySelector("style")!;
+    expect(style.textContent).toContain(":has(.f-c1:hover)");
+    expect(style.textContent).toContain(".iso-flow:not(.f-c2)");
+    // The wide invisible twin that makes a 3.5px stroke hoverable.
+    const grips = [...svg.querySelectorAll("polyline")].filter((p) => p.getAttribute("stroke-opacity") === "0");
+    expect(grips).toHaveLength(2);
+  });
+
   it("says what it shows, exactly like the flat board: title block and accessible name", () => {
     const svg = svgOf(layout(), context);
     expect(svg.getAttribute("role")).toBe("img");
