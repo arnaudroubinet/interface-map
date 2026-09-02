@@ -30,7 +30,7 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", "Helvetica Neue", Arial, san
 
 // The projection lives in iso-projection.ts, shared with the placement:
 // re-exported here because the painter is its natural address for callers.
-import { tileToScreen } from "./iso-projection";
+import { tileToScreen, endGapPx } from "./iso-projection";
 export { tileToScreen };
 
 const FRAME_MARGIN = 24;
@@ -38,17 +38,8 @@ const FRAME_MARGIN = 24;
 // the ground plane, it is not centred in the air.
 const ICON_SIZE = 132;
 const ICON_FOOT = 22;
-// Where a line stops before the drawing it joins -- measured ALONG its last
-// segment, so the segment keeps the grid's direction to its very tip. An
-// earlier version aimed at the icon's body by lifting the endpoint on
-// screen, and that one lift turned every arrival into an angle the grid
-// does not have. The distance depends on the side: arriving from above, the
-// line runs into the icon's body and must stop at its silhouette; arriving
-// from below, it passes behind the name -- whose halo keeps it readable --
-// and stops at the icon's foot: a head parked on the letters, halfway, read
-// as pointing at the name rather than at the drawing.
-const END_GAP_FROM_ABOVE = 70;
-const END_GAP_FROM_BELOW = 26;
+// Where a line stops before the drawing it joins: see iso-projection.ts,
+// shared with the crossing count. The head's own length comes on top.
 const HEAD_ROOM = 4;
 
 const TITLE_ID = "iso-titre";
@@ -295,8 +286,8 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     // "From above" at an end: the last segment travels DOWN the screen into
     // the drawing (its icon stands above its tile); at the start, the first
     // segment leaves upward, out of the icon's body.
-    const gapAtEnd = path[path.length - 1].y > path[path.length - 2].y ? END_GAP_FROM_ABOVE : END_GAP_FROM_BELOW;
-    const gapAtStart = path[0].y > path[1].y ? END_GAP_FROM_ABOVE : END_GAP_FROM_BELOW;
+    const gapAtEnd = endGapPx(route.points[route.points.length - 1], route.points[route.points.length - 2]);
+    const gapAtStart = endGapPx(route.points[0], route.points[1]);
     path = trimmed(
       path,
       connector.startArrow ? gapAtStart + HEAD_ROOM : gapAtStart,

@@ -22,3 +22,21 @@ export function screenDistance(a: { x: number; y: number }, b: { x: number; y: n
   const pb = tileToScreen(b);
   return Math.hypot(pa.x - pb.x, pa.y - pb.y);
 }
+
+// One step along a grid axis, in screen pixels: the length of the tile's
+// diagonal half-edges combined.
+export const TILE_STEP_PX = Math.hypot(HALF_TILE_W, HALF_TILE_H);
+
+// Where a line stops before the drawing it joins, in screen pixels measured
+// ALONG its last segment. From above it runs into the icon's body and stops
+// at its silhouette; from below it passes behind the name (haloed) and stops
+// at the icon's foot. Shared by the painter, which trims the drawn line, and
+// by the crossing count, which must not count what the trim hides.
+export const END_GAP_FROM_ABOVE = 70;
+export const END_GAP_FROM_BELOW = 26;
+
+// "From above": the last segment travels DOWN the screen into the drawing.
+// In tile space a step down the screen lowers tx + ty.
+export function endGapPx(tipTile: { x: number; y: number }, beforeTile: { x: number; y: number }): number {
+  return tipTile.x + tipTile.y < beforeTile.x + beforeTile.y ? END_GAP_FROM_ABOVE : END_GAP_FROM_BELOW;
+}

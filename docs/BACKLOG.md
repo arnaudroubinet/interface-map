@@ -69,6 +69,19 @@ On garde trace des refus : sans ça, la même idée revient tous les deux mois.
   simulé seedé pour les étiquettes (Christensen/Marks/Shieber), étiquetage en
   marge à amorces (*boundary labeling*), MIP octilinéaire façon cartes de
   métro (Nöllenburg & Wolff) — optimal mais minutes de calcul.
+
+  **Croisements, 2 septembre 2026** — l'objectif est devenu le nombre
+  **exact** d'intersections des polylignes telles que dessinées (bouts cachés
+  sous les icônes exclus), et trois recherches le minimisent jusqu'à point
+  fixe : arrachage et re-routage de chaque route contre toutes les autres
+  (*rip-up and reroute*, la méthode des routeurs VLSI), ordre des voies par
+  couloir par énumération des permutations (≤ 6 troncs), et permutation des
+  sièges des acteurs les plus impliqués, chaque candidat jugé par un routage
+  rapide puis confirmé par le routage complet. Mesuré sur la planche dense de
+  l'exemple (25 flux) : 19 → 8 croisements, rendu en 1,3 s. Le problème est
+  NP-difficile : « aussi peu que la recherche en trouve », pas une preuve.
+  Levier suivant si une planche résiste : recuit seedé sur le placement, dans
+  un worker, à budget de temps fixé.
 - **Navigation clavier complète dans le SVG.** Écartée explicitement par
   l'utilisateur.
 - **Réglages ELK pour le rapport de forme.** Quatre leviers mesurés le 22 août
