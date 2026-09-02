@@ -100,6 +100,48 @@ describe("routeConnectors", () => {
     expect(second.some((p) => Math.round(p.x) === 2 && Math.round(p.y) === 0)).toBe(false);
   });
 
+  it("does not mistake another route's corner for a crossing (the sample's group board)", () => {
+    // The sample workbook's group-to-group board, as the translation places
+    // it. Support → Core (c9) has a direct elbow; its tiles hold the CORNERS
+    // of two routes from Core to Support, and pricing those corners as cuts
+    // once sent it on a hook west of Support -- a longer path that cut more.
+    const routes = routeConnectors(
+      view(
+        [
+          { id: "core", tile: { x: 0, y: 0 } },
+          { id: "sales", tile: { x: 0, y: -4 } },
+          { id: "support", tile: { x: -4, y: -2 } },
+          { id: "health", tile: { x: 2, y: 4 } },
+          { id: "institutional", tile: { x: 4, y: 0 } },
+        ],
+        [
+          { ...between("core", "sales"), color: "http", startArrow: true },
+          { ...between("core", "support"), color: "http", startArrow: true },
+          { ...between("health", "core"), color: "file" },
+          { ...between("core", "health"), color: "kafka" },
+          { ...between("core", "support"), color: "sftp" },
+          { ...between("core", "support"), color: "smtp" },
+          { ...between("core", "institutional"), color: "file" },
+          { ...between("support", "sales"), color: "sftp" },
+          { ...between("support", "core"), color: "sftp" },
+        ]
+      )
+    );
+    const direct = routes.get("c9")!.points;
+    // Stays inside the box between its two ends: no hook beyond Support.
+    for (const p of direct) {
+      expect(p.x).toBeGreaterThanOrEqual(-4.5);
+      expect(p.x).toBeLessThanOrEqual(0.5);
+      expect(p.y).toBeGreaterThanOrEqual(-2.5);
+      expect(p.y).toBeLessThanOrEqual(0.5);
+    }
+    // And no longer than the direct elbow plus the lanes' small offsets: the
+    // hook was two full tiles longer.
+    let length = 0;
+    for (let i = 1; i < direct.length; i++) length += Math.abs(direct[i].x - direct[i - 1].x) + Math.abs(direct[i].y - direct[i - 1].y);
+    expect(length).toBeLessThan(6 + 1.5);
+  });
+
   it("deals a lane per trunk sharing a corridor: none runs on top of another", () => {
     // Three DISTINCT trunks -- three colours -- between the same two seats.
     const routes = routeConnectors(

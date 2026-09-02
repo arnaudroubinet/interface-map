@@ -36,7 +36,7 @@ const MOVES: TilePoint[] = [
 
 // Fewest steps first, fewest turns second: the cost of a turn stays under the
 // cost of a step, so the path never grows longer just to stay straight.
-const TURN_COST = 0.4;
+const TURN_COST = 1;
 // Crossing a route already drawn costs more than a turn: a route accepts a
 // bend to avoid cutting another, never a cut to avoid a bend. And two
 // L-shaped paths of equal length -- the everyday case -- are no longer
@@ -56,14 +56,22 @@ const axisOfMove = (m: number): Axis => (m < 2 ? "row" : "col");
 // over (tile, incoming direction) -- the boards are a few dozen tiles across,
 // nothing here needs a cleverer engine. Falls back to the direct elbow when
 // the target is walled in: a drawn-through line beats a flow that vanishes.
-// `extra` prices a step into a tile along an axis: what routing sequentially
-// already knows about the tiles other routes took.
+// `price` is what routing sequentially already knows about the tiles other
+// routes took: `along` for stepping INTO a tile along an axis (a corridor
+// shared), `through` for passing STRAIGHT through a tile along an axis --
+// the only way a route can actually cut another.
+export interface StepPrice {
+  along: (tile: TilePoint, axis: Axis) => number;
+  through: (tile: TilePoint, axis: Axis) => number;
+}
+const FREE: StepPrice = { along: () => 0, through: () => 0 };
+
 function gridPath(
   a: TilePoint,
   b: TilePoint,
   blocked: Set<string>,
   bounds: { x0: number; x1: number; y0: number; y1: number },
-  extra: (tile: TilePoint, axis: Axis) => number = () => 0
+  price: StepPrice = FREE
 ): TilePoint[] {
   if (a.x === b.x && a.y === b.y) return [a];
 
@@ -92,11 +100,17 @@ function gridPath(
       if (next.x < bounds.x0 || next.x > bounds.x1 || next.y < bounds.y0 || next.y > bounds.y1) continue;
       const isGoal = next.x === b.x && next.y === b.y;
       if (!isGoal && blocked.has(key(next))) continue;
+      // Passing straight through the tile we stand on -- same axis in and
+      // out -- is when we may cut a route that passes straight through it
+      // the other way. Turning there never cuts: the other route's arms and
+      // ours leave side by side, in their lanes.
+      const straight = current.dir !== -1 && axisOfMove(current.dir) === axisOfMove(m);
       const cost =
         current.cost +
         1 +
         (current.dir !== -1 && current.dir !== m ? TURN_COST : 0) +
-        (isGoal ? 0 : extra(next, axisOfMove(m)));
+        (isGoal ? 0 : price.along(next, axisOfMove(m))) +
+        (straight ? price.through(current.at, axisOfMove(m)) : 0);
       const k = stateKey(next, m);
       const seen = best.get(k);
       if (seen && seen.cost <= cost) continue;
@@ -210,26 +224,55 @@ export function routeConnectors(view: FossflowView): Map<string, ConnectorRoute>
   // it along each axis. Routes are found SHORT FIRST -- a short flow has
   // little choice, a long one has plenty and can go around -- then filed
   // back in the view's order, which the lanes and heads rely on.
-  const taken = new Map<string, { row: Set<string>; col: Set<string> }>();
-  const priceFor =
-    (trunk: string) =>
-    (tile: TilePoint, axis: Axis): number => {
-      const use = taken.get(key(tile));
+  // Per tile: the trunks running through it along each axis, and whether one
+  // passes STRAIGHT through along that axis. A corner is not a crossing: a
+  // route that turns where another turns, or where another runs, leaves side
+  // by side with it in its own lane. Pricing corners as cuts sent routes on
+  // hooks around the board to dodge cuts that were never there.
+  interface TileUse {
+    row: Set<string>;
+    col: Set<string>;
+    straightRow: boolean;
+    straightCol: boolean;
+  }
+  const taken = new Map<string, TileUse>();
+  const useOf = (tile: TilePoint): TileUse | undefined => taken.get(key(tile));
+  const priceFor = (trunk: string): StepPrice => ({
+    along: (tile, axis) => {
+      const use = useOf(tile);
       if (!use) return 0;
-      const across = axis === "row" ? use.col : use.row;
       const along = axis === "row" ? use.row : use.col;
-      let price = across.size > 0 ? CROSSING_COST : 0;
-      if (along.size > 0 && !along.has(trunk)) price += SHARED_CORRIDOR_COST;
-      return price;
-    };
+      return along.size > 0 && !along.has(trunk) ? SHARED_CORRIDOR_COST : 0;
+    },
+    through: (tile, axis) => {
+      const use = useOf(tile);
+      if (!use) return 0;
+      const cutAcross = axis === "row" ? use.straightCol : use.straightRow;
+      if (cutAcross) return CROSSING_COST;
+      // Another route TURNS here: its perpendicular arm leaves from its own
+      // lane, on one side of ours or the other -- a cut half the time.
+      const turnsHere = use.row.size > 0 && use.col.size > 0;
+      return turnsHere ? CROSSING_COST / 2 : 0;
+    },
+  });
   const record = (path: TilePoint[], trunk: string) => {
+    const claim = (tile: TilePoint): TileUse => {
+      const use = taken.get(key(tile)) ?? { row: new Set<string>(), col: new Set<string>(), straightRow: false, straightCol: false };
+      taken.set(key(tile), use);
+      return use;
+    };
     for (let i = 1; i < path.length; i++) {
       const axis: Axis = path[i].y === path[i - 1].y ? "row" : "col";
-      for (const tile of [path[i - 1], path[i]]) {
-        const use = taken.get(key(tile)) ?? { row: new Set<string>(), col: new Set<string>() };
-        use[axis].add(trunk);
-        taken.set(key(tile), use);
-      }
+      claim(path[i - 1])[axis].add(trunk);
+      claim(path[i])[axis].add(trunk);
+    }
+    for (let i = 1; i < path.length - 1; i++) {
+      const axisIn: Axis = path[i].y === path[i - 1].y ? "row" : "col";
+      const axisOut: Axis = path[i + 1].y === path[i].y ? "row" : "col";
+      if (axisIn !== axisOut) continue;
+      const use = claim(path[i]);
+      if (axisIn === "row") use.straightRow = true;
+      else use.straightCol = true;
     }
   };
 
