@@ -136,7 +136,27 @@ function trunkOf(connector: FossflowView["connectors"][number]): string {
 // view's connector order: same input, same lanes, same drawing.
 export function routeConnectors(view: FossflowView): Map<string, ConnectorRoute> {
   const tileById = new Map(view.items.map((i) => [i.id, i.tile]));
-  const occupied = new Set(view.items.map((i) => key(i.tile)));
+
+  // What a drawing COVERS, not merely the tile it stands on: its icon is
+  // wider than a tile and rises above it, its name hangs below. On screen
+  // that footprint is the four orthogonal neighbours (the icon's flanks and
+  // the name's line) plus the tile straight above it (the icon's body). A
+  // route through any of them ran visibly under a drawing that was not its
+  // own. The endpoints' own footprints stay open: that is how a route
+  // enters and leaves.
+  const footprintOf = (t: TilePoint): TilePoint[] => [
+    t,
+    { x: t.x + 1, y: t.y },
+    { x: t.x - 1, y: t.y },
+    { x: t.x, y: t.y + 1 },
+    { x: t.x, y: t.y - 1 },
+    { x: t.x + 1, y: t.y + 1 },
+  ];
+  const covered = new Set(view.items.flatMap((i) => footprintOf(i.tile).map(key)));
+  const blockedFor = (from: TilePoint, to: TilePoint): Set<string> => {
+    const open = new Set([...footprintOf(from), ...footprintOf(to)].map(key));
+    return new Set([...covered].filter((k) => !open.has(k)));
+  };
 
   const tiles = view.items.map((i) => i.tile);
   const bounds = {
@@ -167,7 +187,7 @@ export function routeConnectors(view: FossflowView): Map<string, ConnectorRoute>
     const trunk = trunkOf(connector);
     const from = ends[0];
     const to = ends[ends.length - 1];
-    const turns = vertices(gridPath(from, to, occupied, bounds));
+    const turns = vertices(gridPath(from, to, blockedFor(from, to), bounds));
     const segments: Segment[] = [];
     for (let i = 0; i + 1 < turns.length; i++) {
       const segment: Segment =

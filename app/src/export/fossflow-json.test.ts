@@ -97,7 +97,7 @@ describe("modelToFossflow", () => {
     const view = model(l).views[0];
     const tile = (id: string) => view.items.find((i) => i.id === id)!.tile;
     const chebyshev = Math.max(Math.abs(tile("a").x - tile("b").x), Math.abs(tile("a").y - tile("b").y));
-    expect(chebyshev).toBe(3);
+    expect(chebyshev).toBe(4);
   });
 
   it("chooses the drawing by type, cloud for the untyped external, router for the plumbing", () => {

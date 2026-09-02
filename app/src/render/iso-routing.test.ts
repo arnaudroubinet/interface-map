@@ -59,6 +59,25 @@ describe("routeConnectors", () => {
     expect(route.some((p) => p.x === 2 && p.y === 0)).toBe(false);
   });
 
+  it("keeps off a neighbouring drawing's footprint, not just its tile", () => {
+    // The wall stands one tile off the straight line -- but its icon's flank
+    // covers that line's tile, and a route through it would run under the
+    // drawing. The detour must skip the flank too.
+    const routes = routeConnectors(
+      view(
+        [
+          { id: "a", tile: { x: 0, y: 0 } },
+          { id: "wall", tile: { x: 4, y: 1 } },
+          { id: "b", tile: { x: 8, y: 0 } },
+        ],
+        [between("a", "b")]
+      )
+    );
+    const route = routes.get("c1")!.points;
+    expect(route.length).toBeGreaterThan(2);
+    expect(route.some((p) => Math.round(p.x) === 4 && Math.round(p.y) === 0)).toBe(false);
+  });
+
   it("deals a lane per trunk sharing a corridor: none runs on top of another", () => {
     // Three DISTINCT trunks -- three colours -- between the same two seats.
     const routes = routeConnectors(

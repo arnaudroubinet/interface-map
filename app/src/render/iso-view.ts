@@ -38,9 +38,14 @@ const FRAME_MARGIN = 24;
 // the ground plane, it is not centred in the air.
 const ICON_SIZE = 132;
 const ICON_FOOT = 22;
-// The clearance a connector keeps before an icon, so the line reads as
+// Where a flow AIMS on a drawing: not its ground point -- that is where the
+// name hangs, and an arrow aimed there lands in the letters -- but the body
+// of the icon, this much above it. Flows then arrive on the drawing's flanks
+// and top, each from its own side, instead of piling onto one foot.
+const ICON_AIM = 44;
+// The clearance a connector keeps before that aim, so the line reads as
 // arriving AT the drawing rather than under it.
-const END_GAP = 40;
+const END_GAP = 52;
 
 const TITLE_ID = "iso-titre";
 const DESC_ID = "iso-desc";
@@ -283,6 +288,8 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     const colour = (connector.color && colourById.get(connector.color)) || INK;
 
     let path = route.points.map(tileToScreen);
+    path[0] = { x: path[0].x, y: path[0].y - ICON_AIM };
+    path[path.length - 1] = { x: path[path.length - 1].x, y: path[path.length - 1].y - ICON_AIM };
     path = trimmed(
       path,
       connector.startArrow ? END_GAP + 4 : END_GAP,
@@ -387,11 +394,12 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
 
   for (const chip of chips) svg.appendChild(chip);
 
+  // A zone's name sits ABOVE its top corner tile: projected, that corner is
+  // the diamond's apex, and the nearest drawing inside stands a tile lower --
+  // the one spot on the frame no icon reaches up to.
   for (const box of view.textBoxes) {
     const p = tileToScreen(box.tile);
-    const label = haloed(textAt(p.x, p.y, box.content, box.fontSize ?? 13, "#5b6472"));
-    label.setAttribute("text-anchor", "start");
-    svg.appendChild(label);
+    svg.appendChild(haloed(textAt(p.x, p.y - 38, box.content, box.fontSize ?? 13, "#5b6472")));
   }
 
   // The chips have chosen their places: the frame can close around
