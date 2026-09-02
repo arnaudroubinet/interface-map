@@ -429,12 +429,21 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
 // The board on screen, translated then painted: the SAME translation as the
 // FossFLOW export, so the isometric view in the app and the JSON opened in
 // FossFLOW show one board, not two cousins.
+export function isoBoard(
+  layout: LayoutResult,
+  colorFor: (technology: string) => string,
+  title: string
+): { model: FossflowModel; view: FossflowView } {
+  const model = modelToFossflow([{ title, layout }], colorFor, title);
+  return { model, view: model.views[0] };
+}
+
 export function buildIsoBoardSvg(
   layout: LayoutResult,
   colorFor: (technology: string) => string,
   context: DiagramContext | null,
   title: string
 ): SVGSVGElement {
-  const model = modelToFossflow([{ title, layout }], colorFor, title);
-  return buildIsoSvg(model, model.views[0], context);
+  const { model, view } = isoBoard(layout, colorFor, title);
+  return buildIsoSvg(model, view, context);
 }

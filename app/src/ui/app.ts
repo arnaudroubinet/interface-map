@@ -18,7 +18,9 @@ import {
 import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
 import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
-import { buildIsoBoardSvg } from "../render/iso-view";
+import { isoBoard, buildIsoSvg } from "../render/iso-view";
+import { annealPlacement } from "../render/iso-anneal";
+import type { FossflowView } from "../export/fossflow-json";
 import { titleBlockText, type DiagramContext } from "../render/title-block";
 import { wireZoom } from "../render/zoom";
 import { scaleHint } from "./scale";
@@ -260,6 +262,7 @@ export function mountApp(root: HTMLElement): void {
 
       // One estate's positions mean nothing on another.
       placements.clear();
+      annealed.clear();
 
       // The report carried by withLoadedFile is not yet set on the current
       // milestone (recomputeReport replaces it right afterwards): the landing
@@ -285,6 +288,10 @@ export function mountApp(root: HTMLElement): void {
   // milestone. Cleared when another workbook is loaded: one estate's positions
   // mean nothing on another.
   const placements = new Map<string, Promise<LayoutResult>>();
+  // The isometric placements the background search has already improved, by
+  // (layout, milestone): a board once annealed comes back as it was left,
+  // and the search is not paid twice for one board.
+  const annealed = new Map<string, FossflowView>();
   // The displayed matrix, kept for the export: recomputing it on click would
   // risk delivering something other than what is on screen.
   let currentMatrix: MatrixResult | null = null;
@@ -636,16 +643,39 @@ export function mountApp(root: HTMLElement): void {
           .then((union) => {
             if (generation !== renderGeneration) return;
             const positioned = restrictLayout(union, viewForComputation);
+            const colorFor = (t: string) => colours.get(t) ?? "#000";
+            const context = diagramContext(state, file, viewForComputation);
             // The isometric rendering draws the SAME positioned board: one
             // layout, two painters, so ticking the option never reshuffles
             // what the flat view had settled.
-            const svg = state.options.isometric
-              ? buildIsoBoardSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), VIEW_LABEL[state.view])
-              : buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, viewForComputation), {
-                  weightByCriticality: state.options.weightByCriticality,
+            if (state.options.isometric) {
+              const { model, view } = isoBoard(positioned, colorFor, VIEW_LABEL[state.view]);
+              const boardKey = `${layoutKey}|${state.shownMilestone}`;
+              const remembered = annealed.get(boardKey);
+              let svg = buildIsoSvg(model, remembered ?? view, context);
+              let controls = buildZoomControls(wireZoom(svg));
+              renderArea.appendChild(svg);
+              renderArea.appendChild(controls);
+              // The board is on screen; its better self is searched in the
+              // background (iso-anneal.ts) and takes its place if found --
+              // unless the reader has moved on meanwhile.
+              if (!remembered) {
+                void annealPlacement(view).then((result) => {
+                  annealed.set(boardKey, result.view);
+                  if (generation !== renderGeneration || !result.improved) return;
+                  const better = buildIsoSvg(model, result.view, context);
+                  const betterControls = buildZoomControls(wireZoom(better));
+                  svg.replaceWith(better);
+                  controls.replaceWith(betterControls);
+                  svg = better;
+                  controls = betterControls;
                 });
-            renderArea.appendChild(svg);
-            renderArea.appendChild(buildZoomControls(wireZoom(svg)));
+              }
+            } else {
+              const svg = buildGraphSvg(positioned, colorFor, context, { weightByCriticality: state.options.weightByCriticality });
+              renderArea.appendChild(svg);
+              renderArea.appendChild(buildZoomControls(wireZoom(svg)));
+            }
             // The export buttons depend on the presence of the SVG, which did not yet
             // exist when the banner was rendered.
             renderBanner(banner, state, true, exportHandlers);

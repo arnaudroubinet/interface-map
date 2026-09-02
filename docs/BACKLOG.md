@@ -80,8 +80,16 @@ On garde trace des refus : sans ça, la même idée revient tous les deux mois.
   rapide puis confirmé par le routage complet. Mesuré sur la planche dense de
   l'exemple (25 flux) : 19 → 8 croisements, rendu en 1,3 s. Le problème est
   NP-difficile : « aussi peu que la recherche en trouve », pas une preuve.
-  Levier suivant si une planche résiste : recuit seedé sur le placement, dans
-  un worker, à budget de temps fixé.
+  **Recuit, 2 septembre 2026** — le levier suivant est construit
+  (`render/iso-anneal.ts`) : recuit simulé seedé sur le placement complet
+  (permutation de sièges, déplacement vers une tuile libre, espacement et
+  murs respectés), objectif = croisements routés + fil, budget en itérations
+  (pas en secondes : même planche, même résultat sur toute machine), exécuté
+  par tranches sur le fil principal après l'affichage — la planche se
+  redessine si mieux est trouvé, et le résultat est mémorisé par planche.
+  Le routage rapide est passé sous A* (3 ms sur la planche dense) pour payer
+  le millier d'évaluations. Mesuré : Platform detail 8 → 5, Platform only
+  2 → 0, en 2 à 4 s de fond.
 - **Navigation clavier complète dans le SVG.** Écartée explicitement par
   l'utilisateur.
 - **Réglages ELK pour le rapport de forme.** Quatre leviers mesurés le 22 août

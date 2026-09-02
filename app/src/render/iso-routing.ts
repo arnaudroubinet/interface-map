@@ -90,12 +90,16 @@ function gridPath(
   // on a tie the earliest inserted -- the same order a stable sort gave, at a
   // logarithm of the cost instead of a sort of the whole queue per pop. The
   // placement search below runs this thousands of times per click.
-  const heap: { state: State; seq: number }[] = [];
+  // A*: the heap is ordered on cost so far PLUS the grid distance still to
+  // go -- admissible, since a step costs at least one and every surcharge is
+  // non-negative -- which spares exploring away from the goal. Same result
+  // as plain Dijkstra, found sooner.
+  const remaining = (p: TilePoint) => Math.abs(p.x - b.x) + Math.abs(p.y - b.y);
+  const heap: { state: State; seq: number; f: number }[] = [];
   let seq = 0;
-  const before = (i: number, j: number) =>
-    heap[i].state.cost < heap[j].state.cost || (heap[i].state.cost === heap[j].state.cost && heap[i].seq < heap[j].seq);
+  const before = (i: number, j: number) => heap[i].f < heap[j].f || (heap[i].f === heap[j].f && heap[i].seq < heap[j].seq);
   const push = (state: State) => {
-    heap.push({ state, seq: seq++ });
+    heap.push({ state, seq: seq++, f: state.cost + remaining(state.at) });
     let i = heap.length - 1;
     while (i > 0) {
       const parent = (i - 1) >> 1;
