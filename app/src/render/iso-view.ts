@@ -38,14 +38,18 @@ const FRAME_MARGIN = 24;
 // the ground plane, it is not centred in the air.
 const ICON_SIZE = 132;
 const ICON_FOOT = 22;
-// Where a flow AIMS on a drawing: not its ground point -- that is where the
-// name hangs, and an arrow aimed there lands in the letters -- but the body
-// of the icon, this much above it. Flows then arrive on the drawing's flanks
-// and top, each from its own side, instead of piling onto one foot.
-const ICON_AIM = 44;
-// The clearance a connector keeps before that aim, so the line reads as
-// arriving AT the drawing rather than under it.
-const END_GAP = 52;
+// Where a line stops before the drawing it joins -- measured ALONG its last
+// segment, so the segment keeps the grid's direction to its very tip. An
+// earlier version aimed at the icon's body by lifting the endpoint on
+// screen, and that one lift turned every arrival into an angle the grid
+// does not have. The distance depends on the side: arriving from above, the
+// line runs into the icon's body and must stop at its silhouette; arriving
+// from below, it passes behind the name -- whose halo keeps it readable --
+// and stops at the icon's foot: a head parked on the letters, halfway, read
+// as pointing at the name rather than at the drawing.
+const END_GAP_FROM_ABOVE = 70;
+const END_GAP_FROM_BELOW = 26;
+const HEAD_ROOM = 4;
 
 const TITLE_ID = "iso-titre";
 const DESC_ID = "iso-desc";
@@ -288,12 +292,15 @@ export function buildIsoSvg(model: FossflowModel, view: FossflowView, context: D
     const colour = (connector.color && colourById.get(connector.color)) || INK;
 
     let path = route.points.map(tileToScreen);
-    path[0] = { x: path[0].x, y: path[0].y - ICON_AIM };
-    path[path.length - 1] = { x: path[path.length - 1].x, y: path[path.length - 1].y - ICON_AIM };
+    // "From above" at an end: the last segment travels DOWN the screen into
+    // the drawing (its icon stands above its tile); at the start, the first
+    // segment leaves upward, out of the icon's body.
+    const gapAtEnd = path[path.length - 1].y > path[path.length - 2].y ? END_GAP_FROM_ABOVE : END_GAP_FROM_BELOW;
+    const gapAtStart = path[0].y > path[1].y ? END_GAP_FROM_ABOVE : END_GAP_FROM_BELOW;
     path = trimmed(
       path,
-      connector.startArrow ? END_GAP + 4 : END_GAP,
-      connector.startArrow ? END_GAP : END_GAP + 4
+      connector.startArrow ? gapAtStart + HEAD_ROOM : gapAtStart,
+      connector.startArrow ? gapAtEnd : gapAtEnd + HEAD_ROOM
     );
 
     // One group per flow, named by its connector: the hover style points at

@@ -92,6 +92,44 @@ describe("buildIsoBoardSvg", () => {
     expect(d(tip, ends[0])).toBeLessThan(d(tip, ends[ends.length - 1]));
   });
 
+  it("draws every segment along one of the grid's two directions, to its very tip", () => {
+    // A board dense enough to have lanes, detours and heads from both sides:
+    // whatever the routing did, a line on an isometric grid runs along the
+    // grid -- the slope of every segment is ±(81.9 / 141.5), never anything
+    // else. One angle off the grid and the projection stops reading as one.
+    const l = layout({
+      nodes: [
+        { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 240, height: 120 },
+        { id: "B", label: "B", kind: "actor", x: 600, y: 0, width: 240, height: 120 },
+        { id: "C", label: "C", kind: "actor", x: 300, y: 400, width: 240, height: 120 },
+        { id: "D", label: "D", kind: "actor", x: 900, y: 400, width: 240, height: 120 },
+      ],
+      edges: [
+        { from: "A", to: "B", technology: "HTTP", count: 1, label: "F", attenuated: false, points: [] },
+        { from: "A", to: "B", technology: "SQL", count: 1, label: "G", attenuated: false, points: [] },
+        { from: "C", to: "B", technology: "HTTP", count: 1, label: "H", attenuated: false, points: [] },
+        { from: "D", to: "A", technology: "File", count: 1, label: "I", attenuated: false, pulled: true, points: [] },
+        { from: "B", to: "D", technology: "Kafka", count: 1, label: "J", attenuated: false, points: [] },
+      ],
+    });
+    const svg = svgOf(l);
+    const gridSlope = 40.95 / 70.75;
+    const lines = [...svg.querySelectorAll("polyline")].filter((p) => p.getAttribute("stroke-opacity") !== "0");
+    expect(lines.length).toBe(5);
+    for (const line of lines) {
+      const pts = line
+        .getAttribute("points")!
+        .split(" ")
+        .map((p) => p.split(",").map(Number));
+      for (let i = 1; i < pts.length; i++) {
+        const dx = pts[i][0] - pts[i - 1][0];
+        const dy = pts[i][1] - pts[i - 1][1];
+        if (Math.hypot(dx, dy) < 1e-6) continue;
+        expect(Math.abs(Math.abs(dy / dx) - gridSlope)).toBeLessThan(1e-6);
+      }
+    }
+  });
+
   it("dashes what the diagrams attenuate, and labels the flow in their words", () => {
     const l = layout();
     l.edges[0].attenuated = true;
