@@ -78,6 +78,28 @@ describe("routeConnectors", () => {
     expect(route.some((p) => Math.round(p.x) === 4 && Math.round(p.y) === 0)).toBe(false);
   });
 
+  it("picks, of two elbows of equal length, the one that cuts no route already drawn", () => {
+    // A first flow runs along row 0. The second has two L-shaped paths of the
+    // same length: one bends at (2,-4) and climbs column 2 THROUGH row 0 where
+    // the first flow runs; the other bends at (10,4) and never meets it.
+    const routes = routeConnectors(
+      view(
+        [
+          { id: "x", tile: { x: 0, y: 0 } },
+          { id: "y", tile: { x: 8, y: 0 } },
+          { id: "a", tile: { x: 2, y: 4 } },
+          { id: "b", tile: { x: 10, y: -4 } },
+        ],
+        [
+          { ...between("x", "y"), color: "red" },
+          { ...between("a", "b"), color: "blue" },
+        ]
+      )
+    );
+    const second = routes.get("c2")!.points;
+    expect(second.some((p) => Math.round(p.x) === 2 && Math.round(p.y) === 0)).toBe(false);
+  });
+
   it("deals a lane per trunk sharing a corridor: none runs on top of another", () => {
     // Three DISTINCT trunks -- three colours -- between the same two seats.
     const routes = routeConnectors(

@@ -37,12 +37,34 @@ const MOVES: TilePoint[] = [
 // Fewest steps first, fewest turns second: the cost of a turn stays under the
 // cost of a step, so the path never grows longer just to stay straight.
 const TURN_COST = 0.4;
+// Crossing a route already drawn costs more than a turn: a route accepts a
+// bend to avoid cutting another, never a cut to avoid a bend. And two
+// L-shaped paths of equal length -- the everyday case -- are no longer
+// decided by the order of exploration but by what each one cuts through.
+// (Crossing minimisation is what the empirical graph-drawing literature puts
+// first; this is the routing's share of it, the placement has its own.)
+const CROSSING_COST = 3;
+// Running down a corridor another trunk already uses is allowed -- the lanes
+// keep them apart -- but a free corridor of the same length is preferred.
+const SHARED_CORRIDOR_COST = 0.25;
+
+type Axis = "row" | "col";
+// A move along x keeps y fixed: it runs in a ROW. The other two run in a column.
+const axisOfMove = (m: number): Axis => (m < 2 ? "row" : "col");
 
 // The path from a to b on the grid, around the blocked tiles. Plain Dijkstra
 // over (tile, incoming direction) -- the boards are a few dozen tiles across,
 // nothing here needs a cleverer engine. Falls back to the direct elbow when
 // the target is walled in: a drawn-through line beats a flow that vanishes.
-function gridPath(a: TilePoint, b: TilePoint, blocked: Set<string>, bounds: { x0: number; x1: number; y0: number; y1: number }): TilePoint[] {
+// `extra` prices a step into a tile along an axis: what routing sequentially
+// already knows about the tiles other routes took.
+function gridPath(
+  a: TilePoint,
+  b: TilePoint,
+  blocked: Set<string>,
+  bounds: { x0: number; x1: number; y0: number; y1: number },
+  extra: (tile: TilePoint, axis: Axis) => number = () => 0
+): TilePoint[] {
   if (a.x === b.x && a.y === b.y) return [a];
 
   interface State {
@@ -70,7 +92,11 @@ function gridPath(a: TilePoint, b: TilePoint, blocked: Set<string>, bounds: { x0
       if (next.x < bounds.x0 || next.x > bounds.x1 || next.y < bounds.y0 || next.y > bounds.y1) continue;
       const isGoal = next.x === b.x && next.y === b.y;
       if (!isGoal && blocked.has(key(next))) continue;
-      const cost = current.cost + 1 + (current.dir !== -1 && current.dir !== m ? TURN_COST : 0);
+      const cost =
+        current.cost +
+        1 +
+        (current.dir !== -1 && current.dir !== m ? TURN_COST : 0) +
+        (isGoal ? 0 : extra(next, axisOfMove(m)));
       const k = stateKey(next, m);
       const seen = best.get(k);
       if (seen && seen.cost <= cost) continue;
@@ -179,15 +205,63 @@ export function routeConnectors(view: FossflowView): Map<string, ConnectorRoute>
   }
   const routed: { id: string; trunk: string; turns: TilePoint[]; segments: Segment[] }[] = [];
   const corridors = new Map<string, Map<string, CorridorUse>>();
-  for (const connector of view.connectors) {
-    const ends = connector.anchors
-      .map((a) => (a.ref.item ? tileById.get(a.ref.item) : a.ref.tile))
-      .filter((t): t is TilePoint => t !== undefined);
-    if (ends.length < 2) continue;
+
+  // What the routes already found took: per tile, the trunks running through
+  // it along each axis. Routes are found SHORT FIRST -- a short flow has
+  // little choice, a long one has plenty and can go around -- then filed
+  // back in the view's order, which the lanes and heads rely on.
+  const taken = new Map<string, { row: Set<string>; col: Set<string> }>();
+  const priceFor =
+    (trunk: string) =>
+    (tile: TilePoint, axis: Axis): number => {
+      const use = taken.get(key(tile));
+      if (!use) return 0;
+      const across = axis === "row" ? use.col : use.row;
+      const along = axis === "row" ? use.row : use.col;
+      let price = across.size > 0 ? CROSSING_COST : 0;
+      if (along.size > 0 && !along.has(trunk)) price += SHARED_CORRIDOR_COST;
+      return price;
+    };
+  const record = (path: TilePoint[], trunk: string) => {
+    for (let i = 1; i < path.length; i++) {
+      const axis: Axis = path[i].y === path[i - 1].y ? "row" : "col";
+      for (const tile of [path[i - 1], path[i]]) {
+        const use = taken.get(key(tile)) ?? { row: new Set<string>(), col: new Set<string>() };
+        use[axis].add(trunk);
+        taken.set(key(tile), use);
+      }
+    }
+  };
+
+  const toRoute = view.connectors
+    .map((connector, index) => {
+      const ends = connector.anchors
+        .map((a) => (a.ref.item ? tileById.get(a.ref.item) : a.ref.tile))
+        .filter((t): t is TilePoint => t !== undefined);
+      return { connector, index, ends };
+    })
+    .filter((c) => c.ends.length >= 2)
+    .sort((a, b) => {
+      const length = (c: { ends: TilePoint[] }) =>
+        Math.abs(c.ends[0].x - c.ends[c.ends.length - 1].x) + Math.abs(c.ends[0].y - c.ends[c.ends.length - 1].y);
+      return length(a) - length(b) || a.index - b.index;
+    });
+
+  const pathById = new Map<string, TilePoint[]>();
+  for (const { connector, ends } of toRoute) {
     const trunk = trunkOf(connector);
-    const from = ends[0];
-    const to = ends[ends.length - 1];
-    const turns = vertices(gridPath(from, to, blockedFor(from, to), bounds));
+    const path = gridPath(ends[0], ends[ends.length - 1], blockedFor(ends[0], ends[ends.length - 1]), bounds, priceFor(trunk));
+    record(path, trunk);
+    pathById.set(connector.id, path);
+  }
+
+  for (const connector of view.connectors) {
+    const path = pathById.get(connector.id);
+    if (!path) continue;
+    const trunk = trunkOf(connector);
+    const turns = vertices(path);
+    const from = turns[0];
+    const to = turns[turns.length - 1];
     const segments: Segment[] = [];
     for (let i = 0; i + 1 < turns.length; i++) {
       const segment: Segment =
