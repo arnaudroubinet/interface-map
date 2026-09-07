@@ -33,7 +33,6 @@ import { runIntegrityChecks } from "../integrity/checks";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { SAMPLE_DATA } from "./sample-data";
 import { readPart } from "./xlsx-tables";
-import { readReferentialUrl } from "./datamashup";
 
 // The written file is reread, not the in-memory object: that is the one the
 // user will open, and it is the one that must go back through our parser.
@@ -980,9 +979,9 @@ describe("the workbook template — the data-entry aids", () => {
   });
 });
 
-// --- The referential's two sheets: they exist whether or not a referential is
-// declared, and only carry a live query -- hence a connection, a queryTable
-// part -- when the corresponding URL is actually set.
+// --- The referential's sheets: they exist whether or not a referential was
+// ever dropped beside the workbook, and no query feeds them -- the tool writes
+// their rows itself.
 describe("referential sheets", () => {
   it("adds both sheets, hidden, even with no referential", () => {
     const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate()), { type: "array" });
@@ -995,18 +994,29 @@ describe("referential sheets", () => {
     }
   });
 
-  it("writes no query when the workbook declares no referential", () => {
-    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate()), { type: "array" });
+  // A workbook still carrying a query would have Excel refresh the copy from
+  // SharePoint behind the tool's back, against the rows the tool just wrote.
+  it("writes no query, no connection and no Power Query stream", () => {
+    const cfb = XLSX.CFB.read(new Uint8Array(writeTemplate(SAMPLE_DATA)), { type: "array" });
     expect(XLSX.CFB.find(cfb, "/customXml/item1.xml")).toBeFalsy();
     expect(XLSX.CFB.find(cfb, "/xl/connections.xml")).toBeFalsy();
+    const paths = (cfb as { FullPaths: string[] }).FullPaths;
+    expect(paths.some((p) => p.includes("/xl/queryTables/"))).toBe(false);
+    expect(readPart(cfb, "/xl/workbook.xml")!).not.toContain("ExternalData_");
   });
 
-  it("carries the URL through to the written workbook", async () => {
+  // The copy travels in the sheets, and only there: what was dropped beside
+  // the workbook is what a reader of the written file finds again.
+  it("writes the referential rows it is given, and reads them back", () => {
     const bytes = writeTemplate({
       flowTypes: [], actorTypes: [], milestones: [], groups: [], actors: [], interfaces: [], fx: [],
-      referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
+      referentialRows: { [REF_ACTORS_SHEET]: [["Tatooine", "Core", "Application", "Leia", "The capital"]] },
     });
-    expect(await readReferentialUrl(bytes)).toBe("https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx");
+    const result = buildModel(parseWorkbook(bytes));
+    if (!result.ok) throw new Error("unreadable workbook");
+    expect(result.model.referentialActors).toEqual([
+      { name: "Tatooine", group: "Core", actorType: "Application", owner: "Leia", description: "The capital" },
+    ]);
   });
 
   it("feeds the actor and flow-type drop-downs from the referential", () => {

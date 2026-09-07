@@ -122,6 +122,7 @@ const SECTIONS: Section[] = [
     paragraphs: [
       "With no workbook at hand, open the sample: it is filled in, it triggers no anomaly, and it exercises both readings.",
       "An empty template is available at the foot of the rail.",
+      "Names come from a shared referential — one workbook, obtained from « Repair or upgrade a workbook ». Drop it with your workbook, or after it: the workbook carries a hidden copy of it, and when that copy has drifted the tool refreshes it, shows the refreshed workbook and offers it back to download. Nothing is fetched over the network.",
       "An older workbook — or one missing its FX_ sheets — goes through « Repair or upgrade a workbook »: it comes back at the current format, with every expected sheet, without ever touching your original.",
     ],
   },

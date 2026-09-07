@@ -1,10 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import * as XLSX from "xlsx";
 import { writeReferential, SAMPLE_REFERENTIAL, EMPTY_REFERENTIAL, BLANK_REFERENTIAL } from "./referential-template";
-import { REFERENTIAL_SHEETS } from "./referential-shape";
+import { REFERENTIAL_SHEETS } from "../parsing/referential-shape";
 import { VOCABULARY_NATURE } from "../aggregation/vocabularies";
 import { tableName } from "./xlsx-tables";
-import { sectionM } from "./datamashup";
 import { SAMPLE_DATA } from "./sample-data";
 import { writeTemplate } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
@@ -25,21 +24,20 @@ function tableNames(bytes: ArrayBuffer): string[] {
     .sort();
 }
 
-// referential-shape.ts spells out the table names the queries look for, because
-// it cannot import tableName() -- xlsx-tables already imports datamashup, and
-// the cycle would be real. This is the guard that makes the duplication safe.
-describe("the referential workbook — the names the queries look for", () => {
-  it("names each table exactly as the query asks for it", () => {
+// referential-shape.ts spells out the table names, because it cannot import
+// tableName() -- the parsing layer does not depend on the export layer. This
+// is the guard that makes the duplication safe.
+describe("the referential workbook — the names its tables carry", () => {
+  it("names each table exactly as the shape announces it", () => {
     for (const r of REFERENTIAL_SHEETS) {
       expect(r.table).toBe(tableName(r.sheet));
     }
   });
 
-  it("lays down every table the queries navigate to", () => {
+  it("lays down every table the shape announces", () => {
     const written = tableNames(writeReferential());
     for (const r of REFERENTIAL_SHEETS) {
       expect(written).toContain(r.table);
-      expect(sectionM("https://ref/r.xlsx")).toContain(`Item="${r.table}"`);
     }
   });
 

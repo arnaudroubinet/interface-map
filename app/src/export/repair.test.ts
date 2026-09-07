@@ -3,7 +3,7 @@ import * as XLSX from "xlsx";
 import { repairWorkbook } from "./repair";
 import { writeTemplate } from "./template-export";
 import { SAMPLE_DATA } from "./sample-data";
-import { NO_REFERENTIAL } from "./datamashup";
+import { REF_ACTORS_SHEET, REF_GROUPS_SHEET } from "../parsing/build-model";
 import { parseWorkbook } from "../parsing/workbook";
 import { buildModel, SCHEMA_VERSION } from "../parsing/build-model";
 
@@ -117,18 +117,23 @@ describe("repairWorkbook", () => {
     for (const sheet of expected) expect(reread.model.fxSheetNames).toContain(sheet);
   });
 
-  // The model rebuilt from the package cannot know the referential URLs --
-  // they live in the workbook's binary Power Query stream -- so the caller
-  // hands them in directly rather than patching the result afterwards.
-  it("carries the referential parameter into the returned data", () => {
-    const referential = "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx";
-    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY, referential);
-    expect(r.data.referential).toBe(referential);
+  // The referential dropped beside the workbook replaces the copy it carried:
+  // that is what "refresh" means here, and the repair is one of the places a
+  // workbook is rewritten.
+  it("replaces the referential copy with the rows dropped alongside", () => {
+    const rows = { [REF_ACTORS_SHEET]: [["Tatooine", "Core", "Application", "Leia", "The capital"]] };
+    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY, rows);
+    expect(r.data.referentialRows?.[REF_ACTORS_SHEET]).toEqual(rows[REF_ACTORS_SHEET]);
   });
 
-  it("defaults to no referential when the parameter is omitted", () => {
-    const r = repairWorkbook(writeTemplate(SAMPLE_DATA), THE_DAY);
-    expect(r.data.referential).toBe(NO_REFERENTIAL);
+  // Repairing a workbook must not empty its lists: with no referential in the
+  // drop, the copy comes out as it went in.
+  it("keeps the copy the workbook carried when no referential is dropped", () => {
+    const held = {
+      [REF_GROUPS_SHEET]: [["Core", "The platform"], ["Partners", ""]],
+    };
+    const r = repairWorkbook(writeTemplate({ ...SAMPLE_DATA, referentialRows: held }), THE_DAY);
+    expect(r.data.referentialRows?.[REF_GROUPS_SHEET]).toEqual(held[REF_GROUPS_SHEET]);
   });
 });
 

@@ -1,6 +1,4 @@
 import * as XLSX from "xlsx";
-import { customXmlItem, CUSTOM_XML_PROPS, hasReferential, NO_REFERENTIAL } from "./datamashup";
-import type { ReferentialUrl } from "./datamashup";
 
 // SheetJS does not write Excel's structured tables: in its writer,
 // "tableParts" is nothing but a comment. But it exposes CFB, which can reread
@@ -65,20 +63,12 @@ export interface TableToApply {
   // each sized to its own content, rather than a single table padded to the
   // height of the longest.
   startColumn?: number;
-  // The Power Query query that fills this table. Excel then wants a queryTable
-  // part beside it, and every column must name the field feeding it -- without
-  // which the refresh empties the table instead of filling it.
-  query?: string;
 }
 
 const NS_TABLE = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
 const NS_REL = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
 const TYPE_TABLE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.table+xml";
-const TYPE_CONNECTIONS =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.connections+xml";
-const TYPE_QUERY_TABLE =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.queryTable+xml";
 
 function escapeXml(text: string): string {
   return text
@@ -125,66 +115,24 @@ function tableXml(
   name: string,
   ref: string,
   columns: readonly string[],
-  formulas: Readonly<Record<string, string>> = {},
-  queryTableId?: number
+  formulas: Readonly<Record<string, string>> = {}
 ): string {
   const cols = columns
     .map((c, i) => {
       const formula = formulas[c];
-      // A query-backed column names the field feeding it and carries the
-      // uniqueName Excel writes on one -- its id, verbatim. An ordinary table
-      // gets neither: Excel does not write them there either.
-      const field = queryTableId === undefined ? "" : ` queryTableFieldId="${i + 1}"`;
-      const unique = queryTableId === undefined ? "" : ` uniqueName="${i + 1}"`;
-      const start = `<tableColumn id="${i + 1}"${unique} name="${escapeXml(c)}"${field}`;
+      const start = `<tableColumn id="${i + 1}" name="${escapeXml(c)}"`;
       return formula
         ? `${start}><calculatedColumnFormula>${escapeXml(formula)}</calculatedColumnFormula></tableColumn>`
         : `${start}/>`;
     })
     .join("");
-  const kind = queryTableId === undefined ? "" : ` tableType="queryTable"`;
   return (
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<table xmlns="${NS_TABLE}" id="${id}" name="${name}" displayName="${name}" ref="${ref}"${kind} totalsRowShown="0">` +
+    `<table xmlns="${NS_TABLE}" id="${id}" name="${name}" displayName="${name}" ref="${ref}" totalsRowShown="0">` +
     `<autoFilter ref="${ref}"/>` +
     `<tableColumns count="${columns.length}">${cols}</tableColumns>` +
     `<tableStyleInfo name="TableStyleMedium2" showFirstColumn="0" showLastColumn="0" showRowStripes="1" showColumnStripes="0"/>` +
     `</table>`
-  );
-}
-
-function relationshipsXml(queryTableId: number): string {
-  return (
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-    `<Relationship Id="rId1" Type="${NS_REL}/queryTable" Target="../queryTables/queryTable${queryTableId}.xml"/>` +
-    `</Relationships>`
-  );
-}
-
-function connectionXml(id: number, query: string): string {
-  return (
-    `<connection id="${id}" keepAlive="1" name="Query - ${escapeXml(query)}" ` +
-    `description="Connection to the ${escapeXml(query)} query in the workbook." ` +
-    `type="5" refreshedVersion="8" background="1" saveData="1">` +
-    `<dbPr connection="Provider=Microsoft.Mashup.OleDb.1;Data Source=$Workbook$;` +
-    `Location=${escapeXml(query)};Extended Properties=&quot;&quot;" ` +
-    `command="SELECT * FROM [${escapeXml(query)}]"/></connection>`
-  );
-}
-
-function queryTableXml(id: number, connectionId: number, columns: readonly string[]): string {
-  const fields = columns
-    .map((c, i) => `<queryTableField id="${i + 1}" name="${escapeXml(c)}" tableColumnId="${i + 1}"/>`)
-    .join("");
-  return (
-    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-    `<queryTable xmlns="${NS_TABLE}" name="ExternalData_${id}" connectionId="${connectionId}" ` +
-    `autoFormatId="16" applyNumberFormats="0" applyBorderFormats="0" applyFontFormats="0" ` +
-    `applyPatternFormats="0" applyAlignmentFormats="0" applyWidthHeightFormats="0">` +
-    `<queryTableRefresh nextId="${columns.length + 1}">` +
-    `<queryTableFields count="${columns.length}">${fields}</queryTableFields>` +
-    `</queryTableRefresh></queryTable>`
   );
 }
 
@@ -198,12 +146,8 @@ export function readPart(cfb: Container, path: string): string | null {
   return new TextDecoder().decode(new Uint8Array(input.content as unknown as ArrayBufferLike));
 }
 
-export function writeBinaryPart(cfb: Container, path: string, bytes: Uint8Array): void {
-  XLSX.CFB.utils.cfb_add(cfb, path, bytes as unknown as number[]);
-}
-
 export function writePart(cfb: Container, path: string, content: string): void {
-  writeBinaryPart(cfb, path, new TextEncoder().encode(content));
+  XLSX.CFB.utils.cfb_add(cfb, path, new TextEncoder().encode(content) as unknown as number[]);
 }
 
 // How far a sheet's validations reach: at least enough to type comfortably in
@@ -240,28 +184,10 @@ function declaredExtent(ref: string): { columnIdx: number; row: number } {
 // between apostrophes otherwise -- and the apostrophes it holds are doubled,
 // "Mode d'emploi" becoming 'Mode d''emploi'. SheetJS forgot that doubling on
 // the autofilter's defined name, and Excel opened on a repair prompt; the
-// autofilter is gone (see applyOoxmlExtras) but the external data ranges below
+// autofilter is gone (see applyOoxmlExtras) but the validations' formulas
 // quote a sheet in their turn.
 function sheetReference(name: string): string {
   return /^[A-Za-z_][A-Za-z0-9_.]*$/.test(name) ? name : `'${name.replace(/'/g, "''")}'`;
-}
-
-// "A1:E2" as Excel writes it in a defined name: every coordinate absolute.
-function absolute(ref: string): string {
-  return ref.replace(/([A-Z]+)(\d+)/g, "$$$1$$$2");
-}
-
-// The external data range of a query table: the hidden defined name that ties
-// the query to where it lands. Excel writes one per query table, named after
-// the queryTable part itself, and WITHOUT it -- verified against a workbook
-// Excel produced -- it drops the table and the autofilter on opening, offering
-// to repair the file.
-function externalDataName(id: number, sheetIndex: number, sheetName: string, ref: string): string {
-  const target = `${sheetReference(sheetName)}!${absolute(ref)}`;
-  return (
-    `<definedName name="ExternalData_${id}" localSheetId="${sheetIndex}" hidden="1">` +
-    `${escapeXml(target)}</definedName>`
-  );
 }
 
 // Each defined name's reference targets the table actually laid down for the
@@ -271,10 +197,9 @@ function externalDataName(id: number, sheetIndex: number, sheetName: string, ref
 function definedNamesXml(
   lists: readonly NamedList[],
   tables: readonly TableToApply[],
-  nameByTable: ReadonlyMap<TableToApply, string>,
-  externalData: readonly string[]
+  nameByTable: ReadonlyMap<TableToApply, string>
 ): string {
-  if (lists.length === 0 && externalData.length === 0) return "";
+  if (lists.length === 0) return "";
   const names = lists
     .map((l) => {
       const table = tables.find((t) => t.sheet === l.sheet && t.columns.includes(l.heading));
@@ -287,7 +212,7 @@ function definedNamesXml(
       return `<definedName name="${l.name}">${reference}</definedName>`;
     })
     .join("");
-  return `<definedNames>${names}${externalData.join("")}</definedNames>`;
+  return `<definedNames>${names}</definedNames>`;
 }
 
 function validationsXml(validations: readonly ValidationToApply[], lastRow: number): string {
@@ -431,19 +356,6 @@ export interface OoxmlExtras {
   // The sheets whose header row stays visible while scrolling. A thirty-row
   // entry sheet is filled in blind without it.
   panes?: readonly string[];
-  // The referential workbook this file points at. Empty writes no query at
-  // all: a workbook without a referential must stay an ordinary workbook.
-  referential?: ReferentialUrl;
-}
-
-const TYPE_CUSTOM_XML_PROPS =
-  "application/vnd.openxmlformats-officedocument.customXmlProperties+xml";
-
-// The next free relationship id in a .rels part. SheetJS numbers its own from
-// rId1 without a gap; reusing one would make Excel drop a sheet.
-function freeRelationshipId(rels: string): string {
-  const used = [...rels.matchAll(/Id="rId(\d+)"/g)].map((m) => Number(m[1]));
-  return `rId${(used.length > 0 ? Math.max(...used) : 0) + 1}`;
 }
 
 export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | readonly TableToApply[]): ArrayBuffer {
@@ -453,7 +365,6 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     validations = [],
     styles = [],
     panes = [],
-    referential = NO_REFERENTIAL,
   } = Array.isArray(extras)
     ? {
         tables: extras as readonly TableToApply[],
@@ -461,7 +372,6 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
         validations: [],
         styles: [],
         panes: [],
-        referential: NO_REFERENTIAL,
       }
     : (extras as OoxmlExtras);
   const cfb = XLSX.CFB.read(new Uint8Array(bytes), { type: "array" });
@@ -491,12 +401,6 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
   let idTable = 0;
   const nameByTable = new Map<TableToApply, string>();
   const usedNames = new Set<string>();
-
-  // Connection ids are allocated in the order the tables are met, so the same
-  // input always produces the same package.
-  const connections: string[] = [];
-  const externalDataNames: string[] = [];
-  let idQueryTable = 0;
 
   for (const [sheetName, tablesOfSheet] of bySheet) {
     const index = names.indexOf(sheetName);
@@ -549,31 +453,11 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
       lastSheetRow = Math.max(lastSheetRow, lastRow);
       lastSheetColumnIndex = Math.max(lastSheetColumnIndex, lastColumnIndex);
 
-      let queryTableId: number | undefined;
-      if (table.query) {
-        idQueryTable += 1;
-        queryTableId = idQueryTable;
-        connections.push(connectionXml(idQueryTable, table.query));
-        writePart(
-          cfb,
-          `/xl/queryTables/queryTable${queryTableId}.xml`,
-          queryTableXml(queryTableId, queryTableId, table.columns)
-        );
-        contentTypes = contentTypes.replace(
-          "</Types>",
-          `<Override PartName="/xl/queryTables/queryTable${queryTableId}.xml" ContentType="${TYPE_QUERY_TABLE}"/></Types>`
-        );
-        externalDataNames.push(externalDataName(queryTableId, index, sheetName, ref));
-      }
-
       writePart(
         cfb,
         `/xl/tables/table${idTable}.xml`,
-        tableXml(idTable, name, ref, table.columns, table.formulaByColumn, queryTableId)
+        tableXml(idTable, name, ref, table.columns, table.formulaByColumn)
       );
-      if (queryTableId !== undefined) {
-        writePart(cfb, `/xl/tables/_rels/table${idTable}.xml.rels`, relationshipsXml(queryTableId));
-      }
       relations.push(`<Relationship Id="rId${relations.length + 1}" Type="${NS_REL}/table" Target="../tables/table${idTable}.xml"/>`);
 
       contentTypes = contentTypes.replace(
@@ -678,64 +562,6 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     );
   }
 
-  // The Power Query stream. Excel keeps it in a custom XML part, related to the
-  // workbook; itemProps says which schema it follows. The item itself takes no
-  // Override -- the .xml Default already covers it, and that is how Excel
-  // writes it.
-  if (hasReferential(referential)) {
-    writeBinaryPart(cfb, "/customXml/item1.xml", customXmlItem(referential));
-    writePart(cfb, "/customXml/itemProps1.xml", CUSTOM_XML_PROPS);
-    writePart(
-      cfb,
-      "/customXml/_rels/item1.xml.rels",
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">` +
-        `<Relationship Id="rId1" Type="${NS_REL}/customXmlProps" Target="itemProps1.xml"/>` +
-        `</Relationships>`
-    );
-    contentTypes = contentTypes.replace(
-      "</Types>",
-      `<Override PartName="/customXml/itemProps1.xml" ContentType="${TYPE_CUSTOM_XML_PROPS}"/></Types>`
-    );
-    const rels = readPart(cfb, "/xl/_rels/workbook.xml.rels");
-    if (rels) {
-      writePart(
-        cfb,
-        "/xl/_rels/workbook.xml.rels",
-        rels.replace(
-          "</Relationships>",
-          `<Relationship Id="${freeRelationshipId(rels)}" Type="${NS_REL}/customXml" ` +
-            `Target="../customXml/item1.xml"/></Relationships>`
-        )
-      );
-    }
-  }
-
-  if (connections.length > 0) {
-    writePart(
-      cfb,
-      "/xl/connections.xml",
-      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
-        `<connections xmlns="${NS_TABLE}">${connections.join("")}</connections>`
-    );
-    contentTypes = contentTypes.replace(
-      "</Types>",
-      `<Override PartName="/xl/connections.xml" ContentType="${TYPE_CONNECTIONS}"/></Types>`
-    );
-    const rels = readPart(cfb, "/xl/_rels/workbook.xml.rels");
-    if (rels) {
-      writePart(
-        cfb,
-        "/xl/_rels/workbook.xml.rels",
-        rels.replace(
-          "</Relationships>",
-          `<Relationship Id="${freeRelationshipId(rels)}" Type="${NS_REL}/connections" ` +
-            `Target="connections.xml"/></Relationships>`
-        )
-      );
-    }
-  }
-
   writePart(cfb, "/[Content_Types].xml", contentTypes);
   // The original defined names came from the sheet autofilters, which have just
   // been removed; they are replaced by the drop-downs' named ranges.
@@ -744,7 +570,7 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     "/xl/workbook.xml",
     workbook
       .replace(/<definedNames>.*?<\/definedNames>/, "")
-      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nameByTable, externalDataNames)}`)
+      .replace("</sheets>", `</sheets>${definedNamesXml(lists, tables, nameByTable)}`)
   );
 
   const output = XLSX.CFB.write(cfb, { fileType: "zip", type: "array" }) as unknown as number[];

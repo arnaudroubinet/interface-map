@@ -36,13 +36,14 @@ import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { downloadTemplateXlsx, writeTemplate, type WorkbookData } from "../export/template-export";
-import { readReferentialUrl, NO_REFERENTIAL } from "../export/datamashup";
+import { downloadTemplateXlsx, writeTemplate } from "../export/template-export";
+import { readReferentialWorkbook, referentialDrifted } from "../parsing/referential-workbook";
+import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
 import { exportPng, downloadPngBlob } from "../export/png-export";
 import { reportToMarkdown } from "../export/markdown-report";
-import { downloadText } from "../export/download";
+import { downloadText, downloadWorkbook } from "../export/download";
 import { buildDrawio } from "../export/drawio-export";
 import { modelToStructurizr } from "../export/c4-dsl";
 import { modelToLikeC4 } from "../export/likec4-dsl";
@@ -77,10 +78,12 @@ import {
   withDisplayedMilestone,
   withComparedMilestone,
   withBannerMessage,
+  withReferentialCheck,
   viewOnLoad,
   VIEW_LABEL,
   type AppState,
   type LoadedFile,
+  type ReferentialCheck,
   type View,
 } from "./state";
 
@@ -128,6 +131,22 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
 // go through the very same path as a dropped one, refusals included.
 type WorkbookSource = { name: string; arrayBuffer: () => Promise<ArrayBuffer> };
 
+// A dropped file, once told apart. Two kinds of workbook land on the same
+// target -- the cartography and its referential -- and the tool, not the
+// reader, says which is which: they are recognised by their shape, never by
+// their name or by the order they were dropped in.
+type DroppedFile =
+  | { kind: "cartography"; loaded: LoadedFile }
+  | { kind: "referential"; name: string; rows: ReferentialRows }
+  | { kind: "refused"; message: string };
+
+// The name the refreshed workbook is handed back under: the one it came in
+// with, so that replacing the file on disk is a matter of saying yes. An .xlsm
+// comes back as .xlsx -- the tool writes no macro, and has not for some time.
+function refreshedName(name: string): string {
+  return `${name.replace(/\.(xlsx|xlsm)$/i, "")}.xlsx`;
+}
+
 // One name for the sample, whether it is downloaded or opened: the title block
 // of every diagram carries it, and two names for the same workbook would read
 // as two workbooks.
@@ -163,7 +182,7 @@ export function mountApp(root: HTMLElement): void {
     setDrawer(false);
   });
 
-  wireDropZone(root, handleFile);
+  wireDropZone(root, handleFiles);
 
   // The report depends on the displayed milestone for its "state of the
   // platform" part (§7.1): it is therefore recomputed at every milestone
@@ -179,55 +198,80 @@ export function mountApp(root: HTMLElement): void {
     render();
   }
 
-  // Read a workbook into a LoadedFile, or say why it cannot be read. Both the
-  // main drop target and the "compare with" field go through here: the same
-  // file must be refused for the same reason and in the same words, whichever
-  // of the two it was handed to.
+  // Read a dropped workbook, or say why it cannot be read. Both the main drop
+  // target and the "compare with" field go through here: the same file must be
+  // refused for the same reason and in the same words, whichever of the two it
+  // was handed to.
   //
-  // readReferentials is false on the comparison path: the compared workbook's
-  // referential URLs are stored but never read by anything, and reading them
-  // means reopening the whole package with XLSX.CFB -- work with no purpose
-  // there.
-  async function readWorkbook(
-    file: WorkbookSource,
-    readReferentials = true
-  ): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
+  // A referential is told apart BEFORE the cartography's model is built: it
+  // shares three sheet names with a cartography, and read as one it would be
+  // refused for lacking an interface catalogue -- which is exactly what it is
+  // supposed to lack.
+  async function readWorkbook(file: WorkbookSource): Promise<DroppedFile> {
     if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
-      return { ok: false, message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
+      return { kind: "refused", message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
     }
 
-    // The bytes are kept: the referential URLs are not in any sheet but in the
-    // binary Power Query stream, so only the file itself can be asked for them.
-    const bytes = await file.arrayBuffer();
     let parsed;
     try {
-      parsed = parseWorkbook(bytes);
+      parsed = parseWorkbook(await file.arrayBuffer());
     } catch {
-      return { ok: false, message: "Workbook unreadable or corrupted." };
+      return { kind: "refused", message: "Workbook unreadable or corrupted." };
     }
 
+    const referential = readReferentialWorkbook(parsed);
+    if (referential) return { kind: "referential", name: file.name, rows: referential };
+
     const built = buildModel(parsed);
-    if (!built.ok) return { ok: false, message: built.errors.map((e) => e.message).join(" ") };
+    if (!built.ok) return { kind: "refused", message: built.errors.map((e) => e.message).join(" ") };
 
     // A workbook from a newer version is not read at all: guessing the shape
     // of a format one does not know would produce wrong diagrams, which is
     // worse than showing nothing.
     if (built.model.schemaVersion > SCHEMA_VERSION) {
       return {
-        ok: false,
+        kind: "refused",
         message: `This workbook follows model v${built.model.schemaVersion}, produced by a newer version of the tool. Update the tool to open it.`,
       };
     }
 
     return {
-      ok: true,
+      kind: "cartography",
       loaded: {
         name: file.name,
         model: built.model,
         report: runIntegrityChecks(built.model),
         modifiedAt: parsed.savedAt,
-        referential: readReferentials ? await readReferentialUrl(bytes) : NO_REFERENTIAL,
       },
+    };
+  }
+
+  // The cartography's copy of the referential, held against what the dropped
+  // referential publishes.
+  //
+  // Up to date, nothing moves: the verdict is all that is kept. Drifted, the
+  // workbook is REBUILT with the referential's rows -- through the same path as
+  // an upgrade, so a stale workbook comes out at the current model as well --
+  // and read back through readWorkbook like any dropped file: what the screen
+  // shows is the file that will be downloaded, not a model patched in memory
+  // that the file on disk would then contradict.
+  async function checkedAgainst(
+    loaded: LoadedFile,
+    referential: { name: string; rows: ReferentialRows }
+  ): Promise<{ loaded: LoadedFile; check: ReferentialCheck }> {
+    const held = dataFromModel(loaded.model).referentialRows ?? {};
+    if (!referentialDrifted(held, referential.rows)) {
+      return { loaded, check: { referential: referential.name, drifted: false } };
+    }
+    const bytes = writeTemplate({ ...upgrade(loaded.model), referentialRows: referential.rows });
+    const reread = await readWorkbook({ name: loaded.name, arrayBuffer: async () => bytes });
+    // The tool has just written this file: not reading it back is its own bug,
+    // and the safety net in handleFiles says so rather than showing a stale view
+    // beside a fresh download.
+    if (reread.kind !== "cartography") throw new Error(`refreshed workbook not readable: ${reread.kind}`);
+    return {
+      loaded: reread.loaded,
+      check: { referential: referential.name, drifted: true, filename: refreshedName(loaded.name), bytes },
     };
   }
 
@@ -240,9 +284,13 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     try {
-      const read = await readWorkbook(file, false);
-      if (!read.ok) {
+      const read = await readWorkbook(file);
+      if (read.kind === "refused") {
         setState(withBannerMessage(state, read.message));
+        return;
+      }
+      if (read.kind === "referential") {
+        setState(withBannerMessage(state, `${read.name} is a referential, not a cartography: there is nothing to compare it with.`));
         return;
       }
       setState(withComparedFile(withBannerMessage(state, null), read.loaded));
@@ -252,26 +300,74 @@ export function mountApp(root: HTMLElement): void {
     }
   }
 
-  async function handleFile(file: WorkbookSource): Promise<void> {
+  // A cartography takes the screen: what it replaces, it replaces whole. The
+  // verdict on the referential, when one came with it, is set AFTER
+  // withLoadedFile, which clears the previous one -- another file, another
+  // verdict due.
+  function showLoaded(loaded: LoadedFile, check: ReferentialCheck | null): void {
+    // One estate's positions mean nothing on another.
+    placements.clear();
+    annealed.clear();
+
+    // The report carried by withLoadedFile is not yet set on the current
+    // milestone (recomputeReport replaces it right afterwards): the landing
+    // view must therefore be decided again on the final report, otherwise an
+    // anomaly that exists only at a retired milestone opens on a checks screen
+    // showing (0) everywhere.
+    let next = recomputeReport(withReferentialCheck(withLoadedFile(state, loaded), check));
+    if (next.file) next = withView(next, viewOnLoad(next.file));
+    setState(next);
+  }
+
+  // Everything dropped, in one gesture, whatever it holds. One cartography at
+  // most, one referential at most -- the tool draws ONE workbook, and two
+  // referentials would be two truths -- and any refusal stops the lot: reading
+  // half of a drop would leave the reader to guess which half.
+  //
+  // A referential on its own applies to the workbook already on screen, when
+  // there is one: dropping the two together and dropping the second afterwards
+  // must come to the same, or the order of a gesture would carry a meaning.
+  async function handleFiles(files: WorkbookSource[]): Promise<void> {
     try {
-      const read = await readWorkbook(file);
-      if (!read.ok) {
-        setState(withBannerMessage(state, read.message));
+      const read = await Promise.all(files.map((f) => readWorkbook(f)));
+      const refused = read.find((r): r is DroppedFile & { kind: "refused" } => r.kind === "refused");
+      if (refused) {
+        setState(withBannerMessage(state, refused.message));
+        return;
+      }
+      const cartographies = read.filter((r): r is DroppedFile & { kind: "cartography" } => r.kind === "cartography");
+      const referentials = read.filter((r): r is DroppedFile & { kind: "referential" } => r.kind === "referential");
+      if (cartographies.length > 1) {
+        setState(withBannerMessage(state, "Several cartographies dropped at once: drop one, with its referential if you like."));
+        return;
+      }
+      if (referentials.length > 1) {
+        setState(withBannerMessage(state, "Several referentials dropped at once: a cartography follows one."));
         return;
       }
 
-      // One estate's positions mean nothing on another.
-      placements.clear();
-      annealed.clear();
+      const referential = referentials[0];
+      const cartography = cartographies[0];
+      if (cartography) {
+        const { loaded, check } = referential ? await checkedAgainst(cartography.loaded, referential) : { loaded: cartography.loaded, check: null };
+        showLoaded(loaded, check);
+        return;
+      }
 
-      // The report carried by withLoadedFile is not yet set on the current
-      // milestone (recomputeReport replaces it right afterwards): the landing
-      // view must therefore be decided again on the final report, otherwise an
-      // anomaly that exists only at a retired milestone opens on a checks screen
-      // showing (0) everywhere.
-      let loaded = recomputeReport(withLoadedFile(state, read.loaded));
-      if (loaded.file) loaded = withView(loaded, viewOnLoad(loaded.file));
-      setState(loaded);
+      // Nothing at all: the drop zones never hand over an empty drop, and the
+      // sample always comes as one file, so this is a guard, not a case.
+      if (!referential) return;
+
+      // A referential, and nothing to apply it to.
+      if (!state.file) {
+        setState(
+          withBannerMessage(state, `${referential.name} is a referential. Drop the cartography workbook it applies to — with it, or before it.`)
+        );
+        return;
+      }
+      const { loaded, check } = await checkedAgainst(state.file, referential);
+      if (check.drifted) showLoaded(loaded, check);
+      else setState(withReferentialCheck(withBannerMessage(state, null), check));
     } catch (err) {
       // A safety net: a well-formed workbook whose content triggers an
       // unexpected exception further down the pipeline must never leave an
@@ -329,22 +425,16 @@ export function mountApp(root: HTMLElement): void {
   // it, for whoever wants the file itself.
   function openSampleHandler(): void {
     const bytes = writeTemplate(SAMPLE_DATA);
-    void handleFile({ name: SAMPLE_FILENAME, arrayBuffer: async () => bytes });
+    void handleFiles([{ name: SAMPLE_FILENAME, arrayBuffer: async () => bytes }]);
   }
 
-  // Every rewrite of a LOADED workbook goes through here. dataFromModel() and
-  // upgrade() rebuild the sheets, and the sheets are precisely where the URLs
-  // are NOT: they live in the binary Power Query stream. Whoever rewrites the
-  // file must therefore put them back, failing which any schema change would
-  // wipe the queries -- which the specification forbids.
-  //
-  // The file is read from the state at click time and never closed over: the
-  // URLs are edited in place, without a render (see onReferentials), so a
-  // handler holding the file it was built with would carry the URLs as they
-  // were when its screen was drawn.
-  function downloadLoaded(filename: string, data: WorkbookData): void {
-    if (!state.file) return;
-    downloadTemplateXlsx(filename, { ...data, referential: state.file.referential });
+  // The workbook rebuilt with the referential's rows, as the banner offers it.
+  // The bytes are the ones on screen -- checkedAgainst read them back -- so
+  // what is downloaded is what is shown, to the byte.
+  function downloadRefreshedHandler(): void {
+    const check = state.referentialCheck;
+    if (!check || !check.drifted) return;
+    downloadWorkbook(check.bytes, check.filename);
   }
 
   // The nine exports live in their own module: they depend only on the state,
@@ -358,6 +448,9 @@ export function mountApp(root: HTMLElement): void {
     svgCourant: currentSvg,
     currentMatrix: () => currentMatrix,
   });
+  // The banner's one action that is not an export: handing back the workbook
+  // refreshed from a dropped referential.
+  const bannerActions = { ...exportHandlers, onDownloadRefreshed: downloadRefreshedHandler };
 
   function render(): void {
     if (!state.file) {
@@ -377,13 +470,13 @@ export function mountApp(root: HTMLElement): void {
       } else {
         renderArea.appendChild(
           buildDropTarget({
-            onFile: handleFile,
+            onFiles: handleFiles,
             onOpenSample: openSampleHandler,
             onHelp: () => setState(withView(state, "help")),
           })
         );
       }
-      renderBanner(banner, state, false, exportHandlers);
+      renderBanner(banner, state, false, bannerActions);
       return;
     }
 
@@ -401,7 +494,7 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
     }
 
-    renderBanner(banner, state, currentSvg() !== null, exportHandlers);
+    renderBanner(banner, state, currentSvg() !== null, bannerActions);
   }
 
   function renderContent(file: LoadedFile): void {
@@ -422,7 +515,7 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(
         buildUpgradeScreen(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
-          downloadLoaded(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
+          downloadTemplateXlsx(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
         })
       );
     } else if (state.view === "changes") {
@@ -456,7 +549,7 @@ export function mountApp(root: HTMLElement): void {
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
             renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", context));
-            renderBanner(banner, state, true, exportHandlers);
+            renderBanner(banner, state, true, bannerActions);
           });
         }
       } else if (rank === null || comparedRank === null) {
@@ -495,7 +588,7 @@ export function mountApp(root: HTMLElement): void {
             );
             // The change diagram exports like the others. The buttons depend on it,
             // and it did not yet exist when the banner was rendered.
-            renderBanner(banner, state, true, exportHandlers);
+            renderBanner(banner, state, true, bannerActions);
           });
         }
       }
@@ -516,7 +609,7 @@ export function mountApp(root: HTMLElement): void {
         });
         renderArea.appendChild(svg);
         renderArea.appendChild(buildZoomControls(wireZoom(svg)));
-        renderBanner(banner, state, true, exportHandlers);
+        renderBanner(banner, state, true, bannerActions);
       }
     } else if (state.view === "matrix") {
       const matrix = buildMatrixView(model, reading, {
@@ -678,7 +771,7 @@ export function mountApp(root: HTMLElement): void {
             }
             // The export buttons depend on the presence of the SVG, which did not yet
             // exist when the banner was rendered.
-            renderBanner(banner, state, true, exportHandlers);
+            renderBanner(banner, state, true, bannerActions);
           })
           .catch((err) => {
             if (generation !== renderGeneration) return;

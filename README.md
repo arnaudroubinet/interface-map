@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1031 tests
+npm test          # 1046 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 ```
@@ -94,47 +94,54 @@ qu'on oublie :
 
 Les noms d'acteurs, de groupes, de types d'acteur et de technologies peuvent
 venir d'un référentiel commun plutôt que d'être redéclarés dans chaque
-classeur. **Un seul fichier, une seule URL** : un classeur portant quatre
-tableaux nommés — `TblActors`, `TblGroups`, `TblActorTypes`, `TblFlowTypes`.
+classeur. **Un seul fichier, déposé à côté de la cartographie** : un classeur
+portant quatre onglets — `Actors`, `Groups`, `ActorTypes`, `FlowTypes`.
 
 **C'est l'outil qui produit ce fichier**, vierge ou rempli d'un exemple
 (écran `Repair or upgrade a workbook`). Sa forme n'est donc pas à deviner :
-`src/export/referential-shape.ts` la décrit, et c'est la même table qui sert
-à écrire le fichier, à écrire les requêtes et à créer les onglets qui les
-reçoivent. Les noms des tableaux ne doivent pas changer — c'est la seule
-contrainte dure, et le fichier le dit lui-même sur son onglet `Instructions`.
+`src/parsing/referential-shape.ts` la décrit, et c'est la même table qui sert
+à écrire le fichier, à le reconnaître quand il revient, et à créer les onglets
+qui en reçoivent la copie. Les noms des quatre onglets et de leur première
+colonne ne doivent pas changer — c'est la seule contrainte dure, et le fichier
+le dit lui-même sur son onglet `Instructions`.
 
-L'outil ne va jamais sur le réseau. Il écrit la requête Power Query ; c'est
-Excel qui charge, à l'actualisation, dans les quatre onglets masqués
-`RefActors`, `RefGroups`, `RefActorTypes` et `RefTechnologies`. Tant que
-personne n'a actualisé, ces onglets sont vides et l'outil ne voit aucun
-référentiel. Chaque requête ne garde que les colonnes que son onglet déclare :
-une colonne en plus dans le référentiel est ignorée, une colonne en moins
-arrive vide plutôt que de faire échouer l'actualisation.
+**L'outil ne va jamais sur le réseau.** Le référentiel se dépose comme la
+cartographie, dans le même geste : la zone de dépôt accepte plusieurs
+fichiers, et c'est l'outil qui dit lequel est quoi, à sa forme, jamais à son
+nom ni à l'ordre du dépôt (`src/parsing/referential-workbook.ts`). Un
+référentiel et une cartographie partagent trois noms d'onglets ; ce qui les
+distingue est dit une fois : le référentiel nomme ses groupes sous `Name` là
+où la cartographie dit `Group`, et il n'a pas de catalogue d'interfaces.
 
-L'URL se saisit dans **Repair or upgrade a workbook**, et nulle part ailleurs :
-elle appartient au fichier, pas à l'affichage, et cet écran est le seul qui
-réécrive un fichier. Champ laissé vide, le classeur garde le référentiel qu'il
-portait déjà.
+La cartographie porte **une copie** du référentiel, dans quatre onglets
+masqués `RefActors`, `RefGroups`, `RefActorTypes` et `RefTechnologies`. C'est
+cette copie que lisent les listes déroulantes et les colonnes calculées, et
+c'est elle que le rapport d'intégrité confronte aux noms déclarés. Elle est
+écrite par l'outil, et par lui seul ; le classeur reste donc autonome, sans
+requête ni connexion.
 
-Quelle URL ? Celle qui rend **les octets du fichier**, c'est-à-dire son chemin
-et rien d'autre. Le champ ne garde que ça : tout ce qui suit le `?` d'une
-adresse SharePoint (`?d=w…&csf=1&web=1&e=…`) nomme une façon de **regarder** le
-fichier, et le préfixe `/:x:/r/` est celui de la visionneuse. Passée telle
-quelle à `Web.Contents`, cette adresse fait demander à Excel une connexion pour
-une ressource qui n'est pas le classeur — et cette connexion est refusée. Le
-nettoyage se fait dans le champ, à la saisie, pour que l'adresse affichée soit
-celle qui sera écrite. Un lien de partage invité (`/:x:/g/…`) ne porte aucun
-chemin : il est refusé et signalé, plutôt qu'écrit dans une requête qui ne peut
-qu'échouer.
+Quand le référentiel est déposé — avec la cartographie, ou après elle,
+celle-ci étant à l'écran — l'outil compare la copie à ce que le référentiel
+publie, cellule à cellule et dans l'ordre. À jour, la bannière le dit et rien
+ne bouge. Dérivée, la cartographie est **reconstruite** avec les lignes du
+référentiel, par le même chemin qu'une mise à niveau — un classeur en retard
+d'un schéma en sort donc au schéma courant —, relue comme n'importe quel
+fichier déposé, et affichée ; la bannière offre alors de **télécharger le
+classeur mis à jour**, sous son nom d'origine. Rien n'est téléchargé sans
+qu'on le demande : un téléchargement qui part seul surprend, et le navigateur
+peut l'avaler. La reconstruction a le coût d'une mise à niveau : colonnes
+ajoutées à la main, mises en forme et onglets personnels ne suivent pas.
 
-La chaîne de requête n'est retirée que si le chemin nomme un classeur : sur un
-serveur ordinaire, `/download?file=ref.xlsx` est une adresse dont la chaîne de
-requête EST l'adresse.
+Un référentiel déposé seul, sans cartographie à l'écran, est refusé et nommé
+pour ce qu'il est. Deux cartographies, ou deux référentiels, dans un même
+dépôt sont refusés aussi : l'outil dessine un classeur, et deux référentiels
+seraient deux vérités. Un refus arrête tout le dépôt plutôt que d'en lire la
+moitié.
 
-Excel demande un compte professionnel au premier rafraîchissement ; les
-identifiants restent dans Excel, jamais dans le fichier, qui reste donc
-partageable.
+L'écran `Repair or upgrade a workbook` prend le référentiel de la même façon,
+à côté du classeur à réparer : le classeur réparé emporte ses lignes. Sans
+référentiel dans le dépôt, la copie est conservée telle que le classeur la
+portait — réparer ne vide pas les listes.
 
 Un nom se **déclare** une fois, sur l'onglet qui le possède, et c'est là qu'il
 se choisit dans le référentiel : `Actors`, `Groups`, `ActorTypes` et
@@ -179,6 +186,13 @@ fait que synchroniser, ce sont les onglets cachés qui portent la donnée. C'est
 pourquoi toute réécriture les emporte avec elle, et pourquoi une valeur locale
 vide est reprise de la liste cachée à la lecture : une formule écrite par
 l'outil n'a pas encore de valeur calculée tant qu'Excel ne l'a pas ouverte.
+
+Jusqu'au schéma v9, la copie était rafraîchie par une requête Power Query
+écrite dans le classeur, vers une URL SharePoint. Le mécanisme est parti avec
+la v10 : l'URL exigeait une adresse nettoyée à la main, un compte au premier
+rafraîchissement, et une actualisation que personne ne faisait — la copie
+dérivait sans que l'outil le voie. La spec du 22 août 2026 en garde la trace,
+et le format MS-QDEFF n'est plus écrit nulle part ici.
 
 ## Où se trouve quoi
 

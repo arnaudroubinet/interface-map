@@ -29,7 +29,7 @@ import {
   REF_ACTOR_TYPE_COLUMNS,
   REF_TECHNOLOGY_COLUMNS,
 } from "../parsing/build-model";
-import { REFERENTIAL_SHEETS } from "./referential-shape";
+import { REFERENTIAL_SHEETS } from "../parsing/referential-shape";
 import { normalizeText } from "../shared/text";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import {
@@ -48,8 +48,7 @@ import {
   type StyleToApply,
 } from "./xlsx-tables";
 import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, FLOW_TYPES, type RowRole } from "./template-data";
-import { NO_REFERENTIAL, hasReferential } from "./datamashup";
-import type { ReferentialUrl } from "./datamashup";
+import type { ReferentialRows } from "../parsing/referential-shape";
 
 // The vocabularies and the instructions live in template-data.ts; this module
 // is nothing more than the machinery that assembles them into a workbook.
@@ -368,29 +367,22 @@ export interface WorkbookData {
   actors: readonly (readonly string[])[];
   interfaces: readonly (readonly string[])[];
   fx: readonly { name: string; rows: readonly (readonly string[])[] }[];
-  // Where the referential workbook is published -- one file, one URL, the four
-  // vocabularies being four of its tables. Absent means the workbook has no
-  // referential, which is an ordinary state.
-  referential?: ReferentialUrl;
-  // What the hidden Ref* sheets hold. THEY are what the workbook reads: the
-  // file at the URL only refreshes them. Carried across every rewrite, failing
-  // which exporting a workbook would empty the lists its own drop-downs and
-  // calculated columns are made of.
+  // What the hidden Ref* sheets hold: the cartography's copy of the
+  // referential. THEY are what the workbook reads -- its drop-downs and its
+  // calculated columns are made of them -- and the tool is what writes them,
+  // from the referential file dropped beside the cartography. Carried across
+  // every rewrite, failing which exporting a workbook would empty its lists.
   referentialRows?: ReferentialRows;
 }
 
-// The rows of the four hidden sheets, in the order REFERENTIAL_SHEETS gives
-// them.
-export type ReferentialRows = Record<string, readonly (readonly string[])[]>;
-
 // What a referential sheet is written with.
 //
-// The hidden lists carry the data -- the file at the URL only refreshes them --
-// so they must never come out empty on a workbook that has any. Preference goes
-// to what the workbook already held; failing that, to what the workbook itself
-// declares, which is put back where it now lives. Nothing is invented there: a
-// cartography naming six types could not have named them without a list, and
-// the first refresh replaces the lot with the referential's own rows.
+// The hidden lists carry the data, so they must never come out empty on a
+// workbook that has any. Preference goes to what the workbook already held;
+// failing that, to what the workbook itself declares, which is put back where
+// it now lives. Nothing is invented there: a cartography naming six types could
+// not have named them without a list, and the next referential dropped beside
+// it replaces the lot with its own rows.
 function referentialRowsOf(data: WorkbookData, sheet: string): readonly (readonly string[])[] {
   const held = data.referentialRows?.[sheet];
   if (held && held.length > 0) return held;
@@ -488,9 +480,8 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
     XLSX.utils.book_append_sheet(wb, fxSheet(tab.rows, fxWidths), tab.name);
   }
   XLSX.utils.book_append_sheet(wb, listsSheet(lastListRow(data.interfaces.length)), LISTS_SHEET);
-  // Query-owned, and therefore empty here: Excel pours the rows in on the first
-  // refresh. The header row alone is written, so the structured table has
-  // something to declare.
+  // The cartography's copy of the referential, hidden: the drop-downs and the
+  // calculated columns read it, nobody types into it.
   for (const r of REFERENTIAL_SHEETS) {
     const rows = referentialRowsOf(data, r.fills);
     XLSX.utils.book_append_sheet(
@@ -522,12 +513,6 @@ const writtenRows = (declared: readonly unknown[], seed: readonly unknown[]) =>
   declared.length > 0 ? declared.length : seed.length;
 
 export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToApply[] {
-  // Per query, not per workbook: queriesOf (datamashup.ts) only writes the M
-  // section for a URL that is actually set -- "a query pointing nowhere is not
-  // written". Marking a table as a queryTable for a query that was never
-  // written would leave its connection pointing at nothing, which is worse
-  // than the ordinary, query-less table this sheet gets when its URL is blank.
-  const referential = data.referential ?? NO_REFERENTIAL;
   return [
     { sheet: "Actors", columns: ACTOR_COLUMNS, rows: data.actors.length },
     { sheet: "Groups", columns: GROUP_COLUMNS, rows: data.groups.length },
@@ -565,7 +550,6 @@ export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToAp
       sheet: r.fills,
       columns: r.columns,
       rows: referentialRowsOf(data, r.fills).length,
-      query: hasReferential(referential) ? r.fills : undefined,
     })),
   ];
 }
@@ -666,9 +650,9 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
     text:
       "Fill in only when the consumer is a technical actor: which of ITS OWN interfaces republishes this flow. Several lines pointing at the same interface is how a bus aggregates.",
   },
-  Nature: { title: "Nature", text: "Read from the referential. A technical type is traversed in the functional reading: its actors do not appear, and the flows through them are joined end to end. Change it in the referential, then refresh." },
+  Nature: { title: "Nature", text: "Read from the referential. A technical type is traversed in the functional reading: its actors do not appear, and the flows through them are joined end to end. Change it in the referential, then drop the referential on the tool with this workbook." },
   Perimeter: { title: "Perimeter", text: "Platform for what the team owns, External for the rest. This is what decides how the group is drawn." },
-  Direction: { title: "Direction", text: "Read from the referential: which way the arrow is drawn for this technology, on every diagram. Change it in the referential, then refresh." },
+  Direction: { title: "Direction", text: "Read from the referential: which way the arrow is drawn for this technology, on every diagram. Change it in the referential, then drop the referential on the tool with this workbook." },
   "To confirm": { title: "To confirm", text: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
 
   // --- FREE-entry columns. No list guides them, and they were the only ones
@@ -689,7 +673,7 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
   Date: { title: "Date", text: "When the milestone happens. Informative: it is Rank that decides the order." },
   // The derived columns say where their value comes from: it is the one place
   // a reader looks when a cell will not keep what they typed.
-  Icon: { title: "Icon", text: "Read from the referential for this type. Not entered here: Excel puts the formula back. Change it in the referential, then refresh." },
+  Icon: { title: "Icon", text: "Read from the referential for this type. Not entered here: Excel puts the formula back. Change it in the referential, then drop the referential on the tool with this workbook." },
   "FlowTypes.Description": { title: "Description", text: "Read from the referential." },
   Colour: { title: "Colour", text: "Read from the referential, in hexadecimal. Empty, the palette picks one." },
   "Flow type": { title: "Flow type", text: "The technology this interface travels over. Declared on the FlowTypes sheet, which also sets which way the arrow is drawn." },
@@ -853,7 +837,6 @@ export function writeTemplate(data: WorkbookData = EMPTY_WORKBOOK, writtenOn: Da
     tables: tablesOfTemplate(data),
     lists: listsOfTemplate(),
     validations: validationsOfTemplate(data),
-    referential: data.referential ?? NO_REFERENTIAL,
     styles: [
       ...stylesOfTemplate(),
       // The filled flow sheets carry the same header row as their pattern:

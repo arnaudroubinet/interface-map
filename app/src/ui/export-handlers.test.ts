@@ -58,7 +58,7 @@ function context(state: AppState, svg: SVGSVGElement | null = document.createEle
 }
 
 const loaded = () =>
-  withLoadedFile(initialState(), { name: "carto.xlsx", model: template, report: report, modifiedAt: null, referential: "" });
+  withLoadedFile(initialState(), { name: "carto.xlsx", model: template, report: report, modifiedAt: null });
 
 beforeEach(() => {
   downloads.length = 0;
@@ -193,7 +193,7 @@ describe("exports — a board says the same thing on every door it leaves by", (
       fxSheetNames: ["FX_A_HTTP"],
     }),
     report,
-    modifiedAt: null, referential: "",
+    modifiedAt: null,
   });
 
   it("carries the context note on an actor's board, in the draw.io file", async () => {

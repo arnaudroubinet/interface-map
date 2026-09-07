@@ -60,7 +60,6 @@ describe("the upgrade chain", () => {
   // This one DOES transform: the word changes on both sides, the sheet the
   // workbook declares and the hidden list it reads from.
   it("renames a v8 workbook's technical types to middleware", () => {
-    expect(SCHEMA_VERSION).toBe(9);
     const step = UPGRADE_STEPS.find((s) => s.de === 8)!;
     expect(step.vers).toBe(9);
     const upgraded = step.appliquer(
@@ -72,6 +71,20 @@ describe("the upgrade chain", () => {
     );
     expect(upgraded.actorTypes[0].nature).toBe("Middleware");
     expect(upgraded.referentialActorTypes[0].nature).toBe("Middleware");
+  });
+
+  // The queries leave the workbook: the copy of the referential is written by
+  // the tool from a dropped file now. Nothing to transform in the model -- the
+  // copy is carried over by dataFromModel -- but the step must exist, so that
+  // the workbooks still carrying a query are rebuilt without it.
+  it("takes a v9 workbook to v10 without transforming the model", () => {
+    expect(SCHEMA_VERSION).toBe(10);
+    const step = UPGRADE_STEPS.find((s) => s.de === 9)!;
+    expect(step.vers).toBe(10);
+    const model = base.template({
+      referentialActorTypes: [{ type: "Bus", icon: "network", nature: "Middleware", description: "" }],
+    });
+    expect(step.appliquer(model, { dateMigration: new Date(0) })).toBe(model);
   });
 
   it("leaves a nature it does not have to rename alone", () => {

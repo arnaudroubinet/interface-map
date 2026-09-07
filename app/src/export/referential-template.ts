@@ -6,23 +6,24 @@ import {
   type ValidationToApply,
 } from "./xlsx-tables";
 import { downloadWorkbook } from "./download";
-import { REFERENTIAL_SHEETS } from "./referential-shape";
+import { REFERENTIAL_SHEETS } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "./sample-data";
 import { FLOW_TYPES, DEFAULT_ICONS } from "./template-data";
 import { VOCABULARY_DIRECTION, VOCABULARY_NATURE } from "../aggregation/vocabularies";
 import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
 import { PALETTE } from "../render/colors";
 
-// The referential workbook itself -- the file the queries read.
+// The referential workbook itself -- the file dropped beside a cartography.
 //
 // The tool produces it for the same reason it produces the cartography's
-// template: a shape nobody typed by hand is a shape the query can rely on. The
-// names it must carry are in referential-shape.ts; here is only the file.
+// template: a shape nobody typed by hand is a shape the tool can recognise
+// when it comes back. The names it must carry are in referential-shape.ts;
+// here is only the file.
 //
-// It carries no version sheet and no drop-down: it is not read by the tool, it
-// is read by Excel, on the other side of a query. Its one hard constraint is
-// that the four tables keep their names -- hence the sheet that says so, in
-// prose, at the front of the file.
+// It carries no version sheet: it is recognised by its four sheets and read
+// whole, whatever else it carries. Its one hard constraint is that those
+// sheets keep their names -- hence the sheet that says so, in prose, at the
+// front of the file.
 
 export interface ReferentialData {
   actors: readonly (readonly string[])[];
@@ -73,11 +74,11 @@ function previewFormula(): string {
 }
 
 const INSTRUCTIONS: [string, string][] = [
-  ["What this file is", "The referential the interface maps draw their names from. One workbook, one URL."],
-  ["Do not rename the tables", `Each sheet carries one Excel table: ${REFERENTIAL_SHEETS.map((r) => r.table).join(", ")}. The queries look for them by name — rename one and the map stops loading it.`],
+  ["What this file is", "The referential the interface maps draw their names from. One workbook, dropped on the tool beside each map."],
+  ["Do not rename the sheets", `The tool recognises this file by its four sheets — ${REFERENTIAL_SHEETS.map((r) => r.sheet).join(", ")} — and the first column of each. Rename one and the file is no longer a referential to it.`],
   ["Add columns freely", "A column the map does not know is ignored, not an error. A column it expects and does not find arrives empty."],
   ["Who fills it", "Whoever owns the referential. A map never writes back into this file."],
-  ["How a map reads it", "Repair or upgrade a workbook → External referential → the download URL of this file. Excel loads it on refresh."],
+  ["How a map reads it", "Drop this file on the tool together with the map, or after it. The map carries a hidden copy of it: when the copy has drifted, the tool refreshes it and hands the updated map back to download."],
   ["Names are the contract", "A map picks its actors, groups, types and technologies here. Renaming a row here does not rename it in a map: the old name simply becomes unknown to the referential, and the map's integrity report says so."],
 ];
 
