@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import { ICONS, DEFAULT_ICON } from "./icons";
 import { buildGraphSvg } from "./svg-builder";
-import { styleOfNode } from "./node-styles";
+import { styleOfNode, CHANGE_COLOUR, STROKE_WIDTH, WIDTH_BY_CRITICALITY } from "./node-styles";
 import { computeLayout, chipSize } from "../layout/graph-layout";
 import { contrastRatio } from "./contrast";
 import { serializeSvg } from "../export/svg-export";
 import { colourForTechnologies } from "./colors";
 import type { GraphNode, GraphEdge } from "../aggregation/core";
-import type { LayoutResult } from "../layout/graph-layout";
+import type { LayoutResult, LayoutEdge } from "../layout/graph-layout";
 
 describe("buildGraphSvg", () => {
   it("draws one <g> per node and one per edge, with the technology label always present", async () => {
@@ -446,6 +446,112 @@ describe("buildGraphSvg — orthogonal routing", () => {
     expect(vbY).toBeLessThanOrEqual(-150);
     expect(vbX + vbL).toBeGreaterThanOrEqual(360);
     expect(vbY + vbH).toBeGreaterThanOrEqual(200);
+  });
+});
+
+// Two branches into the same target, sharing their final approach: the
+// condition under which they merge into a trunk. What each branch says --
+// its change mark, its criticality -- must survive the merge, or the trunk
+// tells something the branches did not.
+function twoBranches(first: Partial<LayoutEdge>, second: Partial<LayoutEdge>): LayoutResult {
+  return {
+    nodes: [
+      { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 80, height: 40 },
+      { id: "C", label: "C", kind: "actor", x: 0, y: 100, width: 80, height: 40 },
+      { id: "B", label: "B", kind: "actor", x: 200, y: 50, width: 80, height: 40 },
+    ],
+    edges: [
+      {
+        from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false,
+        points: [{ x: 0, y: 0 }, { x: 100, y: 20 }, { x: 100, y: 50 }, { x: 160, y: 50 }],
+        ...first,
+      },
+      {
+        from: "C", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false,
+        points: [{ x: 0, y: 100 }, { x: 100, y: 80 }, { x: 100, y: 50 }, { x: 160, y: 50 }],
+        ...second,
+      },
+    ],
+    width: 300,
+    height: 150,
+  };
+}
+
+describe("buildGraphSvg — the merge keeps what the branches say", () => {
+  const paths = (svg: SVGSVGElement) => [...svg.querySelectorAll(".fx-edges g > path")];
+  const arrowed = (svg: SVGSVGElement) => paths(svg).filter((p) => p.hasAttribute("marker-end"));
+
+  // Two additions into the same target used to merge into a trunk painted in
+  // the technology's colour: the green stopped at the confluence, and the
+  // legend, computed on the drawn lines, no longer announced any change.
+  it("paints the trunk of two added branches in the change colour", () => {
+    const svg = buildGraphSvg(twoBranches({ change: "added" }, { change: "added" }), () => "#2a78d6");
+    expect(arrowed(svg)).toHaveLength(1);
+    for (const p of paths(svg)) expect(p.getAttribute("stroke")).toBe(CHANGE_COLOUR.added);
+    const legend = [...svg.querySelectorAll(".fx-legend text")].map((t) => t.textContent).join(" ");
+    expect(legend).toContain("flows added");
+  });
+
+  it("dashes the trunk of two removed branches like its branches", () => {
+    const svg = buildGraphSvg(twoBranches({ change: "removed" }, { change: "removed" }), () => "#2a78d6");
+    const trunk = arrowed(svg)[0];
+    expect(trunk.getAttribute("stroke")).toBe(CHANGE_COLOUR.removed);
+    expect(trunk.getAttribute("stroke-dasharray")).not.toBeNull();
+  });
+
+  // One colour per trunk: an addition and a removal cannot share one.
+  it("never merges an addition with a removal", () => {
+    const svg = buildGraphSvg(twoBranches({ change: "added" }, { change: "removed" }), () => "#2a78d6");
+    expect(arrowed(svg)).toHaveLength(2);
+  });
+
+  // The trunk falls with the most vital of its branches: the FIRST non-empty
+  // criticality is not that, and a standard branch met first made it thin.
+  it("gives the trunk the strongest criticality of its branches, whichever comes first", () => {
+    const svg = buildGraphSvg(
+      twoBranches({ criticality: "3 - Standard" }, { criticality: "1 - Critical" }),
+      () => "#2a78d6",
+      null,
+      { weightByCriticality: true }
+    );
+    expect(arrowed(svg)[0].getAttribute("stroke-width")).toBe("3.5");
+  });
+});
+
+// A criticality left empty, or spelt outside the scale, keeps the ordinary
+// width -- and that width must belong to no level, or the missing value passes
+// for a middling one. The legend says the case in its own words.
+describe("buildGraphSvg — weight by criticality on an unfilled line", () => {
+  const single = (criticality: string | undefined): LayoutResult => ({
+    nodes: [
+      { id: "A", label: "A", kind: "actor", x: 0, y: 0, width: 80, height: 40 },
+      { id: "B", label: "B", kind: "actor", x: 200, y: 0, width: 80, height: 40 },
+    ],
+    edges: [{ from: "A", to: "B", technology: "HTTP", count: 1, label: "HTTP", attenuated: false, criticality, points: [{ x: 80, y: 20 }, { x: 200, y: 20 }] }],
+    width: 300,
+    height: 60,
+  });
+  const width = (svg: SVGSVGElement) => svg.querySelector(".fx-edges g > path")?.getAttribute("stroke-width");
+  const legend = (svg: SVGSVGElement) => [...svg.querySelectorAll(".fx-legend text")].map((t) => t.textContent).join(" ");
+
+  it("draws an empty criticality at a width that is no level's", () => {
+    const svg = buildGraphSvg(single(undefined), () => "#2a78d6", null, { weightByCriticality: true });
+    const levels = WIDTH_BY_CRITICALITY.map((w) => String(w.width));
+    expect(levels).not.toContain(width(svg));
+    expect(legend(svg)).toContain("criticality not filled in");
+  });
+
+  it("treats a value off the scale like an empty one", () => {
+    const svg = buildGraphSvg(single("Vitale"), () => "#2a78d6", null, { weightByCriticality: true });
+    expect(width(svg)).toBe(String(STROKE_WIDTH));
+    expect(legend(svg)).toContain("criticality not filled in");
+  });
+
+  it("says nothing of unfilled lines when every line carries a level", () => {
+    const svg = buildGraphSvg(single("2 - Important"), () => "#2a78d6", null, { weightByCriticality: true });
+    expect(width(svg)).toBe("2.75");
+    expect(legend(svg)).toContain("2 - Important");
+    expect(legend(svg)).not.toContain("not filled in");
   });
 });
 

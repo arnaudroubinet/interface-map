@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <!-- Sans cette ligne, un téléphone rend la page sur une fenêtre virtuelle de
@@ -224,7 +224,10 @@
   .rail-milestone { display: flex; flex-direction: column; gap: 4px; }
   .rail-milestone-title { font-size: 12px; font-weight: 600; color: var(--ink-muted); }
 
-  .rail-toggle {
+  /* La case « hide external ». Sa classe ne doit rien partager avec le bouton
+     du tiroir mobile (.rail-toggle) : sous 720 px celui-ci devient une pastille
+     fixe, et la case l'était devenue aussi. */
+  .rail-externals {
     flex-shrink: 0; display: flex; align-items: center; gap: 6px; font-size: 13px;
     padding-bottom: 12px; border-bottom: 1px solid var(--line);
   }

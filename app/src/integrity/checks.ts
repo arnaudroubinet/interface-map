@@ -23,7 +23,7 @@ import {
   nameVersionKey,
   type InterfaceLookup,
 } from "../aggregation/core";
-import { lifespanOf, isLiveAt, intervalsMeet, ALWAYS, type Interval } from "../aggregation/milestones";
+import { lifespanOf, isLiveAt, intervalsMeet, rankOfMilestone, ALWAYS, type Interval } from "../aggregation/milestones";
 import { HEXA, LINE_THRESHOLD } from "../render/colors";
 import { contrastRatio } from "../render/contrast";
 import { MAX_TAB_LENGTH } from "../parsing/build-model";
@@ -533,8 +533,11 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
       parents: { name: string; interval: Interval }[]
     ) {
       const interval = lifespanOf(model, validity);
-      const arrivalFilled = validity.introducedAt.trim() !== "";
-      const retirementFilled = validity.retiredAt.trim() !== "";
+      // Filled AND known: a milestone the sheet does not declare gives an open
+      // bound (lifespanOf), and judging that bound against a parent produced a
+      // second, false anomaly on top of the reference one already reported.
+      const arrivalFilled = validity.introducedAt.trim() !== "" && rankOfMilestone(model, validity.introducedAt) !== undefined;
+      const retirementFilled = validity.retiredAt.trim() !== "" && rankOfMilestone(model, validity.retiredAt) !== undefined;
 
       if (arrivalFilled && retirementFilled && interval.end <= interval.start) {
         anomalies.push(anomaly(`${subject}: retirement milestone is at or before the introduction milestone.`, validity));
@@ -689,7 +692,9 @@ function checkVocabularies(model: ParsedModel): AnomalyFamily {
   for (const t of model.actorTypes) {
     if (outOfVocabulary(t.nature, VOCABULARIES.nature)) {
       anomalies.push(
-        anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULARIES.nature.join(", ")}.`, t)
+        // Accepted is wider than offered: "Technical" is still read, but the
+        // report must not teach a word the tool no longer writes.
+        anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULARY_NATURE.join(", ")}.`, t)
       );
     }
   }

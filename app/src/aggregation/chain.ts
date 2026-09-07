@@ -72,6 +72,7 @@ export function buildChainView(model: ParsedModel, chain: AvailableChain): ViewR
     label: interfaceLabel(m.interfaceName, m.version),
     names: [interfaceLabel(m.interfaceName, m.version)],
     attenuated: m.attenuated,
+    pulled: m.pulled,
   }));
 
   return { nodes, edges };

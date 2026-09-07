@@ -125,6 +125,26 @@ describe("buildChangesView", () => {
     expect(buildChangesView(at(m, 1), at(m, 2), "architecture").edges).toEqual([]);
   });
 
+  // One exchange retired, another opened on the same link: the count does not
+  // move, and the link vanished from the one diagram that exists to show the
+  // change. A swap is compared by NAME, and drawn.
+  it("shows a link whose exchanges were swapped, with both movements", () => {
+    const m = model({
+      actors: [actor({ name: "A" }), actor({ name: "B", group: "G2" })],
+      groups: [{ name: "G1", perimeter: "Platform", sheet: "Groups", row: 0 }, { name: "G2", perimeter: "External", sheet: "Groups", row: 0 }],
+      interfaces: [iface({ flowName: "Old", retiredAt: "v2" }), iface({ flowName: "New", introducedAt: "v2" })],
+      consumptions: [
+        consumption({ flowName: "Old", retiredAt: "v2" }),
+        consumption({ flowName: "New", introducedAt: "v2" }),
+      ],
+    });
+    const edges = buildChangesView(at(m, 1), at(m, 2), "architecture").edges;
+    expect(edges).toHaveLength(1);
+    expect(edges[0].label).toBe("+1 −1");
+    expect(edges[0].change).toBe("added");
+    expect(edges[0].names).toEqual(expect.arrayContaining(["New", "Old"]));
+  });
+
   // The base is "platform detail": one wants to know WHICH component gained or
   // lost a flow, not merely which group.
   it("names the platform components rather than collapsing them into their group", () => {

@@ -383,6 +383,15 @@ export interface WorkbookData {
 // it now lives. Nothing is invented there: a cartography naming six types could
 // not have named them without a list, and the next referential dropped beside
 // it replaces the lot with its own rows.
+// The copy exactly as writeTemplate will lay it down, fallback applied. This
+// is what a dropped referential is compared against: not the rows the model
+// holds, but the rows the FILE will hold -- a referential publishing an empty
+// sheet falls back on the workbook's own declarations, and comparing against
+// anything else made that workbook drift forever.
+export function writtenReferentialRows(data: WorkbookData): ReferentialRows {
+  return Object.fromEntries(REFERENTIAL_SHEETS.map((r) => [r.fills, referentialRowsOf(data, r.fills)]));
+}
+
 function referentialRowsOf(data: WorkbookData, sheet: string): readonly (readonly string[])[] {
   const held = data.referentialRows?.[sheet];
   if (held && held.length > 0) return held;

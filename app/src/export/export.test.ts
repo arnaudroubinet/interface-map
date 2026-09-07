@@ -14,6 +14,12 @@ describe("buildExportFilename", () => {
 
   // The file name says at which milestone the diagram was taken: two exports of
   // the same diagram at two milestones must not carry the same name.
+  // A milestone is typed by a person: "T3 2026 / lot 1" is a name the browser
+  // truncates at the slash. Slugged like the view and the selection.
+  it("slugs the palier like the rest of the name", () => {
+    expect(buildExportFilename("Groupe à groupe", null, "T3 2026 / lot 1", "svg")).toBe("carto-groupe-a-groupe-t3-2026-lot-1.svg");
+  });
+
   it("appends the palier the diagram was taken at", () => {
     expect(buildExportFilename("Groupe à groupe", null, "v2", "svg")).toBe("carto-groupe-a-groupe-v2.svg");
   });

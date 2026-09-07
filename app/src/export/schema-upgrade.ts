@@ -388,7 +388,10 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
   return {
     // The workbook's own vocabularies are taken as they are: replacing them
     // with the seed would erase the types the team declared.
-    flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description]),
+    // Four columns, the colour included: the FlowTypes sheet has four, and the
+    // hidden copy falls back on these rows when the workbook holds none. Three
+    // columns lost every colour typed before the copy existed.
+    flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description, t.colour]),
     actorTypes: model.actorTypes.map((t) => [t.type, t.icon, t.nature]),
     milestones: model.milestones.map((p) => [p.name, String(p.rank), p.label, p.status, p.date, p.description]),
     groups: model.groups.map((g) => [g.name, g.perimeter]),

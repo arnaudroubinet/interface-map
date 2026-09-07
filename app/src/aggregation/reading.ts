@@ -77,9 +77,14 @@ export interface Hop {
   version: string;
   technology: string;
   attenuated: boolean;
+  // Who takes the initiative on this hop, as the technology declares it: the
+  // arrowhead's place. A chain crosses technologies of opposite conventions,
+  // and the Chain view exists to show each hop as it is.
+  pulled: boolean;
 }
 
-function hop(iface: InterfaceCatalogue, consumption: Consumption): Hop {
+function hop(model: ParsedModel, iface: InterfaceCatalogue, consumption: Consumption): Hop {
+  const declared = model.flowTypes.find((t) => t.type.trim() === iface.flowType.trim());
   return {
     provider: iface.providerName.trim(),
     consumer: consumption.consumerName.trim(),
@@ -87,6 +92,7 @@ function hop(iface: InterfaceCatalogue, consumption: Consumption): Hop {
     version: iface.version,
     technology: iface.flowType,
     attenuated: normalizeText(consumption.decision) === normalizeText("Transform"),
+    pulled: declared?.direction === "consumer-to-provider",
   };
 }
 
@@ -151,7 +157,7 @@ function walkUp(
       // reported: the route reads from the source to the consumer, like the
       // line.
       if (!paths.has(source)) {
-        paths.set(source, [...(upstream.paths.get(source) ?? []), hop(input.iface, input.consumption)]);
+        paths.set(source, [...(upstream.paths.get(source) ?? []), hop(model, input.iface, input.consumption)]);
       }
     }
     cuts.push(...upstream.cuts);
@@ -171,7 +177,7 @@ export function chainsOfFlow(model: ParsedModel, rank: number | null, f: FlowIns
   const walked = walkUp(model, lookup, f.iface, rank);
   return walked.sources
     .filter((source) => source.providerName.trim() !== f.consumer.trim())
-    .map((source) => [...(walked.paths.get(source) ?? []), hop(f.iface, f.consumption)]);
+    .map((source) => [...(walked.paths.get(source) ?? []), hop(model, f.iface, f.consumption)]);
 }
 
 // The consumptions that count: those of a BUSINESS actor. A consumption by a

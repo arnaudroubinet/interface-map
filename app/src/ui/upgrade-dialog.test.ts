@@ -51,6 +51,46 @@ describe("ouvrirMigration — classeur corrompu", () => {
   });
 });
 
+// The Escape listener sits on the document. Closing by the cross or the veil
+// left it there, one more per opening, each removing an overlay long gone.
+describe("openMigration — closing", () => {
+  const listeners = () => {
+    const added = vi.spyOn(document, "addEventListener");
+    const removed = vi.spyOn(document, "removeEventListener");
+    return { added, removed };
+  };
+
+  it("removes its Escape listener when closed by the cross", () => {
+    document.body.innerHTML = "";
+    const { added, removed } = listeners();
+    openMigration();
+    (document.querySelector(".close-button") as HTMLButtonElement).click();
+    expect(document.querySelector(".migration-overlay")).toBeNull();
+    const keydownAdded = added.mock.calls.filter(([type]) => type === "keydown").length;
+    const keydownRemoved = removed.mock.calls.filter(([type]) => type === "keydown").length;
+    expect(keydownRemoved).toBe(keydownAdded);
+    vi.restoreAllMocks();
+  });
+
+  it("removes it when closed by the veil, and when closed by Escape", () => {
+    document.body.innerHTML = "";
+    const { added, removed } = listeners();
+    openMigration();
+    (document.querySelector(".migration-overlay") as HTMLElement).click();
+    openMigration();
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+    expect(document.querySelector(".migration-overlay")).toBeNull();
+    const keydownAdded = added.mock.calls.filter(([type]) => type === "keydown").length;
+    const keydownRemoved = removed.mock.calls.filter(([type]) => type === "keydown").length;
+    expect(keydownAdded).toBeGreaterThanOrEqual(2);
+    // At least: earlier tests in this file wiped their dialog with the body
+    // and left its listener behind; the first Escape makes each of those
+    // remove itself too, which is the same fix at work.
+    expect(keydownRemoved).toBeGreaterThanOrEqual(keydownAdded);
+    vi.restoreAllMocks();
+  });
+});
+
 // The button that starts another conversion must be readable to an
 // English-speaking user just like the rest of the success screen.
 describe("openMigration — the try-again button", () => {

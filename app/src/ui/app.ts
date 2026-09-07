@@ -36,7 +36,7 @@ import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { downloadTemplateXlsx, writeTemplate } from "../export/template-export";
+import { downloadTemplateXlsx, writeTemplate, writtenReferentialRows } from "../export/template-export";
 import { readReferentialWorkbook, referentialDrifted } from "../parsing/referential-workbook";
 import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
@@ -50,7 +50,7 @@ import { modelToLikeC4 } from "../export/likec4-dsl";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildHelp } from "../render/help";
-import { upgrade, dataFromModel } from "../export/schema-upgrade";
+import { upgrade } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
 import { renderRail, renderRailFoot } from "./rail";
@@ -259,11 +259,16 @@ export function mountApp(root: HTMLElement): void {
     loaded: LoadedFile,
     referential: { name: string; rows: ReferentialRows }
   ): Promise<{ loaded: LoadedFile; check: ReferentialCheck }> {
-    const held = dataFromModel(loaded.model).referentialRows ?? {};
-    if (!referentialDrifted(held, referential.rows)) {
+    // Compared as WRITTEN, on both sides: the file the workbook is, against the
+    // file it would become. Comparing the model's rows to the referential's
+    // missed the writer's fallback, and a referential publishing an empty sheet
+    // then drifted at every drop.
+    const current = upgrade(loaded.model);
+    const refreshed = { ...current, referentialRows: referential.rows };
+    if (!referentialDrifted(writtenReferentialRows(current), writtenReferentialRows(refreshed))) {
       return { loaded, check: { referential: referential.name, drifted: false } };
     }
-    const bytes = writeTemplate({ ...upgrade(loaded.model), referentialRows: referential.rows });
+    const bytes = writeTemplate(refreshed);
     const reread = await readWorkbook({ name: loaded.name, arrayBuffer: async () => bytes });
     // The tool has just written this file: not reading it back is its own bug,
     // and the safety net in handleFiles says so rather than showing a stale view
@@ -498,6 +503,11 @@ export function mountApp(root: HTMLElement): void {
   }
 
   function renderContent(file: LoadedFile): void {
+    // Every render opens a new generation, whatever the view: a layout still in
+    // flight for the previous view must find its generation stale even when
+    // the new view draws no diagram at all -- the matrix, the report, the
+    // help -- otherwise the late SVG lands under it.
+    renderGeneration += 1;
     const model = file.model;
     // The displayed milestone's rank, resolved once: it is what runs through the
     // views, the filters and the exports.
@@ -531,7 +541,7 @@ export function mountApp(root: HTMLElement): void {
         const after = { model, rank: null };
         renderArea.appendChild(buildChangesReport(computeChanges(before, after, state.mode), comparison));
 
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const changesView = buildChangesView(before, after, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
@@ -574,7 +584,7 @@ export function mountApp(root: HTMLElement): void {
         // The diagram comes after the listing: one first reads what changed, then
         // goes to see where. It arrives later, the layout being asynchronous, and a
         // generation counter protects it from a stale display.
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const changesView = buildChangesView({ model, rank: comparedRank }, { model, rank }, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
@@ -717,7 +727,7 @@ export function mountApp(root: HTMLElement): void {
         // The layout computation is asynchronous (ELK). A generation counter
         // protects against a stale render: if the user changes view during the
         // computation, the diagram arriving late must not display over the top.
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const colours = coloursOfModel(model);
         const viewForComputation = view;
         // The UNION of all milestones is laid out once, and each milestone shows

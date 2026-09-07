@@ -405,6 +405,17 @@ describe("7.6 vocabulaires", () => {
     ).toBe(true);
   });
 
+  // "Technical" is still READ, as a middleware; it is no longer WRITTEN. The
+  // report must offer the words the tool writes, or it teaches the old one.
+  it("offers the current natures, not the deprecated spelling it still accepts", () => {
+    const report = runIntegrityChecks(
+      model({ actorTypes: [{ type: "Application", icon: "app-window", nature: "Fonctionnelle", sheet: "ActorTypes", row: 0 }] })
+    );
+    const message = report.families.find((f) => f.id === "vocabularies")!.anomalies.find((a) => a.message.includes("Fonctionnelle"))!.message;
+    expect(message).toContain("Middleware");
+    expect(message).not.toContain("Technical");
+  });
+
   it("stays silent on an empty value, which the completeness family already covers", () => {
     const report = runIntegrityChecks(model({ consumptions: [consumption({ legacyStatus: "", decision: "", criticality: "" })] }));
     expect(report.families.find((f) => f.id === "vocabularies")!.anomalies).toHaveLength(0);
@@ -602,6 +613,18 @@ describe("milestones — temporal checks", () => {
     const m = model({ milestones, interfaces: [iface({ introducedAt: "v9" })] });
     const refs = runIntegrityChecks(m).families.find((f) => f.id === "references")!.anomalies.map((a) => a.message);
     expect(refs.join(" ")).toContain("v9");
+  });
+
+  // An unknown milestone gives an open bound. Judged against the provider's
+  // lifetime, that bound read as "introduced before its provider" -- a second,
+  // false anomaly on top of the true one: the misspelling, already reported.
+  it("does not judge nesting on a palier the sheet does not declare", () => {
+    const m = model({
+      milestones,
+      actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "B" })],
+      interfaces: [iface({ introducedAt: "v9" })],
+    });
+    expect(messagesCoherence(m)).not.toContain("lives outside");
   });
 
   it("reports duplicate ranks in the Paliers sheet", () => {

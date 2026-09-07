@@ -47,8 +47,18 @@ export function openMigration(): void {
   const overlay = el("div", { class: "migration-overlay" });
   const box = el("div", { class: "migration-box" });
 
+  // One way out, whichever gesture: the Escape listener sits on the document,
+  // and closing by the cross or the veil used to leave it there -- one more
+  // per opening, each removing an overlay that was already gone.
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onEscape);
+  };
+  function onEscape(e: KeyboardEvent): void {
+    if (e.key === "Escape") close();
+  }
   const closeButton = el("button", { class: "close-button", title: "Close" }, ["×"]);
-  closeButton.addEventListener("click", () => overlay.remove());
+  closeButton.addEventListener("click", close);
 
   const zone = el("div", { class: "drop-target migration-target" });
   const message = el("p", { class: "drop-target-text" });
@@ -220,13 +230,9 @@ export function openMigration(): void {
   overlay.appendChild(box);
 
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) close();
   });
-  document.addEventListener("keydown", function esc(e) {
-    if (e.key !== "Escape") return;
-    overlay.remove();
-    document.removeEventListener("keydown", esc);
-  });
+  document.addEventListener("keydown", onEscape);
 
   document.body.appendChild(overlay);
 }

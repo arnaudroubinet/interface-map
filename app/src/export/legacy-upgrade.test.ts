@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { migrateLegacyWorkbook } from "./legacy-upgrade";
-import { writeTemplate } from "./template-export";
+import { runIntegrityChecks } from "../integrity/checks";
+import { writeTemplate, FLOW_TYPE_SHEET_COLUMNS } from "./template-export";
 import { parseWorkbook } from "../parsing/workbook";
 import {
   buildModel,
@@ -75,6 +76,24 @@ describe("migration from the original format", () => {
     );
     expect(unknownTypes.sort()).toEqual(["AS2", "Fichier + ESB"]);
     expect(data.interfaces[0][iPublisher]).toBe("Appelé");
+  });
+
+  // Since v8 nothing seeds FlowTypes: a converted workbook came out with that
+  // sheet empty, every interface naming a technology no sheet declared, and
+  // the derived columns reading from an empty copy.
+  it("declares the types the flows use, and seeds the copy they read from", () => {
+    const { data } = migrateLegacyWorkbook(
+      legacyWorkbook([link({ "Type de flux": "HTTP" }), link({ "Type de flux": "AS2", "Nom du flux": "B" })])
+    );
+    expect(data.flowTypes.map((t) => t[0]).sort()).toEqual(["AS2", "HTTP"]);
+    const reread = buildModel(parseWorkbook(writeTemplate(data)));
+    if (!reread.ok) throw new Error("unreadable");
+    const http = reread.model.flowTypes.find((t) => t.type === "HTTP")!;
+    expect(http.direction).toBe("consumer-to-provider");
+    expect(reread.model.referentialTechnologies.length).toBeGreaterThan(0);
+    expect(reread.model.referentialActorTypes.length).toBeGreaterThan(0);
+    const structure = runIntegrityChecks(reread.model).families.find((f) => f.id === "structure")!;
+    expect(structure.anomalies.map((a) => a.message).join(" ")).not.toContain("FlowTypes");
   });
 
   // The matching is done against the current vocabulary, not against a table
@@ -153,7 +172,9 @@ describe("legacy migration — the version and state columns", () => {
     for (const row of data.actors) expect(row).toHaveLength(ACTOR_COLUMNS.length);
     for (const row of data.groups) expect(row).toHaveLength(GROUP_COLUMNS.length);
     for (const row of data.milestones) expect(row).toHaveLength(MILESTONE_COLUMNS.length);
-    for (const row of data.flowTypes) expect(row).toHaveLength(FLOW_TYPE_COLUMNS.length);
+    // The FlowTypes SHEET has one column more than the schema's three: the
+    // colour, derived from the hidden copy.
+    for (const row of data.flowTypes) expect(row).toHaveLength(FLOW_TYPE_SHEET_COLUMNS.length);
     for (const row of data.actorTypes) expect(row).toHaveLength(ACTOR_TYPE_COLUMNS.length);
     // Genuinely non-empty: otherwise the loops above check nothing.
     expect(data.actors.length).toBeGreaterThan(0);

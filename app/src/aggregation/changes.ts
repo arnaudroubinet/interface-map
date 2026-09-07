@@ -111,9 +111,23 @@ export function buildChangesView(a: Snapshot, b: Snapshot, mode: Mode): ViewResu
     // The link is drawn as it stands at arrival when it survives there,
     // otherwise as it was: either way a line is needed to colour.
     const base = b ?? a!;
+    // What arrived and what left, by name. The count alone cannot tell a swap
+    // -- one exchange retired, another one opened on the same link -- from
+    // nothing at all, and a swap is precisely the kind of news this diagram
+    // exists for.
+    const beforeNames = new Set(a?.names ?? []);
+    const afterNames = new Set(b?.names ?? []);
+    const added = [...afterNames].filter((n) => !beforeNames.has(n));
+    const removed = [...beforeNames].filter((n) => !afterNames.has(n));
     // An unchanged link has no place here: the diagram shows ONLY the change.
     // Mixing the scenery in with the few lines that carry information would drown them.
-    if (delta === 0) continue;
+    if (delta === 0 && added.length === 0 && removed.length === 0) continue;
+    if (delta === 0) {
+      // As many came as went: a swap, marked as an addition since the link
+      // stands at arrival, and labelled with both movements.
+      edges.push({ ...base, names: [...added, ...removed], change: "added", label: `+${added.length} −${removed.length}` });
+      continue;
+    }
     edges.push({
       ...base,
       change: delta > 0 ? "added" : "removed",

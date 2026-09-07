@@ -23,7 +23,7 @@ import {
   type Point,
   type Rect,
 } from "./geometry";
-import { PAPER, INK, STROKE_WIDTH, CHANGE_COLOUR, styleOfNode } from "./node-styles";
+import { PAPER, INK, STROKE_WIDTH, WIDTH_BY_CRITICALITY, CHANGE_COLOUR, styleOfNode } from "./node-styles";
 import { legendEntries, type LegendEntry, type LegendSample } from "./legend";
 import { buildTitleBlock, descriptionAccessible, titleBlockText, TITLE_BLOCK_HEIGHT, type DiagramContext } from "./title-block";
 
@@ -103,6 +103,29 @@ const DISTANCE_CONFLUENCE = 34;
 // used to decide on which side a label is most likely to land in a crowd, so
 // as to place it on the other one instead.
 
+// The width a criticality is drawn at under the weighting option, and the
+// ordinary width for a criticality that is empty or unknown -- see
+// WIDTH_BY_CRITICALITY for why the two must not coincide.
+export function criticalityWidth(criticality: string | undefined): number {
+  if (!criticality) return STROKE_WIDTH;
+  const level = WIDTH_BY_CRITICALITY.find((w) => normalizeText(w.value) === normalizeText(criticality));
+  return level ? level.width : STROKE_WIDTH;
+}
+
+// The levels are numbered, "1 - Critical" first: the lower the number, the
+// stronger. Anything outside the scale ranks after every level, so an unknown
+// value never beats a known one.
+function criticalityRank(value: string): number {
+  const at = WIDTH_BY_CRITICALITY.findIndex((w) => normalizeText(w.value) === normalizeText(value));
+  return at < 0 ? WIDTH_BY_CRITICALITY.length : at;
+}
+
+function strongestCriticality(a: string | undefined, b: string | undefined): string | undefined {
+  if (!b || !b.trim()) return a;
+  if (!a) return b;
+  return criticalityRank(b) < criticalityRank(a) ? b : a;
+}
+
 function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
   const groups = new Map<string, LayoutEdge[]>();
   for (const edge of edges) {
@@ -110,7 +133,10 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
     // with an active flow, even at the same target/tech.
     // A pulled line does not merge: the confluence sits at the TARGET, which is
     // precisely where its arrowhead is not. So it gets a key of its own.
-    const key = JSON.stringify([edge.to, edge.technology, edge.attenuated, edge.pulled === true]);
+    // The change mark is part of the key too: an addition and a removal into
+    // the same target are two pieces of news, and a trunk painted in one colour
+    // would have to lie about one of them.
+    const key = JSON.stringify([edge.to, edge.technology, edge.attenuated, edge.pulled === true, edge.change ?? null]);
     const group = groups.get(key) ?? [];
     group.push(edge);
     groups.set(key, group);
@@ -176,7 +202,7 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
       // Every branch converges on the same crowded confluence: the label is
       // placed near its own source, where the branches are still spread apart
       // from one another (at their exit ports).
-      result.push({ points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, label: edge.label, criticality: edge.criticality, arrow: false });
+      result.push({ points, labelCentreOf: edge.labelCentreOf, from: edge.from, to: edge.to, technology: edge.technology, count: edge.count, pulled: edge.pulled, names: edge.names, attenuated: edge.attenuated, change: edge.change, label: edge.label, criticality: edge.criticality, arrow: false });
     }
 
     result.push({
@@ -186,9 +212,14 @@ function mergeByTechnologyToTarget(edges: LayoutEdge[]): RenderEdge[] {
       count: group.reduce((s, e) => s + e.count, 0),
       names: [...new Set(group.flatMap((e) => e.names ?? []))],
       attenuated: group[0].attenuated,
+      // Part of the key, so shared by the whole group: the trunk is painted and
+      // dashed like its branches, or the addition would lose its green at the
+      // very point where the lines meet.
+      change: group[0].change,
       // The trunk carries the strongest criticality of its branches: it falls
-      // with the most vital of them.
-      criticality: group.map((e) => e.criticality).find(Boolean),
+      // with the most vital of them. The first non-empty one is NOT that: a
+      // standard branch met before a critical one made the trunk thin.
+      criticality: group.map((e) => e.criticality).reduce<string | undefined>(strongestCriticality, undefined),
       arrow: true,
       isTrunk: true,
     });
@@ -323,15 +354,9 @@ function edgeColour(edge: RenderEdge, colorFor: (tech: string) => string): strin
 // visually crushed the neighbours, and the volume reads in the "×N". That
 // reasoning held for a volume; it does not hold for an order, and criticality
 // is one.
-const WIDTH_BY_CRITICALITY: Record<string, number> = {
-  "1 - critical": 3.5,
-  "2 - important": 2,
-  "3 - standard": 1,
-};
-
 function strokeWidthOf(edge: RenderEdge, byCriticality: boolean): number {
-  if (!byCriticality || !edge.criticality) return STROKE_WIDTH;
-  return WIDTH_BY_CRITICALITY[normalizeText(edge.criticality)] ?? STROKE_WIDTH;
+  if (!byCriticality) return STROKE_WIDTH;
+  return criticalityWidth(edge.criticality);
 }
 
 function buildEdgeElement(

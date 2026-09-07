@@ -502,6 +502,34 @@ describe("the referential dropped beside the cartography", () => {
     expect(banner(root)).toContain("Referential ref.xlsx");
   });
 
+  // The writer falls back on the workbook's own actors when the copy's Actors
+  // sheet is empty. Compared against the referential's empty sheet, that copy
+  // drifted at every drop: the same blank referential rebuilt the workbook
+  // forever. Compared as WRITTEN, the second drop finds nothing to do.
+  it("finds a workbook up to date once rebuilt from a referential publishing an empty sheet", async () => {
+    const blank: ReferentialData = { ...published, actors: [] };
+    const blankFile = () => ({ name: "blank.xlsx", arrayBuffer: async () => writeReferential(blank) }) as unknown as File;
+    const root = document.createElement("div");
+    mountApp(root);
+    // A copy that names a group the referential does not: the first drop drifts.
+    drop(root, cartographyFile({ ...data, referentialRows: { RefGroups: [["Old", ""]] } }), blankFile());
+    await loaded(root);
+    const button = await vi.waitFor(() => {
+      const b = downloadButton(root);
+      if (!b) throw new Error("no download offered yet");
+      return b;
+    });
+    // The rebuilt workbook, dropped back with the same blank referential.
+    vi.mocked(downloadWorkbook).mockClear();
+    button.click();
+    const [bytes] = vi.mocked(downloadWorkbook).mock.calls[0];
+    drop(root, { name: "carto.xlsx", arrayBuffer: async () => bytes } as unknown as File, blankFile());
+    await vi.waitFor(() => {
+      if (!banner(root).includes("up to date")) throw new Error("no verdict yet");
+    });
+    expect(downloadButton(root)).toBeUndefined();
+  });
+
   it("refuses a referential dropped with nothing to apply it to, and says what it is", async () => {
     const root = document.createElement("div");
     mountApp(root);
@@ -525,6 +553,32 @@ describe("the referential dropped beside the cartography", () => {
   });
 });
 
+
+// A layout still in flight when the reader moves to a view that draws no
+// diagram -- the matrix, the report -- must find its generation stale. It did
+// not: the counter only moved on the diagram branches, and the late SVG landed
+// under the matrix, with the image exports switched back on.
+describe("mountApp — a late layout never lands under another view", () => {
+  it("draws no diagram under the matrix opened while a layout was running", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    dropFile(root);
+    await vi.waitFor(() => {
+      if (!root.querySelector(".rail-view-item")) throw new Error("workbook not loaded yet");
+    });
+    // A diagram view starts its layout; the matrix is asked for in the same
+    // tick, before that layout can land.
+    buttonByLabel(root, "Platform detail").click();
+    buttonByLabel(root, "Matrix").click();
+    await vi.waitFor(() => {
+      if (!root.querySelector(".render-area table")) throw new Error("matrix not drawn yet");
+    });
+    // Long enough for the abandoned layout to resolve.
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(root.querySelector(".render-area svg")).toBeNull();
+    expect(root.querySelector(".render-area table")).not.toBeNull();
+  });
+});
 
 describe("mountApp — opening the sample workbook", () => {
   it("loads the sample instead of downloading it", async () => {

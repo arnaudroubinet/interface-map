@@ -1,5 +1,5 @@
 import type { LayoutNode } from "../layout/graph-layout";
-import { CHANGE_COLOUR, INK, styleOfNode } from "./node-styles";
+import { CHANGE_COLOUR, INK, STROKE_WIDTH, WIDTH_BY_CRITICALITY, styleOfNode } from "./node-styles";
 import { normalizeText } from "../shared/text";
 
 // What the legend announces must be what the drawing uses. It lives here, as
@@ -88,13 +88,16 @@ export function legendEntries(
   // An unannounced weight is one more silent notation, exactly what the
   // arrowhead used to be.
   if (weightByCriticality) {
-    for (const [value, thickness] of [
-      ["1 - Critical", 3.5],
-      ["2 - Important", 2],
-      ["3 - Standard", 1],
-    ] as [string, number][]) {
+    const known = WIDTH_BY_CRITICALITY.map((w) => normalizeText(w.value));
+    for (const { value, width } of WIDTH_BY_CRITICALITY) {
       if (!edges.some((e) => normalizeText(e.criticality ?? "") === normalizeText(value))) continue;
-      inputs.push({ sample: { shape: "line", colour: INK, thickness }, text: `criticality: ${value}` });
+      inputs.push({ sample: { shape: "line", colour: INK, thickness: width }, text: `criticality: ${value}` });
+    }
+    // A line whose criticality is empty or off the scale keeps the ordinary
+    // width. Said here, otherwise that width reads as whichever level sits
+    // nearest to it -- a missing value passing for a middling one.
+    if (edges.some((e) => !known.includes(normalizeText(e.criticality ?? "")))) {
+      inputs.push({ sample: { shape: "line", colour: INK, thickness: STROKE_WIDTH }, text: "criticality not filled in" });
     }
   }
 

@@ -1,8 +1,9 @@
 import * as XLSX from "xlsx";
 import { normalizeText } from "../shared/text";
-import { FLOW_TYPES, LISTES, type WorkbookData } from "./template-export";
+import { LISTES, type WorkbookData } from "./template-export";
+import { FLOW_TYPES, DEFAULT_ICONS } from "./template-data";
 import { MILESTONE_ORIGIN } from "./schema-upgrade";
-import { expectedFxSheet } from "../parsing/build-model";
+import { expectedFxSheet, REF_ACTOR_TYPES_SHEET, REF_TECHNOLOGIES_SHEET } from "../parsing/build-model";
 
 // Converts a workbook in the original format to the current one.
 //
@@ -171,10 +172,19 @@ export function migrateLegacyWorkbook(packageBytes: ArrayBuffer, dateMigration: 
 
   return {
     data: {
-      // The original format declares neither flow types nor actor types: the seed
-      // is authoritative, and the checks will say what is missing.
-      flowTypes: [],
+      // The original format declares no flow types: what it USES is declared
+      // here, name only, since v8 a cartography names its types and reads
+      // everything about them from the hidden copy. Actor types it never had.
+      flowTypes: usedTypes.map((type) => [type, "", "", ""]),
       actorTypes: [],
+      // The copy the derived columns read: the blank referential's two
+      // vocabularies. Without it a converted workbook came out with its
+      // FlowTypes sheet empty -- nothing seeds it since v8 -- and every
+      // interface named a technology no sheet declared.
+      referentialRows: {
+        [REF_ACTOR_TYPES_SHEET]: DEFAULT_ICONS.map(([type, icon, nature]) => [type, icon, nature, ""]),
+        [REF_TECHNOLOGIES_SHEET]: FLOW_TYPES.map(([type, direction, description]) => [type, direction, description, ""]),
+      },
       // The original format has no chronology: everything it holds existed at the
       // switch, and it announces no sequel -- so a single milestone is enough to
       // carry it.

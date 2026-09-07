@@ -11,6 +11,18 @@ export const INK = "#14181f";
 // line's weight.
 export const STROKE_WIDTH = 2;
 
+// The line weight under "weight by criticality", by level. Read by the SVG
+// builder AND by the legend, so what the legend announces is what is drawn.
+//
+// "2 - Important" does NOT sit on STROKE_WIDTH: a line whose criticality is
+// empty, or misspelt, keeps the ordinary width, and it must not read as a
+// middling one. The legend names that case in its own words.
+export const WIDTH_BY_CRITICALITY: readonly { value: string; width: number }[] = [
+  { value: "1 - Critical", width: 3.5 },
+  { value: "2 - Important", width: 2.75 },
+  { value: "3 - Standard", width: 1 },
+];
+
 // A change does not carry its technology's colour: it carries the colour of
 // its direction. That is also what PAPER/INK says -- an export does not follow
 // the theme of whoever displays it.

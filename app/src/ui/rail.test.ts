@@ -401,3 +401,15 @@ describe("renderRail — comparing with a second workbook", () => {
     expect(picked).toBeNull();
   });
 });
+
+// The "hide external" label wore the drawer button's class: under 720 px every
+// such checkbox became a fixed pill stacked on the "☰ Views" button.
+describe("renderRail — the hide-external switch", () => {
+  it("does not wear the mobile drawer button's class", () => {
+    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null }), "matrix");
+    const root = document.createElement("div");
+    renderRail(root, state, flows(state), [], callbacks);
+    expect(root.querySelector(".rail-toggle")).toBeNull();
+    expect(root.querySelector(".rail-externals input[type=checkbox]")).not.toBeNull();
+  });
+});
