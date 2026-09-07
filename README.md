@@ -16,7 +16,14 @@ npm ci
 npm test          # 1046 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
+npm run e2e       # quatre tests dans un vrai Chromium, sur le fichier construit
 ```
+
+Les tests `e2e` (Playwright, `app/test/e2e/`) couvrent ce que jsdom ne sait
+pas faire : un dépôt de deux fichiers à la fois, le sélecteur multi-fichiers,
+un téléchargement qui ne part qu'au clic. Sans navigateur téléchargé par
+Playwright, `CHROMIUM_PATH=/chemin/vers/chrome npm run e2e` utilise celui de la
+machine.
 
 Ouvrez le fichier produit dans un navigateur, puis déposez-y un classeur. Sans
 classeur sous la main, le bouton « Open a sample workbook » en fabrique un,
@@ -187,12 +194,14 @@ pourquoi toute réécriture les emporte avec elle, et pourquoi une valeur locale
 vide est reprise de la liste cachée à la lecture : une formule écrite par
 l'outil n'a pas encore de valeur calculée tant qu'Excel ne l'a pas ouverte.
 
-Jusqu'au schéma v9, la copie était rafraîchie par une requête Power Query
-écrite dans le classeur, vers une URL SharePoint. Le mécanisme est parti avec
-la v10 : l'URL exigeait une adresse nettoyée à la main, un compte au premier
-rafraîchissement, et une actualisation que personne ne faisait — la copie
-dérivait sans que l'outil le voie. La spec du 22 août 2026 en garde la trace,
-et le format MS-QDEFF n'est plus écrit nulle part ici.
+La copie était d'abord rafraîchie par une requête Power Query écrite dans le
+classeur, vers une URL SharePoint. Le mécanisme est parti : l'URL exigeait une
+adresse nettoyée à la main, un compte au premier rafraîchissement, et une
+actualisation que personne ne faisait — la copie dérivait sans que l'outil le
+voie. La spec du 22 août 2026 en garde la trace, et le format MS-QDEFF n'est
+plus écrit nulle part ici. Le schéma reste en v9 : aucun onglet n'a bougé, un
+classeur qui porte encore sa requête se lit exactement comme avant, et la
+requête part à la première réécriture par l'outil.
 
 ## Où se trouve quoi
 

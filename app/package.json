@@ -6,9 +6,11 @@
   "scripts": {
     "build": "node esbuild.build.mjs",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/node": "^22.0.0",
     "esbuild": "^0.24.0",
     "jsdom": "^25.0.0",

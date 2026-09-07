@@ -117,10 +117,12 @@ là qu'on obtient le fichier.
 
 ## 8. Le schéma
 
-**v10.** Le pas 9 → 10 ne transforme rien ; il existe pour que les classeurs en
-circulation, qui portent encore une requête rafraîchissant la copie depuis
-SharePoint dans le dos de l'outil, soient reconnus comme périmés et
-reconstruits sans elle.
+**Reste en v9.** Un palier a été envisagé, puis écarté le 7 septembre 2026 :
+aucun onglet ni aucune colonne ne change, un classeur v9 se lit exactement
+comme avant, sa requête est inerte tant que personne n'actualise dans Excel, et
+toute réécriture par l'outil la laisse de côté. Un palier aurait envoyé chaque
+classeur en circulation sur l'écran de mise à niveau pour un changement qu'il
+ne peut pas voir.
 
 ## 9. Ce qui part
 
@@ -144,5 +146,4 @@ reconstruits sans elle.
 | `ui/banner.ts` | la ligne du verdict et le bouton |
 | `ui/upgrade-dialog.ts` | plus de champ URL ; le référentiel se dépose à côté |
 | `export/repair.ts` | prend des `ReferentialRows` plutôt qu'une URL |
-| `export/schema-upgrade.ts` | pas 9 → 10 |
-| `parsing/build-model.ts` | `SCHEMA_VERSION` à 10 |
+| `export/schema-upgrade.ts` | aucun pas ; le commentaire dit pourquoi |

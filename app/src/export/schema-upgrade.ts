@@ -290,15 +290,12 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // nobody has taken yet, so it is not taken for them -- the buckets keep the
   // type they had, and it moves the day someone says so.
   { de: 8, vers: 9, appliquer: (model) => middlewareInsteadOfTechnical(model) },
-  // The referential stops being an address Excel fetches and becomes a file one
-  // drops beside the cartography: the Power Query stream, its connections and
-  // its query tables leave the workbook, and the tool writes the hidden copy
-  // itself. Nothing to convert in the model -- the copy is carried over as it
-  // stands by dataFromModel. The step exists so that the workbooks in
-  // circulation, which still carry a query refreshing that copy from
-  // SharePoint behind the tool's back, are recognised as stale and rebuilt
-  // without it.
-  { de: 9, vers: 10, appliquer: (model) => model },
+  // No step for the referential's change of carrier -- an address Excel
+  // fetched, now a file dropped beside the cartography. The SHEETS did not
+  // move: a v9 workbook reads exactly as before, its query is inert until
+  // someone refreshes in Excel, and any rewrite by the tool leaves it out.
+  // Bumping would have sent every workbook in circulation through the upgrade
+  // screen for a change it cannot see.
 ];
 
 // The nature is read from the hidden list now, so both sides carry it: the

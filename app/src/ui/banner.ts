@@ -87,7 +87,7 @@ export function referentialNote(state: AppState, onDownload: () => void): HTMLEl
   }
   note.classList.add("banner-referential-drifted");
   note.appendChild(
-    document.createTextNode(`Referential ${check.referential}: the workbook's copy had drifted and was refreshed — this view shows the refreshed workbook.`)
+    document.createTextNode(`Referential ${check.referential}: the copy had drifted — refreshed, and shown here.`)
   );
   const button = el(
     "button",

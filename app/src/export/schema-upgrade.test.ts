@@ -73,18 +73,11 @@ describe("the upgrade chain", () => {
     expect(upgraded.referentialActorTypes[0].nature).toBe("Middleware");
   });
 
-  // The queries leave the workbook: the copy of the referential is written by
-  // the tool from a dropped file now. Nothing to transform in the model -- the
-  // copy is carried over by dataFromModel -- but the step must exist, so that
-  // the workbooks still carrying a query are rebuilt without it.
-  it("takes a v9 workbook to v10 without transforming the model", () => {
-    expect(SCHEMA_VERSION).toBe(10);
-    const step = UPGRADE_STEPS.find((s) => s.de === 9)!;
-    expect(step.vers).toBe(10);
-    const model = base.template({
-      referentialActorTypes: [{ type: "Bus", icon: "network", nature: "Middleware", description: "" }],
-    });
-    expect(step.appliquer(model, { dateMigration: new Date(0) })).toBe(model);
+  // The referential's change of carrier -- a dropped file instead of a query
+  // -- moved no sheet, so it took no step: a v9 workbook reads as before.
+  it("stays at v9 through the referential's change of carrier", () => {
+    expect(SCHEMA_VERSION).toBe(9);
+    expect(UPGRADE_STEPS.at(-1)?.vers).toBe(9);
   });
 
   it("leaves a nature it does not have to rename alone", () => {
