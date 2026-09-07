@@ -1,5 +1,5 @@
 import type { ParsedWorkbook, RawSheet } from "./model";
-import { matchesSheetName, findHeader } from "./headers";
+import { normalizeText } from "../shared/text";
 import { REFERENTIAL_SHEETS, type ReferentialRows } from "./referential-shape";
 
 // The referential is a file one drops, like the cartography -- no longer an
@@ -19,11 +19,23 @@ import { REFERENTIAL_SHEETS, type ReferentialRows } from "./referential-shape";
 // went by, and a copy saved through another tool loses them while keeping the
 // sheets. The names of the tables stay in the file the tool writes, for whoever
 // still reads it with a query of their own.
+//
+// By their CURRENT names only -- not the French spellings headers.ts still
+// accepts for the cartography. The referential is a file the tool writes, in
+// English; a hand-kept French cartography missing its "Flux" sheet matched the
+// old spellings and was taken for a referential, when it is precisely the
+// broken cartography the repair screen exists for.
 
 const INTERFACES_SHEET = "Interfaces";
 
+const sameName = (a: string, b: string) => normalizeText(a) === normalizeText(b);
+
 function findSheet(sheets: RawSheet[], name: string): RawSheet | undefined {
-  return sheets.find((s) => matchesSheetName(s.name, name));
+  return sheets.find((s) => sameName(s.name, name));
+}
+
+function findHeader(headers: string[], column: string): string | undefined {
+  return headers.find((h) => sameName(h, column));
 }
 
 // The column a sheet is recognised by, and the one a row must fill to count:
@@ -60,6 +72,22 @@ export function readReferentialWorkbook(workbook: ParsedWorkbook): ReferentialRo
       .filter((row) => row[key] !== "");
   }
   return rows;
+}
+
+// The copy a workbook will carry once a referential is applied to it: the
+// referential's rows, sheet by sheet -- except where it publishes NOTHING,
+// where the copy the workbook held stays. A referential with an empty sheet
+// says "I have no groups", not "forget yours": emptying the copy would empty
+// the drop-downs and the calculated columns made of it, the one thing a
+// rewrite must never do. Used by the repair and by the drop alike, so that the
+// two doors apply one rule.
+export function mergeReferential(held: ReferentialRows | undefined, published: ReferentialRows): ReferentialRows {
+  const merged: ReferentialRows = { ...(held ?? {}) };
+  for (const r of REFERENTIAL_SHEETS) {
+    const rows = published[r.fills] ?? [];
+    if (rows.length > 0) merged[r.fills] = rows;
+  }
+  return merged;
 }
 
 // Has the cartography's copy drifted from what the referential publishes?

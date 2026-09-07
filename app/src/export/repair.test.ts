@@ -126,6 +126,17 @@ describe("repairWorkbook", () => {
     expect(r.data.referentialRows?.[REF_ACTORS_SHEET]).toEqual(rows[REF_ACTORS_SHEET]);
   });
 
+  // A sheet the referential leaves empty keeps the copy: the seed a converted
+  // workbook needs for its icons and directions survives a referential that
+  // publishes no actor type.
+  it("keeps the copy's sheets a dropped referential leaves empty", () => {
+    const held = { [REF_GROUPS_SHEET]: [["Core", "The platform"]], [REF_ACTORS_SHEET]: [["Naboo", "Core", "Application", "", ""]] };
+    const dropped = { [REF_ACTORS_SHEET]: [["Tatooine", "Core", "Application", "", ""]], [REF_GROUPS_SHEET]: [] };
+    const r = repairWorkbook(writeTemplate({ ...SAMPLE_DATA, referentialRows: held }), THE_DAY, dropped);
+    expect(r.data.referentialRows?.[REF_ACTORS_SHEET]).toEqual(dropped[REF_ACTORS_SHEET]);
+    expect(r.data.referentialRows?.[REF_GROUPS_SHEET]).toEqual(held[REF_GROUPS_SHEET]);
+  });
+
   // Repairing a workbook must not empty its lists: with no referential in the
   // drop, the copy comes out as it went in.
   it("keeps the copy the workbook carried when no referential is dropped", () => {

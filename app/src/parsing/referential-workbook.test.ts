@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
-import { isReferentialWorkbook, readReferentialWorkbook, referentialDrifted } from "./referential-workbook";
+import { isReferentialWorkbook, readReferentialWorkbook, referentialDrifted, mergeReferential } from "./referential-workbook";
 import { REFERENTIAL_SHEETS, type ReferentialRows } from "./referential-shape";
 import { REF_ACTORS_SHEET, REF_GROUPS_SHEET, REF_ACTOR_TYPES_SHEET, REF_TECHNOLOGIES_SHEET } from "./build-model";
 import { parseWorkbook } from "./workbook";
@@ -70,6 +70,19 @@ describe("isReferentialWorkbook — telling the two files apart", () => {
       FlowTypes: [["Flow type", "Direction", "Description", "Colour"]],
     });
     expect(isReferentialWorkbook(parsed(bytes))).toBe(true);
+  });
+
+  // headers.ts still reads the French spellings of a cartography's sheets. A
+  // hand-kept French cartography missing its "Flux" sheet matched them and
+  // passed for a referential -- the very file the repair screen exists for.
+  it("does not take a French hand-kept cartography for a referential", () => {
+    const bytes = handMade({
+      Acteurs: [["Nom", "Groupe", "Type d'acteur"], ["Tatooine", "Core", "Application"]],
+      Groupes: [["Nom", "Périmètre"], ["Core", "Plateforme"]],
+      TypesActeur: [["Type d'acteur", "Icône"]],
+      TypesFlux: [["Type de flux", "Sens de représentation"]],
+    });
+    expect(isReferentialWorkbook(parsed(bytes))).toBe(false);
   });
 
   it("wants all four sheets", () => {
@@ -162,5 +175,20 @@ describe("referentialDrifted — has the copy fallen behind?", () => {
   // referential publishes is then new to it.
   it("counts an empty copy as drifted from a filled referential", () => {
     expect(referentialDrifted({}, held())).toBe(true);
+  });
+});
+
+// A referential with an empty sheet says "I have none", not "forget yours".
+describe("mergeReferential — a sheet left empty keeps the copy", () => {
+  it("takes the referential's rows where it publishes some, the copy's elsewhere", () => {
+    const held = { [REF_ACTORS_SHEET]: [["Naboo", "", "", "", ""]], [REF_GROUPS_SHEET]: [["Core", ""]] };
+    const merged = mergeReferential(held, { [REF_ACTORS_SHEET]: [["Tatooine", "", "", "", ""]], [REF_GROUPS_SHEET]: [] });
+    expect(merged[REF_ACTORS_SHEET]).toEqual([["Tatooine", "", "", "", ""]]);
+    expect(merged[REF_GROUPS_SHEET]).toEqual([["Core", ""]]);
+  });
+
+  it("works on a workbook that held no copy at all", () => {
+    const merged = mergeReferential(undefined, { [REF_GROUPS_SHEET]: [["Core", ""]] });
+    expect(merged).toEqual({ [REF_GROUPS_SHEET]: [["Core", ""]] });
   });
 });

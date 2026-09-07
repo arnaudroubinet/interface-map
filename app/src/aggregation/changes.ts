@@ -125,7 +125,13 @@ export function buildChangesView(a: Snapshot, b: Snapshot, mode: Mode): ViewResu
     if (delta === 0) {
       // As many came as went: a swap, marked as an addition since the link
       // stands at arrival, and labelled with both movements.
-      edges.push({ ...base, names: [...added, ...removed], change: "added", label: `+${added.length} −${removed.length}` });
+      edges.push({
+        ...base,
+        // Signed, so the tooltip and the "names" label tell what came from what went.
+        names: [...added.map((n) => `+ ${n}`), ...removed.map((n) => `− ${n}`)],
+        change: "added",
+        label: `+${added.length} −${removed.length}`,
+      });
       continue;
     }
     edges.push({

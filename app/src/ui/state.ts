@@ -228,6 +228,14 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
   };
 }
 
+// The same workbook, rebuilt: the file changes, the reader's place does not.
+// withLoadedFile is for ANOTHER workbook, and resets everything a reader chose;
+// a rebuild from a dropped referential must keep the view, the milestone, the
+// filters and the comparison in progress.
+export function withRefreshedFile(state: AppState, file: LoadedFile): AppState {
+  return { ...state, file };
+}
+
 export function withReferentialCheck(state: AppState, check: ReferentialCheck | null): AppState {
   return { ...state, referentialCheck: check };
 }

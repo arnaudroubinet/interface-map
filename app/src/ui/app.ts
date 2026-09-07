@@ -37,7 +37,7 @@ import { coloursOfModel } from "../render/colors";
 import { buildExportFilename } from "../export/filename";
 import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadTemplateXlsx, writeTemplate, writtenReferentialRows } from "../export/template-export";
-import { readReferentialWorkbook, referentialDrifted } from "../parsing/referential-workbook";
+import { readReferentialWorkbook, referentialDrifted, mergeReferential } from "../parsing/referential-workbook";
 import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadSvg } from "../export/svg-export";
@@ -79,6 +79,7 @@ import {
   withComparedMilestone,
   withBannerMessage,
   withReferentialCheck,
+  withRefreshedFile,
   viewOnLoad,
   VIEW_LABEL,
   type AppState,
@@ -264,7 +265,7 @@ export function mountApp(root: HTMLElement): void {
     // missed the writer's fallback, and a referential publishing an empty sheet
     // then drifted at every drop.
     const current = upgrade(loaded.model);
-    const refreshed = { ...current, referentialRows: referential.rows };
+    const refreshed = { ...current, referentialRows: mergeReferential(current.referentialRows, referential.rows) };
     if (!referentialDrifted(writtenReferentialRows(current), writtenReferentialRows(refreshed))) {
       return { loaded, check: { referential: referential.name, drifted: false } };
     }
@@ -324,6 +325,19 @@ export function mountApp(root: HTMLElement): void {
     setState(next);
   }
 
+  // The workbook on screen, rebuilt with a referential dropped afterwards. The
+  // reader stays where they were -- view, milestone, filters, the comparison in
+  // progress: the referential changed the copy, not the subject. Only the
+  // placements go, since natures and icons may have moved with it; and a
+  // workbook that was stuck on the upgrade screen is stuck no more.
+  function showRefreshed(loaded: LoadedFile, check: ReferentialCheck): void {
+    placements.clear();
+    annealed.clear();
+    let next = recomputeReport(withReferentialCheck(withRefreshedFile(withBannerMessage(state, null), loaded), check));
+    if (next.view === "upgrade" && next.file) next = withView(next, viewOnLoad(next.file));
+    setState(next);
+  }
+
   // Everything dropped, in one gesture, whatever it holds. One cartography at
   // most, one referential at most -- the tool draws ONE workbook, and two
   // referentials would be two truths -- and any refusal stops the lot: reading
@@ -371,7 +385,7 @@ export function mountApp(root: HTMLElement): void {
         return;
       }
       const { loaded, check } = await checkedAgainst(state.file, referential);
-      if (check.drifted) showLoaded(loaded, check);
+      if (check.drifted) showRefreshed(loaded, check);
       else setState(withReferentialCheck(withBannerMessage(state, null), check));
     } catch (err) {
       // A safety net: a well-formed workbook whose content triggers an

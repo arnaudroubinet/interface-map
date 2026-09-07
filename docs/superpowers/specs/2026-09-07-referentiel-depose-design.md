@@ -52,6 +52,12 @@ Le second signe seul ne suffirait pas : une cartographie sans `Interfaces` est
 précisément ce que l'écran de réparation existe pour recevoir, et elle doit
 rester lue comme une cartographie incomplète.
 
+On reconnaît les onglets par leurs noms **courants** seulement, pas par les
+orthographes françaises que `headers.ts` accepte encore pour la cartographie :
+une cartographie tenue à la main en français et privée de son onglet `Flux`
+passait pour un référentiel, alors que c'est le fichier cassé que l'écran de
+réparation existe pour recevoir.
+
 On reconnaît les **onglets**, pas les tableaux Excel : les tableaux étaient ce
 que la requête cherchait, et une copie enregistrée par un autre outil les perd
 en gardant les onglets. Le fichier écrit par l'outil garde ses tableaux, pour
@@ -71,7 +77,16 @@ d'une ligne — et un acteur renommé est exactement le cas où les deux côtés
 sont pas d'accord là-dessus.
 
 Une copie vide face à un référentiel rempli est une dérive : tout ce que le
-référentiel publie lui est nouveau.
+référentiel publie lui est nouveau. L'inverse ne l'est pas : un onglet que le
+référentiel laisse **vide** ne remplace pas la copie. Il dit « je n'ai pas de
+groupes », pas « oubliez les vôtres » — vider la copie viderait les listes et
+les colonnes calculées, la seule chose qu'une réécriture ne doit jamais faire.
+La règle (`mergeReferential`) est la même au dépôt et à la réparation.
+
+La comparaison porte sur la copie **telle qu'elle sera écrite**, des deux
+côtés : le fichier qu'est le classeur, contre le fichier qu'il deviendrait.
+Comparer les lignes du modèle à celles du référentiel manquait le repli de
+l'écrivain, et un référentiel à onglet vide dérivait à chaque dépôt.
 
 ## 5. Reconstruire
 
@@ -93,6 +108,12 @@ Conséquences assumées :
 Le verdict survit à la navigation : le bouton doit rester pendant qu'on regarde
 le classeur reconstruit. Il part avec le fichier — un autre classeur chargé, un
 autre verdict dû.
+
+Un référentiel déposé **après** la cartographie, celle-ci à l'écran, la
+reconstruit sans déplacer le lecteur : la vue, le palier, les filtres et la
+comparaison en cours restent ; seuls les placements sont recalculés, puisque
+natures et icônes ont pu bouger. Le référentiel a changé la copie, pas le
+sujet.
 
 ## 6. Refus
 

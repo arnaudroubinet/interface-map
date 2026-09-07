@@ -142,7 +142,7 @@ describe("buildChangesView", () => {
     expect(edges).toHaveLength(1);
     expect(edges[0].label).toBe("+1 −1");
     expect(edges[0].change).toBe("added");
-    expect(edges[0].names).toEqual(expect.arrayContaining(["New", "Old"]));
+    expect(edges[0].names).toEqual(["+ New", "− Old"]);
   });
 
   // The base is "platform detail": one wants to know WHICH component gained or

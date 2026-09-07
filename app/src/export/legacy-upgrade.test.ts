@@ -90,6 +90,10 @@ describe("migration from the original format", () => {
     if (!reread.ok) throw new Error("unreadable");
     const http = reread.model.flowTypes.find((t) => t.type === "HTTP")!;
     expect(http.direction).toBe("consumer-to-provider");
+    // An unknown type is DECLARED with the direction the migration drew with,
+    // rather than left blank for the parser to guess the same thing in silence.
+    const as2 = reread.model.flowTypes.find((t) => t.type === "AS2")!;
+    expect(as2.rawDirection).toBe("consumer → provider");
     expect(reread.model.referentialTechnologies.length).toBeGreaterThan(0);
     expect(reread.model.referentialActorTypes.length).toBeGreaterThan(0);
     const structure = runIntegrityChecks(reread.model).families.find((f) => f.id === "structure")!;

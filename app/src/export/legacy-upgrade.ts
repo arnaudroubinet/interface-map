@@ -181,9 +181,19 @@ export function migrateLegacyWorkbook(packageBytes: ArrayBuffer, dateMigration: 
       // vocabularies. Without it a converted workbook came out with its
       // FlowTypes sheet empty -- nothing seeds it since v8 -- and every
       // interface named a technology no sheet declared.
+      //
+      // The unknown types go into the copy as well, with the direction the
+      // migration drew them with -- a call from the consumer, as the report
+      // says of them. The direction lives in the copy and nowhere else: the
+      // sheet's column is derived from it, so a direction typed on the sheet
+      // would be overwritten, and one left blank made the parser guess that
+      // same call in silence, with nothing declared for the checks to judge.
       referentialRows: {
         [REF_ACTOR_TYPES_SHEET]: DEFAULT_ICONS.map(([type, icon, nature]) => [type, icon, nature, ""]),
-        [REF_TECHNOLOGIES_SHEET]: FLOW_TYPES.map(([type, direction, description]) => [type, direction, description, ""]),
+        [REF_TECHNOLOGIES_SHEET]: [
+          ...FLOW_TYPES.map(([type, direction, description]) => [type, direction, description, ""]),
+          ...unknownTypes.map((type) => [type, "consumer → provider", "Direction unknown to the original format: drawn as a call from the consumer.", ""]),
+        ],
       },
       // The original format has no chronology: everything it holds existed at the
       // switch, and it announces no sequel -- so a single milestone is enough to

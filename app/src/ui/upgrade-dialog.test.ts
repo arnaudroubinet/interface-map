@@ -68,7 +68,22 @@ describe("openMigration — closing", () => {
     expect(document.querySelector(".migration-overlay")).toBeNull();
     const keydownAdded = added.mock.calls.filter(([type]) => type === "keydown").length;
     const keydownRemoved = removed.mock.calls.filter(([type]) => type === "keydown").length;
-    expect(keydownRemoved).toBe(keydownAdded);
+    // At least: opening also closes a dialog an earlier test left behind.
+    expect(keydownRemoved).toBeGreaterThanOrEqual(keydownAdded);
+    vi.restoreAllMocks();
+  });
+
+  it("closes a dialog left open when another is opened, listener included", () => {
+    document.body.innerHTML = "";
+    const { added, removed } = listeners();
+    openMigration();
+    openMigration();
+    expect(document.querySelectorAll(".migration-overlay")).toHaveLength(1);
+    (document.querySelector(".close-button") as HTMLButtonElement).click();
+    const keydownAdded = added.mock.calls.filter(([type]) => type === "keydown").length;
+    const keydownRemoved = removed.mock.calls.filter(([type]) => type === "keydown").length;
+    expect(keydownAdded).toBe(2);
+    expect(keydownRemoved).toBeGreaterThanOrEqual(2);
     vi.restoreAllMocks();
   });
 

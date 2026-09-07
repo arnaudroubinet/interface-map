@@ -40,9 +40,13 @@ function row(report: MigrationReport): string[] {
 // the reader gets the reason rather than "unreadable".
 class RefusedDrop extends Error {}
 
+// The dialog open at the moment, if any, and how to close it properly. Opening
+// again closes it through the same door as the cross -- removing the overlay
+// alone left its Escape listener on the document.
+let closeOpenDialog: (() => void) | null = null;
+
 export function openMigration(): void {
-  const previous = document.querySelector(".migration-overlay");
-  if (previous) previous.remove();
+  closeOpenDialog?.();
 
   const overlay = el("div", { class: "migration-overlay" });
   const box = el("div", { class: "migration-box" });
@@ -53,7 +57,9 @@ export function openMigration(): void {
   const close = () => {
     overlay.remove();
     document.removeEventListener("keydown", onEscape);
+    if (closeOpenDialog === close) closeOpenDialog = null;
   };
+  closeOpenDialog = close;
   function onEscape(e: KeyboardEvent): void {
     if (e.key === "Escape") close();
   }

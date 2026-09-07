@@ -36,3 +36,7 @@ jobs:
       # La construction fait partie du contrôle : un code qui compile et passe
       # les tests peut encore casser l'assemblage du fichier unique.
       - run: npm run build
+      # Les tests navigateur tournent sur le fichier construit, dans un vrai
+      # Chromium : un dépôt de deux fichiers, un téléchargement au clic.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run e2e

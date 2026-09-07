@@ -530,6 +530,52 @@ describe("the referential dropped beside the cartography", () => {
     expect(downloadButton(root)).toBeUndefined();
   });
 
+  // The referential changed the copy, not the subject: the reader stays on the
+  // view they were looking at. Going through withLoadedFile reset the view, the
+  // milestone, the filters and the comparison in progress, without a word.
+  it("keeps the reader's view when a referential dropped afterwards rebuilds the workbook", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    drop(root, cartographyFile({ ...data, referentialRows: { [REF_ACTORS_SHEET]: [["Tatooine", "Core", "Application", "", ""]] } }));
+    await loaded(root);
+    buttonByLabel(root, "Matrix").click();
+    await vi.waitFor(() => {
+      if (!root.querySelector(".render-area table")) throw new Error("matrix not drawn yet");
+    });
+
+    drop(root, referentialFile());
+    await vi.waitFor(() => {
+      if (!downloadButton(root)) throw new Error("no download offered yet");
+    });
+    expect(root.querySelector(".render-area table")).not.toBeNull();
+  });
+
+  it("refuses two referentials dropped at once", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    drop(root, cartographyFile(data), referentialFile(), { ...referentialFile(), name: "other.xlsx" } as File);
+    await vi.waitFor(() => {
+      if (!root.querySelector(".banner-error")) throw new Error("no message yet");
+    });
+    expect(root.querySelector(".banner-error")?.textContent).toContain("Several referentials");
+    expect(root.querySelector(".rail-view-item")).toBeNull();
+  });
+
+  it("refuses a referential handed to the compare-with field", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    drop(root, cartographyFile(data));
+    await loaded(root);
+    buttonByLabel(root, "Changes").click();
+    const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
+    Object.defineProperty(field, "files", { value: [referentialFile()] });
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    await vi.waitFor(() => {
+      if (!root.querySelector(".banner-error")) throw new Error("no message yet");
+    });
+    expect(root.querySelector(".banner-error")?.textContent).toContain("is a referential, not a cartography");
+  });
+
   it("refuses a referential dropped with nothing to apply it to, and says what it is", async () => {
     const root = document.createElement("div");
     mountApp(root);
