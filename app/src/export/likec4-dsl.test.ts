@@ -76,7 +76,7 @@ describe("modelToLikeC4", () => {
   // failing which LikeC4 does not find them.
   it("names both ends by their full path", () => {
     const dsl = modelToLikeC4(model(), null);
-    expect(dsl).toContain('socle.a -[http]-> partenaire.b "F"');
+    expect(dsl).toContain('socle.a -[tech_http]-> partenaire.b "F"');
     expect(dsl).toContain('technology "HTTP"');
   });
 
@@ -86,7 +86,7 @@ describe("modelToLikeC4", () => {
         base.flowType({ type: "HTTP", direction: "provider-to-consumer", rawDirection: "provider → consumer" }),
       ],
     });
-    expect(modelToLikeC4(m, null)).toContain('socle.a -[http]-> partenaire.b "F"');
+    expect(modelToLikeC4(m, null)).toContain('socle.a -[tech_http]-> partenaire.b "F"');
   });
 
   // LikeC4 has a description field on the relationship, distinct from the label:
@@ -168,10 +168,10 @@ describe("modelToLikeC4", () => {
   // has nothing to filter on. The tag must be declared first.
   it("tags each relationship with its technology, and gives it a view", () => {
     const dsl = modelToLikeC4(model(), null);
-    expect(dsl).toContain("tag http");
-    expect(dsl).toMatch(/-> partenaire\.b "F" \{\s+#http/);
+    expect(dsl).toContain("tag tech_http");
+    expect(dsl).toMatch(/-> partenaire\.b "F" \{\s+#tech_http/);
     expect(dsl).toContain("view tech_http {");
-    expect(dsl).toContain("include * where tag is #http");
+    expect(dsl).toContain("include * where tag is #tech_http");
   });
 
   it("declares a view holding the platform alone", () => {
@@ -189,11 +189,11 @@ describe("modelToLikeC4 — the notation survives the export", () => {
     model({ flowTypes: [base.flowType({ type: "HTTP", direction: direction })] });
 
   it("sets an open head on a pulled technology", () => {
-    expect(modelToLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship http \{[\s\S]*?head vee/);
+    expect(modelToLikeC4(estate("consumer-to-provider"), null)).toMatch(/relationship tech_http \{[\s\S]*?head vee/);
   });
 
   it("sets a solid head on a pushed technology", () => {
-    expect(modelToLikeC4(estate("provider-to-consumer"), null)).toMatch(/relationship http \{[\s\S]*?head normal/);
+    expect(modelToLikeC4(estate("provider-to-consumer"), null)).toMatch(/relationship tech_http \{[\s\S]*?head normal/);
   });
 
   // LikeC4's default stroke style is `dashed`: without `line solid`, ALL our
@@ -204,7 +204,7 @@ describe("modelToLikeC4 — the notation survives the export", () => {
 
   it("gives the relationship the colour the technology has in the tool", () => {
     const m = model({ flowTypes: [base.flowType({ type: "HTTP", colour: "#1f5fae" })] });
-    expect(modelToLikeC4(m, null)).toMatch(/relationship http \{[\s\S]*?color #1f5fae/);
+    expect(modelToLikeC4(m, null)).toMatch(/relationship tech_http \{[\s\S]*?color #1f5fae/);
   });
 
   // The groups ARE ALREADY elements of the exported model: only the views were
@@ -225,5 +225,37 @@ describe("modelToLikeC4 — the functional reading", () => {
 
   it("does not announce it in the architecture reading", () => {
     expect(modelToLikeC4(model(), null)).not.toContain("functional reading");
+  });
+});
+
+// What made the produced file invalid in LikeC4.
+describe("modelToLikeC4 — a file the tool accepts", () => {
+  it("gives a group and an actor of the same name two identifiers", () => {
+    const m = base.template({
+      groups: [base.group({ name: "Coruscant" })],
+      actors: [base.actor({ name: "Coruscant", group: "Coruscant" }), base.actor({ name: "Hoth", group: "Coruscant" })],
+    });
+    const dsl = modelToLikeC4(m, null);
+    expect(dsl).toContain("coruscant = group");
+    expect(dsl).toContain("coruscant_2 = system");
+    expect(dsl).not.toContain("coruscant.coruscant ");
+  });
+
+  it("prefixes the technology tags, so a technology called External declares no reserved tag twice", () => {
+    const m = model({ flowTypes: [base.flowType({ type: "External" })], interfaces: [iface({ flowType: "External" })] });
+    const dsl = modelToLikeC4(m, null);
+    expect((dsl.match(/^\s+tag external$/gm) ?? []).length).toBe(1);
+    expect(dsl).toContain("tag tech_external");
+  });
+
+  it("says the milestone it is filtered at", () => {
+    const dsl = modelToLikeC4(base.template(), null, "architecture", "v2");
+    expect(dsl.split("\n")[0]).toContain("Milestone v2");
+    expect(dsl).toContain("— milestone v2");
+  });
+
+  it("quotes the contract link", () => {
+    const m = model({ interfaces: [iface({ contractLink: "https://docs.example.org/c.pdf" })] });
+    expect(modelToLikeC4(m, null)).toContain('link "https://docs.example.org/c.pdf"');
   });
 });

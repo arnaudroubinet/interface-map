@@ -1,7 +1,24 @@
 import { serializeSvg } from "./svg-export";
 import { downloadBlob } from "./download";
 
-export type PngResult = { ok: true; blob: Blob } | { ok: false; error: string };
+// The scale actually used is reported: below the one asked for when the
+// canvas would not hold the picture.
+export type PngResult = { ok: true; blob: Blob; scale: number } | { ok: false; error: string };
+
+// What a browser canvas can hold. Chrome and Firefox stop at 16 384 pixels a
+// side and about 268 million pixels of area; WebKit lower still on a phone.
+// Beyond that, toBlob returns null at best -- and at worst drawImage succeeds
+// on a truncated canvas and a WHITE picture is handed over without a word.
+export const MAX_CANVAS_SIDE = 16_384;
+export const MAX_CANVAS_AREA = 268_000_000;
+
+// The largest scale, up to the one asked for, that keeps the canvas within
+// those limits. The picture comes out smaller rather than blank.
+export function fitScale(width: number, height: number, scale: number): number {
+  const bySide = Math.min(MAX_CANVAS_SIDE / width, MAX_CANVAS_SIDE / height);
+  const byArea = Math.sqrt(MAX_CANVAS_AREA / (width * height));
+  return Math.max(0.1, Math.min(scale, bySide, byArea));
+}
 
 export async function exportPng(svg: SVGSVGElement, backgroundColor: string, scale: number): Promise<PngResult> {
   try {
@@ -23,9 +40,10 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
         img.src = url;
       });
 
+      const used = fitScale(width, height, scale);
       const canvas = document.createElement("canvas");
-      canvas.width = width * scale;
-      canvas.height = height * scale;
+      canvas.width = Math.floor(width * used);
+      canvas.height = Math.floor(height * used);
       const ctx = canvas.getContext("2d");
       if (!ctx) {
         return { ok: false, error: "This browser gives no 2D canvas — use the SVG export instead." };
@@ -38,7 +56,7 @@ export async function exportPng(svg: SVGSVGElement, backgroundColor: string, sca
         return { ok: false, error: "This browser refuses to convert to PNG — use the SVG export instead." };
       }
 
-      return { ok: true, blob };
+      return { ok: true, blob, scale: used };
     } finally {
       // Revoked only after the draw (drawImage) and the encoding (toBlob):
       // revoking it between the image loading and its use in the canvas is

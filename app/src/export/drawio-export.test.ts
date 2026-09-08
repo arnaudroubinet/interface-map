@@ -329,3 +329,18 @@ describe("buildDrawio — each page describes itself", () => {
     expect(xml).not.toContain("milestone");
   });
 });
+
+// The cartouche and the legend are html=1 cells like the boxes, and were
+// escaped once where the boxes are escaped twice: a title carrying "<" was
+// read as a tag by draw.io and vanished.
+describe("buildDrawio — the cartouche is escaped like the boxes", () => {
+  it("keeps a title that looks like markup readable as text", async () => {
+    const placed = [{
+      title: "A <b>bold</b> & co",
+      layout: { nodes: [{ id: "A", label: "A", kind: "actor" as const, x: 0, y: 0, width: 100, height: 40 }], edges: [], width: 100, height: 40 },
+    }];
+    const xml = buildDrawio(placed, () => "#111");
+    expect(xml).toContain("A &amp;lt;b&amp;gt;bold&amp;lt;/b&amp;gt; &amp;amp; co");
+    expect(xml).not.toContain('value="A &lt;b&gt;');
+  });
+});

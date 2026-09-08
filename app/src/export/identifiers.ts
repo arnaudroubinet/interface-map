@@ -6,11 +6,20 @@
 // Uniqueness matters as much as the shape: two distinct names reducing to the
 // same word would leave a single element in the produced file, and half the
 // flows would point elsewhere with nothing to say so.
-export function identifiers(names: string[]): Map<string, string> {
-  const taken = new Set<string>();
+//
+// `reserved` holds the words the identifiers must stay clear of: the DSL's own
+// keywords, and the identifiers already handed out to another kind of element
+// -- LikeC4 groups and actors live in one namespace, and a group and an actor
+// of the same name used to be given one identifier for two declarations.
+//
+// The same name twice yields the same identifier: the callers deduplicate what
+// they declare, and a lookup by name must find the one declaration.
+export function identifiers(names: string[], reserved: Iterable<string> = []): Map<string, string> {
+  const taken = new Set<string>(reserved);
   const table = new Map<string, string>();
 
   for (const name of names) {
+    if (table.has(name)) continue;
     const base = name
       .normalize("NFD")
       .replace(/[̀-ͯ]/g, "")

@@ -7,7 +7,7 @@ export function serializeSvg(svg: SVGSVGElement, backgroundColor: string): strin
   const background = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   const viewBox = clone.getAttribute("viewBox");
   const [x, y, width, height] = viewBox
-    ? viewBox.split(/\s+/)
+    ? viewBox.split(/[\s,]+/)
     : ["0", "0", clone.getAttribute("width") ?? "0", clone.getAttribute("height") ?? "0"];
   background.setAttribute("x", x);
   background.setAttribute("y", y);

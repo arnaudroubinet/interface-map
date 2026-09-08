@@ -101,6 +101,19 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     return placed;
   }
 
+  // The boards placed, or a banner message and nothing: a layout that failed
+  // used to leave the click without any effect at all, which reads as a broken
+  // button rather than a failed layout.
+  async function placedOrSay(state: AppState, file: LoadedFile) {
+    try {
+      return await allPlacedBoards(state, file);
+    } catch (err) {
+      console.error(err);
+      ctx.setState(withBannerMessage(ctx.legacyState(), "The boards could not be laid out for this export. Try again; if it persists, the SVG export of each view still works."));
+      return null;
+    }
+  }
+
   return {
     onExportSvg() {
       const svg = ctx.svgCourant();
@@ -111,7 +124,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
     async onExportPng() {
       const svg = ctx.svgCourant();
       if (!svg || !ctx.legacyState().file) return;
-      const result = await exportPng(svg, "#ffffff", ctx.legacyState().options.pngScale);
+      const asked = ctx.legacyState().options.pngScale;
+      const result = await exportPng(svg, "#ffffff", asked);
       if (!result.ok) {
         // The message comes from the export: it distinguishes two of them, and
         // copying it here had erased one.
@@ -119,6 +133,13 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
         return;
       }
       downloadPngBlob(result.blob, fileName("png"));
+      // Smaller than asked, and said so: a picture that silently came out at
+      // half the resolution would be blamed on the tool's eyes, not the canvas.
+      if (result.scale < asked) {
+        ctx.setState(
+          withBannerMessage(ctx.legacyState(), `PNG rendered at ×${result.scale.toFixed(1)} instead of ×${asked}: the browser's canvas cannot hold a larger picture. The SVG export has no such limit.`)
+        );
+      }
     },
 
     onExportXlsx() {
@@ -149,7 +170,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const colours = coloursOfModel(state.file.model);
       // Each page describes itself, like each SVG: draw.io is the format meant
       // to CIRCULATE, and its pages used to leave with neither title nor legend.
-      const placed = await allPlacedBoards(state, state.file);
+      const placed = await placedOrSay(state, state.file);
+      if (!placed) return;
       downloadText(
         buildDrawio(placed, (t) => colours.get(t) ?? "#000"),
         buildExportFilename("boards", null, state.shownMilestone, "drawio", state.mode)
@@ -165,7 +187,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       if (!state.file) return;
       const file = state.file;
       const colours = coloursOfModel(file.model);
-      const placed = await allPlacedBoards(state, file);
+      const placed = await placedOrSay(state, file);
+      if (!placed) return;
       const document_ = buildPrintableDocument(
         placed,
         file.report,
@@ -187,11 +210,23 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       // would lose it.
       document.body.appendChild(document_);
       document.body.classList.add("printing");
-      try {
-        window.print();
-      } finally {
+      // The document is removed when printing is OVER, not when print() returns:
+      // Chrome blocks in print(), Safari and Firefox may hand back control before
+      // the engine has paginated, and the page then printed empty. afterprint is
+      // the signal; the timer is the net under it, for a browser that never fires it.
+      const cleanup = () => {
         document.body.classList.remove("printing");
         document_.remove();
+        window.removeEventListener("afterprint", cleanup);
+      };
+      window.addEventListener("afterprint", cleanup);
+      setTimeout(cleanup, 120_000);
+      try {
+        window.print();
+      } catch (err) {
+        cleanup();
+        console.error(err);
+        ctx.setState(withBannerMessage(ctx.legacyState(), "This browser refused to print. The draw.io or SVG exports carry the same boards."));
       }
     },
 
@@ -200,7 +235,9 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       if (!state.file) return;
       downloadText(
         modelToStructurizr(state.file.model, shownRank(state), state.file.name, state.shownMilestone, state.mode),
-        buildExportFilename("model", null, state.shownMilestone, "dsl")
+        // The content follows the mode, so the name must: the two readings used
+        // to overwrite one another under one file name.
+        buildExportFilename("model", null, state.shownMilestone, "dsl", state.mode)
       );
     },
 
@@ -208,8 +245,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const state = ctx.legacyState();
       if (!state.file) return;
       downloadText(
-        modelToLikeC4(state.file.model, shownRank(state), state.mode),
-        buildExportFilename("model", null, state.shownMilestone, "c4")
+        modelToLikeC4(state.file.model, shownRank(state), state.mode, state.shownMilestone),
+        buildExportFilename("model", null, state.shownMilestone, "c4", state.mode)
       );
     },
 
@@ -221,7 +258,8 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const state = ctx.legacyState();
       if (!state.file) return;
       const colours = coloursOfModel(state.file.model);
-      const placed = await allPlacedBoards(state, state.file);
+      const placed = await placedOrSay(state, state.file);
+      if (!placed) return;
       downloadText(
         fossflowJson(modelToFossflow(placed, (t) => colours.get(t) ?? "#000", state.file.name)),
         buildExportFilename("boards", null, state.shownMilestone, "json", state.mode)

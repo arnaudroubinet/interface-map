@@ -343,3 +343,34 @@ describe("modelToStructurizr — the functional reading", () => {
     expect(modelToStructurizr(model(), null, "carto.xlsx")).not.toContain("functional reading");
   });
 });
+
+// What made the produced file invalid in the target tool.
+describe("modelToStructurizr — a file the tool accepts", () => {
+  it("declares a duplicated actor once", () => {
+    const m = model();
+    m.actors = [...m.actors, { ...m.actors[0] }];
+    const dsl = modelToStructurizr(m, null, "carto.xlsx");
+    const declarations = dsl.match(/= softwareSystem "/g) ?? [];
+    expect(declarations).toHaveLength(new Set(m.actors.map((a) => a.name.trim())).size);
+  });
+
+  it("keeps a description with a line break on one line", () => {
+    const m = model();
+    m.actors[0] = { ...m.actors[0], description: "first\nsecond" };
+    expect(modelToStructurizr(m, null, "carto.xlsx")).toContain('"first second"');
+  });
+
+  it("quotes the contract link, and drops one that is not a web address", () => {
+    const m = model();
+    m.interfaces[0] = { ...m.interfaces[0], contractLink: "https://docs.example.org/c.pdf" };
+    expect(modelToStructurizr(m, null, "carto.xlsx")).toContain('url "https://docs.example.org/c.pdf"');
+    m.interfaces[0] = { ...m.interfaces[0], contractLink: "see SharePoint" };
+    expect(modelToStructurizr(m, null, "carto.xlsx")).not.toContain("url ");
+  });
+
+  it("keeps an actor called like a keyword clear of it", () => {
+    const m = model();
+    m.actors[0] = { ...m.actors[0], name: "Model" };
+    expect(modelToStructurizr(m, null, "carto.xlsx")).not.toMatch(/^\s+model = softwareSystem/m);
+  });
+});

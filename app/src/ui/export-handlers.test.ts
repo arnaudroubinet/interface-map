@@ -129,13 +129,15 @@ describe("handlersExport", () => {
     expect(downloads[0].name).toMatch(/matrix.*\.xlsx$/);
   });
 
-  // Both DSLs describe the MODEL: no view name, no selection, no mode.
-  it("names both DSLs after the model, not after the view", () => {
+  // Both DSLs describe the MODEL: no view name, no selection -- but the mode,
+  // since their content follows it, and the two readings used to overwrite one
+  // another under a single name.
+  it("names both DSLs after the model and the reading, not after the view", () => {
     const s = withMode(withView(loaded(), "by-actor"), "functional");
     const { handlers } = context(s);
     handlers.onExportStructurizr();
     handlers.onExportLikeC4();
-    expect(downloads.map((t) => t.name)).toEqual(["carto-model.dsl", "carto-model.c4"]);
+    expect(downloads.map((t) => t.name)).toEqual(["carto-functional-model.dsl", "carto-functional-model.c4"]);
     expect(downloads[0].content).toContain("workspace");
     expect(downloads[1].content).toContain("specification");
   });
