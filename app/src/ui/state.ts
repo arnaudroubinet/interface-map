@@ -69,7 +69,10 @@ export interface LoadedFile {
 // browser may swallow it.
 export type ReferentialCheck =
   | { referential: string; drifted: false }
-  | { referential: string; drifted: true; filename: string; bytes: ArrayBuffer };
+  // `acknowledged`: the reader has seen the panel announcing the rebuild and
+  // closed it. The offer to download stays in the banner; the panel does not
+  // come back.
+  | { referential: string; drifted: true; filename: string; bytes: ArrayBuffer; acknowledged?: boolean };
 
 export interface AppOptions {
   counters: boolean;
@@ -238,6 +241,12 @@ export function withRefreshedFile(state: AppState, file: LoadedFile): AppState {
 
 export function withReferentialCheck(state: AppState, check: ReferentialCheck | null): AppState {
   return { ...state, referentialCheck: check };
+}
+
+export function withReferentialAcknowledged(state: AppState): AppState {
+  const check = state.referentialCheck;
+  if (!check || !check.drifted) return state;
+  return { ...state, referentialCheck: { ...check, acknowledged: true } };
 }
 
 // The by-actor selector only offers the actors of the current reading: the

@@ -443,7 +443,8 @@ describe("the referential dropped beside the cartography", () => {
     await vi.waitFor(() => {
       if (!banner(root).includes("up to date")) throw new Error("no verdict yet");
     });
-    expect(banner(root)).toContain("Referential ref.xlsx");
+    expect(banner(root)).toContain("Referential: up to date");
+    expect(root.querySelector(".refresh-overlay")).toBeNull();
     expect(downloadButton(root)).toBeUndefined();
   });
 
@@ -459,7 +460,12 @@ describe("the referential dropped beside the cartography", () => {
       if (!b) throw new Error("no download offered yet");
       return b;
     });
-    expect(banner(root)).toContain("had drifted");
+    // The news is told in the middle of the screen, not in the banner: a
+    // sentence and a button there pushed the exports out of sight.
+    const panel = root.querySelector(".refresh-overlay .refresh-panel")!;
+    expect(panel.textContent).toContain("had drifted from ref.xlsx");
+    expect(panel.contains(button)).toBe(true);
+    expect(banner(root)).not.toContain("drifted");
     // Nothing downloaded until asked.
     expect(downloadWorkbook).not.toHaveBeenCalled();
 
@@ -499,7 +505,40 @@ describe("the referential dropped beside the cartography", () => {
     await vi.waitFor(() => {
       if (!downloadButton(root)) throw new Error("no download offered yet");
     });
-    expect(banner(root)).toContain("Referential ref.xlsx");
+    expect(root.querySelector(".refresh-panel")?.textContent).toContain("ref.xlsx");
+  });
+
+  // Dismissed, the panel does not come back, and the banner keeps the button
+  // -- the offer must stay reachable after the reader has looked around.
+  it("keeps the download button in the banner once the panel is dismissed", async () => {
+    const root = document.createElement("div");
+    mountApp(root);
+    drop(root, cartographyFile({ ...data, referentialRows: { [REF_ACTORS_SHEET]: [] } }), referentialFile());
+    await loaded(root);
+    await vi.waitFor(() => {
+      if (!root.querySelector(".refresh-overlay")) throw new Error("no panel yet");
+    });
+    buttonByLabel(root, "Not now").click();
+    expect(root.querySelector(".refresh-overlay")).toBeNull();
+    const inBanner = root.querySelector(".banner .banner-referential button");
+    expect(inBanner?.textContent).toBe("Download the updated workbook");
+    buttonByLabel(root, "Matrix").click();
+    expect(root.querySelector(".refresh-overlay")).toBeNull();
+    expect(root.querySelector(".banner .banner-referential button")).not.toBeNull();
+  });
+
+  it("closes the panel once the workbook is downloaded", async () => {
+    vi.mocked(downloadWorkbook).mockClear();
+    const root = document.createElement("div");
+    mountApp(root);
+    drop(root, cartographyFile({ ...data, referentialRows: { [REF_ACTORS_SHEET]: [] } }), referentialFile());
+    await loaded(root);
+    await vi.waitFor(() => {
+      if (!root.querySelector(".refresh-overlay")) throw new Error("no panel yet");
+    });
+    (root.querySelector(".refresh-overlay .refresh-download") as HTMLButtonElement).click();
+    expect(downloadWorkbook).toHaveBeenCalledTimes(1);
+    expect(root.querySelector(".refresh-overlay")).toBeNull();
   });
 
   // The writer falls back on the workbook's own actors when the copy's Actors

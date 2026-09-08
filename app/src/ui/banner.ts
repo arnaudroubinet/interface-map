@@ -71,32 +71,32 @@ export interface BannerActions extends BannerCallbacks {
   onDownloadRefreshed: () => void;
 }
 
-// The verdict of the last referential dropped, said beside the file it judged.
-//
-// Up to date, one line, so the reader knows the referential WAS read -- a
-// silent drop looks like a drop that failed. Drifted, the same line carries
-// the button: the screen already shows the refreshed workbook, the file on
-// disk does not, and the button is the one gesture that closes that gap.
+// The verdict of the last referential dropped, in a few words: the banner is
+// one line, and a sentence with a button in it pushed the exports out of sight.
+// The news of a rebuild is told in the middle of the screen (refresh-panel.ts);
+// here stays what must remain reachable afterwards -- the file to download, as
+// a button and nothing else.
 export function referentialNote(state: AppState, onDownload: () => void): HTMLElement | null {
   const check = state.referentialCheck;
   if (!check) return null;
   const note = el("span", { class: "banner-referential" });
   if (!check.drifted) {
-    note.textContent = `Referential ${check.referential}: the workbook's copy is up to date.`;
+    note.textContent = "Referential: up to date";
+    note.title = `${check.referential}: the workbook's copy matches it.`;
     return note;
   }
   note.classList.add("banner-referential-drifted");
-  note.appendChild(
-    document.createTextNode(`Referential ${check.referential}: the copy had drifted — refreshed, and shown here.`)
-  );
+  // While the panel is up, the button is there, in the middle of the screen:
+  // a second one here would be two buttons for one file.
+  if (!check.acknowledged) {
+    note.textContent = "Referential: copy refreshed";
+    return note;
+  }
   const button = el(
     "button",
     {
       class: "export-button",
-      // Said where the click happens: the refreshed file is a rebuild, like an
-      // upgrade, and the reader replacing their own file with it should know
-      // what does not come along.
-      title: "Rebuilt by the tool: columns you added yourself, formatting and personal sheets are not carried over.",
+      title: `Rebuilt from ${check.referential}. Columns you added yourself, formatting and personal sheets are not carried over.`,
     },
     ["Download the updated workbook"]
   );

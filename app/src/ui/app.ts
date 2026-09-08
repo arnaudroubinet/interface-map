@@ -39,6 +39,7 @@ import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
 import { downloadWorkbook } from "../export/download";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
+import { buildRefreshPanel } from "./refresh-panel";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildHelp } from "../render/help";
 import { upgrade } from "../export/schema-upgrade";
@@ -70,6 +71,7 @@ import {
   withComparedMilestone,
   withBannerMessage,
   withReferentialCheck,
+  withReferentialAcknowledged,
   withRefreshedFile,
   viewOnLoad,
   VIEW_LABEL,
@@ -454,6 +456,22 @@ export function mountApp(root: HTMLElement): void {
     const check = state.referentialCheck;
     if (!check || !check.drifted) return;
     downloadWorkbook(check.bytes, check.filename);
+    // Downloaded is acknowledged: the panel has done its job.
+    if (!check.acknowledged) setState(withReferentialAcknowledged(state));
+  }
+
+  // The rebuild announced once, in the middle of the screen, over the view it
+  // refreshed. Dismissed, it leaves the download button in the banner.
+  function renderRefreshPanel(): void {
+    root.querySelector(".refresh-overlay")?.remove();
+    const check = state.referentialCheck;
+    if (!check || !check.drifted || check.acknowledged) return;
+    root.appendChild(
+      buildRefreshPanel(check, {
+        onDownload: downloadRefreshedHandler,
+        onLater: () => setState(withReferentialAcknowledged(state)),
+      })
+    );
   }
 
   // The nine exports live in their own module: they depend only on the state,
@@ -514,6 +532,7 @@ export function mountApp(root: HTMLElement): void {
     }
 
     renderBanner(banner, state, currentSvg() !== null, bannerActions);
+    renderRefreshPanel();
   }
 
   function renderContent(file: LoadedFile): void {

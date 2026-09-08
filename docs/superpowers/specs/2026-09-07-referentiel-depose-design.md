@@ -33,10 +33,13 @@ et le rapport d'intégrité — mais c'est **l'outil qui l'écrit**, et lui seul
 
 Quand les deux fichiers sont déposés ensemble, ou le référentiel après la
 cartographie déjà à l'écran, l'outil **compare** la copie au référentiel. À
-jour : la bannière le dit. Dérivée : la cartographie est **reconstruite** avec
-les lignes du référentiel, affichée, et la bannière offre un bouton
-**« Download the updated workbook »**. Périmètre arrêté par l'utilisateur le
-7 septembre 2026, bouton plutôt que téléchargement automatique.
+jour : la bannière le dit, en trois mots. Dérivée : la cartographie est
+**reconstruite** avec les lignes du référentiel, affichée, et un **panneau au
+centre de l'écran** l'annonce, avec le bouton **« Download the updated
+workbook »** et un « Not now ». Périmètre arrêté par l'utilisateur le
+7 septembre 2026, bouton plutôt que téléchargement automatique ; panneau
+centré plutôt que phrase dans la bannière, le 8 septembre : une phrase et un
+bouton sur la ligne de la bannière repoussaient les exports hors de vue.
 
 ## 3. Reconnaître un référentiel
 
@@ -105,9 +108,10 @@ Conséquences assumées :
 - le fichier est offert sous son **nom d'origine** (`.xlsm` → `.xlsx`), pour
   que remplacer celui du disque soit un « oui ».
 
-Le verdict survit à la navigation : le bouton doit rester pendant qu'on regarde
-le classeur reconstruit. Il part avec le fichier — un autre classeur chargé, un
-autre verdict dû.
+Le verdict survit à la navigation : le panneau fermé, la bannière garde le
+bouton, et lui seul, pendant qu'on regarde le classeur reconstruit. Le panneau
+ne revient pas ; télécharger le ferme aussi. Le tout part avec le fichier — un
+autre classeur chargé, un autre verdict dû.
 
 Un référentiel déposé **après** la cartographie, celle-ci à l'écran, la
 reconstruit sans déplacer le lecteur : la vue, le palier, les filtres et la

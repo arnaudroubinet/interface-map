@@ -53,10 +53,13 @@ test.beforeEach(async ({ page }) => {
 test("a drifted copy is rebuilt, shown, and offered back on request only", async ({ page }) => {
   await dropFiles(page, [referentialFile(), driftedCartography()]);
 
-  const banner = page.locator(".banner");
-  await expect(banner).toContainText("Referential ref.xlsx");
-  await expect(banner).toContainText("had drifted");
-  const button = page.getByRole("button", { name: "Download the updated workbook" });
+  // The news sits in the middle of the screen, over the view; the banner
+  // stays one line.
+  const panel = page.locator(".refresh-panel");
+  await expect(panel).toBeVisible();
+  await expect(panel).toContainText("had drifted from ref.xlsx");
+  await expect(page.locator(".banner")).not.toContainText("drifted");
+  const button = panel.getByRole("button", { name: "Download the updated workbook" });
   await expect(button).toBeVisible();
   // The rebuilt workbook is on screen: the rail offers its views.
   await expect(page.locator(".rail-view-item").first()).toBeVisible();
@@ -79,7 +82,8 @@ test("an up-to-date copy is said so, with nothing to download", async ({ page })
     }))
   );
 
-  await expect(page.locator(".banner")).toContainText("the workbook's copy is up to date");
+  await expect(page.locator(".banner")).toContainText("Referential: up to date");
+  await expect(page.locator(".refresh-panel")).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Download the updated workbook" })).toHaveCount(0);
 });
 
