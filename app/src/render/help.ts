@@ -102,7 +102,7 @@ const SECTIONS: Section[] = [
   {
     title: "The exports",
     paragraphs: [
-      "Each goes to a different destination, and each button lights up only where its export makes sense — that is why some are greyed out on some views.",
+      "SVG and PNG are buttons in the banner; the other formats sit under « Export ». Each goes to a different destination, and each lights up only where its export makes sense — that is why some are greyed out on some views.",
       "Structurizr and LikeC4 describe the park as a C4 model rather than a picture, so they export the architecture only. Their relationships follow the same rule as the diagrams — provider towards consumer — and since a C4 relationship has only one direction, a pulled one is tagged rather than reversed.",
     ],
     definitions: [

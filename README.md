@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1129 tests
+npm test          # 1137 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 npm run e2e       # quatre tests dans un vrai Chromium, sur le fichier construit
@@ -219,9 +219,10 @@ requête part à la première réécriture par l'outil.
 ## Ajouter quelque chose
 
 **Un export.** Écrivez le générateur dans `export/`, exposez-le dans
-`ui/banner.ts` (un `onExport…` de plus) et branchez-le dans `ui/app.ts`. Les
-exports d'image, draw.io et FossFLOW suivent le mode de lecture ; les deux
-DSL C4 non, ils décrivent une architecture.
+`ui/banner.ts` (un `onExport…` de plus, et sa ligne dans `EXPORTS` : bouton
+ou menu « Export ») et branchez-le dans `ui/app.ts`. Les exports d'image,
+draw.io et FossFLOW suivent le mode de lecture ; les deux DSL C4 non, ils
+décrivent une architecture.
 
 **Un contrôle d'intégrité.** Ajoutez-le à l'une des cinq familles de
 `integrity/checks.ts` (`checkStructure`, `checkReferences`, `checkVocabulaires`,

@@ -85,6 +85,29 @@
   .export-button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
   .export-button:disabled { opacity: 0.4; cursor: not-allowed; }
   .export-button:focus-visible, .rail-view-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* Le menu « Export » : les sept formats qui ne sont pas des images, sous un
+     seul bouton. Un <details> : ouvert ou fermé est l'affaire du navigateur ;
+     la liste se déploie sous lui, alignée à droite, par-dessus la vue. */
+  .banner-menu { position: relative; }
+  .banner-menu-summary { display: inline-block; list-style: none; user-select: none; }
+  .banner-menu-summary::-webkit-details-marker { display: none; }
+  .banner-menu-summary::marker { content: ""; }
+  .banner-menu[open] > .banner-menu-summary { border-color: var(--accent); color: var(--accent); }
+  .banner-menu-disabled > .banner-menu-summary { opacity: 0.4; cursor: not-allowed; }
+  .banner-menu-disabled > .banner-menu-summary:hover { border-color: var(--line); color: var(--ink); }
+  .banner-menu-list {
+    position: absolute; right: 0; top: calc(100% + 4px); z-index: 55;
+    display: flex; flex-direction: column; min-width: 160px; padding: 4px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.12);
+  }
+  .banner-menu-item {
+    border: 0; background: none; color: var(--ink); text-align: left;
+    padding: 7px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; white-space: nowrap;
+  }
+  .banner-menu-item:hover:not(:disabled) { background: var(--ground); color: var(--accent); }
+  .banner-menu-item:disabled { opacity: 0.4; cursor: not-allowed; }
+  .banner-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   .layout { flex: 1; display: flex; min-height: 0; }
   .rail {
@@ -424,11 +447,11 @@
        une ellipse vaut mieux que six lignes de méta au-dessus du schéma. */
     .banner-state { flex-basis: 100%; order: 3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .banner-referential { flex-basis: 100%; order: 5; flex-wrap: wrap; }
-    .banner-exports {
-      display: flex; gap: 8px; order: 4; flex-basis: 100%;
-      overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2px;
-    }
+    /* Trois boutons — SVG, PNG, Export — tiennent sur la ligne sans défiler ;
+       et un défilement rognerait le menu, qui se déploie hors de sa ligne. */
+    .banner-exports { display: flex; gap: 8px; order: 4; flex-basis: 100%; }
     .banner-exports .export-button { flex-shrink: 0; }
+    .banner-menu { margin-left: auto; }
 
     .rail { display: none; }
     .layout.rail-open .rail {
