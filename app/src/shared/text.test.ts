@@ -95,3 +95,10 @@ describe("nearDuplicate", () => {
     });
   });
 });
+
+describe("normalizeText — memoised", () => {
+  it("answers the same for the same input, cached or not", () => {
+    expect(normalizeText("  Élan  Vital ")).toBe("elan vital");
+    expect(normalizeText("  Élan  Vital ")).toBe("elan vital");
+  });
+});

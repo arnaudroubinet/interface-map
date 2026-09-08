@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { buildDropTarget } from "./drop-zone";
 
 function buildTarget(overrides: Partial<Parameters<typeof buildDropTarget>[0]> = {}): HTMLElement {
-  return buildDropTarget({ onFile: () => {}, onOpenSample: () => {}, onHelp: () => {}, ...overrides });
+  return buildDropTarget({ onFiles: () => {}, onOpenSample: () => {}, onHelp: () => {}, ...overrides });
 }
 
 function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
@@ -14,9 +14,9 @@ function buttonByLabel(root: HTMLElement, label: string): HTMLButtonElement {
 // A phone has no drag and drop: without a picker, the landing screen offers a
 // gesture the reader cannot make, and the tool is simply unusable there.
 describe("buildDropTarget — picking a workbook", () => {
-  it("hands the picked file to onFile", () => {
+  it("hands the picked file to onFiles", () => {
     let handed: File | undefined;
-    const target = buildTarget({ onFile: (f) => (handed = f) });
+    const target = buildTarget({ onFiles: (f) => (handed = f[0]) });
     const field = target.querySelector("input[type=file]") as HTMLInputElement;
     const file = new File([""], "june.xlsx");
     Object.defineProperty(field, "files", { value: [file] });

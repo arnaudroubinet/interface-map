@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
-import { initialState, withLoadedFile, withMode, withView, withActorSelection, withComparedFile, type AppState, type View } from "./state";
+import { initialState, withLoadedFile, withMode, withView, withActorSelection, withComparedFile, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";
@@ -127,14 +127,14 @@ function type(root: HTMLElement, text: string): void {
 
 function byActor(): AppState {
   return withView(
-    withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }),
+    withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null }),
     "by-actor"
   );
 }
 
 describe("renderRail — the \"by actor\" selector", () => {
   it("lists every actor in the architecture reading", () => {
-    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }), "by-actor");
+    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null }), "by-actor");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
     expect(actorOptions(root)).toContain("Bus");
@@ -143,7 +143,7 @@ describe("renderRail — the \"by actor\" selector", () => {
   // §5.2: the selector lists only the business actors in the functional reading.
   it("lists only the business actors in the functional reading", () => {
     const state = withView(
-      withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null, referential: "" }), "functional"),
+      withMode(withLoadedFile(initialState(), { name: "c.xlsx", model, report, modifiedAt: null }), "functional"),
       "by-actor"
     );
     const root = document.createElement("div");
@@ -168,7 +168,7 @@ describe("renderRail — the anomaly badge on the upgrade screen", () => {
       totalWarnings: 0,
     };
     const state = withView(
-      withLoadedFile(initialState(), { name: "c.xlsx", model: oldModel, report: reportWithAnomalies, modifiedAt: null, referential: "" }),
+      withLoadedFile(initialState(), { name: "c.xlsx", model: oldModel, report: reportWithAnomalies, modifiedAt: null }),
       "upgrade"
     );
     const root = document.createElement("div");
@@ -183,7 +183,7 @@ describe("renderRail — the by-actor view's \"Technologies\" filter", () => {
   // the whole diagram in one click while explaining nothing.
   it("does not show the Technologies block in functional mode", () => {
     const state = withActorSelection(
-      withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" }), "functional"), "by-actor"),
+      withView(withMode(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null }), "functional"), "by-actor"),
       "Tatooine"
     );
     // The ground does carry a functional link: without this line, the test would
@@ -197,7 +197,7 @@ describe("renderRail — the by-actor view's \"Technologies\" filter", () => {
 
   it("shows the Technologies block in the architecture reading", () => {
     const state = withActorSelection(
-      withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" }), "by-actor"),
+      withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null }), "by-actor"),
       "Tatooine"
     );
     const root = document.createElement("div");
@@ -235,7 +235,7 @@ describe("the \"By actor\" selector follows the displayed milestone", () => {
         name: "c.xlsx",
         model: estate,
         report: runIntegrityChecks(estate),
-        modifiedAt: null, referential: "",
+        modifiedAt: null,
       }),
       "by-actor"
     );
@@ -253,7 +253,7 @@ describe("the \"By actor\" selector follows the displayed milestone", () => {
 // made in the rail, beside the counter -- which decides the ×N, not what gets
 // named.
 describe("renderRail — what a line's label names", () => {
-  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null, referential: "" });
+  const loaded = () => withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null });
   const rendered = (s: AppState) => {
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -337,7 +337,7 @@ describe("renderRail — the by-actor search field", () => {
 // compares against.
 describe("renderRail — comparing with a second workbook", () => {
   function changesView(state: AppState = initialState()): HTMLElement {
-    const loaded = withLoadedFile(state, { name: "june.xlsx", model, report, modifiedAt: null, referential: "" });
+    const loaded = withLoadedFile(state, { name: "june.xlsx", model, report, modifiedAt: null });
     const s = withView(loaded, "changes");
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -351,12 +351,12 @@ describe("renderRail — comparing with a second workbook", () => {
   });
 
   it("names the chosen workbook and offers to drop it", () => {
-    const loaded = withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" });
+    const loaded = withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null });
     const s = withComparedFile(withView(loaded, "changes"), {
       name: "january.xlsx",
       model,
       report,
-      modifiedAt: null, referential: "",
+      modifiedAt: null,
     });
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], callbacks);
@@ -368,7 +368,7 @@ describe("renderRail — comparing with a second workbook", () => {
   // two workbooks are compared, both sides are read whole and "Compared to"
   // would sit there doing nothing at all.
   it("hides the compared-milestone selector while a workbook is being compared", () => {
-    const withMilestones = { name: "june.xlsx", model: { ...model, milestones: [base.milestone({ name: "v1" }), base.milestone({ name: "v2", rank: 2 })] }, report, modifiedAt: null, referential: "" };
+    const withMilestones = { name: "june.xlsx", model: { ...model, milestones: [base.milestone({ name: "v1" }), base.milestone({ name: "v2", rank: 2 })] }, report, modifiedAt: null };
     const loaded = withView(withLoadedFile(initialState(), withMilestones), "changes");
     const labels = (s: AppState) => {
       const root = document.createElement("div");
@@ -381,7 +381,7 @@ describe("renderRail — comparing with a second workbook", () => {
 
   it("announces the file the reader picked", () => {
     let picked: File | null | undefined;
-    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" }), "changes");
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null }), "changes");
     const root = document.createElement("div");
     renderRail(root, loaded, flows(loaded), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
     const field = root.querySelector("input.rail-compare-file") as HTMLInputElement;
@@ -393,8 +393,8 @@ describe("renderRail — comparing with a second workbook", () => {
 
   it("announces nothing chosen when the comparison is dropped", () => {
     let picked: File | null | undefined = undefined;
-    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null, referential: "" }), "changes");
-    const s = withComparedFile(loaded, { name: "january.xlsx", model, report, modifiedAt: null, referential: "" });
+    const loaded = withView(withLoadedFile(initialState(), { name: "june.xlsx", model, report, modifiedAt: null }), "changes");
+    const s = withComparedFile(loaded, { name: "january.xlsx", model, report, modifiedAt: null });
     const root = document.createElement("div");
     renderRail(root, s, flows(s), [], { ...callbacks, onComparedFile: (f) => (picked = f) });
     (root.querySelector(".rail-compare-drop") as HTMLButtonElement).click();
@@ -402,25 +402,14 @@ describe("renderRail — comparing with a second workbook", () => {
   });
 });
 
-
-// The referential moved to the repair screen. A URL is not a reading option:
-// it is a property of the FILE, it takes effect only once Excel refreshes, and
-// the repair screen is the one place a file is rewritten. Beside the views it
-// suggested the opposite of all three.
-describe("renderRail — the external referential", () => {
-  const withUrl = {
-    name: "c.xlsx",
-    model: modelWithFlows,
-    report,
-    modifiedAt: null,
-    referential: "https://tenant.sharepoint.com/sites/SI/Documents/referential.xlsx",
-  };
-
-  it("is nowhere in the rail, whatever the workbook carries", () => {
-    const state = withView(withLoadedFile(initialState(), withUrl), "group-to-group");
+// The "hide external" label wore the drawer button's class: under 720 px every
+// such checkbox became a fixed pill stacked on the "☰ Views" button.
+describe("renderRail — the hide-external switch", () => {
+  it("does not wear the mobile drawer button's class", () => {
+    const state = withView(withLoadedFile(initialState(), { name: "c.xlsx", model: modelWithFlows, report, modifiedAt: null }), "matrix");
     const root = document.createElement("div");
     renderRail(root, state, flows(state), [], callbacks);
-    expect(root.querySelector(".rail-referential")).toBeNull();
-    expect(root.textContent).not.toContain(withUrl.referential);
+    expect(root.querySelector(".rail-toggle")).toBeNull();
+    expect(root.querySelector(".rail-externals input[type=checkbox]")).not.toBeNull();
   });
 });

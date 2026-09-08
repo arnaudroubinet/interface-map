@@ -36,8 +36,8 @@ export const ICONS: Record<string, IconElem[]> = {
   "server": [
       { tag: "rect", attrs: { width: "20", height: "8", x: "2", y: "2", rx: "2", ry: "2" } },
       { tag: "rect", attrs: { width: "20", height: "8", x: "2", y: "14", rx: "2", ry: "2" } },
-      { tag: "line", attrs: {  } },
-      { tag: "line", attrs: {  } },
+      { tag: "line", attrs: { x1: "6", x2: "6.01", y1: "6", y2: "6" } },
+      { tag: "line", attrs: { x1: "6", x2: "6.01", y1: "18", y2: "18" } },
   ],
   "handshake": [
       { tag: "path", attrs: { d: "m11 17 2 2a1 1 0 1 0 3-3" } },
@@ -82,8 +82,8 @@ export const ICONS: Record<string, IconElem[]> = {
   ],
   "monitor": [
       { tag: "rect", attrs: { width: "20", height: "14", x: "2", y: "3", rx: "2" } },
-      { tag: "line", attrs: {  } },
-      { tag: "line", attrs: {  } },
+      { tag: "line", attrs: { x1: "8", x2: "16", y1: "21", y2: "21" } },
+      { tag: "line", attrs: { x1: "12", x2: "12", y1: "17", y2: "21" } },
   ],
   "smartphone": [
       { tag: "rect", attrs: { width: "14", height: "20", x: "5", y: "2", rx: "2", ry: "2" } },

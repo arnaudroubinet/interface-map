@@ -9,8 +9,7 @@ import {
   identityNodeKey,
   groupNodeKey,
 } from "./core";
-import { SCHEMA_VERSION } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
+import type { ParsedModel, Actor, Consumption } from "../parsing/model";
 
 // The shared factories, with only the defaults particular to this file: two
 // groups G1/G2, and a consumption already decided.

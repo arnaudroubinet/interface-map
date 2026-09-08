@@ -27,4 +27,16 @@ describe("identifiers", () => {
   it("still names something whose name holds nothing usable", () => {
     expect(identifiers(["···"]).get("···")).toBe("e");
   });
+
+  // The DSL's own words, and the identifiers another kind of element already
+  // took: an actor called "model" or a group homonymous with an actor.
+  it("stays clear of the reserved words it is given", () => {
+    expect(identifiers(["Model"], ["model"]).get("Model")).toBe("model_2");
+  });
+
+  it("gives one identifier to a name given twice", () => {
+    const ids = identifiers(["Naboo", "Naboo"]);
+    expect(ids.get("Naboo")).toBe("naboo");
+    expect(ids.size).toBe(1);
+  });
 });

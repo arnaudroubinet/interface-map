@@ -9,7 +9,6 @@ import {
 import { interfaceLabel, buildInterfaceLookup, findInterfaceForConsumption } from "../aggregation/core";
 import { normalizeText } from "../shared/text";
 import type { WorkbookData } from "./template-export";
-import { NO_REFERENTIAL } from "./datamashup";
 import { NATURE_MIDDLEWARE } from "../aggregation/nature";
 
 // What a middleware was called before the two technical roles were told apart.
@@ -291,6 +290,12 @@ export const UPGRADE_STEPS: UpgradeStep[] = [
   // nobody has taken yet, so it is not taken for them -- the buckets keep the
   // type they had, and it moves the day someone says so.
   { de: 8, vers: 9, appliquer: (model) => middlewareInsteadOfTechnical(model) },
+  // No step for the referential's change of carrier -- an address Excel
+  // fetched, now a file dropped beside the cartography. The SHEETS did not
+  // move: a v9 workbook reads exactly as before, its query is inert until
+  // someone refreshes in Excel, and any rewrite by the tool leaves it out.
+  // Bumping would have sent every workbook in circulation through the upgrade
+  // screen for a change it cannot see.
 ];
 
 // The nature is read from the hidden list now, so both sides carry it: the
@@ -383,7 +388,10 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
   return {
     // The workbook's own vocabularies are taken as they are: replacing them
     // with the seed would erase the types the team declared.
-    flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description]),
+    // Four columns, the colour included: the FlowTypes sheet has four, and the
+    // hidden copy falls back on these rows when the workbook holds none. Three
+    // columns lost every colour typed before the copy existed.
+    flowTypes: model.flowTypes.map((t) => [t.type, t.rawDirection, t.description, t.colour]),
     actorTypes: model.actorTypes.map((t) => [t.type, t.icon, t.nature]),
     milestones: model.milestones.map((p) => [p.name, String(p.rank), p.label, p.status, p.date, p.description]),
     groups: model.groups.map((g) => [g.name, g.perimeter]),
@@ -410,7 +418,6 @@ export function dataFromModel(model: ParsedModel): WorkbookData {
     // Excel refuses is dropped -- the integrity check already reports it, and
     // manufacturing an unreadable workbook would help nobody.
     fx: [...byTab.entries()].map(([name, rows]) => ({ name, rows })),
-    referential: NO_REFERENTIAL,
     // The hidden lists as the workbook held them. They are what its drop-downs
     // and its calculated columns read: rewriting without them would hand back a
     // workbook whose every derived cell resolves to nothing.

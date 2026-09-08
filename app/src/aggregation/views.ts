@@ -47,7 +47,10 @@ function actorDetails(
   model: ParsedModel,
   name: string
 ): { subtitle?: string; description?: string; external?: boolean; icon?: string; technical?: boolean } {
-  const actor = model.actors.find((a) => a.name === name);
+  // Trimmed on both sides, as the rest of aggregation compares: a cell with a
+  // trailing space left the box without icon, type or perimeter -- an external
+  // actor drawn as a platform one.
+  const actor = model.actors.find((a) => a.name.trim() === name.trim());
   if (!actor) return {};
   return {
     subtitle: actor.actorType.trim() || undefined,

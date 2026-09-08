@@ -1,7 +1,21 @@
 const TYPES: Record<string, string> = {
   xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   xlsm: "application/vnd.ms-excel.sheet.macroEnabled.12",
+  md: "text/markdown;charset=utf-8",
+  // A draw.io file is XML; the two DSLs are plain text; FossFLOW is JSON. They
+  // all left as Markdown, which some browsers took as a reason to append .md.
+  drawio: "application/xml;charset=utf-8",
+  dsl: "text/plain;charset=utf-8",
+  c4: "text/plain;charset=utf-8",
+  json: "application/json;charset=utf-8",
 };
+
+// The type a file is handed over as, from its extension. Text falls back on
+// plain text, never on Markdown: Markdown is one format among the text ones.
+export function mimeTypeFor(fileName: string): string {
+  const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
+  return TYPES[extension] ?? "text/plain;charset=utf-8";
+}
 
 // When "Always ask where to save" is on, the click saves nothing: it opens a
 // native dialog, and the browser only reads the blob once that dialog has been
@@ -13,7 +27,7 @@ const TYPES: Record<string, string> = {
 const REVOCATION_DELAY_MS = 120_000;
 
 export function downloadText(content: string, fileName: string): void {
-  downloadBlob(new Blob([content], { type: "text/markdown;charset=utf-8" }), fileName);
+  downloadBlob(new Blob([content], { type: mimeTypeFor(fileName) }), fileName);
 }
 
 export function downloadWorkbook(bytes: ArrayBuffer, fileName: string): void {

@@ -63,18 +63,63 @@ export const EXPORTS: FormatExport[] = [
   { label: "FossFLOW", callback: "onExportFossflow", active: always },
 ];
 
+// What the banner can do beyond exporting: hand back the workbook the tool
+// rebuilt from a dropped referential. Not an export -- nothing on screen is
+// converted, the FILE itself is returned -- so it is not in the EXPORTS table
+// either, and the help page has nothing to document about a format.
+export interface BannerActions extends BannerCallbacks {
+  onDownloadRefreshed: () => void;
+}
+
+// The verdict of the last referential dropped, said beside the file it judged.
+//
+// Up to date, one line, so the reader knows the referential WAS read -- a
+// silent drop looks like a drop that failed. Drifted, the same line carries
+// the button: the screen already shows the refreshed workbook, the file on
+// disk does not, and the button is the one gesture that closes that gap.
+export function referentialNote(state: AppState, onDownload: () => void): HTMLElement | null {
+  const check = state.referentialCheck;
+  if (!check) return null;
+  const note = el("span", { class: "banner-referential" });
+  if (!check.drifted) {
+    note.textContent = `Referential ${check.referential}: the workbook's copy is up to date.`;
+    return note;
+  }
+  note.classList.add("banner-referential-drifted");
+  note.appendChild(
+    document.createTextNode(`Referential ${check.referential}: the copy had drifted — refreshed, and shown here.`)
+  );
+  const button = el(
+    "button",
+    {
+      class: "export-button",
+      // Said where the click happens: the refreshed file is a rebuild, like an
+      // upgrade, and the reader replacing their own file with it should know
+      // what does not come along.
+      title: "Rebuilt by the tool: columns you added yourself, formatting and personal sheets are not carried over.",
+    },
+    ["Download the updated workbook"]
+  );
+  button.addEventListener("click", onDownload);
+  note.appendChild(button);
+  return note;
+}
+
 export function renderBanner(
   root: HTMLElement,
   state: AppState,
   exportAvailable: boolean,
-  callbacks: BannerCallbacks
+  callbacks: BannerActions
 ): void {
   clear(root);
 
   const title = el("span", { class: "banner-title" }, ["Interface Map"]);
   root.appendChild(title);
 
-  const legacyState = el("span", { class: "banner-state" });
+  // A live region: a refusal rewrote this span in silence, and a screen reader
+  // never learnt the drop had failed. An error is announced at once; the
+  // ordinary state waits its turn.
+  const legacyState = el("span", { class: "banner-state", role: state.bannerMessage ? "alert" : "status" });
   if (state.bannerMessage) {
     legacyState.classList.add("banner-error");
     legacyState.textContent = state.bannerMessage;
@@ -95,6 +140,9 @@ export function renderBanner(
   }
   root.appendChild(legacyState);
 
+  const note = referentialNote(state, callbacks.onDownloadRefreshed);
+  if (note) root.appendChild(note);
+
   // One container for the buttons. On a desktop it does not exist for the
   // layout (display: contents); on a phone it becomes the one row that
   // scrolls sideways, instead of nine buttons wrapping over half the screen.
@@ -102,6 +150,9 @@ export function renderBanner(
   for (const format of EXPORTS) {
     const button = el("button", { class: "export-button" }, [format.label]);
     button.disabled = !format.active(state, exportAvailable);
+    // Greyed without a word, a button reads as broken. The rule is in the help
+    // page; the hint puts it where the question is asked.
+    if (button.disabled) button.title = `${format.label}: not available on this view`;
     button.addEventListener("click", callbacks[format.callback]);
     exportsRow.appendChild(button);
   }

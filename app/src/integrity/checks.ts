@@ -8,7 +8,6 @@ import type {
   Location,
   Group,
   InterfaceCatalogue,
-  Milestone,
   ParsedModel,
   ActorType,
   FlowType,
@@ -23,7 +22,7 @@ import {
   nameVersionKey,
   type InterfaceLookup,
 } from "../aggregation/core";
-import { lifespanOf, isLiveAt, intervalsMeet, ALWAYS, type Interval } from "../aggregation/milestones";
+import { lifespanOf, isLiveAt, intervalsMeet, rankOfMilestone, ALWAYS, type Interval } from "../aggregation/milestones";
 import { HEXA, LINE_THRESHOLD } from "../render/colors";
 import { contrastRatio } from "../render/contrast";
 import { MAX_TAB_LENGTH } from "../parsing/build-model";
@@ -63,7 +62,6 @@ const nameConsumption = (c: Consumption) => located("Consumption", c.flowName, c
 const nameGroup = (g: Group) => located("Group", g.name, g);
 const nameActorType = (t: ActorType) => located("Actor type", t.type, t);
 const nameFlowType = (t: FlowType) => located("Flow type", t.type, t);
-const nameMilestone = (p: Milestone) => located("Milestone", p.name, p);
 
 // A block's items follow the same order as the anomalies: the sheet, then the
 // row. They carry their address in the text, for want of having, as an anomaly
@@ -119,9 +117,12 @@ export interface IntegrityReport {
   totalWarnings: number;
 }
 
+// The FIRST row of a name speaks for it -- as natureOf and modelAtMilestone
+// already had it. This one kept the last, so two homonymous rows of different
+// validities made the milestone filter and the nesting check disagree.
 function actorByName(model: ParsedModel): Map<string, Actor> {
   const map = new Map<string, Actor>();
-  for (const a of model.actors) map.set(a.name.trim(), a);
+  for (const a of model.actors) if (!map.has(a.name.trim())) map.set(a.name.trim(), a);
   return map;
 }
 
@@ -134,8 +135,26 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
 // interface the diagram actually associates it with (aggregation/core.ts),
 // rather than ignored here — otherwise §7.3/§7.5 and the diagram would
 // contradict each other on the same misfiled row.
+//
+// Indexed once per lookup: five checks ask for it on every interface, and each
+// asked by scanning every consumption -- interfaces × consumptions matchings,
+// each building two keys, eight seconds on a large workbook.
+const consumptionsByInterface = new WeakMap<InterfaceLookup, Map<InterfaceCatalogue, Consumption[]>>();
+
 function consumptionsForInterface(lookup: InterfaceLookup, model: ParsedModel, iface: InterfaceCatalogue): Consumption[] {
-  return model.consumptions.filter((c) => findInterfaceForConsumption(lookup, c) === iface);
+  let index = consumptionsByInterface.get(lookup);
+  if (!index) {
+    index = new Map();
+    for (const c of model.consumptions) {
+      const owner = findInterfaceForConsumption(lookup, c);
+      if (!owner) continue;
+      const list = index.get(owner);
+      if (list) list.push(c);
+      else index.set(owner, [c]);
+    }
+    consumptionsByInterface.set(lookup, index);
+  }
+  return index.get(iface) ?? [];
 }
 
 function citedBounds(where: string, v: Validity & Location) {
@@ -291,14 +310,17 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // the file whichever milestone is on screen.
   const anomalies: Anomaly[] = [...notInReferential(model)];
   const actors = actorByName(model);
-  const flowTypes = new Set(model.flowTypes.map((t) => t.type.trim()));
+  // Compared like the "unknown type" check below compares: case and accents
+  // folded. Compared strictly here, "HTTP" declared and "http" used was at once
+  // an unknown type and an unused declaration, in one report.
+  const flowTypes = new Set(model.flowTypes.map((t) => normalizeText(t.type)));
   const lookup = buildInterfaceLookup(model);
 
   for (const iface of model.interfaces) {
     if (!actors.has(iface.providerName.trim())) {
-      anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" unknown to the repository.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" is not declared on the Actors sheet.`, iface));
     }
-    if (!flowTypes.has(iface.flowType.trim())) {
+    if (!flowTypes.has(normalizeText(iface.flowType))) {
       // The consequence, and not merely the fault: with no declared type the
       // arrow's direction cannot be determined, so the interface and ALL its
       // consumptions drop out of the diagrams. Said without that, the statement
@@ -533,8 +555,11 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
       parents: { name: string; interval: Interval }[]
     ) {
       const interval = lifespanOf(model, validity);
-      const arrivalFilled = validity.introducedAt.trim() !== "";
-      const retirementFilled = validity.retiredAt.trim() !== "";
+      // Filled AND known: a milestone the sheet does not declare gives an open
+      // bound (lifespanOf), and judging that bound against a parent produced a
+      // second, false anomaly on top of the reference one already reported.
+      const arrivalFilled = validity.introducedAt.trim() !== "" && rankOfMilestone(model, validity.introducedAt) !== undefined;
+      const retirementFilled = validity.retiredAt.trim() !== "" && rankOfMilestone(model, validity.retiredAt) !== undefined;
 
       if (arrivalFilled && retirementFilled && interval.end <= interval.start) {
         anomalies.push(anomaly(`${subject}: retirement milestone is at or before the introduction milestone.`, validity));
@@ -620,7 +645,7 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     const springs = consumptionsForInterface(lookupAtMilestone, atMilestone, i).some((c) => c.republishedAs.trim() !== "");
     if (!springs) {
       anomalies.push(
-        anomaly(`${nameInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
+        anomaly(`${nameInterface(i)}: goes into middlewares and comes back out for nobody.`, i)
       );
     }
   }
@@ -689,7 +714,9 @@ function checkVocabularies(model: ParsedModel): AnomalyFamily {
   for (const t of model.actorTypes) {
     if (outOfVocabulary(t.nature, VOCABULARIES.nature)) {
       anomalies.push(
-        anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULARIES.nature.join(", ")}.`, t)
+        // Accepted is wider than offered: "Technical" is still read, but the
+        // report must not teach a word the tool no longer writes.
+        anomaly(`${nameActorType(t)}: nature "${t.nature}" unknown. Accepted values: ${VOCABULARY_NATURE.join(", ")}.`, t)
       );
     }
   }

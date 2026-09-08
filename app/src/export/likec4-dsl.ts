@@ -6,70 +6,64 @@ import {
   type FlowInstance,
   type Mode,
 } from "../aggregation/core";
-import { liveActors } from "../aggregation/milestones";
-import { flowsForReading } from "../aggregation/reading";
 import { coloursOfModel } from "../render/colors";
 import { identifiers } from "./identifiers";
-import { normalizeText } from "../shared/text";
+import { text, PULLED_TAG, isPulled, exportableFlows, exportableActors, isAPerson, contractUrl } from "./c4-common";
 
 // The workbook as LikeC4. Same material as the Structurizr export, a different
 // grammar: LikeC4 says belonging through nesting, where Structurizr has a word
 // for the group. A nested actor is then named by its full path.
 
-const text = (v: string) => v.trim().replace(/"/g, "'");
-
-
-// The relationship goes from provider to consumer, like the data and like our
-// diagrams. It used to follow the direction of the CALL, so that a pulled flow
-// came out backwards from our images: the same estate told two stories
-// depending on which tool read it.
-//
-// A C4 relationship has only one direction: the initiative cannot be drawn
-// there as an arrowhead set at the other end. So it goes into a tag, where it
-// stays readable and filterable.
-function flowDirection(f: FlowInstance): { de: string; vers: string } {
-  return { de: f.provider, vers: f.consumer };
-}
-
-const PULLED_TAG = "Pulled";
-const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
-
-// LikeC4 refuses the whole file on a relationship from an element to itself --
-// "Invalid parent-child relationship" -- and an actor consuming what it
-// publishes would produce one. It would say nothing anyway: the aggregated
-// views already hide it (§4.3), and the Structurizr export drops it likewise.
-function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): FlowInstance[] {
-  return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
-}
+// The words of the grammar, and the tags the specification always declares:
+// an actor called "model", a group called "views", a technology called
+// "External" must not be declared under those identifiers.
+const KEYWORDS = [
+  "specification", "model", "views", "view", "element", "tag", "relationship", "group", "system", "person",
+  "style", "shape", "color", "line", "head", "tail", "include", "exclude", "where", "is", "and", "or", "not",
+  "title", "description", "technology", "link", "metadata", "autoLayout", "navigateTo", "of", "this", "it",
+  "extends", "global", "dynamic", "deployment", "external", "platform", PULLED_TAG.toLowerCase(),
+];
 
 const byName = (a: string, b: string) => a.localeCompare(b, "fr");
 
-export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mode = "architecture"): string {
+export function modelToLikeC4(
+  model: ParsedModel,
+  rank: number | null,
+  mode: Mode = "architecture",
+  // The milestone the file is filtered at. It MUST say so, like the reading:
+  // a file filtered at v3 that announces nothing is a file that lies by
+  // omission about everything v4 added.
+  milestone: string | null = null
+): string {
   // The reading the file carries. It MUST say so: delivering a file that tells
   // something other than the screen is what is forbidden everywhere else.
   const fonctionnel = mode === "functional";
-  const actors = liveActors(model, rank);
+  const actors = exportableActors(model, rank);
   const groups = [...new Set(actors.map((a) => a.group.trim()).filter(Boolean))].sort(byName);
-  // Groups and actors share the identifier space: a group and an actor of the
-  // same name would tread on each other.
-  const ids = identifiers([...groups, ...actors.map((a) => a.name.trim())]);
+  // Groups and actors share LikeC4's namespace, and are looked up by name: two
+  // tables, the second staying clear of the first, so that a group and an actor
+  // of the same name get two identifiers rather than one for two declarations.
+  const groupIds = identifiers(groups, KEYWORDS);
+  const actorIds = identifiers(actors.map((a) => a.name.trim()), [...KEYWORDS, ...groupIds.values()]);
   const paths = new Map(
     actors.map((a) => {
-      const id = ids.get(a.name.trim())!;
+      const id = actorIds.get(a.name.trim())!;
       const group = a.group.trim();
-      return [a.name.trim(), group ? `${ids.get(group)}.${id}` : id];
+      return [a.name.trim(), group ? `${groupIds.get(group)}.${id}` : id];
     })
   );
 
   const flows = exportableFlows(model, rank, mode);
   // The technology tags serve the by-technology views. LikeC4 wants identifiers,
   // where the workbook writes "REST + ESB".
+  // Prefixed: a technology called "External" or "Platform" would otherwise
+  // declare a tag the specification already declares, and the file be refused.
   const techs = [...new Set(flows.map((f) => f.flowType.trim()))].sort(byName);
-  const tags = identifiers(techs);
+  const tags = new Map([...identifiers(techs)].map(([name, id]) => [name, `tech_${id}`]));
   const colours = coloursOfModel(model);
 
   const rows: string[] = [
-    `// Interface map${fonctionnel ? ", functional reading: chains folded, media removed." : "."}`,
+    `// Interface map${fonctionnel ? ", functional reading: chains folded, media removed." : "."}${milestone ? ` Milestone ${text(milestone)}.` : ""}`,
     "specification {",
     "    element group",
     "    element system",
@@ -119,7 +113,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
 
   const declaration = (a: Actor, indent: string) => {
     const nature = isAPerson(a) ? "person" : "system";
-    const body = [`${indent}${ids.get(a.name.trim())} = ${nature} "${text(a.name)}" {`];
+    const body = [`${indent}${actorIds.get(a.name.trim())} = ${nature} "${text(a.name)}" {`];
     // Tags come before properties: LikeC4 requires it.
     if (groupIsExternal(model, a.group)) body.push(`${indent}    #external`);
     if (groupIsPlatform(model, a.group)) body.push(`${indent}    #platform`);
@@ -138,7 +132,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   };
 
   for (const group of groups) {
-    rows.push(`    ${ids.get(group)} = group "${text(group)}" {`);
+    rows.push(`    ${groupIds.get(group)} = group "${text(group)}" {`);
     for (const a of actors.filter((x) => x.group.trim() === group)) rows.push(...declaration(a, "        "));
     rows.push("    }");
   }
@@ -147,9 +141,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   rows.push("");
   const links = new Map<string, string[]>();
   for (const f of flows) {
-    const { de, vers } = flowDirection(f);
-    const source = paths.get(de.trim());
-    const target = paths.get(vers.trim());
+    const source = paths.get(f.provider.trim());
+    const target = paths.get(f.consumer.trim());
     if (!source || !target) continue;
     const label = text(interfaceLabel(f.interfaceName, f.version));
     const kind = tags.get(f.flowType.trim());
@@ -169,7 +162,8 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
     body.push(`        technology "${text(f.flowType)}"`);
     // The contract is an address: one click from the diagram beats a search
     // through the workbook.
-    if (f.iface.contractLink.trim()) body.push(`        link ${f.iface.contractLink.trim()}`);
+    const url = contractUrl(f.iface.contractLink);
+    if (url) body.push(`        link ${url}`);
     body.push(
       ...metadata("        ", [
         ["usage", f.consumption.usage],
@@ -192,7 +186,7 @@ export function modelToLikeC4(model: ParsedModel, rank: number | null, mode: Mod
   }
   for (const key of [...links.keys()].sort((a, b) => a.localeCompare(b, "fr"))) rows.push(...links.get(key)!);
 
-  rows.push("}", "", "views {", ...views(model, actors, paths, techs, tags, flows, ids), "}", "");
+  rows.push("}", "", "views {", ...views(model, actors, paths, techs, tags, flows, groupIds, milestone), "}", "");
 
   return rows.join("\n");
 }
@@ -208,13 +202,15 @@ function views(
   techs: string[],
   tags: Map<string, string>,
   flows: FlowInstance[],
-  ids: Map<string, string>
+  ids: Map<string, string>,
+  milestone: string | null
 ): string[] {
   // A view's name is an identifier -- "tech_rest_esb" -- that nobody wants to
-  // read in a list. The title carries the real name.
+  // read in a list. The title carries the real name, and the milestone.
+  const atMilestone = milestone ? ` — milestone ${milestone}` : "";
   const view = (header: string, title: string, inclusion: string) => [
     `    view ${header} {`,
-    `        title "${text(title)}"`,
+    `        title "${text(title + atMilestone)}"`,
     `        include ${inclusion}`,
     "        autoLayout LeftRight",
     "    }",
@@ -250,7 +246,7 @@ function views(
 
   for (const tech of techs) {
     const tag = tags.get(tech)!;
-    rows.push(...view(`tech_${tag}`, tech, `* where tag is #${tag}`));
+    rows.push(...view(tag, tech, `* where tag is #${tag}`));
   }
 
   // An actor no flow touches has no diagram in the tool: its view would show
@@ -262,12 +258,6 @@ function views(
   }
 
   return rows;
-}
-
-// The workbook names its actor types freely; only the one with a shape of its
-// own is recognised, in the two languages a workbook may carry.
-function isAPerson(a: Actor): boolean {
-  return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 
 // What the diagram does not show but the workbook knows. An empty block is not

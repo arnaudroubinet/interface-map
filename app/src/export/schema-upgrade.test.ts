@@ -36,6 +36,20 @@ function originalModel(): ParsedModel {
   });
 }
 
+// A colour typed on FlowTypes before the hidden copy existed: the rebuild
+// wrote three columns where the sheet has four, and the copy's fallback on
+// those rows carried no colour -- every diagram changed shade on upgrade.
+describe("dataFromModel — the technology's colour survives the rewrite", () => {
+  it("carries a local colour into the rebuilt workbook", () => {
+    const model = base.template({ flowTypes: [base.flowType({ type: "HTTP", colour: "#1f5fae" })] });
+    const data = dataFromModel(model);
+    expect(data.flowTypes[0]).toHaveLength(4);
+    const reread = buildModel(parseWorkbook(writeTemplate(data)));
+    if (!reread.ok) throw new Error("unreadable");
+    expect(reread.model.flowTypes[0].colour).toBe("#1f5fae");
+  });
+});
+
 describe("the upgrade chain", () => {
   it("chains the steps with neither gap nor overlap, up to the current version", () => {
     let expected = 0;
@@ -60,7 +74,6 @@ describe("the upgrade chain", () => {
   // This one DOES transform: the word changes on both sides, the sheet the
   // workbook declares and the hidden list it reads from.
   it("renames a v8 workbook's technical types to middleware", () => {
-    expect(SCHEMA_VERSION).toBe(9);
     const step = UPGRADE_STEPS.find((s) => s.de === 8)!;
     expect(step.vers).toBe(9);
     const upgraded = step.appliquer(
@@ -72,6 +85,13 @@ describe("the upgrade chain", () => {
     );
     expect(upgraded.actorTypes[0].nature).toBe("Middleware");
     expect(upgraded.referentialActorTypes[0].nature).toBe("Middleware");
+  });
+
+  // The referential's change of carrier -- a dropped file instead of a query
+  // -- moved no sheet, so it took no step: a v9 workbook reads as before.
+  it("stays at v9 through the referential's change of carrier", () => {
+    expect(SCHEMA_VERSION).toBe(9);
+    expect(UPGRADE_STEPS.at(-1)?.vers).toBe(9);
   });
 
   it("leaves a nature it does not have to rename alone", () => {

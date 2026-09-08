@@ -87,6 +87,31 @@ describe("availableChains", () => {
   });
 });
 
+// A chain crosses technologies of opposite conventions, and the view exists to
+// show each hop as it is: a pulled hop keeps its head at the provider's end.
+// Without it every hop drew as a push -- the one convention the README calls
+// non-negotiable, broken on the one view that follows a flow end to end.
+describe("availableChains — who takes the initiative on each hop", () => {
+  const estate = () =>
+    threeHopEstate({
+      flowTypes: [
+        base.flowType({ type: "Kafka", direction: "provider-to-consumer" }),
+        base.flowType({ type: "HTTP", direction: "consumer-to-provider" }),
+      ],
+    });
+
+  it("marks the pulled hops, and only them", () => {
+    const [chain] = availableChains(estate(), null);
+    expect(chain.hops.map((m) => m.pulled)).toEqual([false, false, true]);
+  });
+
+  it("carries the mark onto the drawn lines", () => {
+    const model = estate();
+    const [chain] = availableChains(model, null);
+    expect(buildChainView(model, chain).edges.map((e) => e.pulled)).toEqual([false, false, true]);
+  });
+});
+
 describe("buildChainView", () => {
   it("draws one node per actor crossed and one line per hop", () => {
     const view = buildChainView(threeHopEstate(), availableChains(threeHopEstate(), null)[0]);

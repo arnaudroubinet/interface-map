@@ -159,6 +159,30 @@ export function nodeHeight(node: GraphNode): number {
 // with a local `module` to trigger the CommonJS branch, Node/jsdom gets the
 // same fallback without ever duplicating the algorithm.
 //
+// The engine runs in a worker made from a Blob. Where a content policy forbids
+// such workers -- an autonomous HTML opened behind a corporate policy -- or
+// where the engine throws inside the worker, the promise never settled: the
+// screen stayed blank, with no message, and every export hung with it. A
+// promise that does not answer in time is now a failure that says so.
+export const LAYOUT_TIMEOUT_MS = 60_000;
+
+export class LayoutTimeout extends Error {
+  constructor() {
+    super(`The layout engine did not answer within ${LAYOUT_TIMEOUT_MS / 1000} s. The browser may forbid the worker it runs in.`);
+    this.name = "LayoutTimeout";
+  }
+}
+
+function answered<T>(work: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new LayoutTimeout()), LAYOUT_TIMEOUT_MS);
+    work.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); }
+    );
+  });
+}
+
 function nodeFallbackWorker(): new (url?: string) => Worker {
   const module = { exports: {} as { Worker?: new (url?: string) => Worker } };
   new Function("module", "exports", elkWorkerSource)(module, module.exports);
@@ -555,7 +579,7 @@ export async function computeLayout(nodes: GraphNode[], edges: GraphEdge[]): Pro
   // The types elkjs publishes describe the input/output graph poorly; unknown is
   // used rather than bending our model to theirs.
   const apply = async (returnEdges: Map<number, ReturnSide>) =>
-    (await elk.layout(buildElkGraph(returnEdges) as unknown as never)) as unknown as ElkGraph;
+    (await answered(elk.layout(buildElkGraph(returnEdges) as unknown as never))) as unknown as ElkGraph;
 
   // ELK places a child RELATIVE to its parent: the offsets are accumulated to
   // bring everyone into the same frame as the edges.

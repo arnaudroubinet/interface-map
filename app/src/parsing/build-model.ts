@@ -46,9 +46,9 @@ export const LEGACY_STATUS_COLUMN = "Statut";
 
 export const ACTOR_COLUMNS = ["Name", "Group", "Actor type", "Owner", "Description", "Comments", ...VALIDITY_COLUMNS];
 
-// The four sheets the external referential fills. They exist whether or not a
-// referential is declared: the schema must not depend on a URL being set, or a
-// workbook would change shape the day someone types one in.
+// The four sheets holding the cartography's COPY of the referential. They exist
+// whether or not a referential was ever dropped beside the workbook: the schema
+// must not depend on it, or a workbook would change shape the day one is.
 //
 // One per vocabulary the referential owns, and the entry sheets pick their
 // names from them: `Groups` picks a group, `ActorTypes` a type, `FlowTypes` a
@@ -302,8 +302,8 @@ export function buildModel(workbook: ParsedWorkbook): BuildModelResult {
     }))
     .filter((t) => t.type !== "");
 
-  // The two referential sheets. Absent, they yield nothing: a workbook that
-  // declares no referential is not incomplete, it simply has none.
+  // The four referential sheets. Absent, they yield nothing: a workbook that
+  // carries no referential is not incomplete, it simply has none.
   const refActorsSheet = findSheet(workbook.sheets, REF_ACTORS_SHEET);
   const headerMapRefActors = buildHeaderMap(refActorsSheet?.headers ?? [], REF_ACTOR_COLUMNS);
   const referentialActors: ReferentialActor[] = (refActorsSheet?.rows ?? [])

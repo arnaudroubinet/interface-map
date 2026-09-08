@@ -1,10 +1,22 @@
+// Memoised: the integrity report normalises the same few thousand cell values
+// millions of times on a large workbook, and NFD decomposition was a third of
+// its running time. The cache is bounded so that a session of many workbooks
+// does not grow without end; when full, it starts over.
+const NORMALISED = new Map<string, string>();
+const NORMALISED_CAP = 100_000;
+
 export function normalizeText(s: string): string {
-  return s
+  const cached = NORMALISED.get(s);
+  if (cached !== undefined) return cached;
+  const result = s
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .toLowerCase();
+  if (NORMALISED.size >= NORMALISED_CAP) NORMALISED.clear();
+  NORMALISED.set(s, result);
+  return result;
 }
 
 export interface NearDuplicate {

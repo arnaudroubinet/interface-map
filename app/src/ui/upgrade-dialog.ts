@@ -3,13 +3,8 @@ import { wireDropZone, UNREADABLE_WORKBOOK_MESSAGE } from "./drop-zone";
 import { type MigrationReport } from "../export/legacy-upgrade";
 import { repairWorkbook } from "../export/repair";
 import { writeTemplate } from "../export/template-export";
-import {
-  readReferentialUrl,
-  hasReferential,
-  REFERENTIAL_QUERIES,
-  cleanReferentialUrl,
-  isOpaqueSharingLink,
-} from "../export/datamashup";
+import { REFERENTIAL_SHEETS, type ReferentialRows } from "../parsing/referential-shape";
+import { readReferentialWorkbook } from "../parsing/referential-workbook";
 import { downloadReferentialXlsx, SAMPLE_REFERENTIAL, BLANK_REFERENTIAL } from "../export/referential-template";
 import { downloadWorkbook } from "../export/download";
 import { parseWorkbook } from "../parsing/workbook";
@@ -33,63 +28,73 @@ function row(report: MigrationReport): string[] {
     // WHY, nor what should be done about them. Saying otherwise would amount to
     // generalising a particular case.
     points.push(
-      `flow types missing from the current repository, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
+      `flow types the blank referential does not know, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
         "Their direction being unknown, the arrow was drawn as a call from the consumer to the provider."
     );
   }
   return points;
 }
 
+// A drop the dialog will not convert, and can say why: two workbooks, two
+// referentials, a referential alone. Told apart from a real failure so that
+// the reader gets the reason rather than "unreadable".
+class RefusedDrop extends Error {}
+
+// The dialog open at the moment, if any, and how to close it properly. Opening
+// again closes it through the same door as the cross -- removing the overlay
+// alone left its Escape listener on the document.
+let closeOpenDialog: (() => void) | null = null;
+
 export function openMigration(): void {
-  const previous = document.querySelector(".migration-overlay");
-  if (previous) previous.remove();
+  closeOpenDialog?.();
 
   const overlay = el("div", { class: "migration-overlay" });
-  const box = el("div", { class: "migration-box" });
+  const box = el("div", { class: "migration-box", role: "dialog", "aria-modal": "true", "aria-labelledby": "migration-title" });
+  // Where the focus came from, to put it back: closing a dialog and leaving
+  // the focus on nothing sends a keyboard user back to the top of the page.
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
+  // One way out, whichever gesture: the Escape listener sits on the document,
+  // and closing by the cross or the veil used to leave it there -- one more
+  // per opening, each removing an overlay that was already gone.
+  const close = () => {
+    overlay.remove();
+    document.removeEventListener("keydown", onEscape);
+    if (closeOpenDialog === close) closeOpenDialog = null;
+    opener?.focus();
+  };
+  closeOpenDialog = close;
+  // Escape closes; Tab stays inside -- a modal that lets the focus wander
+  // behind its veil is a veil, not a modal.
+  function onEscape(e: KeyboardEvent): void {
+    if (e.key === "Escape") close();
+    if (e.key !== "Tab") return;
+    const focusable = [...box.querySelectorAll<HTMLElement>("button, input, select, [tabindex]:not([tabindex='-1'])")].filter((f) => !f.hidden);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
   const closeButton = el("button", { class: "close-button", title: "Close" }, ["×"]);
-  closeButton.addEventListener("click", () => overlay.remove());
+  closeButton.addEventListener("click", close);
 
   const zone = el("div", { class: "drop-target migration-target" });
   const message = el("p", { class: "drop-target-text" });
 
-  // Where the referential is changed. It sits here, and no longer in the rail,
-  // because a URL is not a reading option: it is a property of the FILE, and
-  // this screen is the one place a file is rewritten. Typing it beside the
-  // views suggested it took effect on what was on screen, when nothing at all
-  // happens until Excel refreshes the workbook.
-  const referentialField = el("input", {
-    type: "url",
-    class: "migration-referential",
-    placeholder: "https://…/referential.xlsx",
-  }) as HTMLInputElement;
-
-  // What gets pasted here is a SharePoint "Copy link" nine times out of ten: a
-  // viewer address, whose sign-in Excel refuses because the resource it names
-  // is not the file. The path is kept and the rest dropped -- in the field
-  // itself, not silently on the way out: an address on screen that is not the
-  // one written is a debugging session nobody asked for.
-  const referentialSaid = el("p", { class: "migration-referential-said" });
-  referentialField.addEventListener("change", () => {
-    if (isOpaqueSharingLink(referentialField.value)) {
-      referentialSaid.className = "migration-referential-said error-message";
-      referentialSaid.textContent =
-        "That link does not name the file — it carries a viewing token instead of a path. " +
-        "Open the file in SharePoint and take the address shown there.";
-      return;
-    }
-    referentialField.value = cleanReferentialUrl(referentialField.value);
-    referentialSaid.className = "migration-referential-said";
-    referentialSaid.textContent = "";
-  });
+  // Where a referential is OBTAINED. The tool writes the referential file for
+  // the same reason it writes the cartography's template: a shape nobody typed
+  // by hand is a shape the tool can recognise when it is dropped back. Dropping
+  // it is not done here in particular -- the main screen takes it beside the
+  // cartography -- but here is where the question "where do I get one" is asked.
   const blankReferential = el("button", { class: "export-button", type: "button" }, ["Blank referential"]);
   blankReferential.title = "The vocabularies to start from: actor types and technologies, no actor and no group";
   blankReferential.addEventListener("click", () =>
     downloadReferentialXlsx("interface-map-referential.xlsx", BLANK_REFERENTIAL)
   );
   // Filled with the sample cartography's own names, so that the two files can
-  // be pointed at each other and show the mechanism working rather than an
-  // empty table.
+  // be dropped together and show the mechanism working rather than an empty
+  // table.
   const sampleReferential = el("button", { class: "export-button", type: "button" }, ["Sample referential"]);
   sampleReferential.title = "A filled referential, publishing what the sample workbook declares";
   sampleReferential.addEventListener("click", () =>
@@ -97,24 +102,12 @@ export function openMigration(): void {
   );
 
   const referentialBlock = el("div", { class: "migration-referential-block" }, [
-    el("label", { class: "migration-referential-label" }, ["External referential", referentialField]),
-    referentialSaid,
+    el("p", { class: "migration-referential-label" }, ["Referential"]),
     el("p", { class: "rail-note" }, [
-      `One workbook, holding the tables ${REFERENTIAL_QUERIES.map((q) => q.table).join(", ")}. ` +
-        "Left empty, the workbook keeps the referential it already points at.",
+      `One workbook, holding the sheets ${REFERENTIAL_SHEETS.map((r) => r.sheet).join(", ")}. ` +
+        "Drop it together with the workbook to repair, and the repaired workbook carries its rows; " +
+        "dropped alone with the workbook on the main screen, it refreshes the copy the workbook holds.",
     ]),
-    // The trap costs a refresh error and half an hour: a SharePoint or OneDrive
-    // sharing link serves a viewer page, not the file, and Excel.Workbook chokes
-    // on the HTML it gets back.
-    el("p", { class: "rail-note" }, [
-      "On SharePoint or OneDrive, paste the file's address: only its path is kept — everything after the \"?\" names a way of ",
-      "VIEWING the file, and Excel then asks to sign in for something that is not the workbook. ",
-      "It asks for an organisational account the first time it refreshes; the credentials stay in Excel, never in the file.",
-    ]),
-    // No referential yet is the ordinary case at this point, and an empty field
-    // is a dead end. The file to publish is handed over here, where the
-    // question is asked -- the tool writes it, so its tables carry the names
-    // the query looks for.
     el("div", { class: "migration-referential-files" }, [blankReferential, sampleReferential]),
   ]);
 
@@ -129,23 +122,51 @@ export function openMigration(): void {
     zone.appendChild(message);
   };
 
-  const convert = (file: File) => {
+  // The same drop takes the workbook to repair and, beside it, its referential:
+  // the two are told apart by their shape, as on the main screen. What is not a
+  // referential is the workbook to repair -- an original-format file does not
+  // read as anything the parser knows, and that is exactly the file this screen
+  // exists for.
+  const sortOut = async (
+    files: File[]
+  ): Promise<{ workbook: File; bytes: ArrayBuffer; referential: { name: string; rows: ReferentialRows } | null }> => {
+    const read = await Promise.all(
+      files.map(async (file) => {
+        const bytes = await file.arrayBuffer();
+        let rows: ReferentialRows | null = null;
+        try {
+          rows = readReferentialWorkbook(parseWorkbook(bytes));
+        } catch {
+          // Not even a workbook the parser opens: not a referential, then. What
+          // it is gets decided further down, by the repair itself.
+        }
+        return { file, bytes, rows };
+      })
+    );
+    const referentials = read.filter((r) => r.rows !== null);
+    const workbooks = read.filter((r) => r.rows === null);
+    if (referentials.length > 1) throw new RefusedDrop("Several referentials dropped at once: a workbook follows one.");
+    if (workbooks.length > 1) throw new RefusedDrop("Several workbooks dropped at once: repair one, with its referential if you like.");
+    if (workbooks.length === 0) {
+      throw new RefusedDrop(`${referentials[0].file.name} is a referential: drop the workbook to repair, with it if you like.`);
+    }
+    const referential = referentials[0];
+    return {
+      workbook: workbooks[0].file,
+      bytes: workbooks[0].bytes,
+      referential: referential ? { name: referential.file.name, rows: referential.rows! } : null,
+    };
+  };
+
+  const convert = (files: File[]) => {
     message.className = "drop-target-text";
     message.textContent = "Converting…";
-    file
-      .arrayBuffer()
-      .then(async (bytes) => {
-        // The repair rebuilds the sheets, and the referential is not in the
-        // sheets: it lives in the binary Power Query stream. Only the dropped
-        // bytes still hold it, so it is read here and handed to repairWorkbook
-        // -- otherwise repairing a workbook would silently erase its queries.
-        //
-        // What was typed wins over what the file carried: that is the whole
-        // point of the field. An empty field changes nothing, rather than
-        // erasing the referential of a workbook one only meant to repair.
-        const typed = cleanReferentialUrl(referentialField.value);
-        const referential = typed !== "" ? typed : await readReferentialUrl(bytes);
-        const repair = repairWorkbook(bytes, undefined, referential);
+    sortOut(files)
+      .then(async ({ workbook: file, bytes, referential }) => {
+        // The referential dropped alongside replaces the copy the workbook
+        // carried; none dropped, the copy stays as it was -- repairing a
+        // workbook must not empty its lists.
+        const repair = repairWorkbook(bytes, undefined, referential?.rows ?? null);
         const base = file.name.replace(/\.(xlsx|xlsm)$/i, "");
         const workbook = writeTemplate(repair.data);
         downloadWorkbook(workbook, `${base}-repaired.xlsx`);
@@ -177,13 +198,13 @@ export function openMigration(): void {
             ])
           );
         }
-        // Said out loud: the field may have been left empty, and the reader has
-        // then no way to tell which of the two rules applied.
+        // Said out loud: with no referential in the drop, the reader has no way
+        // to tell whether the copy was refreshed or kept.
         zone.appendChild(
           el("p", { class: "drop-target-text" }, [
-            hasReferential(referential)
-              ? `External referential: ${referential}`
-              : "No external referential: the workbook produced declares none.",
+            referential
+              ? `Referential copy refreshed from ${referential.name}.`
+              : "Referential copy kept as the workbook carried it: drop the referential alongside to refresh it.",
           ])
         );
         const points = repair.legacyReport ? row(repair.legacyReport) : [];
@@ -197,13 +218,14 @@ export function openMigration(): void {
         zone.appendChild(convertAnotherButton);
       })
       .catch((err) => {
-        // The precise cause (truncated bytes, corrupt zip, missing Flux sheet...)
-        // is not established here: claiming it would be worse than saying nothing.
-        // The same message, the same wording, as the main drop target on the same
-        // failure (founding §: never a false cause).
-        console.error(err);
+        // A drop refused for what it holds says why. Anything else -- truncated
+        // bytes, corrupt zip, missing Flux sheet... -- is not established here:
+        // claiming a cause would be worse than saying nothing. The same message,
+        // the same wording, as the main drop target on the same failure
+        // (founding §: never a false cause).
+        if (!(err instanceof RefusedDrop)) console.error(err);
         message.className = "drop-target-text error-message";
-        message.textContent = UNREADABLE_WORKBOOK_MESSAGE;
+        message.textContent = err instanceof RefusedDrop ? err.message : UNREADABLE_WORKBOOK_MESSAGE;
       });
   };
 
@@ -212,28 +234,26 @@ export function openMigration(): void {
 
   // Drag and drop is not enough: from a folder or an email, one wants to be able
   // to pick the file.
-  const choose = el("input", { type: "file", accept: ".xlsx,.xlsm" }) as HTMLInputElement;
+  const choose = el("input", { type: "file", accept: ".xlsx,.xlsm", multiple: "" }) as HTMLInputElement;
   choose.className = "file-field";
+  choose.setAttribute("aria-label", "Workbook to repair, and its referential");
   choose.addEventListener("change", () => {
-    const file = choose.files?.[0];
-    if (file) convert(file);
+    const files = [...(choose.files ?? [])];
+    if (files.length > 0) convert(files);
   });
 
   box.appendChild(closeButton);
-  box.appendChild(el("h2", { class: "migration-title" }, ["Repair or upgrade a workbook"]));
+  box.appendChild(el("h2", { class: "migration-title", id: "migration-title" }, ["Repair or upgrade a workbook"]));
   box.appendChild(referentialBlock);
   box.appendChild(zone);
   box.appendChild(choose);
   overlay.appendChild(box);
 
   overlay.addEventListener("click", (e) => {
-    if (e.target === overlay) overlay.remove();
+    if (e.target === overlay) close();
   });
-  document.addEventListener("keydown", function esc(e) {
-    if (e.key !== "Escape") return;
-    overlay.remove();
-    document.removeEventListener("keydown", esc);
-  });
+  document.addEventListener("keydown", onEscape);
 
   document.body.appendChild(overlay);
+  closeButton.focus();
 }

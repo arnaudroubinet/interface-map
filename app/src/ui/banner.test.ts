@@ -19,7 +19,7 @@ const report: IntegrityReport = {
 };
 
 const loaded = (): AppState =>
-  withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, modifiedAt: null, referential: "" });
+  withLoadedFile(initialState(), { name: "c.xlsx", model: base.template(), report: report, modifiedAt: null });
 
 const active = (label: string, state: AppState, drawing = true) =>
   EXPORTS.find((e) => e.label === label)!.active(state, drawing);
@@ -69,5 +69,22 @@ describe("EXPORTS — when a format is offered", () => {
     for (const label of ["draw.io", "Structurizr", "LikeC4"]) {
       expect(active(label, blocked)).toBe(false);
     }
+  });
+});
+
+// A refusal used to rewrite the banner in silence: a screen reader never learnt
+// the drop had failed.
+describe("renderBanner — the state is a live region", () => {
+  const callbacks = Object.fromEntries(
+    ["onExportSvg", "onExportPng", "onExportXlsx", "onExportMarkdown", "onExportDrawio", "onExportPdf", "onExportStructurizr", "onExportLikeC4", "onExportFossflow", "onDownloadRefreshed"].map((k) => [k, () => {}])
+  ) as unknown as import("./banner").BannerActions;
+
+  it("announces a refusal as an alert, and the ordinary state as a status", async () => {
+    const { renderBanner } = await import("./banner");
+    const root = document.createElement("header");
+    renderBanner(root, { ...initialState(), bannerMessage: "That is not an Excel workbook." }, false, callbacks);
+    expect(root.querySelector(".banner-state")?.getAttribute("role")).toBe("alert");
+    renderBanner(root, initialState(), false, callbacks);
+    expect(root.querySelector(".banner-state")?.getAttribute("role")).toBe("status");
   });
 });

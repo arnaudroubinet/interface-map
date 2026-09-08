@@ -7,11 +7,10 @@ import {
   type Mode,
 } from "../aggregation/core";
 import { PERIMETER_PLATFORM, PERIMETER_EXTERNAL } from "../aggregation/vocabularies";
-import { liveActors } from "../aggregation/milestones";
-import { flowsForReading } from "../aggregation/reading";
 import { identifiers } from "./identifiers";
 import { coloursOfModel } from "../render/colors";
 import { normalizeText } from "../shared/text";
+import { text, PULLED_TAG, isPulled, exportableFlows, exportableActors, isAPerson, contractUrl } from "./c4-common";
 
 // The workbook as Structurizr DSL: the model, not a board. That is the
 // difference with the image exports -- what is on screen is not what is
@@ -20,28 +19,6 @@ import { normalizeText } from "../shared/text";
 // An actor becomes a system: the workbook does not go below the component, and
 // claiming otherwise would invent an internal architecture nobody entered.
 //
-
-// Structurizr cannot escape a quote inside a string: a name carrying one would
-// break the whole file, not merely its own line.
-const text = (v: string) => v.trim().replace(/"/g, "'");
-
-
-// A flow reads in the direction its type declares, the very one the diagrams
-// draw. An export reversing the arrow would tell something other than what the
-// user has in front of them.
-// The relationship goes from provider to consumer, like the data and like our
-// diagrams. It used to follow the direction of the CALL, so that a pulled flow
-// came out backwards from our images: the same estate told two stories
-// depending on which tool read it.
-//
-// A C4 relationship has only one direction: the initiative cannot be drawn
-// there as an arrowhead set at the other end. So it goes into a tag, where it
-// stays readable and filterable.
-function flowDirection(f: FlowInstance): { de: string; vers: string } {
-  return { de: f.provider, vers: f.consumer };
-}
-
-const PULLED_TAG = "Pulled";
 
 // One shape per actor type, for the commonest words only: the workbook names
 // its types freely, and an unknown type stays a box rather than getting a shape
@@ -62,17 +39,14 @@ const SHAPE_BY_TYPE: Record<string, string> = {
   screen: "Window",
   browser: "WebBrowser",
 };
-const isPulled = (f: FlowInstance) => f.direction === "consumer-to-provider";
-
-// An actor consuming the interface it publishes itself would give a
-// relationship from an element to itself: it says nothing in a C4 model, and
-// the aggregated views already hide it (§4.3). Structurizr accepts it, LikeC4
-// refuses the whole file -- "Invalid parent-child relationship" -- but both
-// exports return the same model: what disappears from one disappears from the
-// other, failing which the workbook would tell two estates by tool.
-function exportableFlows(model: ParsedModel, rank: number | null, mode: Mode): FlowInstance[] {
-  return flowsForReading(model, rank, mode).filter((f) => f.provider.trim() !== f.consumer.trim());
-}
+// The words of the grammar: an actor called "model" or "views" must not be
+// declared under that identifier.
+const KEYWORDS = [
+  "workspace", "model", "views", "styles", "group", "person", "softwareSystem", "container", "component",
+  "deploymentEnvironment", "element", "relationship", "tags", "url", "properties", "perspectives", "include",
+  "exclude", "autolayout", "title", "description", "shape", "color", "background", "systemLandscape",
+  "systemContext", "dynamic", "theme", "branding", "configuration", "this",
+];
 
 export function modelToStructurizr(
   model: ParsedModel,
@@ -84,8 +58,8 @@ export function modelToStructurizr(
   // it was the only reason to close this export in the functional reading.
   mode: Mode = "architecture"
 ): string {
-  const actors = liveActors(model, rank);
-  const ids = identifiers(actors.map((a) => a.name.trim()));
+  const actors = exportableActors(model, rank);
+  const ids = identifiers(actors.map((a) => a.name.trim()), KEYWORDS);
   const name = workbookName.replace(/\.(xlsx|xlsm)$/i, "");
 
   const fonctionnel = mode === "functional";
@@ -143,9 +117,8 @@ export function modelToStructurizr(
   const links = new Set<string>();
   const flows = exportableFlows(model, rank, mode);
   for (const f of flows) {
-    const { de, vers } = flowDirection(f);
-    const source = ids.get(de.trim());
-    const target = ids.get(vers.trim());
+    const source = ids.get(f.provider.trim());
+    const target = ids.get(f.consumer.trim());
     if (!source || !target) continue;
     const tech = text(f.flowType);
     const body = [
@@ -154,7 +127,8 @@ export function modelToStructurizr(
     ];
     // The contract is an address: giving it to the tool means one click from the
     // diagram rather than a search through the workbook.
-    if (f.iface.contractLink.trim()) body.push(`            url ${f.iface.contractLink.trim()}`);
+    const url = contractUrl(f.iface.contractLink);
+    if (url) body.push(`            url ${url}`);
     body.push(
       ...properties("            ", [
         // What the exchange carries: the relationship's description, in the C4
@@ -287,13 +261,6 @@ function perimeter(model: ParsedModel, group: string): string {
   if (groupIsPlatform(model, group)) return PERIMETER_PLATFORM;
   if (groupIsExternal(model, group)) return PERIMETER_EXTERNAL;
   return "";
-}
-
-// The workbook names its actor types freely; only the one with a shape of its
-// differently is recognised, in the two languages a workbook may carry.
-// Everything else is a system.
-function isAPerson(a: Actor): boolean {
-  return ["person", "humain"].includes(normalizeText(a.actorType));
 }
 
 // A `properties` block is only set if it has something to say: an empty block

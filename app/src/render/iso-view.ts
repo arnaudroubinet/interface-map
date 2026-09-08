@@ -4,7 +4,6 @@ import {
   modelToFossflow,
   type FossflowModel,
   type FossflowView,
-  type FossflowConnector,
 } from "../export/fossflow-json";
 import { PAPER, INK } from "./node-styles";
 import { routeConnectors } from "./iso-routing";

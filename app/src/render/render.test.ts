@@ -267,7 +267,7 @@ describe("buildHelp", () => {
 
   it("explains both readings and the two columns that carry them", () => {
     const text = buildHelp().textContent ?? "";
-    for (const expected of ["ARCHITECTURE", "BUSINESS", "Nature", "Republished as"]) {
+    for (const expected of ["ARCHITECTURE", "FUNCTIONAL", "Nature", "Republished as"]) {
       expect(text).toContain(expected);
     }
   });

@@ -93,3 +93,24 @@ describe("reframed", () => {
     expect(reframed(view).textBoxes[0].tile).toEqual({ x: 13, y: 5 });
   });
 });
+
+// A search for a board nobody looks at any more must stop: six view changes
+// used to leave six searches fighting over the event loop.
+describe("annealPlacement — stopping", () => {
+  it("stops at the first yield once asked to, and hands the board back untouched", async () => {
+    const view = {
+      id: "v", name: "v", rectangles: [], textBoxes: [],
+      // Two diagonals of a square: they cross, so the search has something to do.
+      items: [{ id: "a", tile: { x: 0, y: 0 } }, { id: "b", tile: { x: 4, y: 0 } }, { id: "c", tile: { x: 0, y: 4 } }, { id: "d", tile: { x: 4, y: 4 } }],
+      connectors: [
+        { id: "c1", color: "k", anchors: [{ id: "a1", ref: { item: "a" } }, { id: "a2", ref: { item: "d" } }] },
+        { id: "c2", color: "k", anchors: [{ id: "a3", ref: { item: "b" } }, { id: "a4", ref: { item: "c" } }] },
+      ],
+    } as unknown as Parameters<typeof annealPlacement>[0];
+    const result = await annealPlacement(view, { iterations: 500, yieldEvery: 3, shouldStop: () => true });
+    expect(result.stopped).toBe(true);
+    expect(result.improved).toBe(false);
+    expect(result.evaluated).toBeLessThan(500);
+    expect(result.view.items.map((i) => i.tile)).toEqual(view.items.map((i) => i.tile));
+  });
+});

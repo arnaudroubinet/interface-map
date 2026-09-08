@@ -10,7 +10,10 @@ import { subLabel } from "../layout/graph-layout";
 //
 
 const XML: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" };
-const escapeXml = (v: string) => v.replace(/[&<>"]/g, (c) => XML[c]);
+// Control characters are forbidden in XML 1.0 whatever the escaping: a cell
+// pasted from another system carried one, and no parser opened the file.
+const escapeXml = (v: string) =>
+  v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").replace(/[&<>"]/g, (c) => XML[c]);
 
 // draw.io's C4 template, the very one whose dimensions the layout takes up:
 // name in bold, type in brackets, description below.
@@ -102,9 +105,12 @@ function explanatoryBlocks(
   const bottom = Math.max(...ys);
   const cells: string[] = [];
 
+  // Every cell here is html=1: draw.io reads the value as HTML, so the text is
+  // escaped once for HTML and once more for the attribute -- as the boxes are.
+  // Escaped once only, a title carrying "<" was read as a tag and vanished.
   const text = (id: string, value: string, x: number, y: number, l: number, h: number, style: string) =>
     cells.push(
-      `        <mxCell id="${cellId(id)}" value="${escapeXml(value)}" style="${style}" vertex="1" parent="${cellId("1")}">`,
+      `        <mxCell id="${cellId(id)}" value="${escapeXml(escapeXml(value))}" style="${style}" vertex="1" parent="${cellId("1")}">`,
       `          <mxGeometry x="${Math.round(x)}" y="${Math.round(y)}" width="${l}" height="${h}" as="geometry" />`,
       "        </mxCell>"
     );
@@ -182,7 +188,7 @@ function diagram(
     const attributes = [
       `id="${cellId(n.id)}"`,
       `label="${escapeXml(content(n))}"`,
-      n.description ? `tooltip="${escapeXml(n.description)}"` : "",
+      n.description ? `tooltip="${escapeXml(escapeXml(n.description))}"` : "",
       // Clicking a box opens that actor's board, when it exists: sixty tabs are
       // not browsed by hand.
       page && page !== `page_${index}` ? `link="data:page/id,${page}"` : "",

@@ -140,7 +140,7 @@ function renderMode(root: HTMLElement, state: AppState, onMode: (mode: Mode) => 
 
 // The "hide externals" switch, identical from one view to the next.
 function externalsToggle(checked: boolean, onChange: (value: boolean) => void): HTMLElement {
-  const label = el("label", { class: "rail-toggle" });
+  const label = el("label", { class: "rail-externals" });
   const input = el("input", { type: "checkbox" });
   input.checked = checked;
   input.addEventListener("change", () => onChange(input.checked));
@@ -257,7 +257,7 @@ export function renderRailFoot(
   // reader looking for the sample into their downloads folder -- and on a
   // phone that folder cannot be handed back to the page.
   const sample = el("button", { class: "rail-button" }, ["Download the sample"]);
-  sample.title = "A complete fictional repository, to see the tool at work";
+  sample.title = "A complete fictional estate, to see the tool at work";
   sample.addEventListener("click", callbacks.onDownloadSample);
   starts.appendChild(sample);
   const template = el("button", { class: "rail-button" }, ["Download a blank template"]);
@@ -362,7 +362,7 @@ export function renderRail(
     // How far to carry the eye. "What depends on it" answers the question asked
     // on the day a migration has to be arbitrated: if this actor falls, who is
     // affected?
-    const neighbourhood = el("select", { class: "rail-select rail-neighbourhood" });
+    const neighbourhood = el("select", { class: "rail-select rail-neighbourhood", "aria-label": "Neighbourhood" });
     for (const v of NEIGHBOURHOODS) {
       const option = el("option", { value: v.id }, [v.label]);
       if (v.id === state.actorFilters.neighbourhood) option.selected = true;
@@ -373,7 +373,7 @@ export function renderRail(
   }
 
   if (state.view === "by-technology") {
-    const select = el("select", { class: "rail-select" });
+    const select = el("select", { class: "rail-select", "aria-label": "Technology" });
     for (const type of [...state.file.model.flowTypes].sort((a, b) => a.type.localeCompare(b.type, "fr"))) {
       const option = el("option", { value: type.type }, [type.type]);
       if (type.type === state.technologySelection) option.selected = true;
@@ -408,7 +408,7 @@ export function renderRail(
     // that is where the plumbing is crossed, and the view shows precisely what
     // that crossing erases.
     const chains = availableChains(state.file.model, rankOfMilestone(state.file.model, state.shownMilestone ?? "") ?? null);
-    const select = el("select", { class: "rail-select rail-chain" });
+    const select = el("select", { class: "rail-select rail-chain", "aria-label": "Chain" });
     for (const c of chains) {
       const option = el("option", { value: c.id }, [c.label]);
       if (c.id === state.chainSelection) option.selected = true;
@@ -417,12 +417,12 @@ export function renderRail(
     select.addEventListener("change", () => callbacks.onChainSelection(select.value));
     root.appendChild(select);
     if (chains.length === 0) {
-      root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a technical actor."]));
+      root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a middleware. A chain needs Republished as filled on the middleware's own consumption rows."]));
     }
   }
 
   if (state.view === "roadmap") {
-    const select = el("select", { class: "rail-select rail-roadmap" });
+    const select = el("select", { class: "rail-select rail-roadmap", "aria-label": "Roadmap rows" });
     for (const [value, label] of [["interfaces", "Interfaces"], ["actors", "Actors"]] as const) {
       const option = el("option", { value: value }, [label]);
       if (value === state.roadmapSubject) option.selected = true;
@@ -434,7 +434,7 @@ export function renderRail(
 
   if (state.view === "matrix") {
     const grain = state.matrixFilters.grain;
-    const select = el("select", { class: "rail-select" });
+    const select = el("select", { class: "rail-select", "aria-label": "Matrix grain" });
     for (const g of MATRIX_GRAINS) {
       const option = el("option", { value: g.id }, [g.label]);
       if (g.id === grain) option.selected = true;
@@ -446,7 +446,7 @@ export function renderRail(
     // The order: this is the matrix's strongest reading lever, and it was
     // unused. Alphabetical stays the default -- a seriation must never impose
     // itself in silence.
-    const order = el("select", { class: "rail-select rail-matrix-order" });
+    const order = el("select", { class: "rail-select rail-matrix-order", "aria-label": "Matrix order" });
     for (const o of MATRIX_ORDERS) {
       const option = el("option", { value: o.id }, [o.label]);
       if (o.id === state.matrixFilters.order) option.selected = true;

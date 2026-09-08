@@ -15,8 +15,7 @@ import {
   buildMatrixView,
   type MatrixResult,
 } from "../aggregation/views";
-import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
-import { allBoards } from "../aggregation/boards";
+import { computeLayout, restrictLayout, LayoutTimeout, type LayoutResult } from "../layout/graph-layout";
 import { buildGraphSvg } from "../render/svg-builder";
 import { isoBoard, buildIsoSvg } from "../render/iso-view";
 import { annealPlacement } from "../render/iso-anneal";
@@ -34,22 +33,15 @@ import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
 import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
-import { buildExportFilename } from "../export/filename";
-import { downloadMatrixXlsx } from "../export/xlsx-export";
-import { downloadTemplateXlsx, writeTemplate, type WorkbookData } from "../export/template-export";
-import { readReferentialUrl, NO_REFERENTIAL } from "../export/datamashup";
+import { downloadTemplateXlsx, writeTemplate, writtenReferentialRows } from "../export/template-export";
+import { readReferentialWorkbook, referentialDrifted, mergeReferential } from "../parsing/referential-workbook";
+import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
-import { downloadSvg } from "../export/svg-export";
-import { exportPng, downloadPngBlob } from "../export/png-export";
-import { reportToMarkdown } from "../export/markdown-report";
-import { downloadText } from "../export/download";
-import { buildDrawio } from "../export/drawio-export";
-import { modelToStructurizr } from "../export/c4-dsl";
-import { modelToLikeC4 } from "../export/likec4-dsl";
+import { downloadWorkbook } from "../export/download";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildHelp } from "../render/help";
-import { upgrade, dataFromModel } from "../export/schema-upgrade";
+import { upgrade } from "../export/schema-upgrade";
 import { renderBanner } from "./banner";
 import { handlersExport } from "./export-handlers";
 import { renderRail, renderRailFoot } from "./rail";
@@ -77,11 +69,13 @@ import {
   withDisplayedMilestone,
   withComparedMilestone,
   withBannerMessage,
+  withReferentialCheck,
+  withRefreshedFile,
   viewOnLoad,
   VIEW_LABEL,
   type AppState,
   type LoadedFile,
-  type View,
+  type ReferentialCheck,
 } from "./state";
 
 
@@ -128,6 +122,22 @@ function diagramContext(state: AppState, file: LoadedFile, view: { nodes: GraphN
 // go through the very same path as a dropped one, refusals included.
 type WorkbookSource = { name: string; arrayBuffer: () => Promise<ArrayBuffer> };
 
+// A dropped file, once told apart. Two kinds of workbook land on the same
+// target -- the cartography and its referential -- and the tool, not the
+// reader, says which is which: they are recognised by their shape, never by
+// their name or by the order they were dropped in.
+type DroppedFile =
+  | { kind: "cartography"; loaded: LoadedFile }
+  | { kind: "referential"; name: string; rows: ReferentialRows }
+  | { kind: "refused"; message: string };
+
+// The name the refreshed workbook is handed back under: the one it came in
+// with, so that replacing the file on disk is a matter of saying yes. An .xlsm
+// comes back as .xlsx -- the tool writes no macro, and has not for some time.
+function refreshedName(name: string): string {
+  return `${name.replace(/\.(xlsx|xlsm)$/i, "")}.xlsx`;
+}
+
 // One name for the sample, whether it is downloaded or opened: the title block
 // of every diagram carries it, and two names for the same workbook would read
 // as two workbooks.
@@ -155,7 +165,9 @@ export function mountApp(root: HTMLElement): void {
   railToggle.addEventListener("click", () => setDrawer(!layout.classList.contains("rail-open")));
   root.appendChild(railToggle);
   rail.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest(".rail-view-item")) setDrawer(false);
+    // A view, or one of the foot's buttons: the repair dialog opened UNDER the
+    // drawer when only the views closed it.
+    if ((e.target as HTMLElement).closest(".rail-view-item, .rail-button")) setDrawer(false);
   });
   layout.addEventListener("click", (e) => {
     if (!layout.classList.contains("rail-open")) return;
@@ -163,7 +175,7 @@ export function mountApp(root: HTMLElement): void {
     setDrawer(false);
   });
 
-  wireDropZone(root, handleFile);
+  wireDropZone(root, handleFiles);
 
   // The report depends on the displayed milestone for its "state of the
   // platform" part (§7.1): it is therefore recomputed at every milestone
@@ -179,55 +191,85 @@ export function mountApp(root: HTMLElement): void {
     render();
   }
 
-  // Read a workbook into a LoadedFile, or say why it cannot be read. Both the
-  // main drop target and the "compare with" field go through here: the same
-  // file must be refused for the same reason and in the same words, whichever
-  // of the two it was handed to.
+  // Read a dropped workbook, or say why it cannot be read. Both the main drop
+  // target and the "compare with" field go through here: the same file must be
+  // refused for the same reason and in the same words, whichever of the two it
+  // was handed to.
   //
-  // readReferentials is false on the comparison path: the compared workbook's
-  // referential URLs are stored but never read by anything, and reading them
-  // means reopening the whole package with XLSX.CFB -- work with no purpose
-  // there.
-  async function readWorkbook(
-    file: WorkbookSource,
-    readReferentials = true
-  ): Promise<{ ok: true; loaded: LoadedFile } | { ok: false; message: string }> {
+  // A referential is told apart BEFORE the cartography's model is built: it
+  // shares three sheet names with a cartography, and read as one it would be
+  // refused for lacking an interface catalogue -- which is exactly what it is
+  // supposed to lack.
+  async function readWorkbook(file: WorkbookSource): Promise<DroppedFile> {
     if (!/\.(xlsx|xlsm)$/i.test(file.name)) {
-      return { ok: false, message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
+      return { kind: "refused", message: "That is not an Excel workbook. Drop an .xlsx or .xlsm file." };
     }
 
-    // The bytes are kept: the referential URLs are not in any sheet but in the
-    // binary Power Query stream, so only the file itself can be asked for them.
-    const bytes = await file.arrayBuffer();
     let parsed;
     try {
-      parsed = parseWorkbook(bytes);
+      parsed = parseWorkbook(await file.arrayBuffer());
     } catch {
-      return { ok: false, message: "Workbook unreadable or corrupted." };
+      return { kind: "refused", message: "Workbook unreadable or corrupted." };
     }
 
+    const referential = readReferentialWorkbook(parsed);
+    if (referential) return { kind: "referential", name: file.name, rows: referential };
+
     const built = buildModel(parsed);
-    if (!built.ok) return { ok: false, message: built.errors.map((e) => e.message).join(" ") };
+    if (!built.ok) return { kind: "refused", message: built.errors.map((e) => e.message).join(" ") };
 
     // A workbook from a newer version is not read at all: guessing the shape
     // of a format one does not know would produce wrong diagrams, which is
     // worse than showing nothing.
     if (built.model.schemaVersion > SCHEMA_VERSION) {
       return {
-        ok: false,
+        kind: "refused",
         message: `This workbook follows model v${built.model.schemaVersion}, produced by a newer version of the tool. Update the tool to open it.`,
       };
     }
 
     return {
-      ok: true,
+      kind: "cartography",
       loaded: {
         name: file.name,
         model: built.model,
         report: runIntegrityChecks(built.model),
         modifiedAt: parsed.savedAt,
-        referential: readReferentials ? await readReferentialUrl(bytes) : NO_REFERENTIAL,
       },
+    };
+  }
+
+  // The cartography's copy of the referential, held against what the dropped
+  // referential publishes.
+  //
+  // Up to date, nothing moves: the verdict is all that is kept. Drifted, the
+  // workbook is REBUILT with the referential's rows -- through the same path as
+  // an upgrade, so a stale workbook comes out at the current model as well --
+  // and read back through readWorkbook like any dropped file: what the screen
+  // shows is the file that will be downloaded, not a model patched in memory
+  // that the file on disk would then contradict.
+  async function checkedAgainst(
+    loaded: LoadedFile,
+    referential: { name: string; rows: ReferentialRows }
+  ): Promise<{ loaded: LoadedFile; check: ReferentialCheck }> {
+    // Compared as WRITTEN, on both sides: the file the workbook is, against the
+    // file it would become. Comparing the model's rows to the referential's
+    // missed the writer's fallback, and a referential publishing an empty sheet
+    // then drifted at every drop.
+    const current = upgrade(loaded.model);
+    const refreshed = { ...current, referentialRows: mergeReferential(current.referentialRows, referential.rows) };
+    if (!referentialDrifted(writtenReferentialRows(current), writtenReferentialRows(refreshed))) {
+      return { loaded, check: { referential: referential.name, drifted: false } };
+    }
+    const bytes = writeTemplate(refreshed);
+    const reread = await readWorkbook({ name: loaded.name, arrayBuffer: async () => bytes });
+    // The tool has just written this file: not reading it back is its own bug,
+    // and the safety net in handleFiles says so rather than showing a stale view
+    // beside a fresh download.
+    if (reread.kind !== "cartography") throw new Error(`refreshed workbook not readable: ${reread.kind}`);
+    return {
+      loaded: reread.loaded,
+      check: { referential: referential.name, drifted: true, filename: refreshedName(loaded.name), bytes },
     };
   }
 
@@ -240,9 +282,13 @@ export function mountApp(root: HTMLElement): void {
       return;
     }
     try {
-      const read = await readWorkbook(file, false);
-      if (!read.ok) {
+      const read = await readWorkbook(file);
+      if (read.kind === "refused") {
         setState(withBannerMessage(state, read.message));
+        return;
+      }
+      if (read.kind === "referential") {
+        setState(withBannerMessage(state, `${read.name} is a referential, not a cartography: there is nothing to compare it with.`));
         return;
       }
       setState(withComparedFile(withBannerMessage(state, null), read.loaded));
@@ -252,26 +298,87 @@ export function mountApp(root: HTMLElement): void {
     }
   }
 
-  async function handleFile(file: WorkbookSource): Promise<void> {
+  // A cartography takes the screen: what it replaces, it replaces whole. The
+  // verdict on the referential, when one came with it, is set AFTER
+  // withLoadedFile, which clears the previous one -- another file, another
+  // verdict due.
+  function showLoaded(loaded: LoadedFile, check: ReferentialCheck | null): void {
+    // One estate's positions mean nothing on another.
+    placements.clear();
+    annealed.clear();
+
+    // The report carried by withLoadedFile is not yet set on the current
+    // milestone (recomputeReport replaces it right afterwards): the landing
+    // view must therefore be decided again on the final report, otherwise an
+    // anomaly that exists only at a retired milestone opens on a checks screen
+    // showing (0) everywhere.
+    let next = recomputeReport(withReferentialCheck(withLoadedFile(state, loaded), check));
+    if (next.file) next = withView(next, viewOnLoad(next.file));
+    setState(next);
+  }
+
+  // The workbook on screen, rebuilt with a referential dropped afterwards. The
+  // reader stays where they were -- view, milestone, filters, the comparison in
+  // progress: the referential changed the copy, not the subject. Only the
+  // placements go, since natures and icons may have moved with it; and a
+  // workbook that was stuck on the upgrade screen is stuck no more.
+  function showRefreshed(loaded: LoadedFile, check: ReferentialCheck): void {
+    placements.clear();
+    annealed.clear();
+    let next = recomputeReport(withReferentialCheck(withRefreshedFile(withBannerMessage(state, null), loaded), check));
+    if (next.view === "upgrade" && next.file) next = withView(next, viewOnLoad(next.file));
+    setState(next);
+  }
+
+  // Everything dropped, in one gesture, whatever it holds. One cartography at
+  // most, one referential at most -- the tool draws ONE workbook, and two
+  // referentials would be two truths -- and any refusal stops the lot: reading
+  // half of a drop would leave the reader to guess which half.
+  //
+  // A referential on its own applies to the workbook already on screen, when
+  // there is one: dropping the two together and dropping the second afterwards
+  // must come to the same, or the order of a gesture would carry a meaning.
+  async function handleFiles(files: WorkbookSource[]): Promise<void> {
     try {
-      const read = await readWorkbook(file);
-      if (!read.ok) {
-        setState(withBannerMessage(state, read.message));
+      const read = await Promise.all(files.map((f) => readWorkbook(f)));
+      const refused = read.find((r): r is DroppedFile & { kind: "refused" } => r.kind === "refused");
+      if (refused) {
+        setState(withBannerMessage(state, refused.message));
+        return;
+      }
+      const cartographies = read.filter((r): r is DroppedFile & { kind: "cartography" } => r.kind === "cartography");
+      const referentials = read.filter((r): r is DroppedFile & { kind: "referential" } => r.kind === "referential");
+      if (cartographies.length > 1) {
+        setState(withBannerMessage(state, "Several cartographies dropped at once: drop one, with its referential if you like."));
+        return;
+      }
+      if (referentials.length > 1) {
+        setState(withBannerMessage(state, "Several referentials dropped at once: a cartography follows one."));
         return;
       }
 
-      // One estate's positions mean nothing on another.
-      placements.clear();
-      annealed.clear();
+      const referential = referentials[0];
+      const cartography = cartographies[0];
+      if (cartography) {
+        const { loaded, check } = referential ? await checkedAgainst(cartography.loaded, referential) : { loaded: cartography.loaded, check: null };
+        showLoaded(loaded, check);
+        return;
+      }
 
-      // The report carried by withLoadedFile is not yet set on the current
-      // milestone (recomputeReport replaces it right afterwards): the landing
-      // view must therefore be decided again on the final report, otherwise an
-      // anomaly that exists only at a retired milestone opens on a checks screen
-      // showing (0) everywhere.
-      let loaded = recomputeReport(withLoadedFile(state, read.loaded));
-      if (loaded.file) loaded = withView(loaded, viewOnLoad(loaded.file));
-      setState(loaded);
+      // Nothing at all: the drop zones never hand over an empty drop, and the
+      // sample always comes as one file, so this is a guard, not a case.
+      if (!referential) return;
+
+      // A referential, and nothing to apply it to.
+      if (!state.file) {
+        setState(
+          withBannerMessage(state, `${referential.name} is a referential. Drop the cartography workbook it applies to — with it, or before it.`)
+        );
+        return;
+      }
+      const { loaded, check } = await checkedAgainst(state.file, referential);
+      if (check.drifted) showRefreshed(loaded, check);
+      else setState(withReferentialCheck(withBannerMessage(state, null), check));
     } catch (err) {
       // A safety net: a well-formed workbook whose content triggers an
       // unexpected exception further down the pipeline must never leave an
@@ -292,6 +399,14 @@ export function mountApp(root: HTMLElement): void {
   // (layout, milestone): a board once annealed comes back as it was left,
   // and the search is not paid twice for one board.
   const annealed = new Map<string, FossflowView>();
+  // Both caches are bounded: keyed on every combination of view, filters and
+  // milestone, they held a full layout per entry for the whole session. The
+  // oldest entry goes when the cap is reached -- a Map iterates in insertion order.
+  const CACHE_CAP = 40;
+  function remember<V>(cache: Map<string, V>, key: string, value: V): void {
+    cache.set(key, value);
+    if (cache.size > CACHE_CAP) cache.delete(cache.keys().next().value!);
+  }
   // The displayed matrix, kept for the export: recomputing it on click would
   // risk delivering something other than what is on screen.
   let currentMatrix: MatrixResult | null = null;
@@ -329,22 +444,16 @@ export function mountApp(root: HTMLElement): void {
   // it, for whoever wants the file itself.
   function openSampleHandler(): void {
     const bytes = writeTemplate(SAMPLE_DATA);
-    void handleFile({ name: SAMPLE_FILENAME, arrayBuffer: async () => bytes });
+    void handleFiles([{ name: SAMPLE_FILENAME, arrayBuffer: async () => bytes }]);
   }
 
-  // Every rewrite of a LOADED workbook goes through here. dataFromModel() and
-  // upgrade() rebuild the sheets, and the sheets are precisely where the URLs
-  // are NOT: they live in the binary Power Query stream. Whoever rewrites the
-  // file must therefore put them back, failing which any schema change would
-  // wipe the queries -- which the specification forbids.
-  //
-  // The file is read from the state at click time and never closed over: the
-  // URLs are edited in place, without a render (see onReferentials), so a
-  // handler holding the file it was built with would carry the URLs as they
-  // were when its screen was drawn.
-  function downloadLoaded(filename: string, data: WorkbookData): void {
-    if (!state.file) return;
-    downloadTemplateXlsx(filename, { ...data, referential: state.file.referential });
+  // The workbook rebuilt with the referential's rows, as the banner offers it.
+  // The bytes are the ones on screen -- checkedAgainst read them back -- so
+  // what is downloaded is what is shown, to the byte.
+  function downloadRefreshedHandler(): void {
+    const check = state.referentialCheck;
+    if (!check || !check.drifted) return;
+    downloadWorkbook(check.bytes, check.filename);
   }
 
   // The nine exports live in their own module: they depend only on the state,
@@ -358,6 +467,9 @@ export function mountApp(root: HTMLElement): void {
     svgCourant: currentSvg,
     currentMatrix: () => currentMatrix,
   });
+  // The banner's one action that is not an export: handing back the workbook
+  // refreshed from a dropped referential.
+  const bannerActions = { ...exportHandlers, onDownloadRefreshed: downloadRefreshedHandler };
 
   function render(): void {
     if (!state.file) {
@@ -377,13 +489,13 @@ export function mountApp(root: HTMLElement): void {
       } else {
         renderArea.appendChild(
           buildDropTarget({
-            onFile: handleFile,
+            onFiles: handleFiles,
             onOpenSample: openSampleHandler,
             onHelp: () => setState(withView(state, "help")),
           })
         );
       }
-      renderBanner(banner, state, false, exportHandlers);
+      renderBanner(banner, state, false, bannerActions);
       return;
     }
 
@@ -401,10 +513,15 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
     }
 
-    renderBanner(banner, state, currentSvg() !== null, exportHandlers);
+    renderBanner(banner, state, currentSvg() !== null, bannerActions);
   }
 
   function renderContent(file: LoadedFile): void {
+    // Every render opens a new generation, whatever the view: a layout still in
+    // flight for the previous view must find its generation stale even when
+    // the new view draws no diagram at all -- the matrix, the report, the
+    // help -- otherwise the late SVG lands under it.
+    renderGeneration += 1;
     const model = file.model;
     // The displayed milestone's rank, resolved once: it is what runs through the
     // views, the filters and the exports.
@@ -422,7 +539,7 @@ export function mountApp(root: HTMLElement): void {
       renderArea.appendChild(
         buildUpgradeScreen(model.schemaVersion, SCHEMA_VERSION, () => {
           const name = file.name.replace(/\.(xlsx|xlsm)$/i, "");
-          downloadLoaded(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
+          downloadTemplateXlsx(`${name}-v${SCHEMA_VERSION}.xlsx`, upgrade(model));
         })
       );
     } else if (state.view === "changes") {
@@ -438,7 +555,7 @@ export function mountApp(root: HTMLElement): void {
         const after = { model, rank: null };
         renderArea.appendChild(buildChangesReport(computeChanges(before, after, state.mode), comparison));
 
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const changesView = buildChangesView(before, after, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
@@ -455,8 +572,8 @@ export function mountApp(root: HTMLElement): void {
           };
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
-            renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", context));
-            renderBanner(banner, state, true, exportHandlers);
+            renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t.trim()) ?? "#000", context));
+            renderBanner(banner, state, true, bannerActions);
           });
         }
       } else if (rank === null || comparedRank === null) {
@@ -481,7 +598,7 @@ export function mountApp(root: HTMLElement): void {
         // The diagram comes after the listing: one first reads what changed, then
         // goes to see where. It arrives later, the layout being asynchronous, and a
         // generation counter protects it from a stale display.
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const changesView = buildChangesView({ model, rank: comparedRank }, { model, rank }, state.mode);
         if (changesView.edges.length > 0) {
           const colours = coloursOfModel(model);
@@ -491,11 +608,11 @@ export function mountApp(root: HTMLElement): void {
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
             renderArea.appendChild(
-              buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, changesView))
+              buildGraphSvg(positioned, (t) => colours.get(t.trim()) ?? "#000", diagramContext(state, file, changesView))
             );
             // The change diagram exports like the others. The buttons depend on it,
             // and it did not yet exist when the banner was rendered.
-            renderBanner(banner, state, true, exportHandlers);
+            renderBanner(banner, state, true, bannerActions);
           });
         }
       }
@@ -516,7 +633,7 @@ export function mountApp(root: HTMLElement): void {
         });
         renderArea.appendChild(svg);
         renderArea.appendChild(buildZoomControls(wireZoom(svg)));
-        renderBanner(banner, state, true, exportHandlers);
+        renderBanner(banner, state, true, bannerActions);
       }
     } else if (state.view === "matrix") {
       const matrix = buildMatrixView(model, reading, {
@@ -534,7 +651,7 @@ export function mountApp(root: HTMLElement): void {
       // the next, and between the matrix and the diagrams.
       const colours = coloursOfModel(model);
       renderArea.appendChild(
-        buildMatrixTable(matrix, (t) => colours.get(t) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
+        buildMatrixTable(matrix, (t) => colours.get(t.trim()) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
       );
     } else {
       // The SAME construction for the displayed milestone and for the union of
@@ -624,7 +741,7 @@ export function mountApp(root: HTMLElement): void {
         // The layout computation is asynchronous (ELK). A generation counter
         // protects against a stale render: if the user changes view during the
         // computation, the diagram arriving late must not display over the top.
-        const generation = ++renderGeneration;
+        const generation = renderGeneration;
         const colours = coloursOfModel(model);
         const viewForComputation = view;
         // The UNION of all milestones is laid out once, and each milestone shows
@@ -638,12 +755,16 @@ export function mountApp(root: HTMLElement): void {
         ]);
         const unionView = buildView(unionReading(model, state.mode));
         const placement = placements.get(layoutKey) ?? computeLayout(unionView.nodes, unionView.edges);
-        placements.set(layoutKey, placement);
+        remember(placements, layoutKey, placement);
+        // A layout that failed is forgotten, not memoised: a transient failure
+        // of the engine used to condemn that view, with those filters, for the
+        // whole session.
+        placement.catch(() => placements.delete(layoutKey));
         placement
           .then((union) => {
             if (generation !== renderGeneration) return;
             const positioned = restrictLayout(union, viewForComputation);
-            const colorFor = (t: string) => colours.get(t) ?? "#000";
+            const colorFor = (t: string) => colours.get(t.trim()) ?? "#000";
             const context = diagramContext(state, file, viewForComputation);
             // The isometric rendering draws the SAME positioned board: one
             // layout, two painters, so ticking the option never reshuffles
@@ -660,8 +781,11 @@ export function mountApp(root: HTMLElement): void {
               // background (iso-anneal.ts) and takes its place if found --
               // unless the reader has moved on meanwhile.
               if (!remembered) {
-                void annealPlacement(view).then((result) => {
-                  annealed.set(boardKey, result.view);
+                // Stopped as soon as the reader has moved on: six view changes
+                // used to leave six searches fighting over the event loop.
+                void annealPlacement(view, { shouldStop: () => generation !== renderGeneration }).then((result) => {
+                  if (result.stopped) return;
+                  remember(annealed, boardKey, result.view);
                   if (generation !== renderGeneration || !result.improved) return;
                   const better = buildIsoSvg(model, result.view, context);
                   const betterControls = buildZoomControls(wireZoom(better));
@@ -678,13 +802,16 @@ export function mountApp(root: HTMLElement): void {
             }
             // The export buttons depend on the presence of the SVG, which did not yet
             // exist when the banner was rendered.
-            renderBanner(banner, state, true, exportHandlers);
+            renderBanner(banner, state, true, bannerActions);
           })
           .catch((err) => {
             if (generation !== renderGeneration) return;
             console.error(err);
             clear(renderArea);
-            renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
+            // The engine's own words when it is the engine: a blank screen with a
+            // generic line hid the one cause the reader could act on.
+            const said = err instanceof LayoutTimeout ? err.message : "Unexpected error while rendering this view.";
+            renderArea.appendChild(el("p", { class: "no-flow" }, [said]));
           });
         currentTechnologies = [...new Set(view.edges.map((e) => e.technology))];
       }

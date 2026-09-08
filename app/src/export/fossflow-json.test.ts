@@ -173,6 +173,30 @@ describe("modelToFossflow", () => {
   });
 });
 
+// A group and an actor may share a name -- one board draws the first, another
+// the second -- and keyed by name alone they merged into one item.
+describe("modelToFossflow — a group and an actor of one name", () => {
+  it("makes two items, and each board's connectors point at its own", () => {
+    const groupBoard = layout({
+      nodes: [
+        { id: "Core", label: "Core", kind: "group", x: 0, y: 0, width: 240, height: 120 },
+        { id: "Edge", label: "Edge", kind: "group", x: 400, y: 0, width: 240, height: 120 },
+      ],
+      edges: [flow("Core", "Edge")],
+    });
+    const actorBoard = layout({
+      nodes: [actorAt("Core", 0, { subtitle: "Application" }), actorAt("B", 400)],
+      edges: [flow("Core", "B")],
+    });
+    const m = modelToFossflow([{ title: "groups", layout: groupBoard }, { title: "actors", layout: actorBoard }], colour, "c.xlsx");
+    const cores = m.items.filter((i) => i.name === "Core");
+    expect(cores).toHaveLength(2);
+    expect(new Set(cores.map((i) => i.id)).size).toBe(2);
+    const actorItem = cores.find((i) => i.subtitle === "Application")!;
+    expect(m.views[1].connectors[0].anchors[0].ref.item).toBe(actorItem.id);
+  });
+});
+
 describe("placeTiles, through the model", () => {
   it("never seats a stranger inside somebody else's boundary", () => {
     // A platform of two, and a well-connected outsider drawn towards them:

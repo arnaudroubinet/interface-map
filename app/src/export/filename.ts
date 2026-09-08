@@ -20,6 +20,8 @@ export function buildExportFilename(
   // do not move, and two exports of the same diagram can no longer collide.
   const parts = ["carto", ...(mode === "functional" ? ["functional"] : []), slug(view)];
   if (selection) parts.push(slug(selection));
-  if (milestone) parts.push(milestone);
+  // Slugged like the rest: a milestone is typed by a person, and "T3 2026 / lot 1"
+  // is a name the browser truncates at the slash.
+  if (milestone) parts.push(slug(milestone));
   return `${parts.join("-")}.${ext}`;
 }

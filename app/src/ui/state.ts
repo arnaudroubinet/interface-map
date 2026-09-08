@@ -1,5 +1,4 @@
 import type { ParsedModel } from "../parsing/model";
-import type { ReferentialUrl } from "../export/datamashup";
 import type { IntegrityReport } from "../integrity/checks";
 import type { MatrixGrain } from "../aggregation/views";
 import type { MatrixOrder } from "../aggregation/seriation";
@@ -57,12 +56,20 @@ export interface LoadedFile {
   model: ParsedModel;
   report: IntegrityReport;
   modifiedAt: Date | null;
-  // The referential the file already points at. It lives in the Power Query
-  // definition, inside the workbook, so it travels with it: two cartographies
-  // can point at two different referentials. Read here only to be written back
-  // -- it is changed on the repair screen, which is where a file is rewritten.
-  referential: ReferentialUrl;
 }
+
+// What the last referential dropped beside the loaded workbook said of it. The
+// referential is not kept: it was read once, compared once, and only the verdict
+// stays -- with the refreshed workbook to hand back when the copy had drifted.
+//
+// `bytes` are the workbook rewritten with the referential's rows; they are what
+// the screen is now showing, and what the banner offers to download so the
+// file on disk catches up with the file on screen. Nothing is downloaded on
+// the reader's behalf: a download that fires by itself surprises, and the
+// browser may swallow it.
+export type ReferentialCheck =
+  | { referential: string; drifted: false }
+  | { referential: string; drifted: true; filename: string; bytes: ArrayBuffer };
 
 export interface AppOptions {
   counters: boolean;
@@ -145,6 +152,11 @@ export interface AppState {
   // What the roadmap puts on its rows: the actors or the interfaces.
   roadmapSubject: RoadmapSubject;
   bannerMessage: string | null;
+  // The verdict of the last referential dropped beside `file`, or `null` when
+  // none was. It survives navigation -- the button to download the refreshed
+  // workbook must not vanish on the first click on a view -- and goes with the
+  // file: another workbook loaded, another verdict due.
+  referentialCheck: ReferentialCheck | null;
 }
 
 export function initialState(): AppState {
@@ -164,6 +176,7 @@ export function initialState(): AppState {
     chainSelection: null,
     roadmapSubject: "interfaces",
     bannerMessage: null,
+    referentialCheck: null,
   };
 }
 
@@ -211,7 +224,20 @@ export function withLoadedFile(state: AppState, file: LoadedFile): AppState {
     chainSelection: null,
     roadmapSubject: "interfaces",
     bannerMessage: null,
+    referentialCheck: null,
   };
+}
+
+// The same workbook, rebuilt: the file changes, the reader's place does not.
+// withLoadedFile is for ANOTHER workbook, and resets everything a reader chose;
+// a rebuild from a dropped referential must keep the view, the milestone, the
+// filters and the comparison in progress.
+export function withRefreshedFile(state: AppState, file: LoadedFile): AppState {
+  return { ...state, file };
+}
+
+export function withReferentialCheck(state: AppState, check: ReferentialCheck | null): AppState {
+  return { ...state, referentialCheck: check };
 }
 
 // The by-actor selector only offers the actors of the current reading: the
