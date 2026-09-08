@@ -22,7 +22,8 @@
     --critical: #d03b3b;
     --ok: #1a7f43;
     --warn: #b8860b;
-    --warn-ink: #ffffff;
+    /* Encre sombre sur l'ocre clair : le blanc tombait à 3,25:1 en 11 px. */
+    --warn-ink: #14181f;
     /* Les actions ont leur propre teinte : réutiliser l'accent les faisait
        ressembler à la vue sélectionnée. */
     --action: #6b4ec4;
@@ -133,7 +134,7 @@
   }
   .rail-compare-drop:hover { color: var(--critical); }
   .rail-compare-file { width: 100%; font-size: 12px; }
-  .rail-note { margin: 0; font-size: 11px; opacity: 0.75; }
+  .rail-note { margin: 0; font-size: 11px; opacity: 0.85; }
   .rail-search-block { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; }
   .rail-search {
     width: 100%; padding: 6px; border: 1px solid var(--line); border-radius: 4px;
@@ -177,7 +178,9 @@
   /* Fenêtre de migration : elle recouvre l'outil parce qu'on n'y fait qu'une
      chose, et qu'on en ressort tout de suite. */
   .migration-overlay {
-    position: fixed; inset: 0; z-index: 10;
+    /* Au-dessus du tiroir mobile (40) et de son bouton flottant (50) : sous
+       eux, le premier appui sur « Repair » semblait ne rien faire. */
+    position: fixed; inset: 0; z-index: 60;
     background: rgba(0, 0, 0, 0.55);
     display: flex; align-items: center; justify-content: center; padding: 24px;
   }
@@ -278,13 +281,13 @@
   }
   .scale-hint button {
     font: inherit; padding: 2px 10px; cursor: pointer;
-    border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--text);
+    border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink);
   }
   .zoom-controls { display: flex; gap: 6px; margin-top: 8px; }
   .zoom-controls button {
     font: inherit; padding: 2px 10px; cursor: pointer;
     border: 1px solid var(--line); border-radius: 6px;
-    background: var(--surface); color: var(--text);
+    background: var(--surface); color: var(--ink);
   }
   .drop-target {
     border: 2px dashed var(--line); border-radius: 8px; height: 100%;
@@ -455,9 +458,11 @@
      un livrable, pas une vue. */
   .print-document { display: none; }
   @media print {
-    .banner, .rail, .zoom-controls, .scale-hint { display: none; }
+    .banner, .rail, .rail-toggle, .migration-overlay, .zoom-controls, .scale-hint { display: none; }
     .render-area { overflow: visible; padding: 0; background: none; }
-    .render-area > svg { max-width: 100%; height: auto; page-break-inside: avoid; }
+    /* max-height: none défait le plafond de 72vh posé sous 720 px : imprimé
+       depuis une fenêtre étroite, le schéma sortait rapetissé sans raison. */
+    .render-area > svg { max-width: 100%; height: auto; max-height: none; page-break-inside: avoid; }
     /* `economy`, la valeur par défaut, autorise le navigateur à « leave out
        all background images and to adjust text colors » -- donc à supprimer
        les aplats de couleur des boîtes. Les deux écritures : la propriété

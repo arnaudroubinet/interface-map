@@ -175,7 +175,9 @@ export function mountApp(root: HTMLElement): void {
   railToggle.addEventListener("click", () => setDrawer(!layout.classList.contains("rail-open")));
   root.appendChild(railToggle);
   rail.addEventListener("click", (e) => {
-    if ((e.target as HTMLElement).closest(".rail-view-item")) setDrawer(false);
+    // A view, or one of the foot's buttons: the repair dialog opened UNDER the
+    // drawer when only the views closed it.
+    if ((e.target as HTMLElement).closest(".rail-view-item, .rail-button")) setDrawer(false);
   });
   layout.addEventListener("click", (e) => {
     if (!layout.classList.contains("rail-open")) return;

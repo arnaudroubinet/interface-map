@@ -49,7 +49,10 @@ export function openMigration(): void {
   closeOpenDialog?.();
 
   const overlay = el("div", { class: "migration-overlay" });
-  const box = el("div", { class: "migration-box" });
+  const box = el("div", { class: "migration-box", role: "dialog", "aria-modal": "true", "aria-labelledby": "migration-title" });
+  // Where the focus came from, to put it back: closing a dialog and leaving
+  // the focus on nothing sends a keyboard user back to the top of the page.
+  const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
   // One way out, whichever gesture: the Escape listener sits on the document,
   // and closing by the cross or the veil used to leave it there -- one more
@@ -58,10 +61,20 @@ export function openMigration(): void {
     overlay.remove();
     document.removeEventListener("keydown", onEscape);
     if (closeOpenDialog === close) closeOpenDialog = null;
+    opener?.focus();
   };
   closeOpenDialog = close;
+  // Escape closes; Tab stays inside -- a modal that lets the focus wander
+  // behind its veil is a veil, not a modal.
   function onEscape(e: KeyboardEvent): void {
     if (e.key === "Escape") close();
+    if (e.key !== "Tab") return;
+    const focusable = [...box.querySelectorAll<HTMLElement>("button, input, select, [tabindex]:not([tabindex='-1'])")].filter((f) => !f.hidden);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   }
   const closeButton = el("button", { class: "close-button", title: "Close" }, ["×"]);
   closeButton.addEventListener("click", close);
@@ -223,13 +236,14 @@ export function openMigration(): void {
   // to pick the file.
   const choose = el("input", { type: "file", accept: ".xlsx,.xlsm", multiple: "" }) as HTMLInputElement;
   choose.className = "file-field";
+  choose.setAttribute("aria-label", "Workbook to repair, and its referential");
   choose.addEventListener("change", () => {
     const files = [...(choose.files ?? [])];
     if (files.length > 0) convert(files);
   });
 
   box.appendChild(closeButton);
-  box.appendChild(el("h2", { class: "migration-title" }, ["Repair or upgrade a workbook"]));
+  box.appendChild(el("h2", { class: "migration-title", id: "migration-title" }, ["Repair or upgrade a workbook"]));
   box.appendChild(referentialBlock);
   box.appendChild(zone);
   box.appendChild(choose);
@@ -241,4 +255,5 @@ export function openMigration(): void {
   document.addEventListener("keydown", onEscape);
 
   document.body.appendChild(overlay);
+  closeButton.focus();
 }

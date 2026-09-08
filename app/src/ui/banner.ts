@@ -116,7 +116,10 @@ export function renderBanner(
   const title = el("span", { class: "banner-title" }, ["Interface Map"]);
   root.appendChild(title);
 
-  const legacyState = el("span", { class: "banner-state" });
+  // A live region: a refusal rewrote this span in silence, and a screen reader
+  // never learnt the drop had failed. An error is announced at once; the
+  // ordinary state waits its turn.
+  const legacyState = el("span", { class: "banner-state", role: state.bannerMessage ? "alert" : "status" });
   if (state.bannerMessage) {
     legacyState.classList.add("banner-error");
     legacyState.textContent = state.bannerMessage;

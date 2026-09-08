@@ -241,3 +241,26 @@ describe("openMigration — getting a referential to publish", () => {
   });
 });
 
+
+// A modal that is not one: no role, no label, the focus left behind the veil.
+describe("openMigration — a dialog for assistive technology", () => {
+  it("is a labelled modal dialog that takes the focus and gives it back", () => {
+    document.body.innerHTML = '<button id="from">Repair</button>';
+    const from = document.getElementById("from") as HTMLButtonElement;
+    from.focus();
+    openMigration();
+    const box = document.querySelector(".migration-box")!;
+    expect(box.getAttribute("role")).toBe("dialog");
+    expect(box.getAttribute("aria-modal")).toBe("true");
+    expect(document.getElementById(box.getAttribute("aria-labelledby")!)?.textContent).toContain("Repair or upgrade");
+    expect(box.contains(document.activeElement)).toBe(true);
+    (document.querySelector(".close-button") as HTMLButtonElement).click();
+    expect(document.activeElement).toBe(from);
+  });
+
+  it("names its file field", () => {
+    document.body.innerHTML = "";
+    openMigration();
+    expect(document.querySelector("input.file-field")?.getAttribute("aria-label")).toBeTruthy();
+  });
+});
