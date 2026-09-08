@@ -3,13 +3,21 @@
 # n'ait jamais à demander « qui a construit celui-ci, et depuis quel commit ».
 #
 # Il se déclenche quand une release est publiée -- le geste par lequel on
-# décide de livrer -- et à la demande, pour vérifier la chaîne sans livrer.
+# décide de livrer -- et à la demande : sans tag, pour vérifier la chaîne sans
+# livrer ; avec un tag, pour livrer d'ici, quand on ne peut pas pousser le tag
+# soi-même. La release est alors créée depuis le commit construit, et le tag
+# naît avec elle.
 name: Release
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag à créer et à livrer depuis ce commit (ex. v1.0.1). Vide : construire seulement."
+        required: false
+        default: ""
 
 # Écrire sur la release, et rien d'autre.
 permissions:
@@ -49,6 +57,16 @@ jobs:
           name: interface-map
           path: app/dist/interface-map.html
           if-no-files-found: error
+
+      # À la demande, avec un tag : la release est créée d'ici, le fichier
+      # attaché, les notes tirées des commits depuis le tag précédent. Une
+      # release créée par le jeton du workflow ne redéclenche pas celui-ci.
+      - name: Create the release
+        if: github.event_name == 'workflow_dispatch' && inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: gh release create "$TAG" dist/interface-map.html --target "$GITHUB_SHA" --title "Interface Map $TAG" --generate-notes
 
       # Sur une release : le fichier s'attache au tag qui l'a demandée.
       # --clobber pour qu'une reconstruction remplace au lieu d'échouer.
