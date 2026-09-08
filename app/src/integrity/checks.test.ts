@@ -1722,3 +1722,27 @@ describe("the functional reading and the two technical roles", () => {
     expect(buildFunctionalFlows(estate("Middleware"), null)).toEqual([]);
   });
 });
+
+// Two rows of one actor name: the milestone filter kept the first, this check
+// kept the last, and the two disagreed on the same workbook.
+describe("homonymous actors — one resolution", () => {
+  it("judges nesting against the first row of a duplicated name", () => {
+    const m = model({
+      milestones,
+      actors: [actor({ name: "A", introducedAt: "v1" }), actor({ name: "A", introducedAt: "v3" }), actor({ name: "B" })],
+      interfaces: [iface({ introducedAt: "v1" })],
+    });
+    expect(messagesCoherence(m)).not.toContain("lives outside");
+  });
+});
+
+// "HTTP" declared and "http" used was at once an unknown type and an unused
+// declaration, in one report.
+describe("flow types — compared the same way twice", () => {
+  it("does not report a type both unknown and unused over its case", () => {
+    const m = model({ interfaces: [iface({ flowType: "http" })] });
+    const all = runIntegrityChecks(m).families.flatMap((f) => f.anomalies.map((a) => a.message)).join(" | ");
+    expect(all).not.toContain('"http" unknown');
+    expect(all).not.toContain("not used");
+  });
+});

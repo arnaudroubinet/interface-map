@@ -15,7 +15,7 @@ import {
   buildMatrixView,
   type MatrixResult,
 } from "../aggregation/views";
-import { computeLayout, restrictLayout, type LayoutResult } from "../layout/graph-layout";
+import { computeLayout, restrictLayout, LayoutTimeout, type LayoutResult } from "../layout/graph-layout";
 import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
 import { isoBoard, buildIsoSvg } from "../render/iso-view";
@@ -409,6 +409,14 @@ export function mountApp(root: HTMLElement): void {
   // (layout, milestone): a board once annealed comes back as it was left,
   // and the search is not paid twice for one board.
   const annealed = new Map<string, FossflowView>();
+  // Both caches are bounded: keyed on every combination of view, filters and
+  // milestone, they held a full layout per entry for the whole session. The
+  // oldest entry goes when the cap is reached -- a Map iterates in insertion order.
+  const CACHE_CAP = 40;
+  function remember<V>(cache: Map<string, V>, key: string, value: V): void {
+    cache.set(key, value);
+    if (cache.size > CACHE_CAP) cache.delete(cache.keys().next().value!);
+  }
   // The displayed matrix, kept for the export: recomputing it on click would
   // risk delivering something other than what is on screen.
   let currentMatrix: MatrixResult | null = null;
@@ -574,7 +582,7 @@ export function mountApp(root: HTMLElement): void {
           };
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
-            renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", context));
+            renderArea.appendChild(buildGraphSvg(positioned, (t) => colours.get(t.trim()) ?? "#000", context));
             renderBanner(banner, state, true, bannerActions);
           });
         }
@@ -610,7 +618,7 @@ export function mountApp(root: HTMLElement): void {
           computeLayout(changesView.nodes, changesView.edges).then((positioned) => {
             if (generation !== renderGeneration) return;
             renderArea.appendChild(
-              buildGraphSvg(positioned, (t) => colours.get(t) ?? "#000", diagramContext(state, file, changesView))
+              buildGraphSvg(positioned, (t) => colours.get(t.trim()) ?? "#000", diagramContext(state, file, changesView))
             );
             // The change diagram exports like the others. The buttons depend on it,
             // and it did not yet exist when the banner was rendered.
@@ -653,7 +661,7 @@ export function mountApp(root: HTMLElement): void {
       // the next, and between the matrix and the diagrams.
       const colours = coloursOfModel(model);
       renderArea.appendChild(
-        buildMatrixTable(matrix, (t) => colours.get(t) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
+        buildMatrixTable(matrix, (t) => colours.get(t.trim()) ?? "#000", titleBlockText(diagramContext(state, file, { nodes: [], edges: [] })).title)
       );
     } else {
       // The SAME construction for the displayed milestone and for the union of
@@ -757,12 +765,16 @@ export function mountApp(root: HTMLElement): void {
         ]);
         const unionView = buildView(unionReading(model, state.mode));
         const placement = placements.get(layoutKey) ?? computeLayout(unionView.nodes, unionView.edges);
-        placements.set(layoutKey, placement);
+        remember(placements, layoutKey, placement);
+        // A layout that failed is forgotten, not memoised: a transient failure
+        // of the engine used to condemn that view, with those filters, for the
+        // whole session.
+        placement.catch(() => placements.delete(layoutKey));
         placement
           .then((union) => {
             if (generation !== renderGeneration) return;
             const positioned = restrictLayout(union, viewForComputation);
-            const colorFor = (t: string) => colours.get(t) ?? "#000";
+            const colorFor = (t: string) => colours.get(t.trim()) ?? "#000";
             const context = diagramContext(state, file, viewForComputation);
             // The isometric rendering draws the SAME positioned board: one
             // layout, two painters, so ticking the option never reshuffles
@@ -779,8 +791,11 @@ export function mountApp(root: HTMLElement): void {
               // background (iso-anneal.ts) and takes its place if found --
               // unless the reader has moved on meanwhile.
               if (!remembered) {
-                void annealPlacement(view).then((result) => {
-                  annealed.set(boardKey, result.view);
+                // Stopped as soon as the reader has moved on: six view changes
+                // used to leave six searches fighting over the event loop.
+                void annealPlacement(view, { shouldStop: () => generation !== renderGeneration }).then((result) => {
+                  if (result.stopped) return;
+                  remember(annealed, boardKey, result.view);
                   if (generation !== renderGeneration || !result.improved) return;
                   const better = buildIsoSvg(model, result.view, context);
                   const betterControls = buildZoomControls(wireZoom(better));
@@ -803,7 +818,10 @@ export function mountApp(root: HTMLElement): void {
             if (generation !== renderGeneration) return;
             console.error(err);
             clear(renderArea);
-            renderArea.appendChild(el("p", { class: "no-flow" }, ["Unexpected error while rendering this view."]));
+            // The engine's own words when it is the engine: a blank screen with a
+            // generic line hid the one cause the reader could act on.
+            const said = err instanceof LayoutTimeout ? err.message : "Unexpected error while rendering this view.";
+            renderArea.appendChild(el("p", { class: "no-flow" }, [said]));
           });
         currentTechnologies = [...new Set(view.edges.map((e) => e.technology))];
       }

@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1102 tests
+npm test          # 1131 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 npm run e2e       # quatre tests dans un vrai Chromium, sur le fichier construit

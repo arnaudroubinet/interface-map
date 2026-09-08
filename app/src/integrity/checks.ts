@@ -119,9 +119,12 @@ export interface IntegrityReport {
   totalWarnings: number;
 }
 
+// The FIRST row of a name speaks for it -- as natureOf and modelAtMilestone
+// already had it. This one kept the last, so two homonymous rows of different
+// validities made the milestone filter and the nesting check disagree.
 function actorByName(model: ParsedModel): Map<string, Actor> {
   const map = new Map<string, Actor>();
-  for (const a of model.actors) map.set(a.name.trim(), a);
+  for (const a of model.actors) if (!map.has(a.name.trim())) map.set(a.name.trim(), a);
   return map;
 }
 
@@ -134,8 +137,26 @@ function actorByName(model: ParsedModel): Map<string, Actor> {
 // interface the diagram actually associates it with (aggregation/core.ts),
 // rather than ignored here — otherwise §7.3/§7.5 and the diagram would
 // contradict each other on the same misfiled row.
+//
+// Indexed once per lookup: five checks ask for it on every interface, and each
+// asked by scanning every consumption -- interfaces × consumptions matchings,
+// each building two keys, eight seconds on a large workbook.
+const consumptionsByInterface = new WeakMap<InterfaceLookup, Map<InterfaceCatalogue, Consumption[]>>();
+
 function consumptionsForInterface(lookup: InterfaceLookup, model: ParsedModel, iface: InterfaceCatalogue): Consumption[] {
-  return model.consumptions.filter((c) => findInterfaceForConsumption(lookup, c) === iface);
+  let index = consumptionsByInterface.get(lookup);
+  if (!index) {
+    index = new Map();
+    for (const c of model.consumptions) {
+      const owner = findInterfaceForConsumption(lookup, c);
+      if (!owner) continue;
+      const list = index.get(owner);
+      if (list) list.push(c);
+      else index.set(owner, [c]);
+    }
+    consumptionsByInterface.set(lookup, index);
+  }
+  return index.get(iface) ?? [];
 }
 
 function citedBounds(where: string, v: Validity & Location) {
@@ -291,14 +312,17 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
   // the file whichever milestone is on screen.
   const anomalies: Anomaly[] = [...notInReferential(model)];
   const actors = actorByName(model);
-  const flowTypes = new Set(model.flowTypes.map((t) => t.type.trim()));
+  // Compared like the "unknown type" check below compares: case and accents
+  // folded. Compared strictly here, "HTTP" declared and "http" used was at once
+  // an unknown type and an unused declaration, in one report.
+  const flowTypes = new Set(model.flowTypes.map((t) => normalizeText(t.type)));
   const lookup = buildInterfaceLookup(model);
 
   for (const iface of model.interfaces) {
     if (!actors.has(iface.providerName.trim())) {
       anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" is not declared on the Actors sheet.`, iface));
     }
-    if (!flowTypes.has(iface.flowType.trim())) {
+    if (!flowTypes.has(normalizeText(iface.flowType))) {
       // The consequence, and not merely the fault: with no declared type the
       // arrow's direction cannot be determined, so the interface and ALL its
       // consumptions drop out of the diagrams. Said without that, the statement

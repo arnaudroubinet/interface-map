@@ -173,7 +173,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const placed = await placedOrSay(state, state.file);
       if (!placed) return;
       downloadText(
-        buildDrawio(placed, (t) => colours.get(t) ?? "#000"),
+        buildDrawio(placed, (t) => colours.get(t.trim()) ?? "#000"),
         buildExportFilename("boards", null, state.shownMilestone, "drawio", state.mode)
       );
     },
@@ -202,7 +202,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
           flows: 0,
           technologies: 0,
         },
-        (t) => colours.get(t) ?? "#000"
+        (t) => colours.get(t.trim()) ?? "#000"
       );
 
       // The application's own page is hidden for the duration rather than
@@ -261,7 +261,7 @@ export function handlersExport(ctx: ExportContext): BannerCallbacks {
       const placed = await placedOrSay(state, state.file);
       if (!placed) return;
       downloadText(
-        fossflowJson(modelToFossflow(placed, (t) => colours.get(t) ?? "#000", state.file.name)),
+        fossflowJson(modelToFossflow(placed, (t) => colours.get(t.trim()) ?? "#000", state.file.name)),
         buildExportFilename("boards", null, state.shownMilestone, "json", state.mode)
       );
     },

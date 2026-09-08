@@ -24,6 +24,10 @@ export interface AnnealOptions {
   seed?: number;
   // How many evaluations between two yields to the event loop.
   yieldEvery?: number;
+  // Asked at every yield: true, and the search stops there and hands back
+  // the board it was given, marked `stopped`. The reader who moved on to
+  // another view must not leave a search running for a board nobody looks at.
+  shouldStop?: () => boolean;
 }
 
 export interface AnnealResult {
@@ -31,6 +35,9 @@ export interface AnnealResult {
   crossings: number;
   improved: boolean;
   evaluated: number;
+  // The search was stopped before its budget: the view is the one given,
+  // untouched, and nothing about it should be remembered.
+  stopped?: boolean;
 }
 
 // The closest two drawings may stand, in tiles (Chebyshev): the translation's
@@ -197,7 +204,12 @@ export async function annealPlacement(view: FossflowView, options: AnnealOptions
     } else {
       for (const u of undo) items[u.index].tile = u.tile;
     }
-    if (evaluated % yieldEvery === 0) await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    if (evaluated % yieldEvery === 0) {
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      if (options.shouldStop?.()) {
+        return { view: { ...view, items: view.items.map((i) => ({ ...i, tile: { ...i.tile } })) }, crossings: startFull, improved: false, evaluated, stopped: true };
+      }
+    }
   }
 
   // The full routing has the last word: the quick one screens, it does not
