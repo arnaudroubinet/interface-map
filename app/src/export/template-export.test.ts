@@ -871,6 +871,29 @@ describe("the workbook template — entry prompts", () => {
       expect(v.prompt?.text.trim()).toBeTruthy();
     }
   });
+
+  // Excel's own limits: 32 characters for a prompt's title, 255 for its text.
+  // One character over and Excel does not truncate -- it REPAIRS the file on
+  // opening, and strips every validation of the sheet, lists included. The
+  // Nature tooltip reached 310 and took the ActorTypes sheet's list with it.
+  it("keeps every prompt within what Excel accepts", () => {
+    for (const [key, prompt] of Object.entries(PROMPTS)) {
+      expect(prompt.title.length, `title of ${key}`).toBeLessThanOrEqual(32);
+      expect(prompt.text.length, `text of ${key}`).toBeLessThanOrEqual(255);
+    }
+  });
+
+  // Two validations on one range are one too many: Excel keeps one and the
+  // other's tooltip, or list, is lost without a word. The Group column of the
+  // Groups sheet carried its list AND a bare tooltip.
+  it("puts one validation at most on a column", () => {
+    const seen = new Set<string>();
+    for (const v of validations()) {
+      const where = `${v.sheet}!${v.column}`;
+      expect(seen.has(where), `two validations on ${where}`).toBe(false);
+      seen.add(where);
+    }
+  });
 });
 
 // --- QA: the sheet name is sanitised on the tool's side (sanitiseTabName). The

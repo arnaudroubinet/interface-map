@@ -634,7 +634,7 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
     text:
       "Fill in only when the consumer is a middleware: which of ITS OWN interfaces republishes this flow. Several lines pointing at the same interface is how a bus aggregates.",
   },
-  Nature: { title: "Nature", text: "Read from the referential: Business, Middleware or Storage. A middleware is crossed in the functional reading — its actors do not appear, and the flows through them are joined end to end; a storage is where the data stops. Change it in the referential, then drop the referential on the tool with this workbook." },
+  Nature: { title: "Nature", text: "Read from the referential: Business, Middleware or Storage. A middleware is crossed in the functional reading, its flows joined end to end; a storage is where the data stops. Change it in the referential, then drop that on the tool with this workbook." },
   Perimeter: { title: "Perimeter", text: "Platform for what the team owns, External for the rest. This is what decides how the group is drawn." },
   Direction: { title: "Direction", text: "Read from the referential: which way the arrow is drawn for this technology, on every diagram. Change it in the referential, then drop the referential on the tool with this workbook." },
   "To confirm": { title: "To confirm", text: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
@@ -747,7 +747,7 @@ export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): Vali
     ...bounds("Actors", ACTOR_COLUMNS),
     ...bounds("Interfaces", INTERFACE_COLUMNS),
     ...free("Actors", ACTOR_COLUMNS, ["Name", "Group", "Actor type", ...VALIDITY_COLUMNS]),
-    ...free("Groups", GROUP_COLUMNS, ["Perimeter"]),
+    ...free("Groups", GROUP_COLUMNS, ["Group", "Perimeter"]),
     ...free("Milestones", MILESTONE_COLUMNS, []),
     // The derived columns are guided by nothing and explained all the same: the
     // tooltip is the only place that says where the value comes from and why it
