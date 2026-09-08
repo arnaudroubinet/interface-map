@@ -147,6 +147,9 @@ export function renderBanner(
   for (const format of EXPORTS) {
     const button = el("button", { class: "export-button" }, [format.label]);
     button.disabled = !format.active(state, exportAvailable);
+    // Greyed without a word, a button reads as broken. The rule is in the help
+    // page; the hint puts it where the question is asked.
+    if (button.disabled) button.title = `${format.label}: not available on this view`;
     button.addEventListener("click", callbacks[format.callback]);
     exportsRow.appendChild(button);
   }

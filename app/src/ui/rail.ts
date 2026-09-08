@@ -257,7 +257,7 @@ export function renderRailFoot(
   // reader looking for the sample into their downloads folder -- and on a
   // phone that folder cannot be handed back to the page.
   const sample = el("button", { class: "rail-button" }, ["Download the sample"]);
-  sample.title = "A complete fictional repository, to see the tool at work";
+  sample.title = "A complete fictional estate, to see the tool at work";
   sample.addEventListener("click", callbacks.onDownloadSample);
   starts.appendChild(sample);
   const template = el("button", { class: "rail-button" }, ["Download a blank template"]);
@@ -417,7 +417,7 @@ export function renderRail(
     select.addEventListener("change", () => callbacks.onChainSelection(select.value));
     root.appendChild(select);
     if (chains.length === 0) {
-      root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a technical actor."]));
+      root.appendChild(el("p", { class: "rail-empty" }, ["No chain in this workbook: no flow crosses a middleware. A chain needs Republished as filled on the middleware's own consumption rows."]));
     }
   }
 

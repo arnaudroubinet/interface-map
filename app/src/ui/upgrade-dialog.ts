@@ -28,7 +28,7 @@ function row(report: MigrationReport): string[] {
     // WHY, nor what should be done about them. Saying otherwise would amount to
     // generalising a particular case.
     points.push(
-      `flow types missing from the current repository, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
+      `flow types the blank referential does not know, to be reclassified: ${report.unknownTypes.join(", ")}. ` +
         "Their direction being unknown, the arrow was drawn as a call from the consumer to the provider."
     );
   }

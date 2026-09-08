@@ -296,7 +296,7 @@ function checkReferences(model: ParsedModel): AnomalyFamily {
 
   for (const iface of model.interfaces) {
     if (!actors.has(iface.providerName.trim())) {
-      anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" unknown to the repository.`, iface));
+      anomalies.push(anomaly(`${nameInterface(iface)}: provider "${iface.providerName}" is not declared on the Actors sheet.`, iface));
     }
     if (!flowTypes.has(iface.flowType.trim())) {
       // The consequence, and not merely the fault: with no declared type the
@@ -623,7 +623,7 @@ function checkCoherence(model: ParsedModel, atMilestone: ParsedModel): AnomalyFa
     const springs = consumptionsForInterface(lookupAtMilestone, atMilestone, i).some((c) => c.republishedAs.trim() !== "");
     if (!springs) {
       anomalies.push(
-        anomaly(`${nameInterface(i)}: goes into technical actors and comes back out for nobody.`, i)
+        anomaly(`${nameInterface(i)}: goes into middlewares and comes back out for nobody.`, i)
       );
     }
   }

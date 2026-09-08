@@ -163,6 +163,19 @@ export function buildIntegrityReport(report: IntegrityReport): HTMLElement {
   const container = document.createElement("div");
   container.className = "integrity-report";
 
+  // A workbook with anomalies opens HERE rather than on a diagram, and nothing
+  // said so: the reader wondered where the drawings had gone. The diagrams are
+  // one click away in the rail, and drawn all the same -- the report comes
+  // first because a drawing of a workbook that breaks the rules looks right and
+  // says wrong.
+  if (report.totalAnomalies > 0) {
+    const lead = document.createElement("p");
+    lead.className = "integrity-lead";
+    lead.textContent =
+      "This workbook breaks some rules, so it opened on its report: a diagram of it would look right and say wrong. The views in the rail are drawn all the same.";
+    container.appendChild(lead);
+  }
+
   for (const s of reportSections(report)) {
     container.appendChild(buildSection(s.cssClass, s.title, s.description, s.items, s.severity));
   }

@@ -657,9 +657,9 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
   "Republished as": {
     title: "Republished as",
     text:
-      "Fill in only when the consumer is a technical actor: which of ITS OWN interfaces republishes this flow. Several lines pointing at the same interface is how a bus aggregates.",
+      "Fill in only when the consumer is a middleware: which of ITS OWN interfaces republishes this flow. Several lines pointing at the same interface is how a bus aggregates.",
   },
-  Nature: { title: "Nature", text: "Read from the referential. A technical type is traversed in the functional reading: its actors do not appear, and the flows through them are joined end to end. Change it in the referential, then drop the referential on the tool with this workbook." },
+  Nature: { title: "Nature", text: "Read from the referential: Business, Middleware or Storage. A middleware is crossed in the functional reading — its actors do not appear, and the flows through them are joined end to end; a storage is where the data stops. Change it in the referential, then drop the referential on the tool with this workbook." },
   Perimeter: { title: "Perimeter", text: "Platform for what the team owns, External for the rest. This is what decides how the group is drawn." },
   Direction: { title: "Direction", text: "Read from the referential: which way the arrow is drawn for this technology, on every diagram. Change it in the referential, then drop the referential on the tool with this workbook." },
   "To confirm": { title: "To confirm", text: "Yes when the interface is not certain. The report lists these separately so nothing gets asserted by mistake." },
@@ -668,7 +668,7 @@ export const PROMPTS: Record<string, { title: string; text: string }> = {
   // saying nothing -- although they are the ones people hesitate over.
   Name: { title: "Name", text: "The component's name, as everyone here calls it. It becomes the reference used everywhere else: renaming it later means a find-and-replace across the whole workbook." },
   Group: { title: "Group", text: "The group this component belongs to. The group carries the perimeter — Platform or External — so everything it holds follows." },
-  "Actor type": { title: "Actor type", text: "Declared on the ActorTypes sheet, which also gives it its icon and says whether it is business or technical." },
+  "Actor type": { title: "Actor type", text: "Declared on the ActorTypes sheet; its icon and its nature — Business, Middleware or Storage — are read from the referential." },
   Owner: { title: "Owner", text: "Who to talk to about this component. Carried through to the exports, never drawn." },
   Description: { title: "Description", text: "One or two lines, drawn inside the box on the diagrams. Longer than about 120 characters and it gets cut on the drawing." },
   Comments: { title: "Comments", text: "Anything worth keeping that has no column of its own. Carried through to the exports, never drawn." },

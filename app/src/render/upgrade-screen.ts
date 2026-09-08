@@ -44,5 +44,10 @@ export function buildUpgradeScreen(
       "The upgraded workbook keeps the actors, groups, types, interfaces and consumptions, and creates every sheet an interface expects. Columns you added yourself, formatting and personal sheets are not carried over.",
     ]),
     button,
+    // The download leaves this screen exactly as it was: without this line the
+    // reader has a file in their downloads and no idea it is the next step.
+    el("p", { class: "drop-target-text" }, [
+      "Then drop the downloaded workbook here: it opens at the current model, and it is the one to keep from now on.",
+    ]),
   ]);
 }
