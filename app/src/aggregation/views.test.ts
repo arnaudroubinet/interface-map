@@ -17,7 +17,7 @@ import {
 import { flowsForReading, reading as readingOfMode } from "./reading";
 import type { Mode } from "./core";
 import { SCHEMA_VERSION } from "../parsing/build-model";
-import type { ParsedModel, Actor, InterfaceCatalogue, Consumption } from "../parsing/model";
+import type { ParsedModel, Actor, Consumption } from "../parsing/model";
 
 // The shared factories; this file adds nothing to them but its two groups and
 // a consumption already decided.

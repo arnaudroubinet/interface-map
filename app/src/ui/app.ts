@@ -16,7 +16,6 @@ import {
   type MatrixResult,
 } from "../aggregation/views";
 import { computeLayout, restrictLayout, LayoutTimeout, type LayoutResult } from "../layout/graph-layout";
-import { allBoards } from "../aggregation/boards";
 import { buildGraphSvg } from "../render/svg-builder";
 import { isoBoard, buildIsoSvg } from "../render/iso-view";
 import { annealPlacement } from "../render/iso-anneal";
@@ -34,19 +33,11 @@ import type { GraphNode, GraphEdge } from "../aggregation/core";
 import { buildMatrixTable } from "../render/matrix-table";
 import { buildIntegrityReport } from "../render/integrity-report";
 import { coloursOfModel } from "../render/colors";
-import { buildExportFilename } from "../export/filename";
-import { downloadMatrixXlsx } from "../export/xlsx-export";
 import { downloadTemplateXlsx, writeTemplate, writtenReferentialRows } from "../export/template-export";
 import { readReferentialWorkbook, referentialDrifted, mergeReferential } from "../parsing/referential-workbook";
 import type { ReferentialRows } from "../parsing/referential-shape";
 import { SAMPLE_DATA } from "../export/sample-data";
-import { downloadSvg } from "../export/svg-export";
-import { exportPng, downloadPngBlob } from "../export/png-export";
-import { reportToMarkdown } from "../export/markdown-report";
-import { downloadText, downloadWorkbook } from "../export/download";
-import { buildDrawio } from "../export/drawio-export";
-import { modelToStructurizr } from "../export/c4-dsl";
-import { modelToLikeC4 } from "../export/likec4-dsl";
+import { downloadWorkbook } from "../export/download";
 import { buildDropTarget, wireDropZone } from "./drop-zone";
 import { buildUpgradeScreen } from "../render/upgrade-screen";
 import { buildHelp } from "../render/help";
@@ -85,7 +76,6 @@ import {
   type AppState,
   type LoadedFile,
   type ReferentialCheck,
-  type View,
 } from "./state";
 
 

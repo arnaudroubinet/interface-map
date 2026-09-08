@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { renderRail, type RailCallbacks } from "./rail";
-import { initialState, withLoadedFile, withMode, withView, withActorSelection, withComparedFile, type AppState, type View } from "./state";
+import { initialState, withLoadedFile, withMode, withView, withActorSelection, withComparedFile, type AppState } from "./state";
 import { runIntegrityChecks } from "../integrity/checks";
 import { SCHEMA_VERSION } from "../parsing/build-model";
 import { actorsForReading, reading } from "../aggregation/reading";

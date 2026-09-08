@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import * as base from "../testing/fixtures";
 import { buildFunctionalFlows, brokenChains, unionReading } from "./reading";
 import type { ParsedModel, Actor, ActorType, InterfaceCatalogue, Consumption, Milestone } from "../parsing/model";
-import { SCHEMA_VERSION } from "../parsing/build-model";
 
 // Positional factories: in this file it is the CHAINS one reads, and a chain
 // is better told as "who publishes what towards whom" than through overrides.

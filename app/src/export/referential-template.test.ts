@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import * as XLSX from "xlsx";
 import { writeReferential, SAMPLE_REFERENTIAL, EMPTY_REFERENTIAL, BLANK_REFERENTIAL } from "./referential-template";
 import { REFERENTIAL_SHEETS } from "../parsing/referential-shape";
@@ -141,7 +141,6 @@ describe("the sample referential and the sample cartography, pointed at each oth
 // and the cartography inherits both.
 describe("the referential workbook — its own drop-downs", () => {
   const validationsOf = (sheet: string): string[] => {
-    const cfb = XLSX.CFB.read(new Uint8Array(writeReferential()), { type: "array" });
     const index = REFERENTIAL_SHEETS.findIndex((r) => r.sheet === sheet) + 2;
     const xml = part(writeReferential(), `/xl/worksheets/sheet${index}.xml`);
     return [...xml.matchAll(/<formula1>(.*?)<\/formula1>/g)].map((m) => m[1]);

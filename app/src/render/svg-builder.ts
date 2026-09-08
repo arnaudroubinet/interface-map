@@ -18,7 +18,6 @@ import {
   roundedPath,
   breakTheLine,
   setBackForTheHead,
-  segmentIntersectsRect,
   CORNER_RADIUS,
   type Point,
   type Rect,
@@ -442,32 +441,6 @@ function buildIcon(name: string, x: number, y: number, size: number, colour: str
   return g;
 }
 
-// Rounded chip (C4 "type" / "external" style): tinted fill at low opacity,
-// text in the same colour as the node's border.
-function buildChip(x: number, y: number, contenu: string, colour: string): { element: SVGGElement; width: number } {
-  const width = contenu.length * 5.3 + 14;
-  const height = 15;
-  const g = el("g");
-  const fill = el("rect");
-  fill.setAttribute("x", String(x));
-  fill.setAttribute("y", String(y));
-  fill.setAttribute("width", String(width));
-  fill.setAttribute("height", String(height));
-  fill.setAttribute("rx", String(height / 2));
-  fill.setAttribute("fill", colour);
-  fill.setAttribute("opacity", "0.16");
-  g.appendChild(fill);
-  const text = el("text");
-  text.setAttribute("x", String(x + width / 2));
-  text.setAttribute("y", String(y + height / 2 + 3.2));
-  text.setAttribute("text-anchor", "middle");
-  text.setAttribute("font-size", "9");
-  text.setAttribute("font-weight", "600");
-  text.setAttribute("fill", colour);
-  text.textContent = contenu;
-  g.appendChild(text);
-  return { element: g, width };
-}
 
 // A boundary in the C4 sense: a dashed frame around the product's components,
 // its label at the top left. It has neither fill nor icon -- it is an outline,

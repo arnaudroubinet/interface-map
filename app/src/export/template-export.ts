@@ -4,7 +4,6 @@ import {
   ACTOR_COLUMNS,
   GROUP_COLUMNS,
   ACTOR_TYPE_COLUMNS,
-  ICON_PREVIEW_COLUMN,
   FLOW_TYPE_COLUMNS,
   INTERFACE_COLUMNS,
   FX_COLUMNS,
@@ -25,29 +24,19 @@ import {
   REF_ACTOR_TYPES_SHEET,
   REF_TECHNOLOGIES_SHEET,
   REF_ACTOR_COLUMNS,
-  REF_GROUP_COLUMNS,
   REF_ACTOR_TYPE_COLUMNS,
   REF_TECHNOLOGY_COLUMNS,
 } from "../parsing/build-model";
 import { REFERENTIAL_SHEETS } from "../parsing/referential-shape";
 import { normalizeText } from "../shared/text";
-import { AVAILABLE_ICONS, ICON_PREVIEWS } from "../render/icons";
-import {
-  VOCABULARY_DIRECTION,
-  VOCABULARY_DECISION,
-  VOCABULARY_CRITICALITY,
-  VOCABULARY_NATURE,
-  VOCABULARY_PERIMETER,
-} from "../aggregation/vocabularies";
 import {
   applyOoxmlExtras,
-  tableName,
   type TableToApply,
   type NamedList,
   type ValidationToApply,
   type StyleToApply,
 } from "./xlsx-tables";
-import { DEFAULT_ICONS, LISTES, INSTRUCTIONS, FLOW_TYPES, type RowRole } from "./template-data";
+import { LISTES, INSTRUCTIONS, type RowRole } from "./template-data";
 import type { ReferentialRows } from "../parsing/referential-shape";
 
 // The vocabularies and the instructions live in template-data.ts; this module
@@ -74,12 +63,6 @@ function sheet(rows: (string | number)[][], widths: number[], filtrable = true):
     };
   }
   return ws;
-}
-
-// An entry sheet: its header row, and nothing else. The widths follow the
-// title's length, for want of data to calibrate them on.
-function emptySheet(columns: readonly string[]): XLSX.WorkSheet {
-  return sheet([[...columns]], columns.map((c) => Math.max(14, c.length + 4)));
 }
 
 // The third column shows the icon chosen on the row. It is not typed in: it is
@@ -513,14 +496,6 @@ export function buildTemplateWorkbook(data: WorkbookData = EMPTY_WORKBOOK): XLSX
 // The entry sheets become real Excel tables: the range follows the rows one
 // adds, instead of leaving filters and formats behind.
 // The prose sheet is not one.
-// An empty referential falls back to its seed; filled, it is taken as it is --
-// a rule applied by both sheets concerned. The structured table must count the
-// SAME rows: sized on the seed, it spills into blank rows when the team has
-// removed some, and leaves the types it added outside the table, hence outside
-// the drop-down that targets it.
-const writtenRows = (declared: readonly unknown[], seed: readonly unknown[]) =>
-  declared.length > 0 ? declared.length : seed.length;
-
 export function tablesOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): TableToApply[] {
   return [
     { sheet: "Actors", columns: ACTOR_COLUMNS, rows: data.actors.length },

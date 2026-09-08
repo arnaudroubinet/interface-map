@@ -180,16 +180,6 @@ function declaredExtent(ref: string): { columnIdx: number; row: number } {
   return { columnIdx: XLSX.utils.decode_col(m[1]), row: Number(m[2]) };
 }
 
-// A sheet name as a formula quotes it: bare when it is a plain identifier,
-// between apostrophes otherwise -- and the apostrophes it holds are doubled,
-// "Mode d'emploi" becoming 'Mode d''emploi'. SheetJS forgot that doubling on
-// the autofilter's defined name, and Excel opened on a repair prompt; the
-// autofilter is gone (see applyOoxmlExtras) but the validations' formulas
-// quote a sheet in their turn.
-function sheetReference(name: string): string {
-  return /^[A-Za-z_][A-Za-z0-9_.]*$/.test(name) ? name : `'${name.replace(/'/g, "''")}'`;
-}
-
 // Each defined name's reference targets the table actually laid down for the
 // list concerned -- not tableName(sheet) recomputed alongside, which ignored
 // that a sheet like Lists carries several and would have got the wrong one.

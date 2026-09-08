@@ -8,7 +8,6 @@ import type {
   Location,
   Group,
   InterfaceCatalogue,
-  Milestone,
   ParsedModel,
   ActorType,
   FlowType,
@@ -63,7 +62,6 @@ const nameConsumption = (c: Consumption) => located("Consumption", c.flowName, c
 const nameGroup = (g: Group) => located("Group", g.name, g);
 const nameActorType = (t: ActorType) => located("Actor type", t.type, t);
 const nameFlowType = (t: FlowType) => located("Flow type", t.type, t);
-const nameMilestone = (p: Milestone) => located("Milestone", p.name, p);
 
 // A block's items follow the same order as the anomalies: the sheet, then the
 // row. They carry their address in the text, for want of having, as an anomaly
