@@ -683,12 +683,18 @@ export function referentialListNames(): string[] {
 
 export function validationsOfTemplate(data: WorkbookData = EMPTY_WORKBOOK): ValidationToApply[] {
   const fromReferential = new Set(referentialListNames());
+  // Every list that is a defined name -- the referential's and the workbook's
+  // own. A value typed, pasted or inherited that the list does not carry is
+  // what the integrity report marks red; the cell now says it first, on the
+  // sheet where it can be fixed.
+  const named = new Set(listsOfTemplate().map((l) => l.name));
   const v = (sheet: string, columns: readonly string[], heading: string, formula?: string) => ({
     sheet,
     column: columnOf(columns, heading),
     formula,
     prompt: promptFor(sheet, heading),
     suggestsOnly: formula !== undefined && fromReferential.has(formula),
+    marksUnknown: formula !== undefined && named.has(formula),
   });
 
   // Every column no list guides still gets its tooltip: that is half the

@@ -248,6 +248,67 @@ describe("the workbook template", () => {
     expect(alertOf(sheetXml("Groups"), "L_Perimetre")).toContain('showErrorMessage="1"');
   });
 
+  // What the drop-downs cannot do, the sheet does by colour. A referential
+  // list SUGGESTS and never refuses, and a refusing list is bypassed by a
+  // paste or by a workbook filled before the list existed: the value gets in
+  // either way, and the integrity report is the only place that said so. Now
+  // the cell itself turns red -- Excel's own "light red fill, dark red text"
+  // -- the moment it holds something its list does not carry.
+  it("turns red a value its list does not carry", () => {
+    const actors = sheetXml("Actors");
+    const name = columnOf(ACTOR_COLUMNS, "Name");
+    // The same reach as the validation: a value in the 1001st row is checked
+    // the same as one in the second.
+    expect(actors).toContain(`<conditionalFormatting sqref="${name}2:${name}1000">`);
+    // The formula reads the same defined name as the drop-down: what the list
+    // offers and what the colour accepts are one and the same thing. An empty
+    // cell is not an unknown value.
+    expect(actors).toContain(
+      `<formula>AND(${name}2&lt;&gt;&quot;&quot;,ISNA(MATCH(${name}2,L_RefActeur,0)))</formula>`
+    );
+    // The local lists too: a provider no actor declares is what the report
+    // marks red, and the sheet now agrees with it.
+    const provider = columnOf(INTERFACE_COLUMNS, "Provider");
+    expect(sheetXml("Interfaces")).toContain(`ISNA(MATCH(${provider}2,L_Acteur,0))`);
+    // One rule per list-guided column, no more: the free columns and their
+    // bare tooltips get no colour.
+    const guided = validationsOfTemplate().filter((v) => v.sheet === "Actors" && v.marksUnknown);
+    expect(guided.length).toBeGreaterThan(1);
+    expect(actors.match(/<conditionalFormatting /g)).toHaveLength(guided.length);
+    // Placed between the data and the validations: the order of a sheet's
+    // elements is imposed by the OOXML schema, and Excel repairs a sheet
+    // that puts the conditional formatting after the validations.
+    expect(actors.indexOf("</sheetData>")).toBeLessThan(actors.indexOf("<conditionalFormatting"));
+    expect(actors.indexOf("<conditionalFormatting")).toBeLessThan(actors.indexOf("<dataValidations"));
+    // The rule points at a differential format the stylesheet declares, and
+    // that format is red.
+    const dxfId = actors.match(/<cfRule type="expression" dxfId="(\d+)"/)![1];
+    const styles = part("/xl/styles.xml");
+    const dxfs = styles.match(/<dxfs count="(\d+)">(.*?)<\/dxfs>/)!;
+    expect(Number(dxfs[1])).toBeGreaterThan(Number(dxfId));
+    const dxf = dxfs[2].split("</dxf>")[Number(dxfId)];
+    expect(dxf).toContain('<color rgb="FF9C0006"/>');
+    expect(dxf).toContain('<bgColor rgb="FFFFC7CE"/>');
+  });
+
+  // The lists an FX_ sheet computes -- OFFSET over the helper table -- are
+  // volatile: a rule evaluating one on a thousand rows of every flow sheet
+  // would recompute at each keystroke. Only a named list is watched.
+  it("watches every named list, and nothing else", () => {
+    const named = new Set(listsOfTemplate().map((l) => l.name));
+    const validations = validationsOfTemplate({ ...SAMPLE_DATA });
+    for (const v of validations) {
+      expect(Boolean(v.marksUnknown)).toBe(v.formula !== undefined && named.has(v.formula));
+    }
+    // Both kinds exist in the sample: the assertion above judged something.
+    expect(validations.some((v) => v.marksUnknown)).toBe(true);
+    expect(validations.some((v) => v.formula && !v.marksUnknown)).toBe(true);
+    const fx = writeTemplate(SAMPLE_DATA);
+    const flowSheet = sheetXml(SAMPLE_DATA.fx[0].name, fx);
+    expect(flowSheet).toContain("ISNA(MATCH(");
+    expect(flowSheet).not.toContain("ISNA(MATCH(A2,OFFSET(");
+  });
+
   it("points each list at the table column carrying it", () => {
     const workbook = part("/xl/workbook.xml");
     // A structured reference: the table extends by itself, and neither OFFSET nor

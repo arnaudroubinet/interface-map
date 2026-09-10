@@ -13,7 +13,7 @@ dépôt, à commencer par l'absence de framework.
 ```sh
 cd app
 npm ci
-npm test          # 1139 tests
+npm test          # 1143 tests
 npm run typecheck
 npm run build     # → app/dist/interface-map.html
 npm run e2e       # quatre tests dans un vrai Chromium, sur le fichier construit
@@ -163,7 +163,13 @@ ce qu'elles ne portent pas est une **anomalie** du rapport d'intégrité, dans l
 famille des références : un nom absent de la liste cachée n'a pas pu être
 choisi, il a été tapé ou vient d'un classeur rempli avant que le référentiel ne
 le porte, et ce que le référentiel dit de lui — une icône, un sens — ne résout
-rien. Une orthographe proche est proposée quand il y en a une.
+rien. Une orthographe proche est proposée quand il y en a une. Le classeur le
+dit aussi, avant même d'être déposé : une **mise en forme conditionnelle**
+passe en rouge toute cellule dont la valeur n'est pas dans la liste de sa
+colonne — celles du référentiel comme celles que le classeur possède —, qu'elle
+ait été tapée, collée ou héritée d'un classeur plus ancien. La règle lit le
+même nom défini que la liste déroulante ; les listes calculées des onglets
+`FX_` (`OFFSET`, volatiles) n'en portent pas.
 
 Un vocabulaire pour lequel le référentiel ne publie **rien** ne dit rien : ce
 n'est pas que tous les noms sont inconnus, c'est que personne n'a été
