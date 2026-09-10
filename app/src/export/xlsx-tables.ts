@@ -45,6 +45,16 @@ export interface ValidationToApply {
   // Stop, so leaving it on made the column unenterable. Ordinary lists, whose
   // vocabulary the workbook itself owns, keep refusing.
   suggestsOnly?: boolean;
+  // A value the list does not carry turns RED in the cell. The drop-down
+  // cannot do that on its own: a referential list suggests and never refuses,
+  // and a refusing list is bypassed by a paste, or by a workbook filled before
+  // the list existed. The value gets in either way, and only the integrity
+  // report said so -- one screen away from the cell that was wrong.
+  //
+  // Only for a list that is a defined name: an FX_ sheet's computed lists are
+  // OFFSET, volatile, and a rule evaluating one on a thousand rows of every
+  // flow sheet would recompute at each keystroke.
+  marksUnknown?: boolean;
 }
 
 export interface TableToApply {
@@ -205,9 +215,59 @@ function definedNamesXml(
   return `<definedNames>${names}</definedNames>`;
 }
 
+// How far a sheet's validations and colours reach.
+const reachOf = (lastRow: number) => Math.max(VALIDATION_FLOOR, lastRow);
+
+// Excel's own "Light Red Fill with Dark Red Text", the first entry of its
+// highlight menu: the one colour every Excel user already reads as "wrong".
+// A differential format writes the solid fill in bgColor, not fgColor -- the
+// reverse of a cell style, and Excel shows no fill at all the other way round.
+const UNKNOWN_VALUE_DXF =
+  '<dxf><font><color rgb="FF9C0006"/></font><fill><patternFill><bgColor rgb="FFFFC7CE"/></patternFill></fill></dxf>';
+
+// Adds the differential format to the stylesheet and returns its index. The
+// index is read from what is there, never assumed to be zero: a stylesheet
+// already holding formats must keep them, or every earlier rule would change
+// colour.
+function addTheHighlight(styles: string): { xml: string; dxfId: number } {
+  const empty = styles.match(/<dxfs count="0"\/>/);
+  if (empty) {
+    return { xml: styles.replace(empty[0], `<dxfs count="1">${UNKNOWN_VALUE_DXF}</dxfs>`), dxfId: 0 };
+  }
+  const count = Number(/<dxfs count="(\d+)">/.exec(styles)?.[1] ?? "0");
+  const xml = styles
+    .replace(`<dxfs count="${count}">`, `<dxfs count="${count + 1}">`)
+    .replace("</dxfs>", `${UNKNOWN_VALUE_DXF}</dxfs>`);
+  return { xml, dxfId: count };
+}
+
+// One rule per watched column, over the same rows as its validation. The
+// formula reads the same defined name as the drop-down, so what the list
+// offers and what the colour accepts are one and the same thing.
+//
+// MATCH rather than COUNTIF: COUNTIF reads a value starting with "<", ">" or
+// "=" as a comparison. Both are case-insensitive and both take "*", "?" and
+// "~" as wildcards -- a name carrying one may fail to turn red, never turn red
+// wrongly. An empty cell is not an unknown value.
+function unknownValuesXml(validations: readonly ValidationToApply[], lastRow: number, dxfId: number): string {
+  const watched = validations.filter((v) => v.marksUnknown && v.formula);
+  const upTo = reachOf(lastRow);
+  return watched
+    .map((v, i) => {
+      const first = `${v.column}2`;
+      const formula = `AND(${first}<>"",ISNA(MATCH(${first},${v.formula},0)))`;
+      return (
+        `<conditionalFormatting sqref="${first}:${v.column}${upTo}">` +
+        `<cfRule type="expression" dxfId="${dxfId}" priority="${i + 1}"><formula>${escapeXml(formula)}</formula></cfRule>` +
+        `</conditionalFormatting>`
+      );
+    })
+    .join("");
+}
+
 function validationsXml(validations: readonly ValidationToApply[], lastRow: number): string {
   if (validations.length === 0) return "";
-  const upTo = Math.max(VALIDATION_FLOOR, lastRow);
+  const upTo = reachOf(lastRow);
   const items = validations
     .map((v) => {
       const prompt = v.prompt
@@ -388,6 +448,17 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     bySheet.set(table.sheet, list);
   }
 
+  // The colour of an unknown value, declared once for the whole workbook and
+  // before the sheets are visited: each rule must name its index.
+  let unknownDxfId: number | null = null;
+  if (validations.some((v) => v.marksUnknown && v.formula)) {
+    const stylesXml = readPart(cfb, "/xl/styles.xml");
+    if (!stylesXml) throw new Error("unreadable workbook: xl/styles.xml missing");
+    const { xml, dxfId } = addTheHighlight(stylesXml);
+    writePart(cfb, "/xl/styles.xml", xml);
+    unknownDxfId = dxfId;
+  }
+
   let idTable = 0;
   const nameByTable = new Map<TableToApply, string>();
   const usedNames = new Set<string>();
@@ -480,11 +551,15 @@ export function applyOoxmlExtras(bytes: ArrayBuffer, extras: OoxmlExtras | reado
     // The sheet's validations. The order of a sheet's elements is imposed by
     // the OOXML schema: dataValidations comes after sheetData and before
     // ignoredErrors, hence right after the data closes.
-    const sheetValidationsXml = validationsXml(validations.filter((v) => v.sheet === sheetName), lastSheetRow);
+    const ofSheet = validations.filter((v) => v.sheet === sheetName);
+    const sheetValidationsXml = validationsXml(ofSheet, lastSheetRow);
+    // The colours come BEFORE the validations, as the same schema imposes:
+    // Excel repairs a sheet that puts them after.
+    const sheetColoursXml = unknownDxfId === null ? "" : unknownValuesXml(ofSheet, lastSheetRow, unknownDxfId);
     // "tableParts" goes last in a sheet, right before it closes: the order of
     // elements is imposed by the OOXML schema.
     sheet = sheet
-      .replace("</sheetData>", `</sheetData>${sheetValidationsXml}`)
+      .replace("</sheetData>", `</sheetData>${sheetColoursXml}${sheetValidationsXml}`)
       .replace("</worksheet>", `<tableParts count="${relations.length}">${tablePartsXml}</tableParts></worksheet>`)
       .replace(
         /<dimension ref="[^"]*"\/>/,

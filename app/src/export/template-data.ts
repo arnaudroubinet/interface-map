@@ -150,7 +150,7 @@ export const INSTRUCTIONS: InstructionsRow[] = [
   empty(),
 
   s_("ENTRY RULES"),
-  l("Drop-down lists", "Reference columns carry them and they grow by themselves: add an actor and it appears at once on Interfaces and on the FX_ sheets. Never type a name by hand — a spelling variant creates a phantom actor."),
+  l("Drop-down lists", "Reference columns carry them and they grow by themselves: add an actor and it appears at once on Interfaces and on the FX_ sheets. Never type a name by hand — a spelling variant creates a phantom actor. A value the list does not carry turns red in its cell: pick it from the list, or add it to the referential."),
   l("Flow name", "Unique for one provider, together with its version: that pair links the catalogue to the detail."),
   l("Version", "On an FX_ sheet, fill Flow name in first: the versions offered are the ones declared for that interface."),
   l("Republished as", "Only on a middleware's own consumption lines: which of its interfaces republishes this input. The drop-down offers that actor's interfaces and no others."),

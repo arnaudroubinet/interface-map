@@ -90,3 +90,52 @@ describe("no query in the package", () => {
     );
   });
 });
+
+// The differential format is ADDED to the stylesheet, never assumed at index
+// zero: SheetJS writes an empty <dxfs/>, but a stylesheet that already holds
+// one must keep it, failing which every earlier rule changes colour.
+describe("the colour of an unknown value", () => {
+  const raw = () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["Name"], ["Tatooine"]]), "Actors");
+    return XLSX.write(wb, { bookType: "xlsx", type: "array" }) as ArrayBuffer;
+  };
+  const tables: TableToApply[] = [{ sheet: "Actors", columns: ["Name"], rows: 1 }];
+  const lists = [{ name: "L_Acteur", sheet: "Actors", heading: "Name" }];
+
+  it("declares one differential format, and every rule points at it", () => {
+    const cfb = XLSX.CFB.read(
+      new Uint8Array(
+        applyOoxmlExtras(raw(), {
+          tables,
+          lists,
+          validations: [{ sheet: "Actors", column: "A", formula: "L_Acteur", marksUnknown: true }],
+        })
+      ),
+      { type: "array" }
+    );
+    const styles = readPart(cfb, "/xl/styles.xml")!;
+    expect(styles).toContain('<dxfs count="1"><dxf>');
+    expect(styles).not.toContain('<dxfs count="0"/>');
+    // Between the cell styles and the table styles: the stylesheet's order is
+    // imposed by the schema too.
+    expect(styles.indexOf("</cellStyles>")).toBeLessThan(styles.indexOf("<dxfs"));
+    expect(styles.indexOf("</dxfs>")).toBeLessThan(styles.indexOf("<tableStyles"));
+    expect(readPart(cfb, "/xl/worksheets/sheet1.xml")!).toContain('<cfRule type="expression" dxfId="0" priority="1">');
+  });
+
+  it("adds nothing when no column asks for it", () => {
+    const cfb = XLSX.CFB.read(
+      new Uint8Array(
+        applyOoxmlExtras(raw(), {
+          tables,
+          lists,
+          validations: [{ sheet: "Actors", column: "A", formula: "L_Acteur" }],
+        })
+      ),
+      { type: "array" }
+    );
+    expect(readPart(cfb, "/xl/styles.xml")!).toContain('<dxfs count="0"/>');
+    expect(readPart(cfb, "/xl/worksheets/sheet1.xml")!).not.toContain("<conditionalFormatting");
+  });
+});
